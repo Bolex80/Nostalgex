@@ -41,9 +41,24 @@ struct RootView: View {
                 }
             }
         }
+        .overlay { VoiceNoticeBanner() }
         .fullScreenCover(isPresented: Bindable(appState).isFullScreen) {
             PlayerView()
                 .environment(appState)
+        }
+        .onAppear { VoiceIntentRouter.shared.attach(appState) }
+        .onChange(of: appState.guideRequestToken) { _, _ in
+            // Siri "open the guide" / a voice tune: drop any pushed screen (Settings).
+            if !navigationPath.isEmpty { navigationPath = NavigationPath() }
+        }
+        .onChange(of: appState.channels.count) { _, _ in
+            appState.deliverPendingVoiceRequestIfReady()
+        }
+        .onChange(of: appState.isLoading) { _, _ in
+            appState.deliverPendingVoiceRequestIfReady()
+        }
+        .onChange(of: appState.didAttemptCredentialHydration) { _, _ in
+            appState.deliverPendingVoiceRequestIfReady()
         }
         .onChange(of: appState.playbackState) { _, newState in
             // Disable tvOS screensaver/idle timer during active playback.
