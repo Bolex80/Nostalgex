@@ -17,7 +17,7 @@ enum PlaybackDiagnostics {
     /// Record a watchdog or end-of-item decision. `outcome` is what the app did next.
     static func record(outcome: String, title: String, detail: String, defaults: UserDefaults = .standard) {
         let stamp = Self.clock.string(from: Date())
-        let line = "\(stamp) \(outcome) — \"\(title)\" — \(detail)"
+        let line = "\(stamp) \(outcome): \"\(title)\", \(detail)"
         InstallDiagnostics.note("WATCHDOG VERDICT: \(line)")
         var rows = defaults.stringArray(forKey: key) ?? []
         rows.insert(line, at: 0)
