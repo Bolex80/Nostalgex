@@ -11,28 +11,37 @@ import StoreKit
 
 /// The three tip products, in the order they should appear when prices tie.
 enum TipProduct: String, CaseIterable {
-    case small = "com.muellhaus.nostalgex.tip.small"
-    case big = "com.muellhaus.nostalgex.tip.big"
-    case pizza = "com.muellhaus.nostalgex.tip.pizza"
+    case popcorn = "com.muellhaus.nostalgex.tip.small"
+    case tvDinner = "com.muellhaus.nostalgex.tip.big"
+    case pizzaNight = "com.muellhaus.nostalgex.tip.pizza"
 
     static var allIDs: [String] { allCases.map(\.rawValue) }
 
-    /// Row title in Settings. Product names come from StoreKit, but the row titles match
-    /// the rest of the Settings page (upper case, fixed).
+    /// Row title in Settings and the quantity sheet. Product names come from StoreKit, but
+    /// the row titles match the rest of the Settings page (upper case, fixed).
     var rowTitle: String {
         switch self {
-        case .small: return "SMALL COFFEE"
-        case .big: return "BIG COFFEE"
-        case .pizza: return "PIZZA NIGHT"
+        case .popcorn: return "POPCORN"
+        case .tvDinner: return "TV DINNER"
+        case .pizzaNight: return "PIZZA NIGHT"
+        }
+    }
+
+    /// Plural for the thank-you line when more than one was tipped.
+    var pluralName: String {
+        switch self {
+        case .popcorn: return "popcorns"
+        case .tvDinner: return "TV dinners"
+        case .pizzaNight: return "pizza nights"
         }
     }
 
     /// Focus and scroll id for the Settings row.
     var focusID: String {
         switch self {
-        case .small: return "tip_small"
-        case .big: return "tip_big"
-        case .pizza: return "tip_pizza"
+        case .popcorn: return "tip_popcorn"
+        case .tvDinner: return "tip_tv_dinner"
+        case .pizzaNight: return "tip_pizza_night"
         }
     }
 }
@@ -69,6 +78,31 @@ struct TipResolution: Equatable {
 enum TipJarLogic {
     static let pendingLine = "Waiting for approval"
     static let failedLine = "That tip didn't go through."
+    static let thanksTitle = "Thank you"
+    static let thanksLine = "This keeps the channels on."
+
+    /// How many of one tip a single purchase can be.
+    static let quantityRange = 1...5
+
+    static func clampQuantity(_ quantity: Int) -> Int {
+        min(max(quantity, quantityRange.lowerBound), quantityRange.upperBound)
+    }
+
+    /// The running total in the quantity sheet: the StoreKit price times the quantity.
+    static func total(price: Decimal, quantity: Int) -> Decimal {
+        price * Decimal(clampQuantity(quantity))
+    }
+
+    /// The total in the product's own price style, so the currency matches the storefront.
+    static func totalText(price: Decimal, quantity: Int, format: Decimal.FormatStyle.Currency) -> String {
+        total(price: price, quantity: quantity).formatted(format)
+    }
+
+    /// The line under "Thank you". One tip keeps the original line; more name the count.
+    static func thanksLine(for tip: TipProduct?, quantity: Int) -> String {
+        guard let tip, quantity > 1 else { return thanksLine }
+        return "\(quantity) \(tip.pluralName). \(thanksLine)"
+    }
 
     /// Pure mapping from a purchase result to what the app does.
     static func resolve(_ event: TipPurchaseEvent, alreadyThanked: Set<UInt64>) -> TipResolution {
@@ -98,7 +132,7 @@ enum TipJarLogic {
         }
     }
 
-    /// Cheapest first. Ties keep the fixed small, big, pizza order so the rows never shuffle.
+    /// Cheapest first. Ties keep the fixed popcorn, TV dinner, pizza night order so the rows never shuffle.
     static func sortedByPrice<T>(_ items: [T], id: (T) -> String, price: (T) -> Decimal) -> [T] {
         let order = Dictionary(uniqueKeysWithValues: TipProduct.allIDs.enumerated().map { ($1, $0) })
         return items.sorted { a, b in
@@ -166,6 +200,12 @@ final class TipJar {
     private(set) var statusLine: String?
     /// Drives the full-screen thank-you card.
     var showThanks = false
+    /// What the last thank-you was for, so the card can name a count above one.
+    private(set) var thanksTip: TipProduct?
+    private(set) var thanksQuantity = 1
+
+    /// The line under "Thank you" on the card.
+    var thanksLine: String { TipJarLogic.thanksLine(for: thanksTip, quantity: thanksQuantity) }
 
     @ObservationIgnored private var ledger: TipThankLedger
     @ObservationIgnored private var updatesTask: Task<Void, Never>?
@@ -208,14 +248,15 @@ final class TipJar {
         }
     }
 
-    func purchase(_ product: Product) async {
+    func purchase(_ product: Product, quantity: Int = 1) async {
         guard !isPurchasing else { return }
         isPurchasing = true
         statusLine = nil
         defer { isPurchasing = false }
 
+        let quantity = TipJarLogic.clampQuantity(quantity)
         do {
-            let result = try await product.purchase()
+            let result = try await product.purchase(options: [.quantity(quantity)])
             switch result {
             case .success(let verification):
                 await handle(verification, fromPurchase: true)
@@ -251,7 +292,7 @@ final class TipJar {
         }
 
         // Only tips belong to this listener. Anything else is left alone.
-        guard TipProduct(rawValue: transaction.productID) != nil else { return }
+        guard let tip = TipProduct(rawValue: transaction.productID) else { return }
 
         var resolution = TipJarLogic.resolve(event, alreadyThanked: ledger.asSet)
         // A background update that fails verification is finished quietly; there is no
@@ -262,14 +303,16 @@ final class TipJar {
         if resolution.transactionToFinish != nil {
             await transaction.finish()
         }
-        apply(resolution)
+        apply(resolution, tip: tip, quantity: transaction.purchasedQuantity)
     }
 
-    private func apply(_ resolution: TipResolution) {
+    private func apply(_ resolution: TipResolution, tip: TipProduct? = nil, quantity: Int = 1) {
         if resolution.outcome == .thanks, let id = resolution.transactionToFinish {
             if ledger.recordThanks(for: id) {
                 ledger.save(to: defaults)
                 statusLine = nil
+                thanksTip = tip
+                thanksQuantity = max(quantity, 1)
                 showThanks = true
             }
             return

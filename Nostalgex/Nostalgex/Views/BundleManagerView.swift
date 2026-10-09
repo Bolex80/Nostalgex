@@ -15,6 +15,10 @@ struct SettingsPageView: View {
     @State private var showStreamQualityPicker = false
     @State private var showAudioLanguagePicker = false
     private let tipJar = TipJar.shared
+    /// The tip row picked, which opens the quantity sheet.
+    @State private var tipToConfirm: Product?
+    /// Set by TIP in the quantity sheet; the purchase starts once the sheet is gone.
+    @State private var pendingTip: (product: Product, quantity: Int)?
 
     var body: some View {
         ZStack {
@@ -281,6 +285,20 @@ struct SettingsPageView: View {
             AudioLanguagePickerSheet()
                 .environment(appState)
         }
+        .fullScreenCover(item: $tipToConfirm, onDismiss: {
+            guard let tip = pendingTip else { return }
+            pendingTip = nil
+            Task { await tipJar.purchase(tip.product, quantity: tip.quantity) }
+        }) { product in
+            TipQuantityView(
+                product: product,
+                onConfirm: { quantity in
+                    pendingTip = (product, quantity)
+                    tipToConfirm = nil
+                },
+                onCancel: { tipToConfirm = nil }
+            )
+        }
     }
 
     // MARK: - Helpers
@@ -309,11 +327,12 @@ struct SettingsPageView: View {
                     isFocused: focusedItem == tip.focusID,
                     showToggle: false
                 ) {
-                    Task { await tipJar.purchase(product) }
+                    guard !tipJar.isPurchasing else { return }
+                    tipToConfirm = product
                 }
                 .focused($focusedItem, equals: tip.focusID)
                 .id(tip.focusID)
-                .accessibilityHint("Leaves a \(product.displayPrice) tip. Unlocks nothing.")
+                .accessibilityHint("\(product.displayPrice) each. Choose how many, then tip. Unlocks nothing.")
             }
         }
 
