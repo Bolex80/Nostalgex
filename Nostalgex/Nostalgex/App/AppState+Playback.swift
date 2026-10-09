@@ -326,6 +326,7 @@ extension AppState {
                                    detail: String? = nil) {
         playbackState = .error(failure)
         emitPlaybackError(failure.analyticsCode)
+        noteRatingNudgePlaybackFailure()
         PlaybackDiagnostics.record(
             outcome: failure.diagnosticSummary,
             title: title ?? currentItem?.title ?? "?",
@@ -541,6 +542,7 @@ extension AppState {
             plexAPI: reportingBackend as? PlexAPIService,
             watchReporter: reportingBackend as? any WatchActivityReporting
         )
+        if let tracker = playbackTracker { attachRatingNudgeCounter(to: tracker) }
 
         // Show the retro "tuning" loading state while we resolve + start playback. The
         // overlay itself only appears after a ~0.75s threshold (view-side), so fast starts

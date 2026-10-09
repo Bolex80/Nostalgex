@@ -39,6 +39,20 @@ final class PlaybackTracker {
     /// Jellyfin/Emby need a Playing call before Progress. Reset when a stop closes the session.
     private var didStartSession = false
 
+    // MARK: - Rating nudge
+
+    /// Set once this watch has been counted toward the rating nudge, so the same
+    /// continuous watch is never counted twice (once at exit-to-guide, again on stop).
+    var countedAsViewingSession = false
+    /// Called from `stop()` with the session's total active watch seconds.
+    var onStop: ((PlaybackTracker, Double) -> Void)?
+
+    /// Total active watch time so far, including the running stretch. Read-only: it
+    /// does not drain either accumulator.
+    var watchedSecondsSoFar: Double {
+        activeWatchSeconds + (watchStart.map { Date().timeIntervalSince($0) } ?? 0)
+    }
+
     // MARK: - 10-second timeline pulse
 
     private var timelineTimer: Timer?
@@ -116,6 +130,8 @@ final class PlaybackTracker {
         sendTimeline(state: "stopped")
         evaluateAndScrobble()
         print("[Tracker] \(sessionID.prefix(8)) STOP \"\(item.title)\" watched=\(Int(activeWatchSeconds))s scrobbled=\(scrobbled)")
+        onStop?(self, activeWatchSeconds)
+        onStop = nil
     }
 
     /// Tear down without reporting anything. Used when the user turns off Plex activity
