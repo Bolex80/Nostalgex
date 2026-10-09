@@ -142,12 +142,6 @@ struct ChannelGuideView: View {
                             // row rather than wrap.
                             if newID == Self.wrapBottomSentinelID {
                                 let cameFromBottomRow = oldID == appState.channels.last?.id
-                                // While the rating banner is up, Down off the last row
-                                // goes to it (it sits below the guide) instead of wrapping.
-                                if cameFromBottomRow, appState.isRatingNudgeVisible {
-                                    appState.ratingNudgeFocusRequested = true
-                                    return
-                                }
                                 let target = cameFromBottomRow
                                     ? appState.channels.first?.id
                                     : appState.channels.last?.id

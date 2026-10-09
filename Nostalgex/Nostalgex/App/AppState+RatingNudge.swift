@@ -50,7 +50,6 @@ extension AppState {
         ratingNudgeDismissTask?.cancel()
         ratingNudgeDismissTask = nil
         isRatingNudgeVisible = false
-        ratingNudgeFocusRequested = false
     }
 
     private func countViewingSessionIfQualifies(_ tracker: PlaybackTracker, watchedSeconds: Double) {

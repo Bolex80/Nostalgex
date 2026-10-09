@@ -525,9 +525,6 @@ class AppState {
 
     /// Drives the banner at the bottom of the guide.
     var isRatingNudgeVisible: Bool = false
-    /// Set by the guide when Down runs off the last row while the banner is up; the
-    /// banner answers by taking focus. Only ever a response to the viewer's own press.
-    var ratingNudgeFocusRequested: Bool = false
     @ObservationIgnored let ratingNudgeStore = RatingNudgeStore()
     /// Built when AppState is, which is before RootView's launch analytics writes its
     /// own marker, so the first-launch read is honest.
