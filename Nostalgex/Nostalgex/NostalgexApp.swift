@@ -21,8 +21,11 @@ struct NostalgexApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(appState)
+            TipThanksHost {
+                RootView()
+                    .environment(appState)
+            }
+            .task { TipJar.shared.startListening() }
         }
     }
 

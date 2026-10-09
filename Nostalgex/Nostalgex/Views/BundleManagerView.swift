@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import StoreKit
 
 // MARK: - Settings Page (full navigation destination)
 
@@ -13,6 +14,7 @@ struct SettingsPageView: View {
     @State private var streamQuality = StreamQuality.current
     @State private var showStreamQualityPicker = false
     @State private var showAudioLanguagePicker = false
+    private let tipJar = TipJar.shared
 
     var body: some View {
         ZStack {
@@ -31,7 +33,12 @@ struct SettingsPageView: View {
                     VStack(alignment: .leading, spacing: 48) {
 
                         VStack(alignment: .leading, spacing: 20) {
-                            sectionHeader("SUPPORT NOSTALGEX", subtitle: "Star ratings help other households find Nostalgex")
+                            sectionHeader(
+                                "SUPPORT NOSTALGEX",
+                                subtitle: showTips
+                                    ? "A star rating or a tip, whichever suits"
+                                    : "Star ratings help other households find Nostalgex"
+                            )
 
                             SettingsToggleRow(
                                 title: "RATE NOSTALGEX",
@@ -47,6 +54,9 @@ struct SettingsPageView: View {
                             .id("rate")
                             .accessibilityHint("Opens Nostalgex in the App Store to leave a star rating")
 
+                            if showTips {
+                                tipRows
+                            }
                         }
 
                         settingsDivider
@@ -242,6 +252,11 @@ struct SettingsPageView: View {
             // Refresh the reachable-server list so deselected servers can be re-added.
             await appState.refreshAvailableServers()
         }
+        .task {
+            // Tip rows stay hidden until (and unless) StoreKit returns the products.
+            guard !appState.isDemoMode else { return }
+            await tipJar.loadProductsIfNeeded()
+        }
         .onDisappear {
             appState.player?.isMuted = false
         }
@@ -269,6 +284,45 @@ struct SettingsPageView: View {
     }
 
     // MARK: - Helpers
+
+    /// Tips never show in demo mode, and never as an error: no products, no rows.
+    private var showTips: Bool {
+        !appState.isDemoMode && tipJar.tipsAvailable
+    }
+
+    @ViewBuilder
+    private var tipRows: some View {
+        Text("Nostalgex is free forever. Tips help keep it maintained.")
+            .font(.custom("DMMono-Regular", size: 20))
+            .foregroundStyle(.white.opacity(0.7))
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 8)
+
+        ForEach(tipJar.products, id: \.id) { product in
+            if let tip = TipProduct(rawValue: product.id) {
+                SettingsToggleRow(
+                    title: tip.rowTitle,
+                    subtitle: nil,
+                    detail: product.displayPrice,
+                    isOn: true,
+                    isFocused: focusedItem == tip.focusID,
+                    showToggle: false
+                ) {
+                    Task { await tipJar.purchase(product) }
+                }
+                .focused($focusedItem, equals: tip.focusID)
+                .id(tip.focusID)
+                .accessibilityHint("Leaves a \(product.displayPrice) tip. Unlocks nothing.")
+            }
+        }
+
+        if let line = tipJar.statusLine {
+            Text(line)
+                .font(.custom("DMMono-Regular", size: 20))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.leading, 24)
+        }
+    }
 
     private var subtitleModeLabel: String {
         if appState.subtitlesInFullscreenEnabled { return "ALWAYS" }
