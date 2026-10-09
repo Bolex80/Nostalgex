@@ -216,8 +216,10 @@ final class PreferenceSync {
         guard !didBootstrap else { return }
         didBootstrap = true
         cloud.synchronize()
-        let hasAccount = FileManager.default.ubiquityIdentityToken != nil
-        print("[Sync] launch: iCloud account \(hasAccount ? "present" : "absent"), keys \(activeKeys.count)")
+        // tvOS has no iCloud Drive, so this token can be nil even when the TV is signed
+        // into iCloud and key-value sync works. Logged as a hint, not a verdict.
+        let hasToken = FileManager.default.ubiquityIdentityToken != nil
+        print("[Sync] launch: ubiquity token \(hasToken ? "present" : "nil"), keys \(activeKeys.count)")
 
         let local = localValues()
         let remote = cloudValues()
