@@ -52,6 +52,11 @@ struct RatingNudgeBanner: View {
                 .stroke(Color("BrandCyan").opacity(focused == nil ? 0.25 : 0.5), lineWidth: 1.5)
         )
         .focusSection()
+        .onChange(of: appState.ratingNudgeFocusRequested) { _, requested in
+            guard requested else { return }
+            focused = .rate
+            appState.ratingNudgeFocusRequested = false
+        }
         .onChange(of: focused) { _, newValue in
             // Touched: keep it up until the viewer chooses.
             if newValue != nil { appState.ratingNudgeDismissTask?.cancel() }
