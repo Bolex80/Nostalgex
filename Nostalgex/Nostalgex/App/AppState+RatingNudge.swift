@@ -46,10 +46,14 @@ extension AppState {
         dismissRatingNudge()
     }
 
+    /// Every way out (NOT NOW, RATE, Up, Menu, the timeout) ends here, and focus goes
+    /// back to the live channel row as if the banner had never appeared.
     func dismissRatingNudge() {
         ratingNudgeDismissTask?.cancel()
         ratingNudgeDismissTask = nil
+        guard isRatingNudgeVisible else { return }
         isRatingNudgeVisible = false
+        if !isFullScreen { guideLiveRowFocusRequest &+= 1 }
     }
 
     private func countViewingSessionIfQualifies(_ tracker: PlaybackTracker, watchedSeconds: Double) {

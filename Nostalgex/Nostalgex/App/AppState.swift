@@ -525,6 +525,9 @@ class AppState {
 
     /// Drives the banner at the bottom of the guide.
     var isRatingNudgeVisible: Bool = false
+    /// Bumped to ask the guide to put focus back on the live channel row, the same
+    /// anchor it uses on return from fullscreen. Used when the rating banner closes.
+    var guideLiveRowFocusRequest: Int = 0
     @ObservationIgnored let ratingNudgeStore = RatingNudgeStore()
     /// Built when AppState is, which is before RootView's launch analytics writes its
     /// own marker, so the first-launch read is honest.

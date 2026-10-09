@@ -156,15 +156,12 @@ struct ChannelGuideView: View {
                             onFocusChanged?(newID)
                         }
                         .onChange(of: appState.isFullScreen) { _, isFullScreen in
-                            if !isFullScreen, let id = appState.currentChannel?.id {
-                                // Suppress focus-driven scrolling while we anchor to live channel
-                                suppressFocusScroll = true
-                                focusedChannelID = id
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    proxy.scrollTo(id, anchor: .center)
-                                    suppressFocusScroll = false
-                                }
-                            }
+                            if !isFullScreen { anchorFocusToLiveChannel(proxy) }
+                        }
+                        .onChange(of: appState.guideLiveRowFocusRequest) { _, _ in
+                            // The rating banner closed: land exactly where the return from
+                            // fullscreen lands, on the playing channel.
+                            if !appState.isFullScreen { anchorFocusToLiveChannel(proxy) }
                         }
                         .onChange(of: appState.currentChannel?.id) { _, newID in
                             // Keep the guide anchored to the live channel when it changes via a
@@ -285,6 +282,20 @@ struct ChannelGuideView: View {
             }
         }
         .background(Color(red: 0.05, green: 0.05, blue: 0.12))
+    }
+
+    // MARK: - Live channel anchor
+
+    /// Focus the playing channel's row and center it, with focus-driven scrolling held
+    /// off while the scroll settles.
+    private func anchorFocusToLiveChannel(_ proxy: ScrollViewProxy) {
+        guard let id = appState.currentChannel?.id else { return }
+        suppressFocusScroll = true
+        focusedChannelID = id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            proxy.scrollTo(id, anchor: .center)
+            suppressFocusScroll = false
+        }
     }
 
     // MARK: - Wrap sentinels

@@ -1,17 +1,21 @@
 import SwiftUI
+import os
 
-/// The quiet "Enjoying Nostalgex?" banner at the bottom of the guide.
+/// The "Enjoying Nostalgex?" banner below the guide.
 ///
-/// It never takes focus on its own: the guide keeps the live row focused, and the
-/// viewer can move down to it. Untouched, AppState dismisses it after 8 seconds; once
-/// the viewer focuses it, it stays until they choose. Whether it may appear at all is
-/// `RatingNudgePolicy`'s call.
+/// It takes focus when it appears, landing on NOT NOW, so an accidental Select only
+/// dismisses it and never opens the App Store. Any way out (NOT NOW, RATE, Up back to
+/// the guide, Menu, or 8 untouched seconds) dismisses it, and AppState then puts focus
+/// back on the live channel row. Moving between the two buttons counts as touching it
+/// and stops the timer. Whether it may appear at all is `RatingNudgePolicy`'s call.
 struct RatingNudgeBanner: View {
     @Environment(AppState.self) var appState
     @Environment(\.openURL) private var openURL
     @FocusState private var focused: Choice?
 
     private enum Choice: Hashable { case rate, notNow }
+
+    private static let log = Logger(subsystem: "com.muellhaus.nostalgex", category: "rating")
 
     var body: some View {
         HStack(spacing: 32) {
@@ -29,7 +33,11 @@ struct RatingNudgeBanner: View {
             HStack(spacing: 16) {
                 choiceButton("RATE", choice: .rate) {
                     appState.ratingNudgeRateTapped()
-                    openURL(AppStoreLink.productPage)
+                    let url = AppStoreLink.productPage
+                    openURL(url) { accepted in
+                        print("[Plex90] Rating nudge: RATE opened \(url.absoluteString) accepted=\(accepted)")
+                        Self.log.notice("RATE opened \(url.absoluteString, privacy: .public) accepted=\(accepted, privacy: .public)")
+                    }
                 }
                 .accessibilityIdentifier("ratingNudgeRate")
                 .accessibilityHint("Opens Nostalgex in the App Store to leave a star rating")
@@ -52,9 +60,21 @@ struct RatingNudgeBanner: View {
                 .stroke(Color("BrandCyan").opacity(focused == nil ? 0.25 : 0.5), lineWidth: 1.5)
         )
         .focusSection()
-        .onChange(of: focused) { _, newValue in
-            // Touched: keep it up until the viewer chooses.
-            if newValue != nil { appState.ratingNudgeDismissTask?.cancel() }
+        .onAppear {
+            // The safe default. Async so the buttons are in the focus tree first.
+            DispatchQueue.main.async { focused = .notNow }
+        }
+        .onChange(of: focused) { oldValue, newValue in
+            switch (oldValue, newValue) {
+            case (.some(let from), .some(let to)) where from != to:
+                // The viewer moved between the buttons: they are deciding, so stop the clock.
+                appState.ratingNudgeDismissTask?.cancel()
+            case (.some, .none):
+                // Focus left the banner (Up to the guide): that is a no.
+                appState.dismissRatingNudge()
+            default:
+                break
+            }
         }
         .onExitCommand { appState.dismissRatingNudge() }
         .accessibilityElement(children: .contain)
