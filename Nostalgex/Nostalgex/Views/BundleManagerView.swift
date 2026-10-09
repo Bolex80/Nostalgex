@@ -304,6 +304,7 @@ struct SettingsPageView: View {
                     title: tip.rowTitle,
                     subtitle: nil,
                     detail: product.displayPrice,
+                    detailIsProminent: true,
                     isOn: true,
                     isFocused: focusedItem == tip.focusID,
                     showToggle: false
@@ -718,6 +719,8 @@ private struct SettingsToggleRow: View {
     let title: String
     let subtitle: String?
     var detail: String? = nil
+    /// A price has to be readable; the default detail is a faint annotation.
+    var detailIsProminent: Bool = false
     var warning: String? = nil
     let isOn: Bool
     let isFocused: Bool
@@ -768,8 +771,8 @@ private struct SettingsToggleRow: View {
                         .tint(Color("BrandCyan"))
                 } else if let detail {
                     Text(detail)
-                        .font(.custom("VT323-Regular", size: 20))
-                        .foregroundStyle(.white.opacity(0.2))
+                        .font(detailIsProminent ? .custom("DMMono-Medium", size: 22) : .custom("VT323-Regular", size: 20))
+                        .foregroundStyle(.white.opacity(detailIsProminent ? 0.85 : 0.2))
                 }
 
                 // Toggle switch (hidden while loading or when showToggle is false)

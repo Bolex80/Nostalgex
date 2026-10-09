@@ -59,7 +59,7 @@ struct TipThanksView: View {
                         .scaleEffect(okFocused ? 1.05 : 1.0)
                         .animation(.easeInOut(duration: 0.15), value: okFocused)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ThanksButtonStyle())
                 .focused($okFocused)
                 .padding(.top, 24)
                 .accessibilityLabel("OK")
@@ -69,5 +69,14 @@ struct TipThanksView: View {
         .defaultFocus($okFocused, true)
         .onAppear { okFocused = true }
         .onExitCommand(perform: onDismiss)
+    }
+}
+
+/// No system focus platter; the label draws its own focused state, like the Settings rows.
+private struct ThanksButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
