@@ -234,6 +234,18 @@ class AppState {
     /// with it), which is itself the answer when the connect screen shows no diagnosis.
     static let hasHeldSignInMarkerKey = "nostalgex_has_held_sign_in"
     var libraryUpdateNotice: String? = nil
+
+    // MARK: - Siri
+
+    /// Short banner text for a voice request that could not be carried out as asked
+    /// ("No channel 12 in your lineup"). Cleared automatically after a few seconds.
+    var voiceNotice: String? = nil
+    /// Bumped each time the banner text is set, so an older auto-clear does not wipe a newer one.
+    var voiceNoticeToken: Int = 0
+    /// A tune request that arrived before the lineup existed. Delivered once channels load.
+    var pendingVoiceRequest: VoiceRequest? = nil
+    /// Bumped by "Open the guide". RootView pops any pushed screen (Settings) when it changes.
+    var guideRequestToken: Int = 0
     var loadingMessage: String = ""
     /// Step rail + detail line on `LoadingView`.
     var libraryLoadPhase: LibraryLoadPhase = .preparing
