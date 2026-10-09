@@ -601,6 +601,11 @@ extension AppState {
         lastLoadAtUnix = snap.lastLoadAtUnix
         librarySignature = snap.librarySignature
 
+        // The bundle list in UserDefaults is the latest choice, and may be newer than the
+        // snapshot (a toggle that never re-saved it, or a lineup that arrived from another
+        // Apple TV through iCloud while this one was off). Read it before the snapshot
+        // overwrites it.
+        let storedBundleIDs = UserDefaults.standard.stringArray(forKey: PreferenceSync.enabledBundlesKey)
         enabledBundleIDs = Set(snap.enabledBundleIDList)
         bundles = snap.bundleDefinitions.map { def in
             def.toChannelBundle(enabled: enabledBundleIDs.contains(def.id))
@@ -626,7 +631,10 @@ extension AppState {
 
         // Collection lineup no longer exposes per-category toggles; keep bundles enabled when discoveries exist.
         syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: false)
-        saveBundlePreferences()
+        let preferredBundleIDs = Self.preferredBundleIDsAfterSnapshot(
+            stored: storedBundleIDs, snapshotWithDiscoveries: enabledBundleIDs,
+            discoveredCategoryBundleIDs: Set(discoveredCollections.map(\.category.bundleID)))
+        if preferredBundleIDs == enabledBundleIDs { saveBundlePreferences() }
         for i in bundles.indices {
             bundles[i].enabled = enabledBundleIDs.contains(bundles[i].id)
         }
@@ -638,6 +646,14 @@ extension AppState {
         applyBundleFilter()
         if currentChannel == nil, let first = channels.first {
             selectChannel(first)
+        }
+        if preferredBundleIDs != enabledBundleIDs {
+            print("[Sync] snapshot lineup differs from the saved one, rebuilding to the saved lineup")
+            applyEnabledBundleIDs(preferredBundleIDs)
+        }
+        if discoveredCollections.contains(where: { $0.enabled != enabledCollectionKeys.contains($0.id) }) {
+            print("[Sync] snapshot collections differ from the saved ones, rebuilding")
+            applyEnabledCollectionKeys(enabledCollectionKeys)
         }
         print("[Plex90] Snapshot: restored from disk (no Plex crawl)")
     }

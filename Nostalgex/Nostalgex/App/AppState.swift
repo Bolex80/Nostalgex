@@ -11,9 +11,14 @@ class AppState {
     // MARK: - Dependencies
 
     let credentialStore: any CredentialStoring
+    /// Mirrors the synced display and lineup preferences to iCloud. See PreferenceSync.
+    let preferenceSync: PreferenceSync
 
-    init(credentialStore: any CredentialStoring = KeychainCredentialStore()) {
+    init(credentialStore: any CredentialStoring = KeychainCredentialStore(),
+         preferenceSync: PreferenceSync? = nil) {
         self.credentialStore = credentialStore
+        self.preferenceSync = preferenceSync ?? .shared
+        self.preferenceSync.applier = self
 
         // UI tests run in a shared simulator environment; allow a launch argument to reset
         // persisted credentials so tests don't leak state across runs.
@@ -396,6 +401,7 @@ class AppState {
     var retroMode: Bool = UserDefaults.standard.object(forKey: "nostalgex_retro_mode") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(retroMode, forKey: "nostalgex_retro_mode")
+            preferenceSync.record(PreferenceSync.retroModeKey, value: retroMode)
             if oldValue != retroMode {
                 Analytics.track(.settingChanged(key: "retro_mode", value: retroMode ? "true" : "false"))
             }
@@ -438,6 +444,7 @@ class AppState {
     var preferredSubtitleLanguageCode: String = AppState.loadPreferredSubtitleLanguageInitial() {
         didSet {
             UserDefaults.standard.set(preferredSubtitleLanguageCode, forKey: Self.subtitleLanguageDefaultsKey)
+            preferenceSync.record(PreferenceSync.subtitleLanguageKey, value: preferredSubtitleLanguageCode)
             applySubtitleSelection()
             if oldValue != preferredSubtitleLanguageCode {
                 Analytics.track(.settingChanged(key: "subtitle_language", value: preferredSubtitleLanguageCode))
@@ -449,6 +456,7 @@ class AppState {
     var subtitlesInFullscreenEnabled: Bool =
         UserDefaults.standard.object(forKey: "nostalgex_subtitles_fullscreen") as? Bool ?? false {
         didSet { UserDefaults.standard.set(subtitlesInFullscreenEnabled, forKey: "nostalgex_subtitles_fullscreen")
+            preferenceSync.record(PreferenceSync.subtitlesFullscreenKey, value: subtitlesInFullscreenEnabled)
             applySubtitleSelection()
             if oldValue != subtitlesInFullscreenEnabled {
                 Analytics.track(.settingChanged(key: "subtitles_fullscreen", value: subtitlesInFullscreenEnabled ? "true" : "false"))
@@ -462,6 +470,7 @@ class AppState {
     var autoSubtitlesForForeignAudioEnabled: Bool =
         UserDefaults.standard.object(forKey: "nostalgex_auto_subs_foreign_audio") as? Bool ?? true {
         didSet { UserDefaults.standard.set(autoSubtitlesForForeignAudioEnabled, forKey: "nostalgex_auto_subs_foreign_audio")
+            preferenceSync.record(PreferenceSync.autoSubsForeignAudioKey, value: autoSubtitlesForForeignAudioEnabled)
             applySubtitleSelection()
             if oldValue != autoSubtitlesForForeignAudioEnabled {
                 Analytics.track(.settingChanged(key: "auto_subtitles_foreign_audio", value: autoSubtitlesForForeignAudioEnabled ? "true" : "false"))
@@ -482,6 +491,7 @@ class AppState {
     var preferredAudioLanguageCode: String = AppState.loadPreferredAudioLanguageInitial() {
         didSet {
             UserDefaults.standard.set(preferredAudioLanguageCode, forKey: Self.audioLanguageDefaultsKey)
+            preferenceSync.record(PreferenceSync.audioLanguageKey, value: preferredAudioLanguageCode)
             applyAudioTrackSelection()
             if oldValue != preferredAudioLanguageCode {
                 Analytics.track(.settingChanged(key: "audio_language", value: preferredAudioLanguageCode))

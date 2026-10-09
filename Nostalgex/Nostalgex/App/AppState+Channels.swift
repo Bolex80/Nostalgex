@@ -73,6 +73,13 @@ extension AppState {
         // …); safe to include as-is. Nothing here reveals library or user identity.
         Analytics.track(.settingChanged(key: "bundle:\(bundle.id)", value: nowEnabled ? "true" : "false"))
 
+        rebuildLineupAfterBundleChange(newlyEnabled: nowEnabled ? [bundle] : [])
+    }
+
+    /// Rebuilds the lineup after `enabledBundleIDs` changed. A toggle in Settings and a
+    /// lineup arriving from another Apple TV through iCloud both come through here, so
+    /// the guide is rebuilt the same way either way.
+    func rebuildLineupAfterBundleChange(newlyEnabled: [ChannelBundle]) {
         // Update runtime bundle state
         for i in bundles.indices {
             bundles[i].enabled = enabledBundleIDs.contains(bundles[i].id)
@@ -81,20 +88,26 @@ extension AppState {
         saveBundlePreferences()
 
         // Collection category bundles: scan if enabling and no collections discovered yet
-        if bundle.id.hasPrefix("collections-") && enabledBundleIDs.contains(bundle.id) && discoveredCollections.isEmpty {
-            collectionScanTask?.cancel()
-            collectionScanTask = Task { await scanCollections() }
-            return
-        }
+        let needsCollectionScan = discoveredCollections.isEmpty
+            && newlyEnabled.contains { $0.id.hasPrefix("collections-") }
+        let staticBundles = newlyEnabled.filter { !$0.id.hasPrefix("collections-") }
 
-        if enabledBundleIDs.contains(bundle.id), !bundle.id.hasPrefix("collections-") {
+        if needsCollectionScan || !staticBundles.isEmpty {
             collectionScanTask?.cancel()
-            collectionScanTask = Task { await self.rebuildPoolsForBundle(bundle) }
+            collectionScanTask = Task {
+                for b in staticBundles { await self.rebuildPoolsForBundle(b) }
+                if needsCollectionScan { await self.scanCollections() }
+            }
         }
+        // The scan applies the bundle filter itself when it finishes.
+        if needsCollectionScan && staticBundles.isEmpty { return }
 
         applyBundleFilter()
+        reselectIfCurrentChannelFilteredOut()
+    }
 
-        // If current channel got filtered out, select first available
+    /// If the current channel got filtered out, select the first available.
+    func reselectIfCurrentChannelFilteredOut() {
         if let current = currentChannel, !channels.contains(where: { $0.id == current.id }) {
             if let first = channels.first {
                 selectChannel(first)
@@ -241,6 +254,7 @@ extension AppState {
 
     func saveBundlePreferences() {
         UserDefaults.standard.set(Array(enabledBundleIDs), forKey: "nostalgex_enabled_bundles")
+        preferenceSync.record(PreferenceSync.enabledBundlesKey, value: Array(enabledBundleIDs))
     }
 
     // MARK: - Collection discovery and management
@@ -616,8 +630,9 @@ extension AppState {
     /// The bundle id of the removed NOTABLE STARS category, kept only for migration.
     static let retiredActorsBundleID = "collections-actors"
 
-    private func saveCollectionPreferences() {
+    func saveCollectionPreferences() {
         UserDefaults.standard.set(Array(enabledCollectionKeys), forKey: "nostalgex_enabled_collections")
+        preferenceSync.record(PreferenceSync.enabledCollectionsKey, value: Array(enabledCollectionKeys))
     }
 
     // MARK: - Channel audit log
@@ -743,7 +758,7 @@ extension AppState {
     }
 
     /// Build pools for one bundle after the user turns it on (library already in memory).
-    private func rebuildPoolsForBundle(_ bundle: ChannelBundle) async {
+    func rebuildPoolsForBundle(_ bundle: ChannelBundle) async {
         guard !channelConfigChannels.isEmpty, !allItems.isEmpty else { return }
         let ids = Set(bundle.channelIDs)
         guard !ids.isEmpty else { return }

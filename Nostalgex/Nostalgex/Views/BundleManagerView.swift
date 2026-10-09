@@ -78,6 +78,10 @@ struct SettingsPageView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             sectionHeader("DISPLAY", subtitle: "Visual effects and aspect ratio")
 
+                            Text("Settings sync to your other Apple TVs through iCloud")
+                                .font(.custom("DMMono-Regular", size: 20))
+                                .foregroundStyle(.white.opacity(0.5))
+
                             SettingsToggleRow(
                                 title: "RETRO MODE",
                                 subtitle: "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio",

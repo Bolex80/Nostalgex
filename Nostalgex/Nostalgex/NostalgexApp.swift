@@ -10,11 +10,19 @@ import CoreText
 
 @main
 struct NostalgexApp: App {
-    @State private var appState = AppState()
+    @State private var appState: AppState
 
     init() {
         Self.registerCustomFonts()
         Self.configureAnalytics()
+        // Pull synced preferences from iCloud before AppState reads its defaults, so a
+        // new Apple TV adopts the household lineup instead of overwriting it.
+        PreferenceSync.shared.bootstrap()
+        let state = AppState()
+        #if DEBUG
+        state.runPreferenceSyncProbeIfRequested()
+        #endif
+        _appState = State(initialValue: state)
         // Now Playing only surfaces for an app with an active .playback session.
         NowPlayingInfoService.configureAudioSession()
     }
