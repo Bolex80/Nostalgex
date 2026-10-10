@@ -51,7 +51,7 @@ struct FoundFranchise: Identifiable, Equatable {
 
 extension AppState {
 
-    static let enabledFranchisesKey = "nostalgex_enabled_franchises"
+    static let enabledFranchisesKey = PreferenceSync.enabledFranchisesKey
     /// The stock FRANCHISES bundle in channels.json (CH100-106). Found franchise channels
     /// ride on this switch.
     static let franchisesBundleID = "franchises"
@@ -224,7 +224,29 @@ extension AppState {
     }
 
     func saveFranchisePreferences() {
-        UserDefaults.standard.set(Array(enabledFranchiseIDs).sorted(), forKey: Self.enabledFranchisesKey)
+        let ids = Array(enabledFranchiseIDs).sorted()
+        UserDefaults.standard.set(ids, forKey: Self.enabledFranchisesKey)
+        preferenceSync.record(PreferenceSync.enabledFranchisesKey, value: ids)
+    }
+
+    /// Replaces the switched-on franchise ids (an iCloud arrival) and rebuilds the lineup
+    /// the way `toggleFranchise` does. Ids for franchises this library does not have are
+    /// kept so they survive a round trip and simply match nothing here.
+    func applyEnabledFranchiseIDs(_ ids: Set<String>) {
+        enabledFranchiseIDs = ids
+        var changed = false
+        for i in foundFranchises.indices where !foundFranchises[i].isCoveredByStock {
+            let on = ids.contains(foundFranchises[i].id)
+            if foundFranchises[i].enabled != on {
+                foundFranchises[i].enabled = on
+                changed = true
+            }
+        }
+        saveFranchisePreferences()
+        guard changed else { return }
+        materializeDynamicChannels()
+        applyBundleFilter()
+        reselectIfCurrentChannelLeft()
     }
 
     /// Removing the channel the viewer is on must not leave the player pointed at a row

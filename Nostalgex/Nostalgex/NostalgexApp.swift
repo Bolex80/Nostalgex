@@ -15,8 +15,9 @@ struct NostalgexApp: App {
     init() {
         Self.registerCustomFonts()
         Self.configureAnalytics()
-        // Pull synced preferences from iCloud before AppState reads its defaults, so a
-        // new Apple TV adopts the household lineup instead of overwriting it.
+        // When the viewer has turned sync on, pull synced preferences from iCloud before
+        // AppState reads its defaults, so this Apple TV adopts the household lineup
+        // instead of overwriting it. A no-op while sync is off (the default).
         PreferenceSync.shared.bootstrap()
         let state = AppState()
         #if DEBUG

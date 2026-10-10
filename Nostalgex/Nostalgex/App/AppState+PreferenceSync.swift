@@ -25,6 +25,9 @@ extension AppState: PreferenceSyncApplying {
         if let v = values[PreferenceSync.enabledBundlesKey] as? [String], !v.isEmpty, Set(v) != enabledBundleIDs {
             applyEnabledBundleIDs(Set(v))
         }
+        if let v = values[PreferenceSync.enabledFranchisesKey] as? [String], Set(v) != enabledFranchiseIDs {
+            applyEnabledFranchiseIDs(Set(v))
+        }
     }
 
     /// Replaces the enabled bundles and rebuilds the lineup the way a Settings toggle does.
@@ -72,12 +75,15 @@ extension AppState: PreferenceSyncApplying {
     /// Hardware test hook: `-NostalgexSyncProbe retro=1` (or `retro=0`) sets retro mode on
     /// launch so it syncs like a Settings change. `retro=unset-local` removes the local value
     /// without touching iCloud, and `clear-cloud` removes the synced keys from iCloud.
+    /// `sync=on` / `sync=off` flip the per-TV switch the way the Settings row does.
     func runPreferenceSyncProbeIfRequested() {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-NostalgexSyncProbe"), i + 1 < args.count else { return }
         let probe = args[i + 1]
-        print("[Sync] probe: \(probe), retro mode currently \(retroMode)")
+        print("[Sync] probe: \(probe), sync \(iCloudSyncEnabled ? "on" : "off"), retro mode currently \(retroMode)")
         switch probe {
+        case "sync=on": iCloudSyncEnabled = true
+        case "sync=off": iCloudSyncEnabled = false
         case "retro=1": retroMode = true
         case "retro=0": retroMode = false
         case "retro=unset-local":
@@ -88,7 +94,7 @@ extension AppState: PreferenceSyncApplying {
         default:
             print("[Sync] probe: unknown")
         }
-        preferenceSync.cloud.synchronize()
+        if preferenceSync.isEnabled { preferenceSync.cloud.synchronize() }
     }
     #endif
 }

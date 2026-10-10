@@ -12,14 +12,20 @@ protocol UbiquitousKeyValueStoring: AnyObject {
 extension NSUbiquitousKeyValueStore: UbiquitousKeyValueStoring {}
 
 /// Plain dictionary store. Used under XCTest (the host app has no iCloud entitlement
-/// there) and by the unit tests.
+/// there) and by the unit tests. Every read, write and synchronize is counted so a test
+/// can prove the store was never touched while sync is off.
 final class InMemoryKeyValueStore: UbiquitousKeyValueStoring {
     var values: [String: Any] = [:]
     private(set) var writes: [(key: String, value: Any?)] = []
+    private(set) var reads: [String] = []
+    private(set) var synchronizeCount = 0
 
     init(_ values: [String: Any] = [:]) { self.values = values }
 
-    func object(forKey aKey: String) -> Any? { values[aKey] }
+    func object(forKey aKey: String) -> Any? {
+        reads.append(aKey)
+        return values[aKey]
+    }
     func set(_ anObject: Any?, forKey aKey: String) {
         writes.append((aKey, anObject))
         values[aKey] = anObject
@@ -28,7 +34,10 @@ final class InMemoryKeyValueStore: UbiquitousKeyValueStoring {
         writes.append((aKey, nil))
         values[aKey] = nil
     }
-    func synchronize() -> Bool { true }
+    func synchronize() -> Bool {
+        synchronizeCount += 1
+        return true
+    }
 }
 
 /// Receives preference values that arrived from another Apple TV.
@@ -47,6 +56,8 @@ enum PreferenceSyncMerge {
         case external(changedKeys: [String])
         /// The iCloud account on this TV changed. Re-pull everything.
         case accountChange
+        /// The viewer switched sync on in Settings. This TV's own choices win.
+        case turnOn
     }
 
     struct Plan {
@@ -59,15 +70,17 @@ enum PreferenceSyncMerge {
     /// - local-empty adopts cloud.
     /// - both present: cloud wins. The local copy of the store already holds this TV's
     ///   own last writes, so a cloud value that differs came from another TV later.
-    /// - cloud-empty, local present: push local (launch and account change only; an
-    ///   external change that removes a key never clears this TV's choice).
+    ///   Except on `turnOn`: the TV that just switched sync on pushes what it has, so
+    ///   the lineup the viewer is looking at is the one that lands in iCloud.
+    /// - cloud-empty, local present: push local (launch, account change and turn-on
+    ///   only; an external change that removes a key never clears this TV's choice).
     /// - Ids are taken verbatim. A collection or bundle id this TV's server does not
     ///   have is kept in the set and simply matches nothing here.
     static func plan(local: [String: Any], cloud: [String: Any], keys: [String], trigger: Trigger) -> Plan {
         var plan = Plan()
         let considered: [String]
         switch trigger {
-        case .launch, .accountChange:
+        case .launch, .accountChange, .turnOn:
             considered = keys
         case .external(let changed):
             considered = keys.filter { changed.contains($0) }
@@ -75,6 +88,15 @@ enum PreferenceSyncMerge {
         for key in considered {
             let l = local[key].flatMap { normalized($0, for: key) }
             let c = cloud[key].flatMap { normalized($0, for: key) }
+            if trigger == .turnOn {
+                if let l {
+                    if let c, isEqual(l, c) { continue }
+                    plan.pushToCloud[key] = l
+                } else if let c {
+                    plan.applyLocally[key] = c
+                }
+                continue
+            }
             if let c {
                 if let l, isEqual(l, c) { continue }
                 plan.applyLocally[key] = c
@@ -120,6 +142,10 @@ enum PreferenceSyncMerge {
 /// Mirrors a handful of display and lineup preferences to iCloud key-value storage so
 /// every Apple TV on the same Apple ID shows the same lineup.
 ///
+/// Sync is off until the viewer turns it on in Settings (`syncEnabledKey`, a per-TV
+/// flag that is never itself synced). While it is off nothing is read from or written
+/// to the ubiquitous store, and launch neither pulls nor seeds.
+///
 /// Only the keys in `syncedKeys` ever reach iCloud. Server addresses, tokens, user ids
 /// and everything in the Keychain stay on the device, as do per-TV choices (stream
 /// quality, report playback) and caches (scan dates, snapshots, manifests).
@@ -131,8 +157,12 @@ final class PreferenceSync {
         case string
     }
 
+    /// Per-device switch. Lives in UserDefaults only; never goes to iCloud.
+    nonisolated static let syncEnabledKey = "nostalgex_icloud_sync_enabled"
+
     nonisolated static let enabledBundlesKey = "nostalgex_enabled_bundles"
     nonisolated static let enabledCollectionsKey = "nostalgex_enabled_collections"
+    nonisolated static let enabledFranchisesKey = "nostalgex_enabled_franchises"
     nonisolated static let retroModeKey = "nostalgex_retro_mode"
     nonisolated static let subtitlesFullscreenKey = "nostalgex_subtitles_fullscreen"
     nonisolated static let autoSubsForeignAudioKey = "nostalgex_auto_subs_foreign_audio"
@@ -142,6 +172,7 @@ final class PreferenceSync {
     nonisolated static let syncedKeys: [String] = [
         enabledBundlesKey,
         enabledCollectionsKey,
+        enabledFranchisesKey,
         retroModeKey,
         subtitlesFullscreenKey,
         autoSubsForeignAudioKey,
@@ -152,7 +183,7 @@ final class PreferenceSync {
     nonisolated static func kind(of key: String) -> ValueKind? {
         switch key {
         case enabledBundlesKey: return .stringSet(allowEmpty: false)   // never an empty lineup
-        case enabledCollectionsKey: return .stringSet(allowEmpty: true)
+        case enabledCollectionsKey, enabledFranchisesKey: return .stringSet(allowEmpty: true)
         case retroModeKey, subtitlesFullscreenKey, autoSubsForeignAudioKey: return .bool
         case subtitleLanguageKey, audioLanguageKey: return .string
         default: return nil
@@ -185,36 +216,83 @@ final class PreferenceSync {
     private var holdReleaseTask: Task<Void, Never>?
     nonisolated static let holdTimeoutSeconds: UInt64 = 30
 
+    /// The viewer's per-TV choice. Read from `defaults` at init; changed through
+    /// `setEnabled`. Nothing touches `cloud` while this is false.
+    private(set) var isEnabled: Bool
+
     private var didBootstrap = false
+    private let observesNotifications: Bool
     private var observer: NSObjectProtocol?
 
     init(cloud: UbiquitousKeyValueStoring, defaults: UserDefaults, observeNotifications: Bool, keys: [String]? = nil) {
         self.cloud = cloud
         self.defaults = defaults
         self.activeKeys = keys ?? Self.debugKeyFilter() ?? Self.syncedKeys
-        if observeNotifications {
-            observer = NotificationCenter.default.addObserver(
-                forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-                object: cloud as? NSUbiquitousKeyValueStore,
-                queue: .main
-            ) { [weak self] note in
-                let reason = note.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
-                let keys = note.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
-                MainActor.assumeIsolated {
-                    self?.handleExternalChange(reason: reason, changedKeys: keys)
-                }
+        self.observesNotifications = observeNotifications
+        self.isEnabled = defaults.bool(forKey: Self.syncEnabledKey)
+        if isEnabled { startObserving() }
+    }
+
+    private func startObserving() {
+        guard observesNotifications, observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: cloud as? NSUbiquitousKeyValueStore,
+            queue: .main
+        ) { [weak self] note in
+            let reason = note.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
+            let keys = note.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
+            MainActor.assumeIsolated {
+                self?.handleExternalChange(reason: reason, changedKeys: keys)
             }
         }
+    }
+
+    private func stopObserving() {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
+    }
+
+    // MARK: - On / off
+
+    /// Turning on pushes this TV's current preferences first (this TV wins), adopts
+    /// cloud values only for keys this TV has no value for, then starts listening.
+    /// Turning off stops listening and leaves both iCloud and the local values as they are.
+    func setEnabled(_ on: Bool) {
+        guard on != isEnabled else { return }
+        isEnabled = on
+        defaults.set(on, forKey: Self.syncEnabledKey)
+        guard on else {
+            stopObserving()
+            holdReleaseTask?.cancel()
+            holdReleaseTask = nil
+            holdingOutgoing = false
+            pendingKeys = []
+            print("[Sync] turned off: iCloud values left as they are")
+            return
+        }
+        cloud.synchronize()
+        let local = localValues()
+        let remote = cloudValues()
+        print("[Sync] turned on: local \(Self.describe(local)) cloud \(Self.describe(remote))")
+        let plan = PreferenceSyncMerge.plan(local: local, cloud: remote, keys: activeKeys, trigger: .turnOn)
+        push(plan.pushToCloud, label: "turned on")
+        apply(plan.applyLocally)
+        startObserving()
     }
 
     // MARK: - Launch
 
     /// Call once before `AppState` is created. Pulls whatever iCloud has into
     /// UserDefaults so AppState's initial reads see the household's values, and seeds
-    /// iCloud with any local values it lacks.
+    /// iCloud with any local values it lacks. A no-op while sync is off.
     func bootstrap() {
         guard !didBootstrap else { return }
         didBootstrap = true
+        guard isEnabled else {
+            print("[Sync] launch: sync is off on this TV, iCloud untouched")
+            return
+        }
         cloud.synchronize()
         // tvOS has no iCloud Drive, so this token can be nil even when the TV is signed
         // into iCloud and key-value sync works. Logged as a hint, not a verdict.
@@ -246,7 +324,7 @@ final class PreferenceSync {
             }
             return
         }
-        guard !isApplyingRemote else { return }
+        guard isEnabled, !isApplyingRemote else { return }
         guard let normalized = PreferenceSyncMerge.normalized(value, for: key) else { return }
         if holdingOutgoing {
             if !pendingKeys.contains(key) { pendingKeys.append(key) }
@@ -300,6 +378,10 @@ final class PreferenceSync {
     // MARK: - Incoming
 
     func handleExternalChange(reason: Int?, changedKeys: [String]) {
+        guard isEnabled else {
+            print("[Sync] in notification ignored: sync is off on this TV")
+            return
+        }
         let reasonName: String
         switch reason {
         case NSUbiquitousKeyValueStoreServerChange: reasonName = "server change"
@@ -386,7 +468,12 @@ final class PreferenceSync {
 
     #if DEBUG
     /// Removes every synced key from iCloud without touching this TV's preferences.
+    /// Only reaches iCloud when sync is on; the probe turns it on first if it needs to.
     func debugClearCloud() {
+        guard isEnabled else {
+            print("[Sync] probe: sync is off, nothing cleared")
+            return
+        }
         for key in Self.syncedKeys where cloud.object(forKey: key) != nil {
             cloud.removeObject(forKey: key)
             print("[Sync] probe: removed \(key) from iCloud")

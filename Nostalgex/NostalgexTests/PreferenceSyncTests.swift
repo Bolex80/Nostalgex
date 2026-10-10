@@ -97,6 +97,31 @@ final class PreferenceSyncMergeTests: XCTestCase {
         XCTAssertTrue(plan.pushToCloud.isEmpty)
     }
 
+    func testTurnOnPushesLocalEvenWhenCloudDiffersAndAdoptsOnlyWhatLocalLacks() {
+        let plan = PreferenceSyncMerge.plan(
+            local: [bundles: ["nostalgex", "kids"], retro: true],
+            cloud: [bundles: ["decades"], retro: true, subLang: "fr"],
+            keys: keys, trigger: .turnOn)
+        XCTAssertEqual(plan.pushToCloud[bundles] as? [String], ["kids", "nostalgex"], "this TV wins where it has a value")
+        XCTAssertNil(plan.pushToCloud[retro], "equal values need no push")
+        XCTAssertEqual(plan.applyLocally[subLang] as? String, "fr", "a key this TV never set adopts the cloud")
+        XCTAssertNil(plan.applyLocally[bundles])
+    }
+
+    func testFranchisesKeyIsSyncedAsAStringSetThatMayBeEmpty() {
+        XCTAssertTrue(keys.contains(PreferenceSync.enabledFranchisesKey))
+        XCTAssertEqual(PreferenceSync.enabledFranchisesKey, AppState.enabledFranchisesKey)
+        XCTAssertEqual(PreferenceSync.kind(of: PreferenceSync.enabledFranchisesKey), .stringSet(allowEmpty: true))
+        let plan = PreferenceSyncMerge.plan(
+            local: [PreferenceSync.enabledFranchisesKey: ["b", "a"]], cloud: [:], keys: keys, trigger: .launch)
+        XCTAssertEqual(plan.pushToCloud[PreferenceSync.enabledFranchisesKey] as? [String], ["a", "b"])
+    }
+
+    func testSyncSwitchItselfIsNeverASyncedKey() {
+        XCTAssertFalse(keys.contains(PreferenceSync.syncEnabledKey))
+        XCTAssertNil(PreferenceSync.kind(of: PreferenceSync.syncEnabledKey))
+    }
+
     func testSnapshotRestorePrefersSavedLineupPlusDiscoveredCategories() {
         let preferred = AppState.preferredBundleIDsAfterSnapshot(
             stored: ["nostalgex", "kids"],
@@ -123,19 +148,140 @@ final class PreferenceSyncServiceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    /// A service for a TV whose viewer has already switched sync on.
+    private func enabledSync(_ store: InMemoryKeyValueStore) -> PreferenceSync {
+        defaults.set(true, forKey: PreferenceSync.syncEnabledKey)
+        return PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+    }
+
     /// Everything that must stay on the device. None of these may ever reach iCloud.
     static let neverSyncedKeys = [
+        // Credentials, server and account identity
         "plex_server_url", "plex_token", "plex_servers", "backend_kind", "jellyfin_user_id",
-        "plex90_client_id", "nostalgex_sync_plex_activity", "nostalgex_stream_quality",
+        "plex90_client_id",
+        // Per-TV choices
+        "nostalgex_sync_plex_activity", "nostalgex_stream_quality",
+        PreferenceSync.syncEnabledKey,
+        // Caches and load state
         "nostalgex_last_scan_date", "nostalgex_last_load_at_unix", "nostalgex_completed_initial_load",
         "nostalgex_has_held_sign_in",
+        // Rating nudge and tip ledger
+        "nostalgex_rating_nudge_has_launched", "nostalgex_rating_nudge_sessions",
+        "nostalgex_rating_nudge_shown_version", "tipJar.thankedTransactionIDs",
     ]
 
-    func testBootstrapNeverPushesNeverSyncedKeys() {
-        for key in Self.neverSyncedKeys { defaults.set("value", forKey: key) }
-        defaults.set(false, forKey: PreferenceSync.retroModeKey)
+    // MARK: Off by default
+
+    func testSyncIsOffByDefault() {
         let store = InMemoryKeyValueStore()
         let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        XCTAssertFalse(sync.isEnabled)
+        XCTAssertNil(defaults.object(forKey: PreferenceSync.syncEnabledKey), "the default is absent, not a stored false")
+    }
+
+    func testWhileOffNothingTouchesTheStore() {
+        defaults.set(true, forKey: PreferenceSync.retroModeKey)
+        defaults.set(["nostalgex"], forKey: PreferenceSync.enabledBundlesKey)
+        let store = InMemoryKeyValueStore([PreferenceSync.retroModeKey: false, PreferenceSync.subtitleLanguageKey: "fr"])
+        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+
+        sync.bootstrap()
+        sync.record(PreferenceSync.retroModeKey, value: true)
+        sync.record(PreferenceSync.enabledBundlesKey, value: ["nostalgex", "kids"])
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange,
+                                  changedKeys: [PreferenceSync.retroModeKey, PreferenceSync.subtitleLanguageKey])
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreInitialSyncChange, changedKeys: [])
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreAccountChange, changedKeys: [])
+
+        XCTAssertTrue(store.reads.isEmpty, "read \(store.reads)")
+        XCTAssertTrue(store.writes.isEmpty, "wrote \(store.writes.map(\.key))")
+        XCTAssertEqual(store.synchronizeCount, 0)
+        XCTAssertFalse(sync.holdingOutgoing, "the new-TV hold only exists for a TV that syncs")
+        XCTAssertEqual(defaults.object(forKey: PreferenceSync.retroModeKey) as? Bool, true, "local untouched")
+        XCTAssertNil(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "cloud value not adopted")
+    }
+
+    // MARK: Turning on and off
+
+    func testTurnOnPushesThisTVFirstThenAdoptsOnlyWhatItLacks() {
+        defaults.set(["nostalgex", "kids"], forKey: PreferenceSync.enabledBundlesKey)
+        defaults.set(true, forKey: PreferenceSync.retroModeKey)
+        let store = InMemoryKeyValueStore([
+            PreferenceSync.enabledBundlesKey: ["decades"],
+            PreferenceSync.retroModeKey: false,
+            PreferenceSync.subtitleLanguageKey: "fr",
+        ])
+        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+
+        sync.setEnabled(true)
+
+        XCTAssertTrue(sync.isEnabled)
+        XCTAssertEqual(defaults.bool(forKey: PreferenceSync.syncEnabledKey), true)
+        XCTAssertEqual(Set(store.values[PreferenceSync.enabledBundlesKey] as? [String] ?? []), ["nostalgex", "kids"], "this TV's lineup wins")
+        XCTAssertEqual(store.values[PreferenceSync.retroModeKey] as? Bool, true, "this TV's retro mode wins")
+        XCTAssertEqual(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "fr", "a key this TV never set adopts the cloud")
+        XCTAssertEqual(Set(defaults.stringArray(forKey: PreferenceSync.enabledBundlesKey) ?? []), ["nostalgex", "kids"], "local untouched")
+        XCTAssertEqual(store.writes.map(\.key).sorted(), [PreferenceSync.enabledBundlesKey, PreferenceSync.retroModeKey])
+        XCTAssertGreaterThan(store.synchronizeCount, 0)
+    }
+
+    func testTurnOnWithNothingLocalAdoptsTheCloud() {
+        let store = InMemoryKeyValueStore([PreferenceSync.enabledBundlesKey: ["decades"], PreferenceSync.retroModeKey: false])
+        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        sync.setEnabled(true)
+        XCTAssertEqual(defaults.stringArray(forKey: PreferenceSync.enabledBundlesKey), ["decades"])
+        XCTAssertEqual(defaults.object(forKey: PreferenceSync.retroModeKey) as? Bool, false)
+        XCTAssertTrue(store.writes.isEmpty, "nothing to push")
+    }
+
+    func testTurnOffStopsListeningAndLeavesBothSidesAlone() {
+        defaults.set(true, forKey: PreferenceSync.retroModeKey)
+        let store = InMemoryKeyValueStore([PreferenceSync.retroModeKey: true])
+        let sync = enabledSync(store)
+        sync.bootstrap()
+        let writesAtOff = store.writes.count
+        let readsAtOff = store.reads.count
+
+        sync.setEnabled(false)
+
+        XCTAssertFalse(sync.isEnabled)
+        XCTAssertEqual(defaults.bool(forKey: PreferenceSync.syncEnabledKey), false)
+        sync.record(PreferenceSync.retroModeKey, value: false)
+        store.values[PreferenceSync.retroModeKey] = false
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange, changedKeys: [PreferenceSync.retroModeKey])
+        XCTAssertEqual(store.writes.count, writesAtOff, "iCloud left as it was")
+        XCTAssertEqual(store.reads.count, readsAtOff, "no reads once off")
+        XCTAssertEqual(defaults.object(forKey: PreferenceSync.retroModeKey) as? Bool, true, "local left as it was")
+    }
+
+    func testSettingTheSameStateTwiceIsANoOp() {
+        let store = InMemoryKeyValueStore([PreferenceSync.retroModeKey: false])
+        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        sync.setEnabled(false)
+        XCTAssertTrue(store.reads.isEmpty)
+        XCTAssertEqual(store.synchronizeCount, 0)
+        sync.setEnabled(true)
+        let synchronizesAfterOn = store.synchronizeCount
+        sync.setEnabled(true)
+        XCTAssertEqual(store.synchronizeCount, synchronizesAfterOn, "a second turn-on must not re-run the merge")
+    }
+
+    func testLaunchAfterTurningOnPullsAndSeedsLikeBefore() {
+        defaults.set(true, forKey: PreferenceSync.retroModeKey)
+        let store = InMemoryKeyValueStore([PreferenceSync.subtitleLanguageKey: "de"])
+        let sync = enabledSync(store)
+        sync.bootstrap()
+        XCTAssertEqual(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "de")
+        XCTAssertEqual(store.values[PreferenceSync.retroModeKey] as? Bool, true)
+    }
+
+    // MARK: Never-synced keys
+
+    func testBootstrapNeverPushesNeverSyncedKeys() {
+        for key in Self.neverSyncedKeys where key != PreferenceSync.syncEnabledKey { defaults.set("value", forKey: key) }
+        defaults.set(false, forKey: PreferenceSync.retroModeKey)
+        let store = InMemoryKeyValueStore()
+        let sync = enabledSync(store)
 
         sync.bootstrap()
 
@@ -143,19 +289,30 @@ final class PreferenceSyncServiceTests: XCTestCase {
         for key in Self.neverSyncedKeys { XCTAssertNil(store.values[key], key) }
     }
 
-    func testRecordRefusesKeysOutsideTheSyncedList() {
+    func testTurnOnNeverPushesNeverSyncedKeys() {
+        for key in Self.neverSyncedKeys where key != PreferenceSync.syncEnabledKey { defaults.set("value", forKey: key) }
         let store = InMemoryKeyValueStore()
         let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        sync.setEnabled(true)
+        for key in Self.neverSyncedKeys { XCTAssertNil(store.values[key], key) }
+        XCTAssertFalse(store.reads.contains(PreferenceSync.syncEnabledKey))
+    }
+
+    func testRecordRefusesKeysOutsideTheSyncedList() {
+        let store = InMemoryKeyValueStore()
+        let sync = enabledSync(store)
         for key in Self.neverSyncedKeys { sync.record(key, value: "value") }
         XCTAssertTrue(store.writes.isEmpty)
     }
+
+    // MARK: Behaviour once on (unchanged from before the switch existed)
 
     func testBootstrapAdoptsCloudBeforeDefaultsAreRead() {
         let store = InMemoryKeyValueStore([
             PreferenceSync.enabledBundlesKey: ["nostalgex", "decades"],
             PreferenceSync.retroModeKey: false,
         ])
-        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let sync = enabledSync(store)
 
         sync.bootstrap()
 
@@ -167,7 +324,7 @@ final class PreferenceSyncServiceTests: XCTestCase {
 
     func testNewTVHoldsWritesUntilICloudDelivers() {
         let store = InMemoryKeyValueStore()
-        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let sync = enabledSync(store)
         sync.bootstrap()
         XCTAssertTrue(sync.holdingOutgoing)
 
@@ -191,7 +348,7 @@ final class PreferenceSyncServiceTests: XCTestCase {
     func testQuotaViolationAppliesNothing() {
         let store = InMemoryKeyValueStore([PreferenceSync.retroModeKey: false])
         defaults.set(true, forKey: PreferenceSync.retroModeKey)
-        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let sync = enabledSync(store)
         sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreQuotaViolationChange,
                                   changedKeys: [PreferenceSync.retroModeKey])
         XCTAssertEqual(defaults.object(forKey: PreferenceSync.retroModeKey) as? Bool, true)
@@ -201,7 +358,7 @@ final class PreferenceSyncServiceTests: XCTestCase {
         let store = InMemoryKeyValueStore([PreferenceSync.subtitleLanguageKey: "de"])
         defaults.set("en", forKey: PreferenceSync.subtitleLanguageKey)
         defaults.set(true, forKey: PreferenceSync.retroModeKey)
-        let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let sync = enabledSync(store)
         sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreAccountChange, changedKeys: [])
         XCTAssertEqual(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "de")
         XCTAssertEqual(store.values[PreferenceSync.retroModeKey] as? Bool, true, "seeds the new account")
@@ -209,7 +366,9 @@ final class PreferenceSyncServiceTests: XCTestCase {
 }
 
 /// AppState wired to a fake store. AppState writes UserDefaults.standard directly, so the
-/// synced keys are saved and restored around each test.
+/// synced keys (and the per-TV switch) are saved and restored around each test. The
+/// fixture starts with sync ON, the way a viewer who flipped the Settings row has it;
+/// the off-by-default cases build their own.
 @MainActor
 final class PreferenceSyncAppStateTests: XCTestCase {
     private var saved: [String: Any] = [:]
@@ -217,10 +376,13 @@ final class PreferenceSyncAppStateTests: XCTestCase {
     private var sync: PreferenceSync!
     private var state: AppState!
 
+    private static let touchedKeys = PreferenceSync.syncedKeys + ["nostalgex_sync_plex_activity", PreferenceSync.syncEnabledKey]
+
     override func setUp() {
-        for key in PreferenceSync.syncedKeys + ["nostalgex_sync_plex_activity"] {
+        for key in Self.touchedKeys {
             if let v = UserDefaults.standard.object(forKey: key) { saved[key] = v }
         }
+        UserDefaults.standard.set(true, forKey: PreferenceSync.syncEnabledKey)
         store = InMemoryKeyValueStore()
         sync = PreferenceSync(cloud: store, defaults: .standard, observeNotifications: false, keys: PreferenceSync.syncedKeys)
         state = AppState(preferenceSync: sync)
@@ -228,11 +390,79 @@ final class PreferenceSyncAppStateTests: XCTestCase {
 
     override func tearDown() {
         state = nil
-        for key in PreferenceSync.syncedKeys + ["nostalgex_sync_plex_activity"] {
+        for key in Self.touchedKeys {
             if let v = saved[key] { UserDefaults.standard.set(v, forKey: key) }
             else { UserDefaults.standard.removeObject(forKey: key) }
         }
     }
+
+    // MARK: The switch
+
+    func testFreshAppStateHasSyncOffAndWritesNothingToTheStore() {
+        UserDefaults.standard.removeObject(forKey: PreferenceSync.syncEnabledKey)
+        let offStore = InMemoryKeyValueStore([PreferenceSync.retroModeKey: false])
+        let offSync = PreferenceSync(cloud: offStore, defaults: .standard, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let offState = AppState(preferenceSync: offSync)
+
+        XCTAssertFalse(offState.iCloudSyncEnabled)
+        offState.retroMode.toggle()
+        offState.preferredAudioLanguageCode = "ja"
+        offState.enabledFranchiseIDs = ["ghostbusters"]
+        offState.saveFranchisePreferences()
+        offSync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange, changedKeys: [PreferenceSync.retroModeKey])
+
+        XCTAssertTrue(offStore.reads.isEmpty, "read \(offStore.reads)")
+        XCTAssertTrue(offStore.writes.isEmpty, "wrote \(offStore.writes.map(\.key))")
+        XCTAssertEqual(offStore.synchronizeCount, 0)
+    }
+
+    func testTurningTheRowOnPushesThisTVFirst() {
+        UserDefaults.standard.removeObject(forKey: PreferenceSync.syncEnabledKey)
+        let onStore = InMemoryKeyValueStore()
+        let onSync = PreferenceSync(cloud: onStore, defaults: .standard, observeNotifications: false, keys: PreferenceSync.syncedKeys)
+        let onState = AppState(preferenceSync: onSync)
+        XCTAssertFalse(onState.iCloudSyncEnabled)
+        // This TV has a retro mode choice; another TV put the opposite in iCloud.
+        let retroBefore = onState.retroMode
+        UserDefaults.standard.set(retroBefore, forKey: PreferenceSync.retroModeKey)
+        onStore.values[PreferenceSync.retroModeKey] = !retroBefore
+
+        onState.iCloudSyncEnabled = true
+
+        XCTAssertTrue(onSync.isEnabled)
+        XCTAssertEqual(UserDefaults.standard.bool(forKey: PreferenceSync.syncEnabledKey), true)
+        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, retroBefore, "this TV's value went up, the cloud's did not come down")
+        XCTAssertEqual(onState.retroMode, retroBefore)
+
+        onState.iCloudSyncEnabled = false
+        XCTAssertFalse(onSync.isEnabled)
+        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, retroBefore, "turning off leaves iCloud as it is")
+        XCTAssertEqual(onState.retroMode, retroBefore)
+    }
+
+    func testStateMirrorsAnAlreadyEnabledService() {
+        XCTAssertTrue(state.iCloudSyncEnabled)
+        XCTAssertTrue(sync.isEnabled)
+    }
+
+    // MARK: Franchises
+
+    func testFranchiseSwitchesGoToICloudAndComeBack() {
+        state.enabledFranchiseIDs = ["ghostbusters", "alien"]
+        state.saveFranchisePreferences()
+        XCTAssertEqual(store.values[PreferenceSync.enabledFranchisesKey] as? [String], ["alien", "ghostbusters"])
+
+        let writesBefore = store.writes.count
+        store.values[PreferenceSync.enabledFranchisesKey] = ["alien", "from-another-library"]
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange,
+                                  changedKeys: [PreferenceSync.enabledFranchisesKey])
+
+        XCTAssertEqual(state.enabledFranchiseIDs, ["alien", "from-another-library"], "unknown ids are kept")
+        XCTAssertEqual(UserDefaults.standard.stringArray(forKey: AppState.enabledFranchisesKey), ["alien", "from-another-library"])
+        XCTAssertEqual(store.writes.count, writesBefore, "an incoming value must not be written back to iCloud")
+    }
+
+    // MARK: Behaviour once on
 
     func testLocalChangesGoToICloudThroughTheExistingDidSets() {
         state.retroMode.toggle()

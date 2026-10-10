@@ -19,6 +19,7 @@ class AppState {
         self.credentialStore = credentialStore
         self.preferenceSync = preferenceSync ?? .shared
         self.preferenceSync.applier = self
+        self.iCloudSyncEnabled = self.preferenceSync.isEnabled
 
         // UI tests run in a shared simulator environment; allow a launch argument to reset
         // persisted credentials so tests don't leak state across runs.
@@ -397,6 +398,17 @@ class AppState {
     var foundFranchiseChannelIDs: [Int] = []
 
     // MARK: - Display settings
+
+    /// The SYNC WITH MY OTHER APPLE TVS switch. Per-TV, off by default, never synced.
+    /// Mirrors `preferenceSync.isEnabled`; the set in `init` matches it, so the guard
+    /// keeps a redundant write from re-running the turn-on merge.
+    var iCloudSyncEnabled: Bool = false {
+        didSet {
+            guard iCloudSyncEnabled != preferenceSync.isEnabled else { return }
+            preferenceSync.setEnabled(iCloudSyncEnabled)
+            Analytics.track(.settingChanged(key: "icloud_sync", value: iCloudSyncEnabled ? "true" : "false"))
+        }
+    }
 
     var retroMode: Bool = UserDefaults.standard.object(forKey: "nostalgex_retro_mode") as? Bool ?? true {
         didSet {

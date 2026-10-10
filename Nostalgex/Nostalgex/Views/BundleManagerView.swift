@@ -78,9 +78,20 @@ struct SettingsPageView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             sectionHeader("DISPLAY", subtitle: "Visual effects and aspect ratio")
 
-                            Text("Settings sync to your other Apple TVs through iCloud")
-                                .font(.custom("DMMono-Regular", size: 20))
-                                .foregroundStyle(.white.opacity(0.5))
+                            // Off by default and per-TV. Turning it on pushes this TV's
+                            // lineup and settings to iCloud first, then listens.
+                            SettingsToggleRow(
+                                title: "SYNC WITH MY OTHER APPLE TVS",
+                                subtitle: appState.iCloudSyncEnabled
+                                    ? "On. This Apple TV's lineup is shared through iCloud."
+                                    : "Off. Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
+                                isOn: appState.iCloudSyncEnabled,
+                                isFocused: focusedItem == "icloud_sync"
+                            ) {
+                                appState.iCloudSyncEnabled.toggle()
+                            }
+                            .focused($focusedItem, equals: "icloud_sync")
+                            .id("icloud_sync")
 
                             SettingsToggleRow(
                                 title: "RETRO MODE",
