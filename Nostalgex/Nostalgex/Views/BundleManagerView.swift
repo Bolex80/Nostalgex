@@ -44,22 +44,22 @@ struct SettingsPageView: View {
                                     : "Star ratings help other households find Nostalgex"
                             )
 
-                            SettingsToggleRow(
-                                title: "RATE NOSTALGEX",
-                                subtitle: "Opens the App Store on your Apple TV",
-                                isOn: true,
-                                isFocused: focusedItem == "rate",
-                                showToggle: false
-                            ) {
-                                Analytics.track(.rateTapped)
-                                openURL(AppStoreLink.productPage)
-                            }
-                            .focused($focusedItem, equals: "rate")
-                            .id("rate")
-                            .accessibilityHint("Opens Nostalgex in the App Store to leave a star rating")
-
                             if showTips {
-                                tipRows
+                                supportGrid
+                            } else {
+                                // RATE alone keeps the full-width row it always had.
+                                SettingsToggleRow(
+                                    title: "RATE NOSTALGEX",
+                                    subtitle: "Opens the App Store on your Apple TV",
+                                    isOn: true,
+                                    isFocused: focusedItem == "rate",
+                                    showToggle: false
+                                ) {
+                                    rateTapped()
+                                }
+                                .focused($focusedItem, equals: "rate")
+                                .id("rate")
+                                .accessibilityHint("Opens Nostalgex in the App Store to leave a star rating")
                             }
                         }
 
@@ -247,8 +247,10 @@ struct SettingsPageView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .defaultFocus($focusedItem, "rate")
         .onAppear {
-            // Nil lets tvOS pick first focusable (RATE NOSTALGEX is the top row).
+            // Nil lets tvOS pick first focusable; defaultFocus points it at RATE NOSTALGEX,
+            // the leading tile of the top row.
             focusedItem = nil
             appState.player?.isMuted = true
         }
@@ -308,33 +310,51 @@ struct SettingsPageView: View {
         !appState.isDemoMode && tipJar.tipsAvailable
     }
 
+    private func rateTapped() {
+        Analytics.track(.rateTapped)
+        openURL(AppStoreLink.productPage)
+    }
+
+    /// RATE plus the three tips as one row of four equal tiles.
     @ViewBuilder
-    private var tipRows: some View {
+    private var supportGrid: some View {
         Text("Nostalgex is free forever. Tips help keep it maintained.")
             .font(.custom("DMMono-Regular", size: 20))
             .foregroundStyle(.white.opacity(0.7))
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 8)
 
-        ForEach(tipJar.products, id: \.id) { product in
-            if let tip = TipProduct(rawValue: product.id) {
-                SettingsToggleRow(
-                    title: tip.rowTitle,
-                    subtitle: nil,
-                    detail: product.displayPrice,
-                    detailIsProminent: true,
-                    isOn: true,
-                    isFocused: focusedItem == tip.focusID,
-                    showToggle: false
-                ) {
-                    guard !tipJar.isPurchasing else { return }
-                    tipToConfirm = product
+        HStack(spacing: 24) {
+            SupportTile(
+                art: PixelIcons.star,
+                title: "RATE NOSTALGEX",
+                caption: "Leave a star rating",
+                isFocused: focusedItem == "rate"
+            ) {
+                rateTapped()
+            }
+            .focused($focusedItem, equals: "rate")
+            .id("rate")
+            .accessibilityHint("Opens Nostalgex in the App Store to leave a star rating")
+
+            ForEach(tipJar.products, id: \.id) { product in
+                if let tip = TipProduct(rawValue: product.id) {
+                    SupportTile(
+                        art: PixelIcons.art(for: tip),
+                        title: tip.rowTitle,
+                        caption: product.displayPrice,
+                        captionIsPrice: true,
+                        isFocused: focusedItem == tip.focusID
+                    ) {
+                        guard !tipJar.isPurchasing else { return }
+                        tipToConfirm = product
+                    }
+                    .focused($focusedItem, equals: tip.focusID)
+                    .id(tip.focusID)
+                    .accessibilityHint("\(product.displayPrice) each. Choose how many, then tip. Unlocks nothing.")
                 }
-                .focused($focusedItem, equals: tip.focusID)
-                .id(tip.focusID)
-                .accessibilityHint("\(product.displayPrice) each. Choose how many, then tip. Unlocks nothing.")
             }
         }
+        .focusSection()
 
         if let line = tipJar.statusLine {
             Text(line)
@@ -729,6 +749,63 @@ private struct CollectionAccordionHeaderRow: View {
         .buttonStyle(SettingsButtonStyle(isFocused: isFocused, accentColor: Color("BrandCyan")))
         .animation(.easeInOut(duration: 0.18), value: isExpanded)
         .animation(.easeInOut(duration: 0.12), value: isFocused)
+    }
+}
+
+// MARK: - Support tile
+
+/// One of the four SUPPORT NOSTALGEX tiles: a pixel icon, a title and one short line.
+/// Focus matches SettingsToggleRow (cyan stroke, lighter fill) plus a small lift.
+private struct SupportTile: View {
+    let art: PixelArt
+    let title: String
+    let caption: String
+    /// A price reads in the title weight so it stays legible from the couch.
+    var captionIsPrice: Bool = false
+    let isFocused: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 18) {
+                PixelIconView(art: art, size: 96)
+
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.custom("DMMono-Medium", size: 22))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    Text(caption)
+                        .font(captionIsPrice ? .custom("DMMono-Medium", size: 22) : .custom("DMMono-Regular", size: 20))
+                        .foregroundStyle(.white.opacity(captionIsPrice ? 0.85 : 0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 30)
+            .padding(.bottom, 26)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isFocused ? .white.opacity(0.08) : .white.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isFocused ? Color("BrandCyan").opacity(0.6) : .white.opacity(0.06),
+                        lineWidth: isFocused ? 2 : 1
+                    )
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .scaleEffect(isFocused ? 1.04 : 1.0)
+        }
+        .buttonStyle(SettingsButtonStyle(isFocused: isFocused))
+        .accessibilityLabel(title)
+        .accessibilityValue(caption)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 
