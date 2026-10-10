@@ -17,10 +17,9 @@ enum CollectionClassifier {
         let lower = cleaned.lowercased()
 
         // 0. Auto-generated list/overlay collections (e.g. "IMDb Popular", "Anilist Top
-        //    Rated", "MyAnimeList Favorited"). These are not franchises or actor sets, so
-        //    they go straight to Custom — never Franchises or Notable Stars. Checked
-        //    before the franchiseID signal so a "Popular" list that happens to hold two
-        //    films of one series still lands in Custom.
+        //    Rated", "MyAnimeList Favorited"). These are not franchises, so they go
+        //    straight to Custom. Checked before the franchiseID signal so a "Popular"
+        //    list that happens to hold two films of one series still lands in Custom.
         if isGeneratedListCollection(lower) { return .custom }
 
         // 0.5 Enriched truth: if 2+ of the collection's items share a non-nil TMDB
@@ -47,10 +46,9 @@ enum CollectionClassifier {
         //    never appears in their films' titles more than once.
         if nameAppearsInTitles(lower, items: items) { return .franchises }
 
-        // 5. Person name detection (strict)
-        if isPersonName(cleaned) { return .actors }
-
-        // 6. Everything else
+        // 5. Everything else, actor and director sets included. NOTABLE STARS used to
+        //    sit here as its own category; those collections now belong with the rest
+        //    of the user's own sets under OTHER COLLECTIONS.
         return .custom
     }
 
@@ -197,68 +195,6 @@ enum CollectionClassifier {
         }
 
         return false
-    }
-
-    // MARK: - Person Name Detection
-
-    private static let nonPersonWords: Set<String> = [
-        "the", "a", "an", "of", "in", "on", "at", "to", "for", "with", "by", "from",
-        "movies", "films", "movie", "film", "shows", "show", "tv",
-        "horror", "action", "comedy", "drama", "thriller", "romance", "romantic",
-        "sci-fi", "fantasy", "animated", "animation", "documentary", "musical",
-        "western", "noir", "superhero", "spy", "heist", "disaster", "sports",
-        "war", "crime", "mystery", "adventure", "indie",
-        "best", "top", "classic", "classics", "greatest", "ultimate", "essential",
-        "favorites", "favourites", "favorite", "favourite",
-        "good", "great", "bad", "new", "old", "modern", "vintage", "retro",
-        "must", "watch", "see", "rated",
-        "night", "marathon", "edition", "picks", "list", "mix", "playlist",
-        "series", "saga", "trilogy", "universe", "franchise", "chronicles",
-        "4k", "hdr", "uhd", "blu-ray", "bluray", "dvd", "imax", "3d",
-        "christmas", "holiday", "halloween", "summer", "winter", "spring", "fall",
-        "date", "family", "kids", "boys", "girls",
-        "hip", "hop", "rock", "pop", "punk", "metal", "jazz", "soul", "funk",
-        "toy", "story", "tales", "world", "land", "city", "house", "street",
-        "star", "wars", "dark", "black", "white", "red", "blue", "green",
-        "dead", "lost", "wild", "fast", "mad", "big", "little", "young", "high", "low",
-        "fittest", "fit", "strong", "tough", "power", "super", "mega", "ultra",
-        "all", "time", "ever", "most", "only", "just", "every",
-        "true", "real", "pure", "raw", "fresh", "hot", "cold", "cool",
-        "life", "love", "death", "blood", "fire", "ice", "rain", "sun", "moon",
-        "king", "queen", "prince", "princess", "lord", "lady",
-        "man", "men", "woman", "women", "boy", "girl", "baby",
-        "one", "two", "three", "first", "last", "final", "next",
-        "national", "vacation", "lampoon", "universal", "paramount", "disney",
-        "pixar", "marvel", "dc", "warner", "dreamworks", "illumination",
-        "studio", "studios", "pictures", "entertainment", "productions",
-        "various", "unwatched", "watched", "random", "misc", "other", "more"
-    ]
-
-    private static let nameConnectors: Set<String> = [
-        "de", "van", "von", "del", "la", "le", "di", "el", "al", "bin", "ibn",
-        "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"
-    ]
-
-    private static func isPersonName(_ title: String) -> Bool {
-        let words = title.split(separator: " ").map(String.init)
-        guard words.count >= 2 && words.count <= 3 else { return false }
-
-        for word in words {
-            if nonPersonWords.contains(word.lowercased()) { return false }
-        }
-
-        let nameWords = words.filter { !nameConnectors.contains($0.lowercased()) }
-        guard nameWords.count >= 2 else { return false }
-
-        for word in nameWords {
-            guard let first = word.first, first.isUppercase else { return false }
-            guard word.count >= 2 else { return false }
-            let valid = word.allSatisfy { $0.isLetter || $0 == "'" || $0 == "-" || $0 == "." }
-            guard valid else { return false }
-            if word.count > 2 && word == word.uppercased() { return false }
-        }
-
-        return true
     }
 
     // MARK: - Helpers

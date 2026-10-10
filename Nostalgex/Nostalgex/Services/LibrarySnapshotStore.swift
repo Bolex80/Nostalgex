@@ -30,6 +30,19 @@ struct StoredDiscoveredCollection: Codable {
     let enabled: Bool
     let matchedChannel: String?
     let categoryRaw: String
+    /// Optional so snapshots written before the franchise fold existed still decode.
+    var foldedIntoFranchise: String? = nil
+}
+
+/// One found franchise (see `FoundFranchise`). Enabled state is NOT stored here: it
+/// lives in UserDefaults under `nostalgex_enabled_franchises` and is applied on restore.
+struct StoredFoundFranchise: Codable {
+    let id: String
+    let name: String
+    let movieRatingKeys: [String]
+    let tvRatingKeys: [String]
+    let coveredByChannelID: Int?
+    let fromDictionary: Bool
 }
 
 struct LibrarySnapshotV1: Codable {
@@ -50,6 +63,9 @@ struct LibrarySnapshotV1: Codable {
     /// Library change signature at the time of the scan (see LibraryChangeSignature).
     /// Optional so snapshots written before it existed still decode.
     var librarySignature: String? = nil
+    /// Franchises found in the library at scan time. Optional so older snapshots decode;
+    /// absent reads as "nothing found yet".
+    var foundFranchiseRows: [StoredFoundFranchise]? = nil
 }
 
 // MARK: - Store
@@ -104,7 +120,8 @@ enum LibrarySnapshotStore {
         bundles: [ChannelBundle],
         enabledBundleIDs: Set<String>,
         exclusiveRules: [ExclusiveRule],
-        discoveredCollections: [DiscoveredCollection]
+        discoveredCollections: [DiscoveredCollection],
+        foundFranchises: [FoundFranchise] = []
     ) throws {
         let fp = fingerprint(identity: identity)
         let configRows = channelConfigChannels.map { $0.toStoredChannel(includeItemKeys: false) }
@@ -130,7 +147,8 @@ enum LibrarySnapshotStore {
             enabledBundleIDList: Array(enabledBundleIDs).sorted(),
             exclusiveRuleJSON: exclusiveRules.map { $0.toExclusiveRuleJSON() },
             discoveredCollectionRows: discoveredCollections.map(StoredDiscoveredCollection.from),
-            librarySignature: librarySignature
+            librarySignature: librarySignature,
+            foundFranchiseRows: foundFranchises.map(StoredFoundFranchise.from)
         )
         guard let url = fileURL else { throw SnapshotError.noApplicationSupport }
         let data = try encoder.encode(snapshot)
@@ -236,10 +254,13 @@ extension StoredDiscoveredCollection {
             itemRatingKeys: collection.items.map(\.id),
             enabled: collection.enabled,
             matchedChannel: collection.matchedChannel,
-            categoryRaw: collection.category.rawValue
+            categoryRaw: collection.category.rawValue,
+            foldedIntoFranchise: collection.foldedIntoFranchise
         )
     }
 
+    /// A row whose category reads "actors" (the retired NOTABLE STARS) resolves to
+    /// `.custom`, which is where those collections classify now.
     func resolve(itemLookup: [String: PlexMediaItem]) -> DiscoveredCollection {
         let items = itemRatingKeys.compactMap { itemLookup[$0] }
         let category = CollectionCategory(rawValue: categoryRaw) ?? .custom
@@ -250,7 +271,33 @@ extension StoredDiscoveredCollection {
             items: items,
             enabled: enabled,
             matchedChannel: matchedChannel,
-            category: category
+            category: category,
+            foldedIntoFranchise: foldedIntoFranchise
+        )
+    }
+}
+
+extension StoredFoundFranchise {
+    static func from(_ franchise: FoundFranchise) -> StoredFoundFranchise {
+        StoredFoundFranchise(
+            id: franchise.id,
+            name: franchise.name,
+            movieRatingKeys: franchise.movies.map(\.id),
+            tvRatingKeys: franchise.tvItems.map(\.id),
+            coveredByChannelID: franchise.coveredByChannelID,
+            fromDictionary: franchise.fromDictionary
+        )
+    }
+
+    func resolve(itemLookup: [String: PlexMediaItem], enabledIDs: Set<String>) -> FoundFranchise {
+        FoundFranchise(
+            id: id,
+            name: name,
+            movies: movieRatingKeys.compactMap { itemLookup[$0] },
+            tvItems: tvRatingKeys.compactMap { itemLookup[$0] },
+            coveredByChannelID: coveredByChannelID,
+            fromDictionary: fromDictionary,
+            enabled: coveredByChannelID == nil && enabledIDs.contains(id)
         )
     }
 }

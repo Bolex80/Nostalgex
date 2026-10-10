@@ -47,6 +47,15 @@ enum FranchiseChannelBuilder {
         var allItems: [PlexMediaItem] { movies + tvItems }
         var itemCount: Int { movies.count + tvItems.count }
 
+        /// Identity that survives a relaunch, a rescan and (later) an iCloud sync, so a
+        /// per-franchise on/off choice can be stored as a plain string. A dictionary
+        /// franchise is keyed by its canonical name; an auto-found one by the TMDB
+        /// collection id that grouped it, which never changes for a given collection.
+        var stableID: String {
+            if fromDictionary { return "dict:\(name)" }
+            return "tmdb:\(mergedFranchiseIDs.first ?? 0)"
+        }
+
         static func == (lhs: FranchiseGrouping, rhs: FranchiseGrouping) -> Bool {
             lhs.name == rhs.name
                 && lhs.placement == rhs.placement

@@ -377,6 +377,20 @@ class AppState {
         UserDefaults.standard.stringArray(forKey: "nostalgex_enabled_collections") ?? []
     )
 
+    // MARK: - Found franchises (see AppState+Franchises)
+
+    /// Franchises the builder found in the library, stock folds included. Rebuilt after
+    /// every enrichment pass and restored from the snapshot in between.
+    var foundFranchises: [FoundFranchise] = []
+    /// Stable franchise ids the viewer switched on. Found franchises default OFF. Kept as
+    /// a plain string array in UserDefaults so a later iCloud sync can carry it as-is.
+    var enabledFranchiseIDs: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: AppState.enabledFranchisesKey) ?? []
+    )
+    /// Runtime channel ids of the found franchises currently materialised. They ride on
+    /// the FRANCHISES bundle switch rather than a bundle of their own.
+    var foundFranchiseChannelIDs: [Int] = []
+
     // MARK: - Display settings
 
     var retroMode: Bool = UserDefaults.standard.object(forKey: "nostalgex_retro_mode") as? Bool ?? true {

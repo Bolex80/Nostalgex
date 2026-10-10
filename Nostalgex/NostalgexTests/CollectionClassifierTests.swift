@@ -27,10 +27,10 @@ final class CollectionClassifierTests: XCTestCase {
         }
     }
 
-    // Real actor/director collections still classify as Notable Stars.
-    func testPersonNamesAreActors() {
-        XCTAssertEqual(CollectionClassifier.classify(title: "Tom Hanks", items: []), .actors)
-        XCTAssertEqual(CollectionClassifier.classify(title: "Christopher Nolan", items: []), .actors)
+    // NOTABLE STARS is gone: actor and director collections are OTHER COLLECTIONS now.
+    func testPersonNamesAreCustom() {
+        XCTAssertEqual(CollectionClassifier.classify(title: "Tom Hanks", items: []), .custom)
+        XCTAssertEqual(CollectionClassifier.classify(title: "Christopher Nolan", items: []), .custom)
     }
 
     // Known + repeating-name franchises still classify as Franchises (guard didn't over-catch).
@@ -41,8 +41,8 @@ final class CollectionClassifierTests: XCTestCase {
     }
 
     // A franchise whose name reads like a person ("John Wick", "Hunger Games") and whose
-    // films don't all repeat a word landed in Notable Stars. Seen on a real library, where
-    // the third John Wick film is titled just "Parabellum".
+    // films don't all repeat a word used to land in the old NOTABLE STARS category. Seen on
+    // a real library, where the third John Wick film is titled just "Parabellum".
     func testFranchiseNamedLikeAPersonIsAFranchise() {
         let wick = [item("John Wick"), item("John Wick: Chapter 2"), item("Parabellum")]
         XCTAssertEqual(CollectionClassifier.classify(title: "John Wick", items: wick), .franchises)
@@ -50,12 +50,13 @@ final class CollectionClassifierTests: XCTestCase {
         XCTAssertEqual(CollectionClassifier.classify(title: "Hunger Games", items: hunger), .franchises)
     }
 
-    // A person's name rarely appears in their films' titles, and once is not enough.
-    func testPersonCollectionsStayActors() {
+    // A person's name rarely appears in their films' titles, and once is not enough, so a
+    // person collection never reads as a franchise. It lands in OTHER COLLECTIONS.
+    func testPersonCollectionsAreNotFranchises() {
         let hanks = [item("Big"), item("Cast Away"), item("Forrest Gump")]
-        XCTAssertEqual(CollectionClassifier.classify(title: "Tom Hanks", items: hanks), .actors)
+        XCTAssertEqual(CollectionClassifier.classify(title: "Tom Hanks", items: hanks), .custom)
         let jackson = [item("Michael Jackson's This Is It"), item("Thriller"), item("Moonwalker")]
-        XCTAssertEqual(CollectionClassifier.classify(title: "Michael Jackson Collection", items: jackson), .actors)
+        XCTAssertEqual(CollectionClassifier.classify(title: "Michael Jackson Collection", items: jackson), .custom)
     }
 
     // MARK: - Enriched franchiseID truth (Phase 1)

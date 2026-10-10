@@ -23,13 +23,16 @@ import Foundation
 ///   (`nostalgex`, `kids`, `truecrime`, `high-rotation`, ...).
 ///
 /// For **dynamic collection** channels (built from a user's own Plex/Jellyfin/Emby
-/// collections at runtime by `AppState.materializeCollectionChannels`) we send:
+/// collections, or from the franchises found in their library, at runtime by
+/// `AppState.materializeDynamicChannels`) we send:
 /// - `channelType = "collection"`
 /// - no `channelID` (the per-install id would leak user ordering)
 /// - **no `channelName`** — the runtime name is the user's own collection
-///   title, which must never leave the device.
+///   title (or a franchise name derived from their library), which must never
+///   leave the device.
 /// - `bundle`     = the collection category bundle key
-///   (`collections-franchises`, `collections-actors`, `collections-custom`).
+///   (`collections-franchises`, `collections-custom`; `collections-actors` is
+///   retired but may still arrive from an older build).
 ///
 /// A grep for `channelType`, `channelID`, `channelName`, or `bundle` outside
 /// this file / the event catalog should return nothing — the descriptor is

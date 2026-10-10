@@ -38,6 +38,16 @@ class EnrichmentService {
         return cache[tmdbID]
     }
 
+    /// Fixture seam: puts ready-made rows in the in-memory cache without Supabase or
+    /// TMDB. Used by the `-uiTestFranchiseFixture` demo so the franchise fields can be
+    /// exercised on a simulator before the shared table carries them. Nothing is written
+    /// back to Supabase from here.
+    func seedCache(_ entries: [MediaEnrichment]) {
+        for entry in entries {
+            cache[entry.tmdbID] = entry
+        }
+    }
+
     /// Enrich all items in the library. Runs in background, updates progress.
     func enrichItems(_ items: [PlexMediaItem]) async {
         guard !TMDBConfig.tmdbAPIKey.isEmpty,
