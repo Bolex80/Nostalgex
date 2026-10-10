@@ -10,7 +10,10 @@ import Foundation
 /// Two sources feed a franchise:
 ///   1. Movies grouped by TMDB `franchiseID` (`belongs_to_collection`). 3+ owned films
 ///      in a group that has no stock channel make a dynamic channel. This is the
-///      "found in your library" source.
+///      "found in your library" source. For DICTIONARY franchises, films that TMDB
+///      leaves outside any collection (Rogue One, Bumblebee) also join by title: an
+///      explicit `filmTitles` entry or a `nameMatchToken`. Auto-found franchises stay
+///      franchiseID-only so a token cannot over-match.
 ///   2. TV shows, which have no `franchiseID`, joined by name-match against the
 ///      franchise name or by an explicit `FranchiseDictionary` entry.
 ///
@@ -96,34 +99,61 @@ enum FranchiseChannelBuilder {
         // movie collections merge into the same bucket.
         func keyForDefinition(_ def: FranchiseDefinition) -> String { "dict:\(def.canonicalName)" }
 
-        // MARK: 1. Movies grouped by franchiseID
+        // MARK: 1. Movies, placed once each, in priority order
 
-        var moviesByFranchiseID: [Int: [PlexMediaItem]] = [:]
+        // A film lands in exactly one bucket:
+        //   a. its franchiseID is a dictionary collection  -> that dictionary franchise
+        //   b. its title is in a dictionary `filmTitles` list, or contains a dictionary
+        //      `nameMatchToken`                            -> that dictionary franchise
+        //   c. it has some other franchiseID               -> an auto-found franchise
+        //   d. otherwise it is not a franchise film.
+        // (b) exists because TMDB leaves some franchise films outside any collection
+        // (Rogue One, Solo, Bumblebee, Rise of the Beasts all have
+        // belongs_to_collection: null). It applies to dictionary franchises only, so a
+        // token can never over-match an auto-found franchise the dictionary does not
+        // know about; those stay franchiseID-only.
+        var autoFoundNames: [Int: String] = [:]   // fid -> cleaned franchiseName
         for movie in movies {
-            guard let fid = enrichmentFor(movie)?.franchiseID else { continue }
-            moviesByFranchiseID[fid, default: []].append(movie)
-        }
+            let enrichment = enrichmentFor(movie)
+            let fid = enrichment?.franchiseID
 
-        for (fid, films) in moviesByFranchiseID {
-            if let def = byCollectionID[fid] {
+            // a. dictionary by collection id
+            if let fid, let def = byCollectionID[fid] {
                 let key = keyForDefinition(def)
                 var bucket = buckets[key] ?? Bucket(name: def.canonicalName, definition: def)
-                bucket.movies.append(contentsOf: films)
+                bucket.movies.append(movie)
                 bucket.franchiseIDs.insert(fid)
                 buckets[key] = bucket
-            } else {
-                // Found franchise with no dictionary entry: name itself from the
-                // enrichment's franchiseName.
-                let rawName = films.compactMap { enrichmentFor($0)?.franchiseName }.first ?? ""
-                let name = FranchiseDictionary.cleanFranchiseName(rawName).uppercased()
-                guard !name.isEmpty else { continue }
+                continue
+            }
+
+            // b. dictionary by title (explicit list beats token)
+            if let def = Self.dictionaryMatch(forFilmTitle: movie.title, definitions: definitions) {
+                let key = keyForDefinition(def)
+                var bucket = buckets[key] ?? Bucket(name: def.canonicalName, definition: def)
+                bucket.movies.append(movie)
+                buckets[key] = bucket
+                continue
+            }
+
+            // c. auto-found by collection id, named from the enrichment's franchiseName
+            if let fid {
+                if autoFoundNames[fid] == nil, let raw = enrichment?.franchiseName {
+                    autoFoundNames[fid] = FranchiseDictionary.cleanFranchiseName(raw).uppercased()
+                }
+                let name = autoFoundNames[fid] ?? ""
                 let key = "found:\(fid)"
                 var bucket = buckets[key] ?? Bucket(name: name, definition: nil)
-                bucket.movies.append(contentsOf: films)
+                if bucket.name.isEmpty { bucket.name = name }
+                bucket.movies.append(movie)
                 bucket.franchiseIDs.insert(fid)
                 buckets[key] = bucket
             }
+            // d. no franchise signal: skip
         }
+        // An auto-found bucket whose films never carried a franchiseName cannot be
+        // named, so it cannot be a channel.
+        buckets = buckets.filter { !($0.value.definition == nil && $0.value.name.isEmpty) }
 
         // MARK: 2. TV joined by dictionary entry, then by name-match
 
@@ -131,23 +161,7 @@ enum FranchiseChannelBuilder {
             let titleLower = Self.normalizedTitle(tv.title)
 
             // Dictionary first: explicit titles, then name tokens. Explicit beats token.
-            var matchedDef: FranchiseDefinition?
-            for def in definitions where !def.studioRuled {
-                if def.tvShowTitles.contains(where: { Self.normalizedTitle($0) == titleLower }) {
-                    matchedDef = def
-                    break
-                }
-            }
-            if matchedDef == nil {
-                for def in definitions where !def.studioRuled {
-                    if def.nameMatchTokens.contains(where: { Self.titleContainsToken(titleLower, $0) }) {
-                        matchedDef = def
-                        break
-                    }
-                }
-            }
-
-            if let def = matchedDef {
+            if let def = Self.dictionaryMatch(title: tv.title, explicit: \.tvShowTitles, definitions: definitions) {
                 let key = keyForDefinition(def)
                 var bucket = buckets[key] ?? Bucket(name: def.canonicalName, definition: def)
                 bucket.tvItems.append(tv)
@@ -245,6 +259,33 @@ enum FranchiseChannelBuilder {
     }
 
     // MARK: - Helpers
+
+    /// The dictionary franchise a film title belongs to, or nil. Explicit `filmTitles`
+    /// beat `nameMatchTokens`. Never matches a studio-ruled franchise.
+    static func dictionaryMatch(forFilmTitle title: String,
+                                definitions: [FranchiseDefinition] = FranchiseDictionary.all) -> FranchiseDefinition? {
+        dictionaryMatch(title: title, explicit: \.filmTitles, definitions: definitions)
+    }
+
+    /// Shared matcher for films and TV: an exact hit on the explicit list wins across
+    /// every definition before any token is tried, so a show that is listed under one
+    /// franchise cannot be stolen by another franchise's broad token.
+    private static func dictionaryMatch(title: String,
+                                        explicit: KeyPath<FranchiseDefinition, [String]>,
+                                        definitions: [FranchiseDefinition]) -> FranchiseDefinition? {
+        let titleLower = normalizedTitle(title)
+        for def in definitions where !def.studioRuled {
+            if def[keyPath: explicit].contains(where: { normalizedTitle($0) == titleLower }) {
+                return def
+            }
+        }
+        for def in definitions where !def.studioRuled {
+            if def.nameMatchTokens.contains(where: { titleContainsToken(titleLower, $0) }) {
+                return def
+            }
+        }
+        return nil
+    }
 
     /// Lowercased, with any trailing " (YYYY)" suffix dropped (Plex's TMDB agent appends
     /// release year). Kept local so the builder stays nonisolated and pure; this mirrors

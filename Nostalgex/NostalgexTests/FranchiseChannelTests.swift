@@ -95,24 +95,29 @@ final class FranchiseChannelTests: XCTestCase {
         XCTAssertFalse(groupings.contains { $0.placement == .dynamic })
     }
 
-    func testStockFoldMergesMultipleCollections() {
-        // LOTR (119) + The Hobbit (121) roll up into one franchise on CH104.
+    func testStockFoldMergesMultipleCollections() throws {
+        // LOTR (119) + The Hobbit (121938, verified against TMDB 2026-10-10) roll up
+        // into one franchise on CH104. The ids are read from the dictionary rather than
+        // hard-coded so this test tracks the verified values.
+        let lotr = try XCTUnwrap(FranchiseDictionary.all.first { $0.canonicalName == "LORD OF THE RINGS" })
+        XCTAssertEqual(lotr.tmdbCollectionIDs.count, 2)
+        let (ringsID, hobbitID) = (lotr.tmdbCollectionIDs[0], lotr.tmdbCollectionIDs[1])
         let movies = [
             movie("a", "The Fellowship of the Ring"), movie("b", "The Two Towers"),
             movie("c", "An Unexpected Journey"), movie("d", "The Desolation of Smaug")
         ]
         let look = lookup([
-            "a": (119, "The Lord of the Rings Collection"),
-            "b": (119, "The Lord of the Rings Collection"),
-            "c": (121, "The Hobbit Collection"),
-            "d": (121, "The Hobbit Collection")
+            "a": (ringsID, "The Lord of the Rings Collection"),
+            "b": (ringsID, "The Lord of the Rings Collection"),
+            "c": (hobbitID, "The Hobbit Collection"),
+            "d": (hobbitID, "The Hobbit Collection")
         ])
         let groupings = FranchiseChannelBuilder.build(
             movies: movies, enrichmentFor: look, availableStockChannelIDs: [104])
         XCTAssertEqual(groupings.count, 1)
         XCTAssertEqual(groupings.first?.placement, .stock(channelID: 104))
         XCTAssertEqual(groupings.first?.movies.count, 4)
-        XCTAssertEqual(groupings.first?.mergedFranchiseIDs, [119, 121])
+        XCTAssertEqual(groupings.first?.mergedFranchiseIDs, [ringsID, hobbitID].sorted())
     }
 
     // MARK: - Unmapped found franchise becomes its own channel
@@ -155,6 +160,122 @@ final class FranchiseChannelTests: XCTestCase {
         XCTAssertTrue(joined.contains("t1"), "name-match should attach The Clone Wars")
         XCTAssertTrue(joined.contains("t2"), "dictionary title should attach The Mandalorian")
         XCTAssertFalse(joined.contains("t3"), "unrelated show must not attach")
+    }
+
+    // MARK: - Films outside any TMDB collection join a dictionary franchise by title
+
+    // Transformers: Rise of the Beasts is belongs_to_collection: null on TMDB, so it
+    // has no franchiseID. Its title carries the "transformers" token, so it joins.
+    func testFilmOutsideCollectionJoinsDictionaryFranchiseByToken() {
+        let movies = [
+            movie("a", "Transformers"), movie("b", "Transformers: Revenge of the Fallen"),
+            movie("c", "Transformers: Dark of the Moon"),
+            movie("d", "Transformers: Rise of the Beasts") // no enrichment entry -> nil franchiseID
+        ]
+        let look = lookup([
+            "a": (8650, "Transformers Collection"),
+            "b": (8650, "Transformers Collection"),
+            "c": (8650, "Transformers Collection")
+        ])
+        let groupings = FranchiseChannelBuilder.build(movies: movies, enrichmentFor: look)
+        let tf = groupings.first { $0.name == "TRANSFORMERS" }
+        XCTAssertEqual(tf?.placement, .dynamic)
+        XCTAssertEqual(tf?.movies.count, 4)
+        XCTAssertTrue(tf?.movies.contains { $0.id == "d" } ?? false, "Rise of the Beasts should join by token")
+        XCTAssertEqual(tf?.mergedFranchiseIDs, [8650], "a title join adds no collection id")
+    }
+
+    // Bumblebee is also null on TMDB and its title has no franchise word, so only the
+    // explicit filmTitles entry can place it.
+    func testFilmOutsideCollectionJoinsDictionaryFranchiseByExplicitTitle() {
+        let movies = [
+            movie("a", "Transformers"), movie("b", "Transformers: Revenge of the Fallen"),
+            movie("c", "Transformers: Dark of the Moon"),
+            movie("d", "Bumblebee (2018)") // Plex-style year suffix, no enrichment
+        ]
+        let look = lookup([
+            "a": (8650, "Transformers Collection"),
+            "b": (8650, "Transformers Collection"),
+            "c": (8650, "Transformers Collection")
+        ])
+        let groupings = FranchiseChannelBuilder.build(movies: movies, enrichmentFor: look)
+        let tf = groupings.first { $0.name == "TRANSFORMERS" }
+        XCTAssertEqual(tf?.movies.count, 4)
+        XCTAssertTrue(tf?.movies.contains { $0.id == "d" } ?? false, "Bumblebee should join by explicit filmTitles")
+    }
+
+    // An auto-found franchise (no dictionary entry) is franchiseID-only. A film whose
+    // title merely contains the franchise name must NOT be pulled in, otherwise a
+    // common word in an auto-found name would over-match the whole library.
+    func testAutoFoundFranchiseDoesNotJoinFilmsByTitle() {
+        let movies = [
+            movie("a", "Spy Kids"), movie("b", "Spy Kids 2"), movie("c", "Spy Kids 3"),
+            movie("d", "Spy Kids: Armageddon") // no enrichment -> nil franchiseID
+        ]
+        let look = lookup([
+            "a": (99999, "Spy Kids Collection"),
+            "b": (99999, "Spy Kids Collection"),
+            "c": (99999, "Spy Kids Collection")
+        ])
+        let groupings = FranchiseChannelBuilder.build(movies: movies, enrichmentFor: look)
+        let sk = groupings.first { $0.name == "SPY KIDS" }
+        XCTAssertEqual(sk?.movies.count, 3, "title-only film must not join an auto-found franchise")
+        XCTAssertFalse(sk?.movies.contains { $0.id == "d" } ?? true)
+    }
+
+    // A title listed explicitly under one franchise is not stolen by another
+    // franchise's token, even when that token would otherwise match.
+    func testExplicitFilmTitleBeatsAnotherFranchisesToken() {
+        let defs = [
+            FranchiseDefinition(canonicalName: "ALPHA", nameMatchTokens: ["shared"]),
+            FranchiseDefinition(canonicalName: "BETA", filmTitles: ["Shared Title"])
+        ]
+        let movies = [movie("x", "Shared Title")]
+        let match = FranchiseChannelBuilder.dictionaryMatch(forFilmTitle: movies[0].title, definitions: defs)
+        XCTAssertEqual(match?.canonicalName, "BETA")
+    }
+
+    // MARK: - Check: the stock CH100 rule covers the anthology films on its own
+
+    // Rogue One and Solo have belongs_to_collection: null on TMDB, so they never fold
+    // onto CH100 via franchiseID. CH100 is a static channels.json channel, so the
+    // question is whether its own titleContains rule already matches them. Drive the
+    // real rule from the real channels.json through the real Swift filter, with an
+    // EMPTY membership manifest, so a pass can only come from the rule itself.
+    @MainActor
+    func testStockStarWarsRuleMatchesTheAnthologyFilms() throws {
+        let url = try XCTUnwrap(Bundle(for: AppState.self).url(forResource: "channels", withExtension: "json"))
+        let config = try XCTUnwrap(ChannelConfigLoader.loadConfig(from: Data(contentsOf: url)))
+        let ch100 = try XCTUnwrap(config.channels.first { $0.id == 100 })
+        XCTAssertEqual(ch100.name, "STAR WARS")
+        XCTAssertEqual(ch100.rules?.titleContains, ["Star Wars"], "rule changed; re-check this assumption")
+
+        let titles = [
+            "Rogue One: A Star Wars Story",
+            "Solo: A Star Wars Story",
+            "Rogue One: A Star Wars Story (2016)", // Plex TMDB agent appends the year
+            "Spaceballs"                            // negative control
+        ]
+        let cached: [AppState.FilterCache] = titles.enumerated().map { i, title in
+            let item = movie("sw\(i)", title)
+            return AppState.FilterCache(
+                item: item,
+                titleLower: AppState.stripTrailingYearSuffix(title.lowercased()),
+                episodeTitleLower: "",
+                genresLowerSet: [],
+                enrichment: nil,
+                itemStudioLower: ""
+            )
+        }
+        let pool = AppState.filterItems(
+            cached, rules: ch100.rules, forChannelID: ch100.id, category: ch100.category,
+            memberships: .empty, exclusiveRules: config.exclusiveRules)
+        let passed = Set(pool.map(\.title))
+
+        XCTAssertTrue(passed.contains("Rogue One: A Star Wars Story"))
+        XCTAssertTrue(passed.contains("Solo: A Star Wars Story"))
+        XCTAssertTrue(passed.contains("Rogue One: A Star Wars Story (2016)"))
+        XCTAssertFalse(passed.contains("Spaceballs"), "control: the rule must not match everything")
     }
 
     // MARK: - Marvel stays studio-based

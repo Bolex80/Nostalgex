@@ -23,13 +23,23 @@ struct FranchiseDefinition {
     /// Empty for a studio-ruled franchise (see `studioRuled`).
     let tmdbCollectionIDs: [Int]
 
-    /// Substrings a TV show title must contain to join by name (word-boundary, case
-    /// insensitive). "star wars" catches "Star Wars: The Clone Wars" and "Star Wars
-    /// Rebels"; it does not catch "The Mandalorian" (that needs `tvShowTitles`).
+    /// Substrings a title must contain to join by name (word-boundary, case
+    /// insensitive). Applies to TV shows AND, for dictionary franchises only, to films
+    /// that TMDB leaves outside any collection: "star wars" catches "Star Wars: The
+    /// Clone Wars" and "Rogue One: A Star Wars Story" (belongs_to_collection is null on
+    /// TMDB); "transformers" catches "Transformers: Rise of the Beasts" (also null).
+    /// It does not catch "The Mandalorian" or "Bumblebee" (those need the explicit
+    /// title lists). Auto-found franchises never use tokens, so a token cannot
+    /// over-match a franchise the dictionary does not know about.
     let nameMatchTokens: [String]
 
     /// TV shows that belong but do NOT name-match (STAR WARS -> The Mandalorian).
     let tvShowTitles: [String]
+
+    /// Films that belong but have no `belongs_to_collection` on TMDB AND do not
+    /// name-match (TRANSFORMERS -> Bumblebee). Exact title, case insensitive, with any
+    /// trailing " (YYYY)" ignored.
+    let filmTitles: [String]
 
     /// Marvel is defined by studio (CH101 carries a `studios` rule), not by collection
     /// grouping: its films live in dozens of tiny TMDB collections. When true the
@@ -42,24 +52,38 @@ struct FranchiseDefinition {
          tmdbCollectionIDs: [Int] = [],
          nameMatchTokens: [String] = [],
          tvShowTitles: [String] = [],
+         filmTitles: [String] = [],
          studioRuled: Bool = false) {
         self.canonicalName = canonicalName
         self.stockChannelID = stockChannelID
         self.tmdbCollectionIDs = tmdbCollectionIDs
         self.nameMatchTokens = nameMatchTokens
         self.tvShowTitles = tvShowTitles
+        self.filmTitles = filmTitles
         self.studioRuled = studioRuled
     }
 }
 
 /// STARTER SET, CHAD TO REVIEW.
 ///
-/// TMDB collection ids below are a mix of ones that are well known and ones that are
-/// a best guess from memory. They have NOT been verified against the live TMDB API in
-/// this build. Every id marked `TODO verify` needs a look at
-/// https://www.themoviedb.org/collection/<id> before it ships, and the franchises that
-/// span several collections (STAR WARS anthology/sequels, STAR TREK's many series,
-/// FAST & FURIOUS spin-offs) have TODOs for the extra ids to merge in.
+/// Every TMDB collection id below was verified against the live TMDB API on
+/// 2026-10-10 (collection exists, holds the films named in its comment). Along the
+/// way two ids from memory turned out to be dead and were replaced (The Hobbit is
+/// 121938, not 121; Star Trek TNG is 115570, not 151416), and the big sagas were
+/// confirmed to live in one collection each: Star Wars 10 holds all nine Skywalker
+/// films, Fast & Furious 9485 all twelve, Jurassic 328 all eight.
+///
+/// What TMDB cannot carry, and the dictionary covers instead:
+/// - Films with `belongs_to_collection: null`. Rogue One, Solo, Bumblebee and
+///   Transformers: Rise of the Beasts are all null on TMDB. The "A Star Wars Story"
+///   pair and Rise of the Beasts join by `nameMatchTokens`; Bumblebee, whose title
+///   says nothing, is listed in `filmTitles`. That was the only membership gap found.
+/// - MARVEL stays studio-ruled by design (CH101's `studios` rule), never grouped by
+///   collection id.
+/// - TV has no collection id at all, so it joins by token or by `tvShowTitles`.
+///
+/// Open items for Chad: the TV and film title lists are editorial and will drift as
+/// new seasons and spin-offs land; the lists here are a starting point, not a census.
 ///
 /// None of this is wired into Settings yet (that is Phase 2). It exists so the logic is
 /// listable and testable.
@@ -72,10 +96,9 @@ enum FranchiseDictionary {
         FranchiseDefinition(
             canonicalName: "STAR WARS",
             stockChannelID: 100,
-            // 10 = "Star Wars Collection" (the Skywalker-saga films).
-            // TODO verify + merge: the anthology films (Rogue One, Solo) and any
-            // separate sequel-trilogy collection are not under id 10 on TMDB. Look up
-            // their collection ids and add them here so all the films land on CH100.
+            // 10 = "Star Wars Collection": all nine Skywalker-saga films (verified
+            // against TMDB 2026-10-10). Rogue One and Solo are titled "...: A Star
+            // Wars Story", so they join by name match.
             tmdbCollectionIDs: [10],
             nameMatchTokens: ["star wars"],
             tvShowTitles: [
@@ -110,9 +133,8 @@ enum FranchiseDictionary {
         FranchiseDefinition(
             canonicalName: "JURASSIC PARK",
             stockChannelID: 103,
-            // 328 = "Jurassic Park Collection" (TMDB keeps the Jurassic World films in
-            // the same collection). TODO verify this still holds for Jurassic World:
-            // Rebirth and friends.
+            // 328 = "Jurassic Park Collection": all eight films, Jurassic World
+            // included (verified against TMDB 2026-10-10).
             tmdbCollectionIDs: [328],
             nameMatchTokens: ["jurassic"],
             tvShowTitles: ["Jurassic World: Camp Cretaceous", "Jurassic World: Chaos Theory"]
@@ -121,8 +143,9 @@ enum FranchiseDictionary {
         FranchiseDefinition(
             canonicalName: "LORD OF THE RINGS",
             stockChannelID: 104,
-            // 119 = "The Lord of the Rings Collection", 121 = "The Hobbit Collection".
-            tmdbCollectionIDs: [119, 121],
+            // 119 = "The Lord of the Rings Collection", 121938 = "The Hobbit
+            // Collection" (both verified against TMDB 2026-10-10).
+            tmdbCollectionIDs: [119, 121938],
             nameMatchTokens: ["lord of the rings", "hobbit", "rings of power"],
             tvShowTitles: ["The Lord of the Rings: The Rings of Power"]
         ),
@@ -149,12 +172,11 @@ enum FranchiseDictionary {
 
         FranchiseDefinition(
             canonicalName: "STAR TREK",
-            // Star Trek is many TMDB collections (TOS, TNG, Kelvin timeline, ...).
-            // TODO verify + add their ids. Until then the films fold in only when they
-            // share whichever collection id a user's library actually carries; the TV
-            // side is carried by name-match + the explicit titles below, which is where
-            // most of Star Trek lives anyway.
-            tmdbCollectionIDs: [], // TODO verify: TOS 115575, Kelvin 115570, TNG 151416 (unconfirmed)
+            // Star Trek is three TMDB collections, merged here (verified 2026-10-10):
+            // 151 = The Original Series films, 115570 = The Next Generation films,
+            // 115575 = Alternate Reality (the 2009 Kelvin reboot). The TV side joins by
+            // name match plus the explicit titles below.
+            tmdbCollectionIDs: [151, 115570, 115575],
             nameMatchTokens: ["star trek"],
             tvShowTitles: [
                 "Star Trek: The Next Generation", "Star Trek: Deep Space Nine",
@@ -166,9 +188,8 @@ enum FranchiseDictionary {
 
         FranchiseDefinition(
             canonicalName: "FAST & FURIOUS",
-            // 9485 = "The Fast and the Furious Collection" (given in the plan).
-            // TODO verify + merge any separate spin-off collection (e.g. a Hobbs & Shaw
-            // collection) if TMDB splits it out.
+            // 9485 = "The Fast and the Furious Collection": all twelve films including
+            // Tokyo Drift and Hobbs & Shaw (verified against TMDB 2026-10-10).
             tmdbCollectionIDs: [9485],
             nameMatchTokens: ["fast & furious", "fast and furious", "fast saga"],
             tvShowTitles: ["Fast & Furious Spy Racers"]
@@ -208,11 +229,14 @@ enum FranchiseDictionary {
 
         FranchiseDefinition(
             canonicalName: "TRANSFORMERS",
-            // 8650 = "Transformers Collection". TODO verify: Bumblebee / Rise of the
-            // Beasts may sit in a separate TMDB collection.
+            // 8650 = "Transformers Collection" (verified 2026-10-10). Bumblebee and
+            // Transformers: Rise of the Beasts are belongs_to_collection: null on
+            // TMDB. Rise of the Beasts joins by the "transformers" token; Bumblebee has
+            // no franchise word in its title, so it is listed explicitly.
             tmdbCollectionIDs: [8650],
             nameMatchTokens: ["transformers"],
-            tvShowTitles: []
+            tvShowTitles: [],
+            filmTitles: ["Bumblebee"]
         ),
 
         FranchiseDefinition(
