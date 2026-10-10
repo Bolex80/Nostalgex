@@ -3,6 +3,49 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-10 (iCloud sync, now opt-in, branch only)
+
+**Shipped.** Nothing. Branch `icloud-opt-in`, stacked on `franchise-ui`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** `icloud-sync` mirrored lineup and display preferences through
+iCloud key-value storage from the first launch, and whichever Apple TV launched
+first seeded the household. That is the wrong default for a household where one
+TV has a curated lineup and another is a fresh install, so `icloud-opt-in`
+carries the same two commits on top of the franchise work and adds a switch:
+
+- SYNC WITH MY OTHER APPLE TVS, under DISPLAY in Settings. Off by default. The
+  flag (`nostalgex_icloud_sync_enabled`) is per TV and is never itself synced.
+- While off, nothing reads or writes the ubiquitous store: launch neither pulls
+  nor seeds, Settings changes stay local, and incoming change notifications are
+  ignored. A fake store in the tests counts reads, writes and synchronize calls
+  and asserts all three stay at zero.
+- Turning it on pushes this TV's current preferences first (this TV wins),
+  adopts cloud values only for keys this TV has never set, then starts
+  listening. Turning it off stops listening and leaves iCloud and the local
+  values as they are. A TV that turns it on later follows the same rule.
+- The found-franchise switches (`nostalgex_enabled_franchises`) join the synced
+  set. The never-sync list in the tests now also names the switch itself, the
+  rating nudge counters and the tip ledger, next to credentials, server
+  address, stream quality and playback reporting.
+
+Cherry-picking onto `franchise-ui` conflicted only in `AppState+Channels.swift`
+(the franchise branch had renamed `materializeCollectionChannels` to
+`materializeDynamicChannels`); the sync code now calls the new name.
+
+Verified: the full `NostalgexTests` run passes (557 tests, 37 of them for the
+sync service and its merge rules). A Release archive signed through the App
+Store Connect key carries `com.apple.developer.ubiquity-kvstore-identifier`,
+and a local App Store export with automatic signing produces an IPA whose
+distribution profile includes it; nothing was uploaded. Not yet tried on
+hardware: two real Apple TVs on one Apple ID flipping the switch.
+
+**Next.** Hardware round trip with two TVs: switch on with different lineups,
+confirm the first TV to switch on wins, then flip one off and confirm nothing
+moves. Then merge order: `franchise-data`, `franchise-channels`, `franchise-ui`,
+`icloud-opt-in`.
+
 ## 2026-10-10 (franchise bundle, branch only)
 
 **Shipped.** Nothing. Everything below is on branches off `main`, not merged.
