@@ -2,7 +2,12 @@ import Foundation
 
 enum CollectionClassifier {
 
-    static func classify(title: String, items: [PlexMediaItem]) -> CollectionCategory {
+    /// - Parameter enrichmentFor: optional TMDB enrichment lookup. When provided and the
+    ///   library is enriched, a shared `franchiseID` across the collection's films is the
+    ///   authoritative franchise signal; the string heuristics below are the fallback for
+    ///   un-enriched items. Defaulted to nil so existing callers and tests are unchanged.
+    static func classify(title: String, items: [PlexMediaItem],
+                         enrichmentFor: ((PlexMediaItem) -> MediaEnrichment?)? = nil) -> CollectionCategory {
         let cleaned = title
             .replacingOccurrences(of: " Collection", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "Collection", with: "", options: .caseInsensitive)
@@ -13,8 +18,19 @@ enum CollectionClassifier {
 
         // 0. Auto-generated list/overlay collections (e.g. "IMDb Popular", "Anilist Top
         //    Rated", "MyAnimeList Favorited"). These are not franchises or actor sets, so
-        //    they go straight to Custom — never Franchises or Notable Stars.
+        //    they go straight to Custom — never Franchises or Notable Stars. Checked
+        //    before the franchiseID signal so a "Popular" list that happens to hold two
+        //    films of one series still lands in Custom.
         if isGeneratedListCollection(lower) { return .custom }
+
+        // 0.5 Enriched truth: if 2+ of the collection's items share a non-nil TMDB
+        //    franchiseID (belongs_to_collection), it is a real franchise collection no
+        //    matter how the name reads. This replaces the string guesswork below whenever
+        //    the library is enriched; the heuristics remain the fallback for items that
+        //    have no enrichment yet.
+        if let enrichmentFor, sharesFranchiseID(items, enrichmentFor: enrichmentFor) {
+            return .franchises
+        }
 
         // 1. Known franchise names (catches tricky ones like James Bond)
         if isKnownFranchise(lower) { return .franchises }
@@ -36,6 +52,21 @@ enum CollectionClassifier {
 
         // 6. Everything else
         return .custom
+    }
+
+    /// True when 2+ items share the same non-nil TMDB franchiseID. Two films from one
+    /// TMDB collection is a strong franchise signal; actor/director sets (Tom Hanks,
+    /// Christopher Nolan) hold films from many different collections, so they never trip
+    /// this. One film alone is not enough — a collection of one is not a franchise.
+    private static func sharesFranchiseID(_ items: [PlexMediaItem],
+                                          enrichmentFor: (PlexMediaItem) -> MediaEnrichment?) -> Bool {
+        var counts: [Int: Int] = [:]
+        for item in items {
+            guard let fid = enrichmentFor(item)?.franchiseID else { continue }
+            counts[fid, default: 0] += 1
+            if counts[fid]! >= 2 { return true }
+        }
+        return false
     }
 
     private static func nameAppearsInTitles(_ lowerName: String, items: [PlexMediaItem]) -> Bool {

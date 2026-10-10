@@ -371,7 +371,16 @@ extension AppState {
                 }
 
                 let collectionID = PlexAPIService.compositeID(serverID: server.machineIdentifier, ratingKey: collection.ratingKey)
-                let category = CollectionClassifier.classify(title: collection.title, items: matchedItems)
+                // Resolve enrichment eagerly into a plain map so the classifier can use
+                // franchiseID truth (shared TMDB collection = franchise) without the
+                // closure having to touch MainActor-isolated state.
+                var enrichmentByID: [String: MediaEnrichment] = [:]
+                for mi in matchedItems {
+                    if let e = enrichmentService.enrichment(for: mi) { enrichmentByID[mi.id] = e }
+                }
+                let category = CollectionClassifier.classify(
+                    title: collection.title, items: matchedItems,
+                    enrichmentFor: { enrichmentByID[$0.id] })
                 let overlap = computeContentOverlap(items: matchedItems)
                 collections4Plus.append(DiscoveredCollection(
                     id: collectionID,
