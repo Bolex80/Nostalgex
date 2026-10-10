@@ -39,4 +39,22 @@ final class CollectionClassifierTests: XCTestCase {
         let topGun = [item("Top Gun"), item("Top Gun: Maverick"), item("Top Gun II")]
         XCTAssertEqual(CollectionClassifier.classify(title: "Top Gun Collection", items: topGun), .franchises)
     }
+
+    // A franchise whose name reads like a person ("John Wick", "Hunger Games") and whose
+    // films don't all repeat a word landed in Notable Stars. Seen on a real library, where
+    // the third John Wick film is titled just "Parabellum".
+    func testFranchiseNamedLikeAPersonIsAFranchise() {
+        let wick = [item("John Wick"), item("John Wick: Chapter 2"), item("Parabellum")]
+        XCTAssertEqual(CollectionClassifier.classify(title: "John Wick", items: wick), .franchises)
+        let hunger = [item("The Hunger Games"), item("Catching Fire"), item("The Hunger Games: Mockingjay - Part 1")]
+        XCTAssertEqual(CollectionClassifier.classify(title: "Hunger Games", items: hunger), .franchises)
+    }
+
+    // A person's name rarely appears in their films' titles, and once is not enough.
+    func testPersonCollectionsStayActors() {
+        let hanks = [item("Big"), item("Cast Away"), item("Forrest Gump")]
+        XCTAssertEqual(CollectionClassifier.classify(title: "Tom Hanks", items: hanks), .actors)
+        let jackson = [item("Michael Jackson's This Is It"), item("Thriller"), item("Moonwalker")]
+        XCTAssertEqual(CollectionClassifier.classify(title: "Michael Jackson Collection", items: jackson), .actors)
+    }
 }

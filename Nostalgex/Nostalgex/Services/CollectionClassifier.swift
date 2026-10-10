@@ -25,11 +25,22 @@ enum CollectionClassifier {
         // 3. Repeating name detection -- if 3+ items share a common title word/phrase, it's a franchise
         if items.count >= 3 && hasRepeatingNames(items) { return .franchises }
 
-        // 4. Person name detection (strict)
+        // 4. The collection's own name in 2+ of its titles. Catches franchises that read
+        //    like a person ("John Wick", "Hunger Games") when a sequel drops the name
+        //    ("Parabellum", "Catching Fire") and step 3 misses. A person's name almost
+        //    never appears in their films' titles more than once.
+        if nameAppearsInTitles(lower, items: items) { return .franchises }
+
+        // 5. Person name detection (strict)
         if isPersonName(cleaned) { return .actors }
 
-        // 5. Everything else
+        // 6. Everything else
         return .custom
+    }
+
+    private static func nameAppearsInTitles(_ lowerName: String, items: [PlexMediaItem]) -> Bool {
+        guard lowerName.count >= 3 else { return false }
+        return items.filter { $0.title.lowercased().contains(lowerName) }.count >= 2
     }
 
     // MARK: - Generated / list collections
