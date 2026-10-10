@@ -106,9 +106,14 @@ struct TipQuantityView: View {
                     .accessibilityIdentifier("tip_quantity_plus")
                 }
 
-                Text("\(product.displayPrice) each")
-                    .font(.custom("DMMono-Regular", size: 24))
-                    .foregroundStyle(.white.opacity(0.6))
+                VStack(spacing: 8) {
+                    Text("\(product.displayPrice) each")
+                        .font(.custom("DMMono-Regular", size: 24))
+                        .foregroundStyle(.white.opacity(0.6))
+                    Text("Paid through your Apple account")
+                        .font(.custom("DMMono-Regular", size: 20))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
 
                 HStack(spacing: 32) {
                     Button { onConfirm(quantity) } label: {
