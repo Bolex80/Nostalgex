@@ -41,13 +41,14 @@ struct TMDBService {
 
     // MARK: - Response parsing
 
-    private func parseResponse(data: Data, tmdbID: String, imdbID: String?, mediaType: String) throws -> MediaEnrichment {
+    func parseResponse(data: Data, tmdbID: String, imdbID: String?, mediaType: String) throws -> MediaEnrichment {
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
 
         let keywords = extractKeywords(from: json, mediaType: mediaType)
         let networks = extractNetworks(from: json)
         let productionCompanies = extractProductionCompanies(from: json)
         let genres = extractGenres(from: json)
+        let (franchiseID, franchiseName) = extractFranchise(from: json)
 
         return MediaEnrichment(
             tmdbID: tmdbID,
@@ -62,8 +63,21 @@ struct TMDBService {
             rottenTomatoesScore: nil,
             metacriticScore: nil,
             awards: nil,
+            franchiseID: franchiseID,
+            franchiseName: franchiseName,
             fetchedAt: Date()
         )
+    }
+
+    /// TMDB movie responses carry `belongs_to_collection` as an object {id, name, ...}
+    /// or null. TV responses have no such field, so this returns (nil, nil) for them.
+    private func extractFranchise(from json: [String: Any]) -> (Int?, String?) {
+        guard let collection = json["belongs_to_collection"] as? [String: Any] else {
+            return (nil, nil)
+        }
+        let id = collection["id"] as? Int
+        let name = collection["name"] as? String
+        return (id, name)
     }
 
     private func extractKeywords(from json: [String: Any], mediaType: String) -> [String] {
