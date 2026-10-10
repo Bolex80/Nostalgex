@@ -536,7 +536,8 @@ struct SettingsPageView: View {
         let visible = appState.visibleDiscoveredCollections.count
         let folded = appState.discoveredCollections.count - visible
         let foldedNote = folded > 0 ? " · \(folded) UNDER FRANCHISES" : ""
-        return "\(visible) COLLECTIONS CACHED\(foldedNote) · TAP TO RESCAN"
+        let noun = visible == 1 ? "COLLECTION" : "COLLECTIONS"
+        return "\(visible) \(noun) CACHED\(foldedNote) · TAP TO RESCAN"
     }
 
     @ViewBuilder

@@ -3,6 +3,58 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-10 (franchise bundle, branch only)
+
+**Shipped.** Nothing. Everything below is on branches off `main`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** The FRANCHISES package is being rebuilt in three phases, each on
+its own branch stacked on the last:
+
+- `franchise-data` (Phase 0): enrichment rows gain `franchise_id` and
+  `franchise_name`, parsed from TMDB `belongs_to_collection` with no extra
+  request. The two columns are added by `Nostalgex/docs/franchise-migration.sql`,
+  which has NOT been applied to the shared table yet, so live enrichment still
+  carries no franchise fields. Rows without the columns decode fine.
+- `franchise-channels` (Phase 1): `FranchiseChannelBuilder` turns a library plus
+  its enrichment into a franchise list. Three or more owned films sharing a
+  TMDB collection make a channel; `FranchiseDictionary` merges split
+  collections (Star Trek is three on TMDB), folds known franchises into the
+  stock classics CH100-106, and adds TV by title (The Mandalorian under STAR
+  WARS). Films TMDB leaves outside any collection (Rogue One, Solo, Bumblebee,
+  Rise of the Beasts, all checked against the live API) join dictionary
+  franchises by title. Marvel stays studio-ruled, never grouped by collection.
+  Every dictionary id was verified live on 2026-10-10.
+- `franchise-ui` (Phase 2, this entry): the Settings half. Under the FRANCHISES
+  package row, when it is on, FOUND IN YOUR LIBRARY lists each found franchise
+  with a switch, ADD ALL and REMOVE ALL, and the ones a classic already covers
+  greyed as "ON CH 100". Found franchises default off so a big library does not
+  flood the guide. Switches persist as a plain string array under
+  `nostalgex_enabled_franchises`, keyed by dictionary name or TMDB collection
+  id, so a later iCloud sync can carry it unchanged. A switched-on franchise is
+  a dynamic channel (`rules == nil`) in the collection range (numbers from
+  220), shown while the package is on; the schedule engine and playback are
+  untouched. A server collection that is really one of these franchises is
+  folded: credited under the franchise, hidden from MY COLLECTIONS, never
+  materialised twice (`FranchiseCollectionFold`, reusing the scan's name and
+  manifest signals plus a 60% item overlap). NOTABLE STARS is gone; actor and
+  director sets classify as OTHER COLLECTIONS, a persisted `collections-actors`
+  id migrates, and older snapshot rows resolve. Full `NostalgexTests`: 521
+  passed, 2 skipped (pre-existing), 0 failed.
+
+  Verified on the tvOS 26.1 simulator through a test-only launch argument,
+  `-uiTestFranchiseFixture`, which layers an enriched sample library over demo
+  mode (six franchises, two sample collections) because the shared table has
+  no franchise columns yet. Not verified: the real enrichment path end to end,
+  which needs the migration applied; a relaunch from a snapshot that carries
+  found franchises; the fold against a real server's collections.
+
+**Next.** Apply the migration, then load a real library and compare the found
+list against what the library actually holds before merging. Decide whether
+STAR TREK and FAST & FURIOUS become stock classics or stay found-only. Merge
+order: `franchise-data`, `franchise-channels`, `franchise-ui`.
+
 ## 2026-10-09 (app)
 
 **Shipped.** Nothing to Apple. 1.0.24 (45) is still in TestFlight beta review.
