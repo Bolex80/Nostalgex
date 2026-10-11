@@ -21,11 +21,13 @@ final class FranchiseSettingsTests: XCTestCase {
         savedBundles = d.stringArray(forKey: bundlesKey)
         savedCollections = d.stringArray(forKey: collectionsKey)
         d.removeObject(forKey: franchisesKey)
+        d.removeObject(forKey: AppState.disabledFranchisesKey)
     }
 
     override func tearDown() {
         let d = UserDefaults.standard
         d.removeObject(forKey: franchisesKey)
+        d.removeObject(forKey: AppState.disabledFranchisesKey)
         if let savedBundles { d.set(savedBundles, forKey: bundlesKey) } else { d.removeObject(forKey: bundlesKey) }
         if let savedCollections { d.set(savedCollections, forKey: collectionsKey) } else { d.removeObject(forKey: collectionsKey) }
         super.tearDown()
@@ -179,7 +181,7 @@ final class FranchiseSettingsTests: XCTestCase {
         let dynamic = state.channels.filter { $0.rules == nil }
         XCTAssertEqual(dynamic.map(\.name), ["JOHN WICK", "SPY KIDS", "THE HUNGER GAMES"])
         // Collection numbering convention: display numbers from the FRANCHISES range.
-        XCTAssertEqual(dynamic.map(\.number), [220, 221, 222])
+        XCTAssertEqual(dynamic.map(\.number), [300, 301, 302])
         XCTAssertEqual(dynamic.map(\.id), [1_000_000, 1_000_001, 1_000_002])
         XCTAssertEqual(Set(UserDefaults.standard.stringArray(forKey: franchisesKey) ?? []),
                        ["dict:JOHN WICK", "dict:THE HUNGER GAMES", "tmdb:99999"])
@@ -383,16 +385,29 @@ final class FranchiseSettingsTests: XCTestCase {
         XCTAssertEqual(state.channels.first { $0.id == 100 }?.itemPool.count, 5)
     }
 
-    func testMarvelStudioRuleIsUnchanged() async {
+    func testMarvelFilmsStayStudioRuledAndItsShowsJoinCH101() async {
         let state = makeState()
         let marvelFilms = [marvelFilm("mv1", "The Avengers"), marvelFilm("mv2", "Iron Man"),
                            marvelFilm("mv3", "Thor")]
-        let items = films(starWars) + marvelFilms + [episode("loki1", show: "Loki")]
+        // A non-Marvel-studio film titled like a listed show must not join: films
+        // never match MARVEL's title list.
+        let items = films(starWars) + marvelFilms + [movie("echoFilm", "Echo")]
+            + [episode("loki1", show: "Loki"), episode("loki2", show: "Loki"),
+               episode("wi1", show: "What If...?"), episode("echo1", show: "Echo"),
+               episode("ep1", show: "Echo Park")]
         await buildStockLineup(state, items: items, marvel: true)
 
-        XCTAssertEqual(pool(state, 101).sorted(), ["mv1", "mv2", "mv3"])
-        XCTAssertNil(state.foundFranchises.first { $0.coveredByChannelID == 101 },
-                     "MARVEL is studio-ruled: the builder places nothing on CH101")
+        XCTAssertEqual(pool(state, 101).sorted(), ["echo1", "loki1", "loki2", "mv1", "mv2", "mv3", "wi1"])
+        let marvel = state.foundFranchises.first { $0.coveredByChannelID == 101 }
+        XCTAssertEqual(marvel?.name, "MARVEL")
+        XCTAssertEqual(marvel?.movies.count, 0, "films stay with CH101's studio rule")
+        XCTAssertEqual(marvel?.coveredLabel, "3 shows on CH 101")
+        XCTAssertFalse(state.listedFoundFranchises.contains { $0.name == "MARVEL" },
+                       "a stock fold has no switch of its own")
+
+        // And the guide airs them.
+        state.applyBundleFilter()
+        XCTAssertEqual(state.channels.first { $0.id == 101 }?.itemPool.count, 7)
     }
 
     func testBundleOffMeansNoUnion() async {

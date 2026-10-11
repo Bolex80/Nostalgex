@@ -163,6 +163,9 @@ final class PreferenceSync {
     nonisolated static let enabledBundlesKey = "nostalgex_enabled_bundles"
     nonisolated static let enabledCollectionsKey = "nostalgex_enabled_collections"
     nonisolated static let enabledFranchisesKey = "nostalgex_enabled_franchises"
+    /// Explicit offs, so a default-on franchise (STAR TREK) the viewer removed stays
+    /// removed on every TV. See `FranchiseDictionary.isOn`.
+    nonisolated static let disabledFranchisesKey = "nostalgex_disabled_franchises"
     nonisolated static let retroModeKey = "nostalgex_retro_mode"
     nonisolated static let subtitlesFullscreenKey = "nostalgex_subtitles_fullscreen"
     nonisolated static let autoSubsForeignAudioKey = "nostalgex_auto_subs_foreign_audio"
@@ -173,6 +176,7 @@ final class PreferenceSync {
         enabledBundlesKey,
         enabledCollectionsKey,
         enabledFranchisesKey,
+        disabledFranchisesKey,
         retroModeKey,
         subtitlesFullscreenKey,
         autoSubsForeignAudioKey,
@@ -183,7 +187,7 @@ final class PreferenceSync {
     nonisolated static func kind(of key: String) -> ValueKind? {
         switch key {
         case enabledBundlesKey: return .stringSet(allowEmpty: false)   // never an empty lineup
-        case enabledCollectionsKey, enabledFranchisesKey: return .stringSet(allowEmpty: true)
+        case enabledCollectionsKey, enabledFranchisesKey, disabledFranchisesKey: return .stringSet(allowEmpty: true)
         case retroModeKey, subtitlesFullscreenKey, autoSubsForeignAudioKey: return .bool
         case subtitleLanguageKey, audioLanguageKey: return .string
         default: return nil

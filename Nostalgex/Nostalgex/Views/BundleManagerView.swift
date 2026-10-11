@@ -464,6 +464,17 @@ struct SettingsPageView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 6)
 
+                // Only when the range is actually full (CH 300-499); otherwise nothing.
+                let overCap = appState.dynamicChannelsOverCap[.franchises, default: 0]
+                if overCap > 0 {
+                    Text("Up to \(CollectionCategory.franchises.displayCapacity) franchise channels fit in the guide. \(overCap) more are switched on but not shown.")
+                        .font(.custom("DMMono-Regular", size: 18))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 6)
+                }
+
                 if !listed.isEmpty {
                     let allOn = listed.allSatisfy(\.enabled)
                     let allOff = !listed.contains(where: \.enabled)

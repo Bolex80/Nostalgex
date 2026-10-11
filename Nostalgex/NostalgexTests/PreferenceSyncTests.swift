@@ -117,6 +117,15 @@ final class PreferenceSyncMergeTests: XCTestCase {
         XCTAssertEqual(plan.pushToCloud[PreferenceSync.enabledFranchisesKey] as? [String], ["a", "b"])
     }
 
+    func testDisabledFranchisesKeySyncsAlongsideTheEnabledOne() {
+        // Without it, a TV that never saw the viewer switch STAR TREK off would put the
+        // default-on channel back.
+        XCTAssertTrue(keys.contains(PreferenceSync.disabledFranchisesKey))
+        XCTAssertEqual(PreferenceSync.disabledFranchisesKey, "nostalgex_disabled_franchises")
+        XCTAssertEqual(PreferenceSync.disabledFranchisesKey, AppState.disabledFranchisesKey)
+        XCTAssertEqual(PreferenceSync.kind(of: PreferenceSync.disabledFranchisesKey), .stringSet(allowEmpty: true))
+    }
+
     func testSyncSwitchItselfIsNeverASyncedKey() {
         XCTAssertFalse(keys.contains(PreferenceSync.syncEnabledKey))
         XCTAssertNil(PreferenceSync.kind(of: PreferenceSync.syncEnabledKey))
@@ -460,6 +469,19 @@ final class PreferenceSyncAppStateTests: XCTestCase {
         XCTAssertEqual(state.enabledFranchiseIDs, ["alien", "from-another-library"], "unknown ids are kept")
         XCTAssertEqual(UserDefaults.standard.stringArray(forKey: AppState.enabledFranchisesKey), ["alien", "from-another-library"])
         XCTAssertEqual(store.writes.count, writesBefore, "an incoming value must not be written back to iCloud")
+    }
+
+    func testAnExplicitOffArrivingFromAnotherTVIsKept() {
+        state.disabledFranchiseIDs = []
+        state.saveFranchisePreferences()
+        XCTAssertEqual(store.values[PreferenceSync.disabledFranchisesKey] as? [String], [])
+
+        store.values[PreferenceSync.disabledFranchisesKey] = ["dict:STAR TREK"]
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange,
+                                  changedKeys: [PreferenceSync.disabledFranchisesKey])
+
+        XCTAssertEqual(state.disabledFranchiseIDs, ["dict:STAR TREK"])
+        XCTAssertEqual(UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey), ["dict:STAR TREK"])
     }
 
     // MARK: Behaviour once on

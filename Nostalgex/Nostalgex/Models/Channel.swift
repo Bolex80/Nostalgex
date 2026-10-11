@@ -55,12 +55,31 @@ enum CollectionCategory: String, CaseIterable {
 
     /// What the viewer sees on the row. Ids are large so they can never collide; the
     /// numbers stay the short ones people recognise.
+    ///
+    /// Each category owns a block of 200 display numbers, clear of everything
+    /// channels.json numbers (1-140, music videos 200-213). They used to start at 220
+    /// and 260, which left found franchises forty numbers: a library with 86 franchises
+    /// ran past 260 under ADD ALL and two rows showed the same number, interleaved in
+    /// the guide (it sorts by number). `displayNumberEnd` is a hard cap; see
+    /// `AppState.materializeDynamicChannels`.
     var displayNumberBase: Int {
         switch self {
-        case .franchises: return 220
-        case .custom:     return 260
+        case .franchises: return 300
+        case .custom:     return 500
         }
     }
+
+    /// Last display number this category may hand out. Enabled items past it are not
+    /// built rather than spilling into the next category's numbers.
+    var displayNumberEnd: Int {
+        switch self {
+        case .franchises: return 499
+        case .custom:     return 699
+        }
+    }
+
+    /// How many channels fit in `displayNumberBase...displayNumberEnd` (200 each).
+    var displayCapacity: Int { displayNumberEnd - displayNumberBase + 1 }
 
     /// Ordinal 1 belonged to NOTABLE STARS and stays unused so `.custom` keeps the id
     /// range it always had.

@@ -509,12 +509,20 @@ extension AppState {
 
         syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: false)
 
+        // Each category hands out at most `displayCapacity` numbers. Anything enabled past
+        // that is not built, so a big library can never reach the next category's numbers.
+        var overCap: [CollectionCategory: Int] = [:]
+
         // Found franchises first. They are not a bundle of their own: applyBundleFilter
         // shows them whenever the stock FRANCHISES package is on.
         var franchiseSlot = 0
         var franchiseIDs: [Int] = []
         let franchiseRange = CollectionCategory.franchises
         for franchise in foundFranchises where franchise.enabled && !franchise.isCoveredByStock {
+            guard franchiseSlot < franchiseRange.displayCapacity else {
+                overCap[franchiseRange, default: 0] += 1
+                continue
+            }
             let channelID = franchiseRange.idBase + franchiseSlot
             let displayNumber = franchiseRange.displayNumberBase + franchiseSlot
             let colorHex = Self.collectionColors[franchiseSlot % Self.collectionColors.count]
@@ -552,6 +560,10 @@ extension AppState {
             var slot = category == .franchises ? franchiseSlot : 0
 
             for dc in enabledInCategory {
+                guard slot < category.displayCapacity else {
+                    overCap[category, default: 0] += 1
+                    continue
+                }
                 let channelID = category.idBase + slot
                 let displayNumber = category.displayNumberBase + slot
                 let colorHex = Self.collectionColors[slot % Self.collectionColors.count]
@@ -583,6 +595,11 @@ extension AppState {
             bundles.append(bundle)
             print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(enabledInCategory.count)/\(categoryCollections.count) enabled -> \(channelIDs.count) channels")
         }
+
+        for (category, skipped) in overCap.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(skipped) enabled channel(s) skipped, CH \(category.displayNumberBase)-\(category.displayNumberEnd) is full (\(category.displayCapacity) max)")
+        }
+        if overCap != dynamicChannelsOverCap { dynamicChannelsOverCap = overCap }
 
         allChannels.sort { $0.number < $1.number }
         saveBundlePreferences()

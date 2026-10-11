@@ -43,9 +43,17 @@ struct FranchiseDefinition {
 
     /// Marvel is defined by studio (CH101 carries a `studios` rule), not by collection
     /// grouping: its films live in dozens of tiny TMDB collections. When true the
-    /// builder never folds `franchiseID` groups into this franchise; the stock
-    /// channel's own studio rule owns membership. Documented here so Phase 2 knows.
+    /// builder never places a FILM in this franchise (no `franchiseID` grouping, no
+    /// `filmTitles`, no name tokens); the stock channel's studio rule owns the films.
+    /// TV still joins, by exact `tvShowTitles` only, since a studio rule cannot see
+    /// shows (CH101's rule is `type: movie`).
     let studioRuled: Bool
+
+    /// A found franchise with this flag starts switched ON (a dynamic franchise only;
+    /// a stock fold is always on with the package). The viewer can still turn it off,
+    /// and that choice is kept (`nostalgex_disabled_franchises`). Nothing is built when
+    /// the library has none of it: the usual three-film gate still applies.
+    let defaultOn: Bool
 
     init(canonicalName: String,
          stockChannelID: Int? = nil,
@@ -53,7 +61,8 @@ struct FranchiseDefinition {
          nameMatchTokens: [String] = [],
          tvShowTitles: [String] = [],
          filmTitles: [String] = [],
-         studioRuled: Bool = false) {
+         studioRuled: Bool = false,
+         defaultOn: Bool = false) {
         self.canonicalName = canonicalName
         self.stockChannelID = stockChannelID
         self.tmdbCollectionIDs = tmdbCollectionIDs
@@ -61,7 +70,11 @@ struct FranchiseDefinition {
         self.tvShowTitles = tvShowTitles
         self.filmTitles = filmTitles
         self.studioRuled = studioRuled
+        self.defaultOn = defaultOn
     }
+
+    /// The `FoundFranchise` / `FranchiseGrouping.stableID` this definition produces.
+    var stableID: String { "dict:\(canonicalName)" }
 }
 
 /// STARTER SET, CHAD TO REVIEW.
@@ -115,8 +128,28 @@ enum FranchiseDictionary {
             // Intentionally empty: CH101 is a studio channel (studios: ["Marvel
             // Studios"]). MCU films scatter across dozens of tiny TMDB collections
             // (Iron Man Collection, Avengers Collection, ...), so franchiseID grouping
-            // is the wrong tool. The builder leaves CH101 to its studio rule.
+            // is the wrong tool. The builder leaves CH101's films to its studio rule.
             tmdbCollectionIDs: [],
+            // Shows join CH101 by EXACT title (case and punctuation ignored, see
+            // `FranchiseChannelBuilder.explicitTitleKey`), never by token, so a short
+            // title like "Echo" cannot pull in "Echo Park". Chad can trim this list:
+            // drop the Netflix and ABC era if they should not air next to the MCU.
+            // The "Marvel's ..." spellings are how TVDB and older Plex agents title them.
+            tvShowTitles: [
+                // Disney+ MCU
+                "WandaVision", "The Falcon and the Winter Soldier", "Loki", "What If...?",
+                "Hawkeye", "Moon Knight", "Ms. Marvel", "She-Hulk: Attorney at Law",
+                "Secret Invasion", "Echo", "Agatha All Along", "Daredevil: Born Again",
+                "Ironheart",
+                // Netflix era
+                "Daredevil", "Jessica Jones", "Luke Cage", "Iron Fist", "The Defenders",
+                "The Punisher",
+                "Marvel's Daredevil", "Marvel's Jessica Jones", "Marvel's Luke Cage",
+                "Marvel's Iron Fist", "Marvel's The Defenders", "Marvel's The Punisher",
+                // ABC era
+                "Agents of S.H.I.E.L.D.", "Agent Carter", "Inhumans",
+                "Marvel's Agents of S.H.I.E.L.D.", "Marvel's Agent Carter", "Marvel's Inhumans"
+            ],
             studioRuled: true
         ),
 
@@ -183,7 +216,8 @@ enum FranchiseDictionary {
                 "Star Trek: Voyager", "Star Trek: Enterprise", "Star Trek: Discovery",
                 "Star Trek: Picard", "Star Trek: Strange New Worlds",
                 "Star Trek: Lower Decks", "Star Trek: Prodigy", "Star Trek: The Original Series"
-            ]
+            ],
+            defaultOn: true
         ),
 
         FranchiseDefinition(
@@ -192,7 +226,8 @@ enum FranchiseDictionary {
             // Tokyo Drift and Hobbs & Shaw (verified against TMDB 2026-10-10).
             tmdbCollectionIDs: [9485],
             nameMatchTokens: ["fast & furious", "fast and furious", "fast saga"],
-            tvShowTitles: ["Fast & Furious Spy Racers"]
+            tvShowTitles: ["Fast & Furious Spy Racers"],
+            defaultOn: true
         ),
 
         FranchiseDefinition(
@@ -287,6 +322,18 @@ enum FranchiseDictionary {
 
     static func definition(forFranchiseID id: Int) -> FranchiseDefinition? {
         byCollectionID[id]
+    }
+
+    /// Stable ids of the franchises that start switched on (STAR TREK, FAST & FURIOUS).
+    static let defaultOnIDs: Set<String> = Set(all.filter(\.defaultOn).map(\.stableID))
+
+    /// Whether a found franchise is on: an explicit choice wins either way, otherwise
+    /// the dictionary default. Shared by the rebuild, the snapshot restore and iCloud
+    /// arrivals so all three agree.
+    static func isOn(_ id: String, enabledIDs: Set<String>, disabledIDs: Set<String>) -> Bool {
+        if enabledIDs.contains(id) { return true }
+        if disabledIDs.contains(id) { return false }
+        return defaultOnIDs.contains(id)
     }
 
     /// Strip a trailing " Collection" (case insensitive) and tidy whitespace.

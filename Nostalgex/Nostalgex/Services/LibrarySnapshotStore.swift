@@ -35,7 +35,8 @@ struct StoredDiscoveredCollection: Codable {
 }
 
 /// One found franchise (see `FoundFranchise`). Enabled state is NOT stored here: it
-/// lives in UserDefaults under `nostalgex_enabled_franchises` and is applied on restore.
+/// lives in UserDefaults under `nostalgex_enabled_franchises` and
+/// `nostalgex_disabled_franchises` and is applied on restore.
 struct StoredFoundFranchise: Codable {
     let id: String
     let name: String
@@ -289,7 +290,8 @@ extension StoredFoundFranchise {
         )
     }
 
-    func resolve(itemLookup: [String: PlexMediaItem], enabledIDs: Set<String>) -> FoundFranchise {
+    func resolve(itemLookup: [String: PlexMediaItem], enabledIDs: Set<String>,
+                 disabledIDs: Set<String> = []) -> FoundFranchise {
         FoundFranchise(
             id: id,
             name: name,
@@ -297,7 +299,8 @@ extension StoredFoundFranchise {
             tvItems: tvRatingKeys.compactMap { itemLookup[$0] },
             coveredByChannelID: coveredByChannelID,
             fromDictionary: fromDictionary,
-            enabled: coveredByChannelID == nil && enabledIDs.contains(id)
+            enabled: coveredByChannelID == nil
+                && FranchiseDictionary.isOn(id, enabledIDs: enabledIDs, disabledIDs: disabledIDs)
         )
     }
 }

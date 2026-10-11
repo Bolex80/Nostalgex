@@ -305,6 +305,57 @@ final class FranchiseChannelTests: XCTestCase {
         XCTAssertTrue(marvel?.tmdbCollectionIDs.isEmpty ?? false)
     }
 
+    // MARK: - Marvel TV joins CH101 by exact title
+
+    func testMarvelShowsFoldIntoCH101ByExactTitle() {
+        let tv = [
+            show("l1", "Loki"), show("l2", "Loki (2021)"),
+            show("w1", "What If...?"), show("w2", "What If\u{2026}?"), show("w3", "What If"),
+            show("s1", "Agents of S.H.I.E.L.D."), show("s2", "Marvel's Agents of S.H.I.E.L.D."),
+            show("s3", "Marvel\u{2019}s Agents of S.H.I.E.L.D"),
+            show("h1", "She-Hulk: Attorney at Law"), show("h2", "She Hulk Attorney at Law"),
+            show("e1", "Echo"),
+            // Not Marvel: a token would have taken these, exact match must not.
+            show("x1", "Echo Park"), show("x2", "Echoes"), show("x3", "Loki and Friends"),
+            show("x4", "What If We Were Kings")
+        ]
+        let groupings = FranchiseChannelBuilder.build(
+            movies: [], tvItems: tv, enrichmentFor: { _ in nil }, availableStockChannelIDs: [101])
+
+        let marvel = groupings.first { $0.placement == .stock(channelID: 101) }
+        XCTAssertEqual(marvel?.name, "MARVEL")
+        XCTAssertEqual(marvel?.movies.count, 0)
+        XCTAssertEqual(Set(marvel?.tvItems.map(\.id) ?? []),
+                       ["l1", "l2", "w1", "w2", "w3", "s1", "s2", "s3", "h1", "h2", "e1"])
+    }
+
+    func testMarvelFilmsNeverJoinByTitle() {
+        // "Echo" and "Loki" are on MARVEL's TV list; a film with that title stays out.
+        // CH101's films come only from its studio rule.
+        let movies = [movie("f1", "Echo"), movie("f2", "Loki"), movie("f3", "Daredevil")]
+        let groupings = FranchiseChannelBuilder.build(
+            movies: movies, enrichmentFor: { _ in nil }, availableStockChannelIDs: [101])
+        XCTAssertTrue(groupings.isEmpty)
+        XCTAssertNil(FranchiseChannelBuilder.dictionaryMatch(forFilmTitle: "Echo"))
+    }
+
+    func testMarvelShowsWithoutCH101BuildNothing() {
+        // TV alone never makes a dynamic channel, so with CH101 absent nothing is built.
+        let groupings = FranchiseChannelBuilder.build(
+            movies: [], tvItems: [show("l1", "Loki"), show("l2", "Hawkeye")],
+            enrichmentFor: { _ in nil }, availableStockChannelIDs: [])
+        XCTAssertTrue(groupings.isEmpty)
+    }
+
+    func testExplicitTitleKeyIgnoresCaseAndPunctuationOnly() {
+        let key = FranchiseChannelBuilder.explicitTitleKey
+        XCTAssertEqual(key("What If...?"), "what if")
+        XCTAssertEqual(key("Ms. Marvel"), "ms marvel")
+        XCTAssertEqual(key("Agents of S.H.I.E.L.D. (2013)"), "agents of s h i e l d")
+        XCTAssertEqual(key("Marvel's Daredevil"), key("Marvel\u{2019}s Daredevil"))
+        XCTAssertNotEqual(key("Echo"), key("Echo Park"))
+    }
+
     // MARK: - Server-collection fold helper
 
     func testServerCollectionMapsToStockChannel() {

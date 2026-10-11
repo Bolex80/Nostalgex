@@ -388,11 +388,20 @@ class AppState {
     /// Franchises the builder found in the library, stock folds included. Rebuilt after
     /// every enrichment pass and restored from the snapshot in between.
     var foundFranchises: [FoundFranchise] = []
-    /// Stable franchise ids the viewer switched on. Found franchises default OFF. Kept as
-    /// a plain string array in UserDefaults so a later iCloud sync can carry it as-is.
+    /// Stable franchise ids the viewer switched on. Found franchises default OFF, except
+    /// the few the dictionary marks `defaultOn`. Kept as a plain string array in
+    /// UserDefaults so iCloud sync can carry it as-is.
     var enabledFranchiseIDs: Set<String> = Set(
         UserDefaults.standard.stringArray(forKey: AppState.enabledFranchisesKey) ?? []
     )
+    /// Stable franchise ids the viewer switched OFF. Only changes the outcome for a
+    /// `defaultOn` franchise: it stays off across launches and rescans once turned off.
+    var disabledFranchiseIDs: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey) ?? []
+    )
+    /// Enabled items per category that did not get a channel because the category's
+    /// display range was full (see `CollectionCategory.displayNumberEnd`). Zero normally.
+    var dynamicChannelsOverCap: [CollectionCategory: Int] = [:]
     /// Runtime channel ids of the found franchises currently materialised. They ride on
     /// the FRANCHISES bundle switch rather than a bundle of their own.
     var foundFranchiseChannelIDs: [Int] = []

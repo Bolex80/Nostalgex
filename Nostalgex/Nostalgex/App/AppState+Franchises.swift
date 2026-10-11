@@ -59,6 +59,7 @@ struct FoundFranchise: Identifiable, Equatable {
 extension AppState {
 
     static let enabledFranchisesKey = PreferenceSync.enabledFranchisesKey
+    static let disabledFranchisesKey = PreferenceSync.disabledFranchisesKey
     /// The stock FRANCHISES bundle in channels.json (CH100-106). Found franchise channels
     /// ride on this switch.
     static let franchisesBundleID = "franchises"
@@ -126,7 +127,8 @@ extension AppState {
                 tvItems: g.tvItems,
                 coveredByChannelID: covered,
                 fromDictionary: g.fromDictionary,
-                enabled: covered == nil && enabledFranchiseIDs.contains(g.stableID)
+                enabled: covered == nil && FranchiseDictionary.isOn(
+                    g.stableID, enabledIDs: enabledFranchiseIDs, disabledIDs: disabledFranchiseIDs)
             )
         }
 
@@ -277,11 +279,7 @@ extension AppState {
               !foundFranchises[idx].isCoveredByStock else { return }
         foundFranchises[idx].enabled.toggle()
         let nowEnabled = foundFranchises[idx].enabled
-        if nowEnabled {
-            enabledFranchiseIDs.insert(franchise.id)
-        } else {
-            enabledFranchiseIDs.remove(franchise.id)
-        }
+        recordFranchiseChoice(franchise.id, on: nowEnabled)
         // No id in the event: a franchise id says which films the viewer owns.
         Analytics.track(.settingChanged(key: "franchise", value: nowEnabled ? "true" : "false"))
         saveFranchisePreferences()
@@ -298,11 +296,7 @@ extension AppState {
                 foundFranchises[i].enabled = enabled
                 changed = true
             }
-            if enabled {
-                enabledFranchiseIDs.insert(foundFranchises[i].id)
-            } else {
-                enabledFranchiseIDs.remove(foundFranchises[i].id)
-            }
+            recordFranchiseChoice(foundFranchises[i].id, on: enabled)
         }
         guard changed else { return }
         Analytics.track(.settingChanged(key: "franchise:all", value: enabled ? "true" : "false"))
@@ -312,20 +306,38 @@ extension AppState {
         reselectIfCurrentChannelLeft()
     }
 
+    /// An explicit on or off. Both sets are kept so a default-on franchise the viewer
+    /// switched off is not switched back on by the next rebuild (`FranchiseDictionary.isOn`).
+    private func recordFranchiseChoice(_ id: String, on: Bool) {
+        if on {
+            enabledFranchiseIDs.insert(id)
+            disabledFranchiseIDs.remove(id)
+        } else {
+            enabledFranchiseIDs.remove(id)
+            disabledFranchiseIDs.insert(id)
+        }
+    }
+
     func saveFranchisePreferences() {
         let ids = Array(enabledFranchiseIDs).sorted()
         UserDefaults.standard.set(ids, forKey: Self.enabledFranchisesKey)
         preferenceSync.record(PreferenceSync.enabledFranchisesKey, value: ids)
+        let offIDs = Array(disabledFranchiseIDs).sorted()
+        UserDefaults.standard.set(offIDs, forKey: Self.disabledFranchisesKey)
+        preferenceSync.record(PreferenceSync.disabledFranchisesKey, value: offIDs)
     }
 
     /// Replaces the switched-on franchise ids (an iCloud arrival) and rebuilds the lineup
     /// the way `toggleFranchise` does. Ids for franchises this library does not have are
-    /// kept so they survive a round trip and simply match nothing here.
-    func applyEnabledFranchiseIDs(_ ids: Set<String>) {
+    /// kept so they survive a round trip and simply match nothing here. `disabled` is
+    /// the explicit-off set when it arrived too; nil keeps this TV's.
+    func applyEnabledFranchiseIDs(_ ids: Set<String>, disabled: Set<String>? = nil) {
         enabledFranchiseIDs = ids
+        if let disabled { disabledFranchiseIDs = disabled }
         var changed = false
         for i in foundFranchises.indices where !foundFranchises[i].isCoveredByStock {
-            let on = ids.contains(foundFranchises[i].id)
+            let on = FranchiseDictionary.isOn(
+                foundFranchises[i].id, enabledIDs: enabledFranchiseIDs, disabledIDs: disabledFranchiseIDs)
             if foundFranchises[i].enabled != on {
                 foundFranchises[i].enabled = on
                 changed = true

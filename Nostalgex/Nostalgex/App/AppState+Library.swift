@@ -622,7 +622,7 @@ extension AppState {
         // The enrichment cache is empty until the next scan, so the found list cannot be
         // rebuilt here; it is restored as saved, with the viewer's current switches applied.
         foundFranchises = (snap.foundFranchiseRows ?? []).map {
-            $0.resolve(itemLookup: itemById, enabledIDs: enabledFranchiseIDs)
+            $0.resolve(itemLookup: itemById, enabledIDs: enabledFranchiseIDs, disabledIDs: disabledFranchiseIDs)
         }
 
         scanSectionIndex = 0

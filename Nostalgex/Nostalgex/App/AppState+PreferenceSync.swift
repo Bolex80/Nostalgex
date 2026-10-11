@@ -25,8 +25,14 @@ extension AppState: PreferenceSyncApplying {
         if let v = values[PreferenceSync.enabledBundlesKey] as? [String], !v.isEmpty, Set(v) != enabledBundleIDs {
             applyEnabledBundleIDs(Set(v))
         }
-        if let v = values[PreferenceSync.enabledFranchisesKey] as? [String], Set(v) != enabledFranchiseIDs {
-            applyEnabledFranchiseIDs(Set(v))
+        // On and off arrive as two keys and may come together or alone; apply them as one
+        // change so a default-on franchise is never briefly rebuilt in the wrong state.
+        let incomingOn = (values[PreferenceSync.enabledFranchisesKey] as? [String]).map(Set.init)
+        let incomingOff = (values[PreferenceSync.disabledFranchisesKey] as? [String]).map(Set.init)
+        let onChanged = incomingOn.map { $0 != enabledFranchiseIDs } ?? false
+        let offChanged = incomingOff.map { $0 != disabledFranchiseIDs } ?? false
+        if onChanged || offChanged {
+            applyEnabledFranchiseIDs(incomingOn ?? enabledFranchiseIDs, disabled: incomingOff)
         }
     }
 

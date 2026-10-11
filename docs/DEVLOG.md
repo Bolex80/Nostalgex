@@ -3,6 +3,42 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (franchise numbers, Marvel TV, default-on franchises, branch only)
+
+**Shipped.** Nothing. Branch `franchise-polish`, cut from `stock-fold` at
+`be67d61`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** Three changes on `franchise-polish`:
+
+- Runtime channel numbers collided. Found franchises numbered from 220 and
+  OTHER COLLECTIONS from 260, so a library with 86 three-film franchises under
+  ADD ALL ran franchise numbers to 305 and two rows shared a number,
+  interleaved in the guide (it sorts by number). Ids were never the problem
+  (they live at 1,000,000+). Franchises now take CH 300-499 and collections
+  CH 500-699, each a hard cap of 200: enabled items past the end are not built,
+  the log says how many, and Settings shows one quiet line under FOUND IN YOUR
+  LIBRARY only when the franchise range is full. Saved choices are ids, never
+  numbers, so nothing a viewer switched on is lost; a stale row from an old
+  snapshot is rebuilt on the new number. channels.json is untouched (1-140,
+  music videos 200-213). The web tuner builds no collection or franchise
+  channels at all, so it needed nothing.
+- MARVEL (CH101) now carries TV. Its films stay with the `studios` rule; shows
+  join by exact title only (case and punctuation ignored, so "What If...?",
+  "What If…?" and "S.H.I.E.L.D" without the last dot all match, and "Echo"
+  cannot take "Echo Park"). The list covers the Disney+ MCU shows, the Netflix
+  era and the ABC era, plus the "Marvel's ..." spellings older agents use. It
+  is editorial and can be trimmed in `FranchiseDictionary.swift`.
+- STAR TREK and FAST & FURIOUS start switched on (`defaultOn`). An explicit
+  off is kept in `nostalgex_disabled_franchises`, which iCloud sync carries
+  next to the enabled list, so a viewer who removed one does not get it back
+  on the next rescan, relaunch or other Apple TV. No films, no channel, same
+  three-film gate as before.
+
+16 new tests; full `NostalgexTests` 591 passed, 0 failed, 2 skipped (the two
+live harnesses). Not run on a device or against a real library.
+
 ## 2026-10-11 (stock franchise channels mix movies and shows, branch only)
 
 **Shipped.** Nothing. Branch `stock-fold`, cut from `enrichment-proxy` at

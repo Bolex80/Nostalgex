@@ -170,7 +170,10 @@ enum FranchiseChannelBuilder {
             let titleLower = Self.normalizedTitle(tv.title)
 
             // Dictionary first: explicit titles, then name tokens. Explicit beats token.
-            if let def = Self.dictionaryMatch(title: tv.title, explicit: \.tvShowTitles, definitions: definitions) {
+            // A studio-ruled franchise (MARVEL) takes shows here by exact title only;
+            // its films never reach a bucket, so the stock fold below carries just TV.
+            if let def = Self.dictionaryMatch(title: tv.title, explicit: \.tvShowTitles,
+                                              definitions: definitions, includeStudioRuled: true) {
                 let key = keyForDefinition(def)
                 var bucket = buckets[key] ?? Bucket(name: def.canonicalName, definition: def)
                 bucket.tvItems.append(tv)
@@ -279,15 +282,21 @@ enum FranchiseChannelBuilder {
     /// Shared matcher for films and TV: an exact hit on the explicit list wins across
     /// every definition before any token is tried, so a show that is listed under one
     /// franchise cannot be stolen by another franchise's broad token.
+    ///
+    /// `includeStudioRuled` lets a studio-ruled franchise answer the EXACT-title pass
+    /// (TV only). Its tokens are never tried, and films never pass it in, so CH101's
+    /// films stay with its studio rule.
     private static func dictionaryMatch(title: String,
                                         explicit: KeyPath<FranchiseDefinition, [String]>,
-                                        definitions: [FranchiseDefinition]) -> FranchiseDefinition? {
-        let titleLower = normalizedTitle(title)
-        for def in definitions where !def.studioRuled {
-            if def[keyPath: explicit].contains(where: { normalizedTitle($0) == titleLower }) {
+                                        definitions: [FranchiseDefinition],
+                                        includeStudioRuled: Bool = false) -> FranchiseDefinition? {
+        let titleKey = explicitTitleKey(title)
+        for def in definitions where includeStudioRuled || !def.studioRuled {
+            if def[keyPath: explicit].contains(where: { explicitTitleKey($0) == titleKey }) {
                 return def
             }
         }
+        let titleLower = normalizedTitle(title)
         for def in definitions where !def.studioRuled {
             if def.nameMatchTokens.contains(where: { titleContainsToken(titleLower, $0) }) {
                 return def
@@ -309,6 +318,29 @@ enum FranchiseChannelBuilder {
               chars[4].isNumber, chars[5].isNumber,
               chars[6] == ")" else { return s }
         return String(s[..<endIdx])
+    }
+
+    /// Key for EXACT title lists: `normalizedTitle`, then every run of punctuation and
+    /// whitespace collapsed to one space. Servers disagree on punctuation, so "What
+    /// If...?", "What If…?" and "What If" are one key, as are "Agents of S.H.I.E.L.D."
+    /// and "Agents of S.H.I.E.L.D" or "She-Hulk: Attorney at Law" and "She Hulk
+    /// Attorney at Law". Still whole-title equality, never containment.
+    static func explicitTitleKey(_ raw: String) -> String {
+        var out = ""
+        var pendingSpace = false
+        for ch in normalizedTitle(raw) {
+            if ch.isLetter || ch.isNumber {
+                if pendingSpace && !out.isEmpty { out.append(" ") }
+                pendingSpace = false
+                out.append(ch)
+            } else if ch == "'" || ch == "\u{2019}" {
+                // "Marvel's" and "Marvel’s" read the same; an apostrophe never splits a word.
+                continue
+            } else {
+                pendingSpace = true
+            }
+        }
+        return out
     }
 
     /// Word-boundary, case-insensitive containment so "star wars" matches "Star Wars

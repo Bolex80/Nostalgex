@@ -10,9 +10,10 @@ import Foundation
 ///
 /// For **static** channels (defined in the app's own `channels.json`) we send:
 /// - `channelType = "static"`
-/// - `channelID`  = the fixed id from `channels.json` (1..411 today; 220-349 is
-///   reserved for discovered-collection channels and must stay clear), same on
-///   every device — this is what "which channel is watched most" filters on.
+/// - `channelID`  = the fixed id from `channels.json` (1..414 today; runtime
+///   collection and franchise channels take ids from 1,000,000 up, see
+///   `ChannelIDSpace`), same on every device — this is what "which channel is
+///   watched most" filters on.
 /// - `channelName` = the fixed display name from the app's **bundled**
 ///   `channels.json` for that id (e.g. `REWATCHABLES MOVIES`, `KIDZ CARTOONS`).
 ///   Deliberately NOT `Channel.name` at runtime — that could be overridden by
