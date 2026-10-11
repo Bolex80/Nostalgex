@@ -162,7 +162,28 @@ async function fetchDetails(id, mediaType) {
     originalLanguage: data.original_language || "",
     originCountries: data.origin_country || [],
     productionCountries: (data.production_countries || []).map((c) => c.iso_3166_1),
+    productionCompanies: (data.production_companies || []).map((c) => (c.name || "").toLowerCase()),
   };
+}
+
+// Per-channel candidate gate. Every non-exemplar claim (TMDB recs/similar,
+// explicit collection members, auto-swept siblings) must pass it.
+//   requireGenres              — at least one TMDB genre in the list
+//   requireOriginalLanguage    — original_language in the list
+//   requireProductionCompanies — at least one TMDB production company whose
+//                                name contains one of these strings
+// Returns null when the item passes, or a short reason when it is dropped.
+function gateReason(det, wantGenres, wantLangs, wantCompanies) {
+  const genreOK = !wantGenres.length || det.genres.some((g) => wantGenres.includes(g.toLowerCase()));
+  const langOK = !wantLangs.length || wantLangs.includes((det.originalLanguage || "").toLowerCase());
+  const companies = det.productionCompanies || [];
+  const companyOK = !wantCompanies.length || companies.some((pc) => wantCompanies.some((w) => pc.includes(w)));
+  if (genreOK && langOK && companyOK) return null;
+  return [
+    !genreOK && `genres ${det.genres.join("/") || "none"}`,
+    !langOK && `lang ${det.originalLanguage || "?"}`,
+    !companyOK && `companies ${companies.join("/") || "none"}`,
+  ].filter(Boolean).join(", ");
 }
 
 // Global locks declare "any item with signal X can only appear on channel Y."
@@ -245,6 +266,7 @@ async function processChannel(ch, globalLocks = []) {
     for (const cid of collectionsList) {
       const col = await getCollectionMembersCached(cid);
       console.error(`  📦 Collection ${cid} "${col.name}" — ${col.members.length} members`);
+      if (!col.members.length) console.error(`  ⚠️  collection ${cid} returned no members — dead or wrong id in tmdbCollections`);
       explicitCollections.push({ collectionID: cid, collectionName: col.name, members: col.members });
     }
   }
@@ -315,8 +337,10 @@ async function processChannel(ch, globalLocks = []) {
   // call each); lower-confidence rows pass through unchanged.
   const wantGenres = (ch.requireGenres || []).map((g) => g.toLowerCase());
   const wantLangs = (ch.requireOriginalLanguage || []).map((l) => l.toLowerCase());
+  const wantCompanies = (ch.requireProductionCompanies || []).map((c) => c.toLowerCase());
+  const hasGate = wantGenres.length || wantLangs.length || wantCompanies.length;
   const minRelated = Number(process.env.MIN_RELATED || 2);
-  if (wantGenres.length || wantLangs.length || globalLocks.length) {
+  if (hasGate || globalLocks.length) {
     const gated = [];
     for (const rel of rankedRelated) {
       if (rel.count < minRelated) { gated.push(rel); continue; }
@@ -326,13 +350,11 @@ async function processChannel(ch, globalLocks = []) {
         console.error(`  🔒 lock dropped "${rel.name}" — globally locked to CH ${lockedTo}`);
         continue;
       }
-      const genreOK = !wantGenres.length || det.genres.some((g) => wantGenres.includes(g.toLowerCase()));
-      const langOK = !wantLangs.length || wantLangs.includes((det.originalLanguage || "").toLowerCase());
-      if (genreOK && langOK) {
+      const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+      if (!why) {
         if (lockedTo != null) rel._exclusiveTo = lockedTo;
         gated.push(rel);
       } else {
-        const why = [!genreOK && `genres ${det.genres.join("/") || "none"}`, !langOK && `lang ${det.originalLanguage || "?"}`].filter(Boolean).join(", ");
         console.error(`  ⊘ gate dropped "${rel.name}" — ${why}`);
       }
     }
@@ -342,19 +364,20 @@ async function processChannel(ch, globalLocks = []) {
   // Gate Pattern A (explicit collections) and Pattern B (collection siblings).
   // Without this, claiming a single film with belongs_to_collection sweeps the
   // entire series in — which is how the full Jurassic Park Collection ended up
-  // in DOCS via Fallen Kingdom, and similar leakage in ANIME.
+  // in DOCS via Fallen Kingdom, and similar leakage in ANIME. Explicit
+  // collections are gated too: a wrong id in tmdbCollections (MARVEL listed
+  // 295, the Pirates of the Caribbean Collection) otherwise claims a whole
+  // unrelated franchise with nothing to stop it.
   async function gateCollectionMember(member, label) {
-    if (!wantGenres.length && !wantLangs.length && !globalLocks.length) return { ok: true };
+    if (!hasGate && !globalLocks.length) return { ok: true };
     const det = await getDetailsCached(member.id, ch.mediaType);
     const lockedTo = findGlobalLock(det, globalLocks);
     if (lockedTo != null && lockedTo !== ch.id) {
       console.error(`  🔒 ${label} lock dropped "${member.name}" — locked to CH ${lockedTo}`);
       return { ok: false };
     }
-    const genreOK = !wantGenres.length || det.genres.some((g) => wantGenres.includes(g.toLowerCase()));
-    const langOK = !wantLangs.length || wantLangs.includes((det.originalLanguage || "").toLowerCase());
-    if (!genreOK || !langOK) {
-      const why = [!genreOK && `genres ${det.genres.join("/") || "none"}`, !langOK && `lang ${det.originalLanguage || "?"}`].filter(Boolean).join(", ");
+    const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+    if (why) {
       console.error(`  ⊘ ${label} dropped "${member.name}" — ${why}`);
       return { ok: false };
     }
