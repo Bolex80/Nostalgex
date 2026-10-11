@@ -177,6 +177,8 @@ extension AppState {
 
         let dynamicChannels = allChannels.filter { $0.rules == nil }
         allChannels = (validStatic + dynamicChannels).sorted { $0.number < $1.number }
+        // The stock pools were just rebuilt from their rules alone.
+        foldCoveredFranchisesIntoStockPools()
         applyBundleFilter()
 
         let newCount = validStatic.count

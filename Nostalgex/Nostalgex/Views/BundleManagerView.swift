@@ -509,8 +509,8 @@ struct SettingsPageView: View {
                 ForEach(covered) { franchise in
                     FranchiseCoveredRow(
                         title: franchise.name,
-                        subtitle: franchise.countLabel,
-                        detail: "ON CH \(franchise.coveredByChannelID ?? 0)"
+                        subtitle: franchise.coveredLabel,
+                        detail: "ON AIR"
                     )
                 }
             }

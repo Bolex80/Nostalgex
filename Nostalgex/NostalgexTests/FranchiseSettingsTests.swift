@@ -314,4 +314,113 @@ final class FranchiseSettingsTests: XCTestCase {
         state.toggleFranchise(state.listedFoundFranchises[0])
         XCTAssertEqual(state.channels.first { $0.name == "JOHN WICK" }?.itemPool.count, 5)
     }
+
+    // MARK: - Stock pools take what the builder placed on them
+
+    /// CH100 with its real channels.json rule (`type: movie`), built through the same
+    /// path the library load uses.
+    private func starWarsConfigChannel() -> Channel {
+        Channel(id: 100, number: 100, name: "STAR WARS", color: .blue, category: "franchise",
+                rules: ChannelRules(type: .movie, titleContains: ["Star Wars"]),
+                timeRestrictions: nil, minItems: 3)
+    }
+
+    private func marvelConfigChannel() -> Channel {
+        Channel(id: 101, number: 101, name: "MARVEL", color: .red, category: "franchise",
+                rules: ChannelRules(type: .movie, studios: ["Marvel Studios"]),
+                timeRestrictions: nil, minItems: 3)
+    }
+
+    private func marvelFilm(_ id: String, _ title: String) -> PlexMediaItem {
+        PlexMediaItem(
+            id: id, title: title, artist: nil, episodeTitle: nil, seTag: nil,
+            summary: "", year: 2012, originallyAvailableAt: nil, contentRating: nil,
+            duration: 120, ratingKey: id, partKey: nil, container: nil,
+            videoCodec: nil, audioCodec: nil, videoProfile: nil, bitrate: nil,
+            genres: [], rating: 0, userRating: 0, type: .movie, thumb: nil, art: nil,
+            viewCount: 0, addedAt: 0, studio: "Marvel Studios", tmdbID: id, imdbID: nil, librarySource: .movie
+        )
+    }
+
+    private let mandalorian = ["m1", "m2"]
+
+    /// Builds CH100 (and CH101 when asked) from their rules over `items`, then runs the
+    /// franchise rebuild the way the library load does.
+    private func buildStockLineup(_ state: AppState, items: [PlexMediaItem], marvel: Bool = false) async {
+        state.allItems = items
+        var config = [starWarsConfigChannel()]
+        if marvel { config.append(marvelConfigChannel()) }
+        state.allChannels = await state.rebuildStaticChannelPools(
+            configChannels: config, items: items, onlyChannelIDs: Set(config.map(\.id))
+        )
+        state.rebuildFoundFranchises(enrichmentFor: fixtureLookup)
+    }
+
+    private func pool(_ state: AppState, _ channelID: Int) -> [String] {
+        state.allChannels.first { $0.id == channelID }?.itemPool.map(\.id) ?? []
+    }
+
+    func testStarWarsPoolMixesTheFilmsAndTheMandalorian() async {
+        let state = makeState()
+        let items = films(starWars) + mandalorian.map { episode($0, show: "The Mandalorian") }
+
+        // The rule alone: three films, no show.
+        let ruleOnly = await state.rebuildStaticChannelPools(
+            configChannels: [starWarsConfigChannel()], items: items, onlyChannelIDs: [100]
+        )
+        XCTAssertEqual(ruleOnly.first?.itemPool.map(\.id).sorted(), ["sw1", "sw2", "sw3"])
+
+        await buildStockLineup(state, items: items)
+        XCTAssertEqual(pool(state, 100).sorted(), ["m1", "m2", "sw1", "sw2", "sw3"])
+        XCTAssertEqual(state.coveredFoundFranchises.first?.coveredLabel, "3 movies, 1 show on CH 100")
+
+        // A second rebuild with no pool rebuild in between adds nothing twice.
+        state.rebuildFoundFranchises(enrichmentFor: fixtureLookup)
+        XCTAssertEqual(pool(state, 100).count, 5)
+
+        // And the guide sees it.
+        state.applyBundleFilter()
+        XCTAssertEqual(state.channels.first { $0.id == 100 }?.itemPool.count, 5)
+    }
+
+    func testMarvelStudioRuleIsUnchanged() async {
+        let state = makeState()
+        let marvelFilms = [marvelFilm("mv1", "The Avengers"), marvelFilm("mv2", "Iron Man"),
+                           marvelFilm("mv3", "Thor")]
+        let items = films(starWars) + marvelFilms + [episode("loki1", show: "Loki")]
+        await buildStockLineup(state, items: items, marvel: true)
+
+        XCTAssertEqual(pool(state, 101).sorted(), ["mv1", "mv2", "mv3"])
+        XCTAssertNil(state.foundFranchises.first { $0.coveredByChannelID == 101 },
+                     "MARVEL is studio-ruled: the builder places nothing on CH101")
+    }
+
+    func testBundleOffMeansNoUnion() async {
+        let state = makeState()
+        state.enabledBundleIDs = []
+        let items = films(starWars) + mandalorian.map { episode($0, show: "The Mandalorian") }
+        await buildStockLineup(state, items: items)
+
+        XCTAssertEqual(pool(state, 100).sorted(), ["sw1", "sw2", "sw3"])
+    }
+
+    func testItemLockedToAnotherChannelIsNotTaken() async {
+        let state = makeState()
+        // An exclusive rule owns The Mandalorian for CH130; a manifest lock owns one
+        // Andor episode for CH60. The other Andor episode is free.
+        state.exclusiveRules = [
+            ExclusiveRule(channelIDs: [130], genres: [], titleContains: [],
+                          editorialTitles: ["The Mandalorian"], manifestExclusive: false)
+        ]
+        state.channelMemberships = ChannelMemberships(
+            version: 1, generated: "test",
+            items: ["tv:a2": .init(channels: [60], source: nil, name: nil, mediaType: nil, exclusive: 60)]
+        )
+        let items = films(starWars)
+            + mandalorian.map { episode($0, show: "The Mandalorian") }
+            + [episode("a1", show: "Andor"), episode("a2", show: "Andor")]
+        await buildStockLineup(state, items: items)
+
+        XCTAssertEqual(pool(state, 100).sorted(), ["a1", "sw1", "sw2", "sw3"])
+    }
 }

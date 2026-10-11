@@ -178,7 +178,7 @@ enum DemoData {
     /// Real TMDB collection ids (the same ones FranchiseDictionary lists) over invented
     /// item ids. Covers every row kind Settings can show:
     ///   - STAR WARS: titled so CH100's own `titleContains` rule builds the stock channel,
-    ///     so the found franchise folds into it and lists greyed as "ON CH 100".
+    ///     so the found franchise folds into it and lists greyed as "N movies on CH 100".
     ///   - JOHN WICK, THE HUNGER GAMES, BACK TO THE FUTURE, STAR TREK: dictionary
     ///     franchises with no stock channel, listed with a switch. STAR TREK carries a show.
     ///   - SPY KIDS: no dictionary entry, found purely from `belongs_to_collection`.

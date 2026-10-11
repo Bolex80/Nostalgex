@@ -38,6 +38,13 @@ struct FoundFranchise: Identifiable, Equatable {
         return parts.joined(separator: ", ")
     }
 
+    /// Settings line for a franchise a classic carries: "3 movies, 2 shows on CH 100".
+    /// Those items are in that channel's pool (see `foldCoveredFranchisesIntoStockPools`).
+    var coveredLabel: String {
+        guard let channelID = coveredByChannelID else { return countLabel }
+        return "\(countLabel) on CH \(channelID)"
+    }
+
     static func == (lhs: FoundFranchise, rhs: FoundFranchise) -> Bool {
         lhs.id == rhs.id
             && lhs.name == rhs.name
@@ -123,6 +130,9 @@ extension AppState {
             )
         }
 
+        // Before the collection fold, so a server collection is matched against the
+        // classic's full pool (films plus the shows the dictionary put on it).
+        foldCoveredFranchisesIntoStockPools()
         applyFranchiseFolds(enrichmentFor: lookup)
 
         let listed = listedFoundFranchises
@@ -132,6 +142,85 @@ extension AppState {
             let where_ = f.coveredByChannelID.map { "on CH \($0)" } ?? (f.enabled ? "ON" : "off")
             print("[Plex90] FRANCHISES:   \(f.name) \(f.countLabel) [\(where_)]")
         }
+    }
+
+    // MARK: - Stock pools
+
+    /// A stock franchise channel's pool is what its channels.json rule passes UNION the
+    /// items the builder placed on it. Six of the seven rules say `type: movie`, so
+    /// without this The Mandalorian or Rings of Power were labelled "on CH 100/104" in
+    /// Settings but never aired there. Swift only: the web tuner has no dictionary and
+    /// keeps the rule-only pool. Only while the FRANCHISES package is on.
+    ///
+    /// Idempotent (deduped by item id), so it is safe after every rebuild. Every path
+    /// that rebuilds a stock pool from its rule reaches `rebuildFoundFranchises` after.
+    func foldCoveredFranchisesIntoStockPools() {
+        guard isFranchisesBundleOn else { return }
+        allChannels = Self.stockPools(
+            allChannels,
+            unionedWith: foundFranchises,
+            memberships: channelMemberships,
+            exclusiveRules: exclusiveRules
+        )
+    }
+
+    /// Pure core of `foldCoveredFranchisesIntoStockPools`. Appends each covered
+    /// franchise's movies and shows to its stock channel's pool, skipping anything
+    /// already in the pool and anything another channel owns: a manifest lock
+    /// (`exclusive`) or an exclusive rule that does not list this channel. Those are the
+    /// same two locks `filterItems` honours, so an item it would refuse is refused here.
+    nonisolated static func stockPools(
+        _ channels: [Channel],
+        unionedWith franchises: [FoundFranchise],
+        memberships: ChannelMemberships,
+        exclusiveRules: [ExclusiveRule]
+    ) -> [Channel] {
+        var extras: [Int: [PlexMediaItem]] = [:]
+        for franchise in franchises {
+            guard let channelID = franchise.coveredByChannelID else { continue }
+            extras[channelID, default: []].append(contentsOf: franchise.items)
+        }
+        guard !extras.isEmpty else { return channels }
+
+        return channels.map { channel in
+            // Rule-built (stock) channels only; a runtime channel already owns its list.
+            guard channel.rules != nil, let additions = extras[channel.id] else { return channel }
+            var out = channel
+            var seen = Set(out.itemPool.map(\.id))
+            for item in additions where !seen.contains(item.id) {
+                guard !isLockedElsewhere(item, channelID: channel.id,
+                                         memberships: memberships,
+                                         exclusiveRules: exclusiveRules) else { continue }
+                out.itemPool.append(item)
+                seen.insert(item.id)
+            }
+            return out
+        }
+    }
+
+    /// True when `item` belongs to a channel other than `channelID` by a manifest lock
+    /// or an exclusive rule. Mirrors the exclusivity checks in `filterItems`.
+    nonisolated private static func isLockedElsewhere(
+        _ item: PlexMediaItem,
+        channelID: Int,
+        memberships: ChannelMemberships,
+        exclusiveRules: [ExclusiveRule]
+    ) -> Bool {
+        let mediaType = item.type == .episode ? "tv" : "movie"
+        if let tmdbID = item.tmdbID,
+           let locked = memberships.exclusive(forMediaType: mediaType, tmdbID: tmdbID),
+           locked != channelID {
+            return true
+        }
+        for rule in exclusiveRules where !rule.channelIDs.contains(channelID) {
+            if rule.matches(item) { return true }
+            if rule.manifestExclusive, let tmdbID = item.tmdbID,
+               let claimed = memberships.channels(forMediaType: mediaType, tmdbID: tmdbID),
+               claimed.contains(where: { rule.channelIDs.contains($0) }) {
+                return true
+            }
+        }
+        return false
     }
 
     /// Marks every discovered collection that IS a franchise the package already carries.

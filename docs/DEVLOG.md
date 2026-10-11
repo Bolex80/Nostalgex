@@ -3,6 +3,28 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (stock franchise channels mix movies and shows, branch only)
+
+**Shipped.** Nothing. Branch `stock-fold`, cut from `enrichment-proxy` at
+`3c1a2ed`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** CH100-106 built their pools from the channels.json rule alone,
+and six of the seven rules say `type: movie`. The franchise builder already
+placed The Mandalorian and Andor under STAR WARS and Rings of Power under LORD
+OF THE RINGS, but Settings only showed that as a greyed "ON CH 100" label; the
+episodes never aired. On `stock-fold` a stock channel's pool is its rule's pool
+plus the covered franchise's movies and shows, deduped by item id, while the
+FRANCHISES package is on. Manifest locks and exclusive rules still win, so an
+item another channel owns is not taken. The covered row now reads "3 movies,
+2 shows on CH 100". Swift only: the web tuner has no franchise dictionary and
+keeps the rule-only pool. 4 new tests, full `NostalgexTests` 575 passed,
+0 failed. Not run on a device or against a real library.
+
+Known limit: a classic whose rule matches fewer than `minItems` (3) films is
+never built, so two Star Wars films plus The Mandalorian still give no CH100.
+
 ## 2026-10-11 (TMDB proxy and Supabase key plumbing, branch only)
 
 **Shipped.** Nothing. Branch `enrichment-proxy`, cut from `icloud-opt-in` at
