@@ -65,6 +65,7 @@
 			membershipExceptions = (
 				"channels-memberships.json",
 				channels.json,
+				franchises.json,
 			);
 			target = 1DCC8A8D2F6CB0B100B56423 /* Nostalgex */;
 		};
@@ -345,15 +346,17 @@
 			inputPaths = (
 				"$(SRCROOT)/../channels.json",
 				"$(SRCROOT)/../channels-memberships.json",
+				"$(SRCROOT)/../franchises.json",
 			);
 			name = "Sync channel config";
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/channels.json",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/channels-memberships.json",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/franchises.json",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nREPO=\"${SRCROOT}/..\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\"\ncp \"$REPO/channels.json\" \"$DEST/channels.json\"\ncp \"$REPO/channels-memberships.json\" \"$DEST/channels-memberships.json\"\n";
+			shellScript = "set -e\nREPO=\"${SRCROOT}/..\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$DEST\"\ncp \"$REPO/channels.json\" \"$DEST/channels.json\"\ncp \"$REPO/channels-memberships.json\" \"$DEST/channels-memberships.json\"\ncp \"$REPO/franchises.json\" \"$DEST/franchises.json\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

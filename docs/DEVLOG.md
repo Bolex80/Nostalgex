@@ -3,6 +3,51 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (shared franchise dictionary, web port, branch only)
+
+**Shipped.** Nothing. Branch `shared-franchises`, cut from `franchise-polish`
+at `188d60d`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `shared-franchises`:
+
+- The 18 franchise definitions moved out of `FranchiseDictionary.swift` into
+  `franchises.json` at the repo root, next to `channels.json`, so the web tuner
+  can use the same editorial list instead of a copy that drifts. It is bundled
+  the way `channels.json` is: a symlink in `Nostalgex/Nostalgex/` excluded from
+  the synced group, copied by the "Sync channel config" build phase, and
+  `public/franchises.json` for the Vite build. A Swift harness compared the
+  decoded file with the old hard-coded table field by field: identical. The
+  ids carry a `verified: 2026-10-11` header and a per-entry `note`.
+  `FranchiseDictionary` keeps its API (`all`, `byCollectionID`,
+  `defaultOnIDs`, `isOn`, `cleanFranchiseName`); a missing or broken file logs
+  a CONFIG line and leaves the dictionary empty rather than crashing.
+- `scripts/nostalgex-franchise-builder.js` is a port of
+  `FranchiseChannelBuilder` (same module style as the daily manifest, works as a
+  plain browser script and in node). It is standalone: `plex-tuner.html` does
+  not load it yet, because that file was being changed on another branch.
+- `scripts/franchise-golden.json` holds 13 library cases plus title-key,
+  film-match and server-collection vectors (36 checks). The Swift
+  `FranchiseGoldenTests` and the node `npm run test:franchises` both read it,
+  so a rule changed in one engine fails the other's test.
+- Three spots in the Swift builder depended on dictionary iteration order, which
+  Swift does not keep stable, so the web port could not match them: which found
+  franchise a TV show joins when two names match (now the lower collection id),
+  the order of two dynamic channels with the same name (now by stable id), and
+  which stock channel a server collection maps to when two qualify (now the
+  lower channel). None changes a library where only one answer was possible.
+
+7 new Swift tests; full `NostalgexTests` 598 passed, 0 failed, 2 skipped (the
+two live harnesses). `npm test` and `npm run build` pass, and
+`dist/franchises.json` and the built `Nostalgex.app/franchises.json` are both
+present. Not run on a device or against a real library.
+
+**Next.** Wire the builder into `plex-tuner.html` once the enrichment work there
+lands: fetch `/franchises.json`, call `NostalgexFranchiseBuilder.build` with
+items carrying `enrichment.franchiseID` and `franchiseName`. Then merge
+`franchise-polish` and this branch together.
+
 ## 2026-10-11 (franchise numbers, Marvel TV, default-on franchises, branch only)
 
 **Shipped.** Nothing. Branch `franchise-polish`, cut from `stock-fold` at

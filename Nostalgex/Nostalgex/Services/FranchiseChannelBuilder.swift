@@ -20,6 +20,11 @@ import Foundation
 /// The dictionary also merges several collections into one franchise and folds found
 /// films/shows into a stock `channels.json` channel (CH100-106) instead of making a
 /// duplicate.
+///
+/// The web tuner runs the same rules from `scripts/nostalgex-franchise-builder.js`.
+/// Both read `franchises.json` and both must reproduce `scripts/franchise-golden.json`
+/// (`FranchiseGoldenTests` here, `npm run test:franchises` there). Change a rule in
+/// both files, then add a golden case.
 enum FranchiseChannelBuilder {
 
     /// One resolved franchise: either a fold into an existing stock channel, or a new
@@ -164,6 +169,14 @@ enum FranchiseChannelBuilder {
         // named, so it cannot be a channel.
         buckets = buckets.filter { !($0.value.definition == nil && $0.value.name.isEmpty) }
 
+        // Found buckets in ascending collection id, the fixed order TV tries them in.
+        let foundKeys: [String] = buckets
+            .compactMap { key, bucket in
+                bucket.definition == nil ? bucket.franchiseIDs.min().map { (key, $0) } : nil
+            }
+            .sorted { $0.1 < $1.1 }
+            .map(\.0)
+
         // MARK: 2. TV joined by dictionary entry, then by name-match
 
         for tv in tvItems {
@@ -182,8 +195,12 @@ enum FranchiseChannelBuilder {
             }
 
             // No dictionary match: try to join a found (dynamic) franchise by its name.
-            // Only found buckets with a non-empty name are candidates.
-            for (key, bucket) in buckets where bucket.definition == nil {
+            // Only found buckets with a non-empty name are candidates. Tried in
+            // ascending collection id so a show that matches two found names always
+            // lands in the same one (Swift dictionary order is not stable, and the web
+            // port in scripts/nostalgex-franchise-builder.js must agree).
+            for key in foundKeys {
+                guard let bucket = buckets[key] else { continue }
                 if Self.titleContainsToken(titleLower, bucket.name.lowercased()) {
                     buckets[key]?.tvItems.append(tv)
                     break
@@ -230,13 +247,17 @@ enum FranchiseChannelBuilder {
             }
         }
 
-        // Deterministic order: stock folds first (by channel), then dynamic by name.
+        // Deterministic order: stock folds first (by channel), then dynamic by name, a
+        // name tie (two collections both called "ALIEN") broken by stableID. The web
+        // port sorts with the same three keys.
         return groupings.sorted { a, b in
             switch (a.placement, b.placement) {
             case let (.stock(l), .stock(r)): return l < r
             case (.stock, .dynamic): return true
             case (.dynamic, .stock): return false
-            case (.dynamic, .dynamic): return a.name < b.name
+            case (.dynamic, .dynamic):
+                if a.name != b.name { return a.name < b.name }
+                return a.stableID < b.stableID
             }
         }
     }
@@ -244,7 +265,8 @@ enum FranchiseChannelBuilder {
     /// The stock channel a Plex/Jellyfin server collection maps to, if any, decided by
     /// the TMDB franchiseIDs of its member items. Lets the scan path fold a server
     /// collection into a stock channel instead of showing it twice. Returns the stock
-    /// channel id when 2+ members share a dictionary-mapped franchiseID.
+    /// channel id when 2+ members share a dictionary-mapped franchiseID (the lowest
+    /// such channel if several qualify).
     static func stockChannel(
         forCollectionItems items: [PlexMediaItem],
         enrichmentFor: (PlexMediaItem) -> MediaEnrichment?,
@@ -267,7 +289,9 @@ enum FranchiseChannelBuilder {
                   availableStockChannelIDs.contains(stockID) else { continue }
             stockHits[stockID, default: 0] += 1
         }
-        return stockHits.first(where: { $0.value >= 2 })?.key
+        // Lowest qualifying channel, so a mixed collection always answers the same way
+        // (dictionary order is not stable; the web port picks the same one).
+        return stockHits.filter { $0.value >= 2 }.keys.min()
     }
 
     // MARK: - Helpers

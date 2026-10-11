@@ -8,7 +8,11 @@ import Foundation
 /// the prequel-trilogy collection and the sequel-trilogy collection are both "Star
 /// Wars", or that The Mandalorian belongs with the films even though its title never
 /// says "Star Wars". This dictionary carries that editorial knowledge.
-struct FranchiseDefinition {
+///
+/// The definitions themselves live in `franchises.json` at the repo root, shared with
+/// the web tuner (`scripts/nostalgex-franchise-builder.js`). This type is the decoded
+/// form; the field docs below match the `fields` block in that file.
+struct FranchiseDefinition: Decodable {
     /// Channel-ready display name, upper-cased to match the rest of the lineup.
     let canonicalName: String
 
@@ -73,239 +77,97 @@ struct FranchiseDefinition {
         self.defaultOn = defaultOn
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case canonicalName, stockChannelID, tmdbCollectionIDs, nameMatchTokens,
+             tvShowTitles, filmTitles, studioRuled, defaultOn
+    }
+
+    /// Only `canonicalName` is required; every list defaults to empty and every flag to
+    /// false, the same defaults as the memberwise init and the JS loader
+    /// (`normalizeDefinitions`). Unknown keys such as `note` are ignored.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            canonicalName: try c.decode(String.self, forKey: .canonicalName),
+            stockChannelID: try c.decodeIfPresent(Int.self, forKey: .stockChannelID),
+            tmdbCollectionIDs: try c.decodeIfPresent([Int].self, forKey: .tmdbCollectionIDs) ?? [],
+            nameMatchTokens: try c.decodeIfPresent([String].self, forKey: .nameMatchTokens) ?? [],
+            tvShowTitles: try c.decodeIfPresent([String].self, forKey: .tvShowTitles) ?? [],
+            filmTitles: try c.decodeIfPresent([String].self, forKey: .filmTitles) ?? [],
+            studioRuled: try c.decodeIfPresent(Bool.self, forKey: .studioRuled) ?? false,
+            defaultOn: try c.decodeIfPresent(Bool.self, forKey: .defaultOn) ?? false
+        )
+    }
+
     /// The `FoundFranchise` / `FranchiseGrouping.stableID` this definition produces.
     var stableID: String { "dict:\(canonicalName)" }
 }
 
-/// STARTER SET, CHAD TO REVIEW.
+/// The franchise dictionary, loaded from the bundled `franchises.json`.
 ///
-/// Every TMDB collection id below was verified against the live TMDB API on
-/// 2026-10-10 (collection exists, holds the films named in its comment). Along the
-/// way two ids from memory turned out to be dead and were replaced (The Hobbit is
-/// 121938, not 121; Star Trek TNG is 115570, not 151416), and the big sagas were
-/// confirmed to live in one collection each: Star Wars 10 holds all nine Skywalker
-/// films, Fast & Furious 9485 all twelve, Jurassic 328 all eight.
+/// `franchises.json` lives at the repo root next to `channels.json` and is the single
+/// source for both engines: the "Sync channel config" build phase copies it into the
+/// app bundle, and `public/franchises.json` (a symlink) ships it with the web build.
+/// Every TMDB collection id in it was verified against the live TMDB API on
+/// 2026-10-11; the per-entry `note` fields say which collection each id is, and
+/// record the two ids from memory that turned out dead. `scripts/franchise-golden.json`
+/// pins the groupings both engines must produce: `FranchiseGoldenTests` (Swift) and
+/// `npm run test:franchises` (node) both check against it.
 ///
 /// What TMDB cannot carry, and the dictionary covers instead:
 /// - Films with `belongs_to_collection: null`. Rogue One, Solo, Bumblebee and
 ///   Transformers: Rise of the Beasts are all null on TMDB. The "A Star Wars Story"
 ///   pair and Rise of the Beasts join by `nameMatchTokens`; Bumblebee, whose title
-///   says nothing, is listed in `filmTitles`. That was the only membership gap found.
+///   says nothing, is listed in `filmTitles`.
 /// - MARVEL stays studio-ruled by design (CH101's `studios` rule), never grouped by
 ///   collection id.
 /// - TV has no collection id at all, so it joins by token or by `tvShowTitles`.
 ///
-/// Open items for Chad: the TV and film title lists are editorial and will drift as
-/// new seasons and spin-offs land; the lists here are a starting point, not a census.
-///
-/// None of this is wired into Settings yet (that is Phase 2). It exists so the logic is
-/// listable and testable.
+/// If the file is missing or does not decode, the dictionary is empty and a CONFIG
+/// line is logged: franchise channels then come only from auto-found collections.
+/// Degraded, never a crash.
 enum FranchiseDictionary {
 
-    static let all: [FranchiseDefinition] = [
+    /// Highest `franchises.json` `version` this build understands. A newer file still
+    /// decodes (unknown keys are ignored); the log line flags it.
+    static let supportedVersion = 1
 
-        // MARK: - Franchises with a stock channel (CH100-106)
+    static let all: [FranchiseDefinition] = loadBundled()
 
-        FranchiseDefinition(
-            canonicalName: "STAR WARS",
-            stockChannelID: 100,
-            // 10 = "Star Wars Collection": all nine Skywalker-saga films (verified
-            // against TMDB 2026-10-10). Rogue One and Solo are titled "...: A Star
-            // Wars Story", so they join by name match.
-            tmdbCollectionIDs: [10],
-            nameMatchTokens: ["star wars"],
-            tvShowTitles: [
-                "The Mandalorian", "Andor", "Ahsoka", "Obi-Wan Kenobi",
-                "The Book of Boba Fett", "Star Wars: The Clone Wars",
-                "Star Wars Rebels", "The Acolyte", "Star Wars: Visions",
-                "Young Jedi Adventures", "Tales of the Jedi"
-            ]
-        ),
+    // MARK: - Loading
 
-        FranchiseDefinition(
-            canonicalName: "MARVEL",
-            stockChannelID: 101,
-            // Intentionally empty: CH101 is a studio channel (studios: ["Marvel
-            // Studios"]). MCU films scatter across dozens of tiny TMDB collections
-            // (Iron Man Collection, Avengers Collection, ...), so franchiseID grouping
-            // is the wrong tool. The builder leaves CH101's films to its studio rule.
-            tmdbCollectionIDs: [],
-            // Shows join CH101 by EXACT title (case and punctuation ignored, see
-            // `FranchiseChannelBuilder.explicitTitleKey`), never by token, so a short
-            // title like "Echo" cannot pull in "Echo Park". Chad can trim this list:
-            // drop the Netflix and ABC era if they should not air next to the MCU.
-            // The "Marvel's ..." spellings are how TVDB and older Plex agents title them.
-            tvShowTitles: [
-                // Disney+ MCU
-                "WandaVision", "The Falcon and the Winter Soldier", "Loki", "What If...?",
-                "Hawkeye", "Moon Knight", "Ms. Marvel", "She-Hulk: Attorney at Law",
-                "Secret Invasion", "Echo", "Agatha All Along", "Daredevil: Born Again",
-                "Ironheart",
-                // Netflix era
-                "Daredevil", "Jessica Jones", "Luke Cage", "Iron Fist", "The Defenders",
-                "The Punisher",
-                "Marvel's Daredevil", "Marvel's Jessica Jones", "Marvel's Luke Cage",
-                "Marvel's Iron Fist", "Marvel's The Defenders", "Marvel's The Punisher",
-                // ABC era
-                "Agents of S.H.I.E.L.D.", "Agent Carter", "Inhumans",
-                "Marvel's Agents of S.H.I.E.L.D.", "Marvel's Agent Carter", "Marvel's Inhumans"
-            ],
-            studioRuled: true
-        ),
+    private struct File: Decodable {
+        let version: Int?
+        let franchises: [FranchiseDefinition]
+    }
 
-        FranchiseDefinition(
-            canonicalName: "HARRY POTTER",
-            stockChannelID: 102,
-            // 1241 = "Harry Potter Collection", 435259 = "Fantastic Beasts Collection".
-            // Together they are the Wizarding World; both fold onto CH102.
-            tmdbCollectionIDs: [1241, 435259],
-            nameMatchTokens: ["harry potter", "fantastic beasts"],
-            tvShowTitles: []
-        ),
+    /// Decode a `franchises.json` document. Throws on malformed JSON so a test can see
+    /// the error; the app path (`loadBundled`) turns a throw into an empty dictionary.
+    static func decode(_ data: Data) throws -> [FranchiseDefinition] {
+        try JSONDecoder().decode(File.self, from: data).franchises
+    }
 
-        FranchiseDefinition(
-            canonicalName: "JURASSIC PARK",
-            stockChannelID: 103,
-            // 328 = "Jurassic Park Collection": all eight films, Jurassic World
-            // included (verified against TMDB 2026-10-10).
-            tmdbCollectionIDs: [328],
-            nameMatchTokens: ["jurassic"],
-            tvShowTitles: ["Jurassic World: Camp Cretaceous", "Jurassic World: Chaos Theory"]
-        ),
+    /// The bundled `franchises.json`, or an empty dictionary plus a log line.
+    static func loadBundled(bundle: Bundle? = nil) -> [FranchiseDefinition] {
+        let bundle = bundle ?? Bundle(for: BundleToken.self)
+        guard let url = bundle.url(forResource: "franchises", withExtension: "json") else {
+            print("[Plex90] CONFIG: bundled franchises.json MISSING from app, franchise dictionary is empty")
+            return []
+        }
+        do {
+            let file = try JSONDecoder().decode(File.self, from: Data(contentsOf: url))
+            if let v = file.version, v > supportedVersion {
+                print("[Plex90] CONFIG: franchises.json version \(v) is newer than \(supportedVersion), unknown fields ignored")
+            }
+            return file.franchises
+        } catch {
+            print("[Plex90] CONFIG: franchises.json failed to decode (\(error)), franchise dictionary is empty")
+            return []
+        }
+    }
 
-        FranchiseDefinition(
-            canonicalName: "LORD OF THE RINGS",
-            stockChannelID: 104,
-            // 119 = "The Lord of the Rings Collection", 121938 = "The Hobbit
-            // Collection" (both verified against TMDB 2026-10-10).
-            tmdbCollectionIDs: [119, 121938],
-            nameMatchTokens: ["lord of the rings", "hobbit", "rings of power"],
-            tvShowTitles: ["The Lord of the Rings: The Rings of Power"]
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "MISSION IMPOSSIBLE",
-            stockChannelID: 105,
-            // 87359 = "Mission: Impossible Collection".
-            tmdbCollectionIDs: [87359],
-            nameMatchTokens: ["mission impossible", "mission: impossible"],
-            tvShowTitles: []
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "JASON BOURNE",
-            stockChannelID: 106,
-            // 31562 = "The Bourne Collection".
-            tmdbCollectionIDs: [31562],
-            nameMatchTokens: ["bourne"],
-            tvShowTitles: ["Treadstone"]
-        ),
-
-        // MARK: - Franchises with no stock channel (built dynamically)
-
-        FranchiseDefinition(
-            canonicalName: "STAR TREK",
-            // Star Trek is three TMDB collections, merged here (verified 2026-10-10):
-            // 151 = The Original Series films, 115570 = The Next Generation films,
-            // 115575 = Alternate Reality (the 2009 Kelvin reboot). The TV side joins by
-            // name match plus the explicit titles below.
-            tmdbCollectionIDs: [151, 115570, 115575],
-            nameMatchTokens: ["star trek"],
-            tvShowTitles: [
-                "Star Trek: The Next Generation", "Star Trek: Deep Space Nine",
-                "Star Trek: Voyager", "Star Trek: Enterprise", "Star Trek: Discovery",
-                "Star Trek: Picard", "Star Trek: Strange New Worlds",
-                "Star Trek: Lower Decks", "Star Trek: Prodigy", "Star Trek: The Original Series"
-            ],
-            defaultOn: true
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "FAST & FURIOUS",
-            // 9485 = "The Fast and the Furious Collection": all twelve films including
-            // Tokyo Drift and Hobbs & Shaw (verified against TMDB 2026-10-10).
-            tmdbCollectionIDs: [9485],
-            nameMatchTokens: ["fast & furious", "fast and furious", "fast saga"],
-            tvShowTitles: ["Fast & Furious Spy Racers"],
-            defaultOn: true
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "JAMES BOND",
-            // 645 = "James Bond Collection".
-            tmdbCollectionIDs: [645],
-            nameMatchTokens: ["james bond", "007"],
-            tvShowTitles: []
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "THE MATRIX",
-            // 2344 = "The Matrix Collection".
-            tmdbCollectionIDs: [2344],
-            nameMatchTokens: ["matrix"],
-            tvShowTitles: []
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "INDIANA JONES",
-            // 84 = "Indiana Jones Collection".
-            tmdbCollectionIDs: [84],
-            nameMatchTokens: ["indiana jones"],
-            tvShowTitles: ["The Young Indiana Jones Chronicles"]
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "PIRATES OF THE CARIBBEAN",
-            // 295 = "Pirates of the Caribbean Collection".
-            tmdbCollectionIDs: [295],
-            nameMatchTokens: ["pirates of the caribbean"],
-            tvShowTitles: []
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "TRANSFORMERS",
-            // 8650 = "Transformers Collection" (verified 2026-10-10). Bumblebee and
-            // Transformers: Rise of the Beasts are belongs_to_collection: null on
-            // TMDB. Rise of the Beasts joins by the "transformers" token; Bumblebee has
-            // no franchise word in its title, so it is listed explicitly.
-            tmdbCollectionIDs: [8650],
-            nameMatchTokens: ["transformers"],
-            tvShowTitles: [],
-            filmTitles: ["Bumblebee"]
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "JOHN WICK",
-            // 404609 = "John Wick Collection" (confirmed by the Phase 0 parse test).
-            tmdbCollectionIDs: [404609],
-            nameMatchTokens: ["john wick"],
-            tvShowTitles: ["The Continental: From the World of John Wick"]
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "THE HUNGER GAMES",
-            // 131635 = "The Hunger Games Collection".
-            tmdbCollectionIDs: [131635],
-            nameMatchTokens: ["hunger games"],
-            tvShowTitles: []
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "THE TERMINATOR",
-            // 528 = "The Terminator Collection".
-            tmdbCollectionIDs: [528],
-            nameMatchTokens: ["terminator"],
-            tvShowTitles: ["Terminator: The Sarah Connor Chronicles", "Terminator Zero"]
-        ),
-
-        FranchiseDefinition(
-            canonicalName: "BACK TO THE FUTURE",
-            // 264 = "Back to the Future Collection".
-            tmdbCollectionIDs: [264],
-            nameMatchTokens: ["back to the future"],
-            tvShowTitles: []
-        )
-    ]
+    /// Resolves the app bundle from inside the app and from a hosted test bundle alike.
+    private final class BundleToken {}
 
     // MARK: - Lookups
 
