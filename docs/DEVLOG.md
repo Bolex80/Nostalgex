@@ -3,6 +3,16 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (server-qualified music cache identity)
+
+**Changed.** Music enrichment and channel-pool refresh now use the existing server-qualified item identity instead of a server-local rating key. A new disk-cache filename avoids assigning ambiguous legacy rows to a server. Music display copies preserve server routing and playback compatibility fields, and non-music items do not receive cached music metadata.
+
+**Validation.** Regression fixtures exercise two servers with the same rating key in both orders, disk reload, legacy cache isolation, non-music collision, and routing/codec fields through both music-copy paths. Xcode 27 / tvOS 27 native suite passed 441 tests, with 2 optional live tests skipped and no failures.
+
+**Half-done.** This branch covers native music enrichment and pool identity. It does not include unrelated guide, metadata-provider or playback recovery changes.
+
+**Next.** Upstream review on `fix/server-qualified-music-cache`. No merge or deployment is included.
+
 ## 2026-10-09 (app)
 
 **Shipped.** Nothing to Apple. 1.0.24 (45) is still in TestFlight beta review.
