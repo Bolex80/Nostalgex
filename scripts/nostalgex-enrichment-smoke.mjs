@@ -8,6 +8,7 @@
  * fetch, so nothing leaves the machine. Run: `npm run test:enrichment`.
  */
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import "./nostalgex-enrichment.js";
 const require = createRequire(import.meta.url);
 const CF = require("./nostalgex-channel-filter.cjs");
@@ -288,6 +289,191 @@ function backend() {
   check("trailing slash trimmed", E.configFromPage(set, { hostname: "localhost" }).supabaseURL, "https://x.supabase.co");
   const over = doc({ "nostalgex-tmdb-relay": "http://localhost:3000/api/tmdb" });
   check("relay override", E.configFromPage(over, { hostname: "localhost" }).relayURL, "http://localhost:3000/api/tmdb");
+}
+
+// ---- OMDb: parse (OMDBService.parseResponse) ----
+{
+  const doc = {
+    imdbRating: "8.7", imdbVotes: "2,213,456", Metascore: "73", Awards: "Won 4 Oscars.",
+    Ratings: [{ Source: "Internet Movie Database", Value: "8.7/10" }, { Source: "Rotten Tomatoes", Value: "83%" }],
+    Response: "True",
+  };
+  check("omdb parse", E.parseOMDbResponse(doc),
+    { imdbRating: 8.7, imdbVotes: 2213456, rottenTomatoesScore: 83, metacriticScore: 73, awards: "Won 4 Oscars." });
+  check("omdb N/A -> null", E.parseOMDbResponse({ imdbRating: "N/A", imdbVotes: "N/A", Metascore: "N/A", Awards: "N/A", Response: "True" }),
+    { imdbRating: null, imdbVotes: null, rottenTomatoesScore: null, metacriticScore: null, awards: null });
+  check("omdb Response False -> null", E.parseOMDbResponse({ Response: "False", Error: "Incorrect IMDb ID." }), null);
+  check("omdb limit message", [E.isOMDbLimit({ Error: "Request limit reached!" }), E.isOMDbLimit({ Error: "Incorrect IMDb ID." })], [true, false]);
+  const base = E.parseTMDBResponse({ keywords: { keywords: [{ name: "cult film" }] } }, "1", null, "movie", NOW);
+  const merged = E.mergeOMDb(base, E.parseOMDbResponse(doc), "tt0133093");
+  check("omdb merge keeps TMDB fields", merged.keywords, ["cult film"]);
+  check("omdb merge fills imdb", [merged.imdbID, merged.imdbRating, merged.imdbVotes], ["tt0133093", 8.7, 2213456]);
+  const row = E.toOMDbRow(merged);
+  check("omdb upsert columns", Object.keys(row), E.OMDB_COLUMNS);
+  check("omdb upsert never carries TMDB lists", "keywords" in row || "franchise_id" in row, false);
+}
+
+// ---- OMDb: the TMDB document supplies the IMDb id ----
+{
+  check("tmdb doc imdb_id used", E.parseTMDBResponse({ imdb_id: "tt0133093" }, "603", null, "movie", NOW).imdbID, "tt0133093");
+  check("explicit imdb id wins", E.parseTMDBResponse({ imdb_id: "tt0133093" }, "603", "tt7654321", "movie", NOW).imdbID, "tt7654321");
+  check("junk imdb_id ignored", E.parseTMDBResponse({ imdb_id: "" }, "603", null, "movie", NOW).imdbID, null);
+}
+
+// ---- OMDb: gates and candidates (OMDBGate / OMDBQuota) ----
+const CHANNELS = [
+  { id: 212, name: "FOREIGN FILMS", rules: { type: "movie", keywords: ["French Cinema", "subtitled"], imdbRatingMin: 6.5, imdbVotesMin: 5000 } },
+  { id: 214, name: "CULT CLASSICS", rules: { type: "movie", keywords: ["cult film"], genres: { include: ["Horror"] }, imdbVotesMin: 30000 } },
+  { id: 219, name: "SPY GAMES", rules: { type: "movie", keywords: ["spy"] } },
+  { id: 1, name: "NO RULES" },
+];
+{
+  const gates = E.omdbGates(CHANNELS);
+  check("gates only from OMDb-ruled channels", gates.length, 2);
+  check("gate media type", gates.map((g) => g.mediaType), ["movie", "movie"]);
+  check("gate keywords lowercased", [...gates[0].keywords], ["french cinema", "subtitled"]);
+  check("candidate by keyword", E.isOMDbCandidate("movie", ["Cult Film"], [], gates), true);
+  check("candidate by genre substring", E.isOMDbCandidate("movie", [], ["Comedy Horror"], gates), true);
+  check("wrong media type", E.isOMDbCandidate("tv", ["cult film"], [], gates), false);
+  check("no keyword or genre", E.isOMDbCandidate("movie", ["spy"], ["Action"], gates), false);
+  check("no gates", E.isOMDbCandidate("movie", ["cult film"], [], []), false);
+
+  const real = E.omdbGates(JSON.parse(readFileSync(new URL("../channels.json", import.meta.url), "utf8")).channels);
+  check("shipped channels.json gates CULT CLASSICS keywords", E.isOMDbCandidate("movie", ["cult film"], [], real), true);
+  check("shipped channels.json gates FOREIGN FILMS keywords", E.isOMDbCandidate("movie", ["french cinema"], [], real), true);
+
+  const rec = (id, extra) => ({ ...E.parseTMDBResponse({}, id, null, "movie", NOW), ...extra });
+  const records = new Map([
+    ["1", rec("1", { imdbID: "tt0000001", keywords: ["cult film"] })],
+    ["2", rec("2", { imdbID: "tt0000002", keywords: ["cult film"], imdbRating: 7.1 })],
+    ["3", rec("3", { keywords: ["cult film"] })],
+    ["4", rec("4", { imdbID: "tt0000004", keywords: ["romance"] })],
+    ["5", rec("5", { imdbID: "tt0000005" })],
+  ]);
+  const work = ["1", "2", "3", "4", "5", "6"].map((tmdbID) => ({ tmdbID, mediaType: "movie" }));
+  const byID = E.genresByTMDB([{ tmdbID: 5, genres: ["Horror"] }, { tmdbID: 5, genres: ["Thriller"] }]);
+  check("genresByTMDB merges", [...byID.get("5")], ["Horror", "Thriller"]);
+  check("candidates: unrated, with id, gated (server genre counts)",
+    E.omdbCandidates(work, records, byID, E.omdbGates(CHANNELS)).map((c) => c.tmdbID), ["1", "5"]);
+}
+
+// ---- OMDb: budget ----
+{
+  const list = Array.from({ length: 400 }, (_, i) => i);
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const picked = E.pickOMDbLookups(list, E.OMDB_PER_LOAD, rnd);
+  check("pick limit is 50", E.OMDB_PER_LOAD, 50);
+  check("pick 50", picked.length, 50);
+  check("pick no repeats", new Set(picked).size, 50);
+  check("pick random order", JSON.stringify(picked) === JSON.stringify(list.slice(0, 50)), false);
+  check("pick fewer than limit returns all", E.pickOMDbLookups([1, 2, 3]).sort(), [1, 2, 3]);
+  check("pick leaves input alone", list.slice(0, 3), [0, 1, 2]);
+
+  check("next UTC midnight", new Date(E.nextUTCMidnight(Date.parse("2026-10-11T23:59:00Z"))).toISOString(), "2026-10-12T00:00:00.000Z");
+  check("next UTC midnight at midnight", new Date(E.nextUTCMidnight(Date.parse("2026-10-12T00:00:00Z"))).toISOString(), "2026-10-13T00:00:00.000Z");
+
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  const b = E.omdbBackoff(storage);
+  const hit = Date.parse("2026-10-11T15:30:00Z");
+  check("backoff starts open", b.isBlocked(hit), false);
+  b.mark(hit);
+  check("backoff blocks after limit", b.isBlocked(hit), true);
+  check("backoff holds to 23:59:59", b.isBlocked(Date.parse("2026-10-11T23:59:59Z")), true);
+  check("backoff opens at UTC midnight", b.isBlocked(Date.parse("2026-10-12T00:00:00Z")), false);
+  check("backoff persists", E.omdbBackoff(storage).isBlocked(hit), true);
+  const throwing = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+  const tb = E.omdbBackoff(throwing);
+  tb.mark(hit);
+  check("backoff survives throwing storage", tb.isBlocked(hit), true);
+}
+
+// ---- OMDb: relay request ----
+{
+  const f = stubFetch(async () => ({ status: 200, body: { Response: "True" } }));
+  await E.fetchOMDb("tt0133093", cfg, f);
+  check("omdb relay url", f.calls[0].url, "https://nostalgex.app/api/tmdb?path=omdb/tt0133093");
+  check("omdb relay client header", f.calls[0].init.headers["X-Nostalgex-Client"], "web");
+  const bad = await E.fetchOMDb("tt12&apikey=x", cfg, f);
+  check("omdb bad id never sent", [bad.status, f.calls.length], [400, 1]);
+}
+
+// ---- OMDb: enrichLibrary end to end ----
+function omdbLibrary(n) {
+  const items = [];
+  for (let i = 1; i <= n; i++) items.push({ title: `Film ${i}`, type: "movie", tmdbID: i, genres: i % 2 ? ["Horror"] : ["Drama"] });
+  return items;
+}
+function omdbBackend({ limitAfter = Infinity } = {}) {
+  let omdbCalls = 0;
+  return stubFetch(async (url, init) => {
+    if (url.includes("/rest/v1/") && (!init.method || init.method === "GET")) {
+      const ids = url.match(/in\.\(([^)]*)\)/)[1].split(",");
+      // Shared cache has TMDB rows (with IMDb ids an Apple TV wrote) but no OMDb values.
+      return { status: 200, body: ids.map((id) => ({ tmdb_id: id, media_type: "movie", imdb_id: `tt${id.padStart(7, "0")}`, keywords: [] })) };
+    }
+    if (url.includes("/rest/v1/")) return { status: 201, body: null };
+    if (url.includes("path=omdb/")) {
+      omdbCalls++;
+      if (omdbCalls > limitAfter) return { status: 429, body: { Response: "False", Error: "Request limit reached!" } };
+      return { status: 200, body: { imdbRating: "7.4", imdbVotes: "45,000", Response: "True" } };
+    }
+    return { status: 404, body: {} };
+  });
+}
+{
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  const items = omdbLibrary(200);
+  const f = omdbBackend();
+  const { omdb, records } = await E.enrichLibrary(items, {
+    config: cfg, fetch: f, now: () => NOW.getTime(), channels: CHANNELS, omdbBackoff: E.omdbBackoff(storage),
+  });
+  const asked = f.calls.filter((c) => c.url.includes("path=omdb/"));
+  check("e2e omdb: only gated candidates (horror half)", omdb.candidates, 100);
+  check("e2e omdb: capped at 50", asked.length, 50);
+  check("e2e omdb: every ask is a candidate", asked.every((c) => Number(c.url.match(/tt(\d+)/)[1]) % 2 === 1), true);
+  check("e2e omdb: found", omdb.fetched, 50);
+  const ups = f.calls.filter((c) => c.init.method === "POST");
+  check("e2e omdb: one OMDb upsert", ups.length, 1);
+  check("e2e omdb: upsert pinned to OMDb columns", ups[0].url.endsWith(`columns=${E.OMDB_COLUMNS.join(",")}`), true);
+  check("e2e omdb: upsert rows", JSON.parse(ups[0].init.body).length, 50);
+  check("e2e omdb: votes parsed", JSON.parse(ups[0].init.body)[0].imdb_votes, 45000);
+  const rated = items.filter((i) => i.enrichment && i.enrichment.imdbRating === 7.4);
+  check("e2e omdb: attached", rated.length, 50);
+  check("e2e omdb: rated items pass CULT CLASSICS votes gate", rated.every((i) => CF.itemPasses(i, CHANNELS[1])), true);
+  check("e2e omdb: no titles sent", f.calls.some((c) => /Film/.test(c.url) || /Film/.test(c.init.body || "")), false);
+  check("e2e omdb: records updated", [...records.values()].filter((r) => r.imdbRating != null).length, 50);
+}
+{
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  const backoff = E.omdbBackoff(storage);
+  const f = omdbBackend({ limitAfter: 3 });
+  const { omdb } = await E.enrichLibrary(omdbLibrary(200), {
+    config: cfg, fetch: f, now: () => NOW.getTime(), channels: CHANNELS, omdbBackoff: backoff,
+  });
+  check("limit: flagged", omdb.limited, true);
+  check("limit: stops asking (at most concurrency in flight)", f.calls.filter((c) => c.url.includes("path=omdb/")).length <= 3 + E.OMDB_CONCURRENCY, true);
+  check("limit: blocked until UTC midnight", backoff.blockedUntil(), Date.parse("2026-10-12T00:00:00Z"));
+
+  const f2 = omdbBackend();
+  const second = await E.enrichLibrary(omdbLibrary(200), {
+    config: cfg, fetch: f2, now: () => NOW.getTime() + 3600000, channels: CHANNELS, omdbBackoff: backoff,
+  });
+  check("limit: next load same day asks nothing", f2.calls.filter((c) => c.url.includes("path=omdb/")).length, 0);
+  check("limit: reported paused", second.omdb.paused, true);
+  const f3 = omdbBackend();
+  await E.enrichLibrary(omdbLibrary(200), {
+    config: cfg, fetch: f3, now: () => Date.parse("2026-10-12T00:00:01Z"), channels: CHANNELS, omdbBackoff: backoff,
+  });
+  check("limit: asks again after UTC midnight", f3.calls.filter((c) => c.url.includes("path=omdb/")).length, 50);
+}
+{
+  const f = omdbBackend();
+  const { omdb } = await E.enrichLibrary(omdbLibrary(20), { config: cfg, fetch: f, now: () => NOW.getTime() });
+  check("no channels: no OMDb", [omdb.gates, f.calls.filter((c) => c.url.includes("path=omdb/")).length], [0, 0]);
 }
 
 console.log = quiet.log;

@@ -114,7 +114,7 @@
   <h2>This website</h2>
   <p>The marketing pages on nostalgex.app load one analytics script, statsngraphs: the home page, the Plex, Jellyfin and Emby pages, the connect page, the support page, and the blog. It counts page visits, referrers, and basic device and country information. It does not use advertising cookies and does not build a profile of you across other sites.</p>
   <p>If you sign up for update emails, your email address goes to Resend, the service that sends them. Along with it we store which signup form or QR code you used (for example the home page, the connect page, or the Apple TV app's settings screen), the page you signed up on, and any campaign tags that were on the link you followed. Nothing else about your visit is stored with it, and it is never joined to app analytics. Every email has an unsubscribe link.</p>
-  <p>The web tuner itself does not load it. Once you are connected and watching, no analytics script is running on the page, so nothing about your library or what you play is measured. To sort titles onto channels, the web tuner looks up public movie and TV metadata the same way the app does: through the shared Supabase cache and the TMDB relay described above, sending only TMDB ids. No library titles, account, or server details are sent with them. This page you are reading now does not load it either. All of this is separate from the app, and nothing from the app is joined to anything from the website.</p>
+  <p>The web tuner itself does not load it. Once you are connected and watching, no analytics script is running on the page, so nothing about your library or what you play is measured. To sort titles onto channels, the web tuner looks up public movie and TV metadata the same way the app does: through the shared Supabase cache and the relay described above, sending only public TMDB and IMDb ids. No library titles, account, or server details are sent with them. This page you are reading now does not load it either. All of this is separate from the app, and nothing from the app is joined to anything from the website.</p>
 
   <h2>What the app stores on your device</h2>
   <p>Nostalgex keeps your setup on your Apple TV so you do not have to sign in again:</p>
@@ -130,7 +130,7 @@
   <ul>
     <li>Your own Plex, Jellyfin, or Emby server, for the library and for playback</li>
     <li>plex.tv, for Plex sign-in using Plex's own PIN flow. That is Plex's system, not ours</li>
-    <li>TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the TMDB id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.</li>
+    <li>TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB and OMDb lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the public TMDB or IMDb id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.</li>
     <li>MusicBrainz, for public music metadata used by the music video channels</li>
     <li>A Supabase database we run, which caches the metadata above so it does not have to be fetched again on every device</li>
   </ul>
