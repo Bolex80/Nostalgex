@@ -46,6 +46,7 @@
 /* Begin PBXFileReference section */
 		1D4121DD304C40AD004CCB68 /* TopShelf.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TopShelf.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D4121DF304C40AD004CCB68 /* TVServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TVServices.framework; path = System/Library/Frameworks/TVServices.framework; sourceTree = SDKROOT; };
+		NGXCF0012F6CB0B100B56423 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		1DCC8A8E2F6CB0B100B56423 /* Nostalgex.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nostalgex.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A9B7B5A3A5D4E5A9C000001 /* NostalgexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NostalgexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A9B7B5A3A5D4E5A9C000002 /* NostalgexUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NostalgexUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -147,6 +148,7 @@
 				2A9B7B5A3A5D4E5A9C000010 /* NostalgexTests */,
 				2A9B7B5A3A5D4E5A9C000011 /* NostalgexUITests */,
 				1D4121E1304C40AE004CCB68 /* TopShelf */,
+				NGXCF0012F6CB0B100B56423 /* Config.xcconfig */,
 				1D4121DE304C40AD004CCB68 /* Frameworks */,
 				1DCC8A8F2F6CB0B100B56423 /* Products */,
 			);
@@ -583,6 +585,7 @@
 		};
 		1DCC8A9A2F6CB0B200B56423 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = NGXCF0012F6CB0B100B56423 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -616,6 +619,7 @@
 		};
 		1DCC8A9B2F6CB0B200B56423 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = NGXCF0012F6CB0B100B56423 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

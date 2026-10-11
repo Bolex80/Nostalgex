@@ -114,7 +114,7 @@ Two optional extras, both off unless you turn them on:
 
 | What | How to enable | What it adds |
 |---|---|---|
-| TMDB / OMDb / Supabase metadata | Set `TMDB_API_KEY`, `OMDB_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` as environment variables in the Xcode scheme, or as `TMDBApiKey`, `OMDBApiKey`, `SupabaseURL`, `SupabaseAnonKey` in `Nostalgex/Info.plist`. Read in `Services/TMDBConfig.swift`. | Keyword and collection data for finer channel rules. Supabase is a cache keyed on TMDB ids; you can point it at your own project. |
+| TMDB / OMDb / Supabase metadata | Copy `Nostalgex/Secrets.example.xcconfig` to `Nostalgex/Secrets.xcconfig` and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` (see `docs/REPOSITORY-LAYOUT.md`). TMDB needs no key in the app: it goes through the site's proxy, `api/tmdb.js`. For a direct TMDB or OMDb connection set `TMDB_API_KEY` or `OMDB_API_KEY` as environment variables in the Xcode scheme. Read in `Services/TMDBConfig.swift`. | Keyword and collection data for finer channel rules. Supabase is a cache keyed on TMDB ids; you can point it at your own project. |
 | TelemetryDeck | `TelemetryDeckAppID` in `Nostalgex/Info.plist`. Delete the key to turn it off. | Anonymous launch and playback counts. The App Store build has it on; your own build does not have to. |
 
 Never commit real keys. `.gitignore` already covers `.env`, `Secrets.plist` and `*.xcconfig` secrets.
@@ -126,7 +126,8 @@ The whole point of running your own server is knowing where your data goes, so h
 - **Your media server.** Direct from the Apple TV to your Plex, Jellyfin or Emby. Sign-in goes straight to the server. Nothing of mine sits in between, and no credentials are ever sent anywhere else.
 - **plex.tv** (Plex only). The PIN sign-in flow and server discovery. This is how every Plex client works.
 - **MusicBrainz.** Public metadata for the music video channels. No key, no account.
-- **TMDB, OMDb, Supabase.** Only if you build with keys, see above.
+- **TMDB, via nostalgex.app.** When Supabase values are present, the TMDB ids of titles in your library go to the site's proxy (`api/tmdb.js`, in this repo), which forwards them to TMDB with the site's key, keeps no log, and caches the answer at the edge. OMDb only if you build with a key. Off in your own build unless you add the Supabase values, see above.
+- **Supabase.** The shared enrichment cache, keyed on TMDB id. Same condition as above.
 - **TelemetryDeck.** Anonymous usage signals in the App Store build. No identifiers, no library contents, no server addresses. Off in your own build unless you keep the key.
 
 The website and web tuner at nostalgex.app load one page analytics script (statsngraphs). The privacy policy at `/privacy` covers all of this in plain language.

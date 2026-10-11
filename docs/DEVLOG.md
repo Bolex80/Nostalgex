@@ -3,6 +3,64 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (TMDB proxy and Supabase key plumbing, branch only)
+
+**Shipped.** Nothing. Branch `enrichment-proxy`, cut from `icloud-opt-in` at
+`42320a5`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** No build has ever carried the TMDB, Supabase or OMDb values, so
+every install logs `[Enrichment] Skipping: API keys not configured` and the
+channels that lean on enrichment stay empty. `enrichment-proxy` turns the layer
+on without shipping the TMDB key:
+
+- `api/tmdb.js`, a Vercel function next to `subscribe.js`. GET with `?path=`
+  restricted to `movie/{id}`, `tv/{id}`, `collection/{id}` and
+  `search/collection` (numeric ids only, anything else is a 400). It adds the
+  key from the `TMDB_API_KEY` env var, adds `append_to_response=keywords` for
+  movie and tv, and returns TMDB's JSON and status. A 200 carries
+  `Cache-Control: public, s-maxage=86400, stale-while-revalidate=604800` so
+  Vercel's edge cache absorbs repeats; anything else is `no-store`. It requires
+  `X-Nostalgex-Client: tvos` (403 without it), a cheap filter, not security, and
+  logs nothing. `npm run test:tmdb` covers the allowlist and the handler with a
+  stubbed fetch (48 checks) and is part of `npm test`.
+- `TMDBService` gains a proxy mode. With an empty key it calls
+  `https://www.nostalgex.app/api/tmdb?path=movie/{id}` with the client header
+  and no key in the URL; with a key it keeps calling TMDB directly, for dev
+  builds. `TMDBConfig.tmdbProxyURL` holds the base. The document is the same
+  either way, so `parseResponse`, franchise fields included, is untouched.
+- `EnrichmentService` proceeds when a key or the proxy is available but still
+  requires the Supabase URL and anon key, since the shared cache is the point.
+  The skip log names what is missing:
+  `[Enrichment] Skipping: missing supabase url, anon key`.
+- Supabase values arrive through an xcconfig. `Nostalgex/Config.xcconfig`
+  (committed) is the app target's base configuration for Debug and Release; it
+  defaults both values to empty and does `#include? "Secrets.xcconfig"`.
+  `Nostalgex/Secrets.example.xcconfig` is the template, `Secrets.xcconfig` is
+  gitignored, and `Info.plist` maps `SUPABASE_URL` and `SUPABASE_ANON_KEY` to
+  `SupabaseURL` and `SupabaseAnonKey`. A missing base configuration file is a
+  hard xcodebuild error (measured: exit 65, "Unable to open base configuration
+  reference file"), which is why the committed file sits in between.
+
+Verified: `NostalgexTests` passes with no `Secrets.xcconfig` on disk (573 tests,
+571 passed, 2 skipped live harnesses, 13 new in `TMDBProxyTests`) and the built
+Info.plist carries empty Supabase strings. With a dummy `Secrets.xcconfig` using
+`https:/$()/host`, the built plist reads `https://host` with both slashes. The
+function called locally against real TMDB returns `movie/603` with
+`belongs_to_collection` and 18 keywords, `tv/1399` with keywords and networks,
+and rejects `person/1` with 400 and a missing header with 403. `npm run build`
+passes. Not run on a device or simulator against the live function: nothing is
+deployed yet.
+
+**Next.** Set `TMDB_API_KEY` on the Vercel project and deploy so `/api/tmdb`
+exists. Put the real Supabase URL and anon key in a local `Secrets.xcconfig`
+before the next archive. Then rescan on a device and watch for
+`[Enrichment] TMDB via site proxy` followed by the cache and save counts. The
+README's "What leaves your network" now names the proxy hop; the privacy page
+covers TMDB lookups in general terms but does not name nostalgex.app as a hop,
+worth a line before that build ships.
+
 ## 2026-10-10 (iCloud sync, now opt-in, branch only)
 
 **Shipped.** Nothing. Branch `icloud-opt-in`, stacked on `franchise-ui`, not merged.
