@@ -130,7 +130,7 @@
   <ul>
     <li>Your own Plex, Jellyfin, or Emby server, for the library and for playback</li>
     <li>plex.tv, for Plex sign-in using Plex's own PIN flow. That is Plex's system, not ours</li>
-    <li>TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels</li>
+    <li>TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the TMDB id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.</li>
     <li>MusicBrainz, for public music metadata used by the music video channels</li>
     <li>A Supabase database we run, which caches the metadata above so it does not have to be fetched again on every device</li>
   </ul>
