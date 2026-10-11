@@ -3,6 +3,54 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (Report Playback never fills Continue Watching, branch only)
+
+**Shipped.** Nothing. Branch `report-no-cw`, cut from `shared-franchises` at
+`db9b26b`, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `report-no-cw`, both surfaces, all three servers:
+
+- Turning on Report Playback is meant to mean "my server sees what's playing and
+  a real watch counts", not "every channel I surf past lands in Continue
+  Watching". The tracker now reads the item's state before its first report and
+  puts it back when the session ends: unscrobble for a never-watched item,
+  `/:/progress` back to the user's own resume point, `removeFromContinueWatching`
+  for a watched one; on Jellyfin/Emby a mark-unplayed or a `UserData` write of
+  the prior values. Details and the measured server behaviour are in
+  `Nostalgex/docs/plex-session-reporting.md`.
+- Every report and cleanup goes through one serial queue, because Plex writes a
+  resume point on every timeline report (measured: the first `playing` report
+  puts the item in Continue Watching), so ordering decides whether the cleanup
+  sticks.
+- Plex scrobbles never counted: `/:/scrobble?key=/library/metadata/{rk}` is a
+  404; only the bare rating key works. Fixed on both surfaces. After a scrobble
+  the tracker reports position 0, since any real position re-creates a resume
+  point on the item Plex just marked watched.
+- Jellyfin and Emby count a play on the *start* report, so a 30 second surf
+  used to add a play (and feed the rewatch channels). The restore puts the prior
+  PlayCount back; a counted watch ends as prior + 1.
+- Settings copy on both surfaces: "Off by default. When on, your server sees
+  what's playing and a film you watch most of counts as watched. Channel
+  surfing never fills your Continue Watching." The warning line is gone.
+  Privacy page wording updated, effective date moved to October 11.
+- The decision table is shared through `scripts/watch-cleanup-golden.json`
+  (16 cases), read by `WatchStateGuardTests` and `npm run test:watch-state`.
+- Verified against a real Plex server, an Emby 4.10.1 server and a local
+  Jellyfin 12.2 test server by running the real tracker on a fake clock
+  (`LiveContinueWatchingTests`, skipped unless `TEST_RUNNER_NOSTALGEX_LIVE_*`
+  is set): Continue Watching / Resume identical before and after, item state
+  restored exactly. The web module was run against the same three servers from
+  node. The web tuner itself was not driven in a browser.
+- Not verified: Jellyfin/Emby Next Up after a counted episode (no TV library on
+  either test server). Left alone on purpose: it is a separate row there, and a
+  counted episode is a real watch. Closing the web tab mid-program cleans up with
+  `keepalive` requests that are not ordered; best effort.
+
+**Next.** Review and merge `report-no-cw`. Then an on-device check with
+reporting on: surf ten channels, open Plex, Continue Watching unchanged.
+
 ## 2026-10-11 (shared franchise dictionary, web port, branch only)
 
 **Shipped.** Nothing. Branch `shared-franchises`, cut from `franchise-polish`

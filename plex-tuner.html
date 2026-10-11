@@ -13,6 +13,7 @@
 <script src="scripts/nostalgex-music-brainz.js"></script>
 <script src="scripts/nostalgex-daily-manifest.js"></script>
 <script src="scripts/nostalgex-library-load.js"></script>
+<script src="scripts/nostalgex-watch-state.js"></script>
 <style>
   :root {
     --bg: #080810;
@@ -2193,7 +2194,7 @@
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08); border-radius: 6px;">
         <div>
           <div style="font-size: 22px; color: rgba(255,255,255,0.85);">Sync activity to server</div>
-          <div style="font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px;">Off by default. Turn on and every program you tune past is reported, so it piles up in Continue Watching and grows play counts.</div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px;">Off by default. When on, your server sees what's playing and a film you watch most of counts as watched. Channel surfing never fills your Continue Watching.</div>
         </div>
         <button class="plex-btn" id="cfg-plexsync-toggle" style="font-size: 11px; padding: 12px 22px;" onclick="toggleSyncActivity()">OFF</button>
       </div>
@@ -3562,9 +3563,18 @@
   //
   // Hybrid gate (both must pass): tuned in during the first 15% of the program
   // (entry gate) AND accumulated >= 75% of total runtime as active watch time.
+  //
+  // Continue Watching: reporting must never leave a program in Continue Watching,
+  // Resume or On Deck. Before the first report the tracker reads what the server held
+  // for the item; when the session ends (or reporting is turned off) it puts that back.
+  // The decision table and request shapes live in scripts/nostalgex-watch-state.js,
+  // shared with the Apple TV app through scripts/watch-cleanup-golden.json. Every call
+  // goes through one queue so the cleanup always lands after the last report.
   let playbackTracker = null;
 
   function makePlaybackTracker(item) {
+    const WS = window.NostalgexWatchState;
+    const queue = WS.sharedQueue;
     const totalSec = (item.duration || 0) * 60;
     const seekOffset = Math.floor(item.offsetSeconds || 0);
     const entryFrac = totalSec > 0 ? seekOffset / totalSec : 1;
@@ -3574,6 +3584,14 @@
     const serverUrl = item.serverUrl || plexServerUrl;
     const serverToken = item.serverToken || plexToken;
     const isPlex = mediaBackend !== 'jellyfin';
+    const guard = isPlex
+      ? WS.plexGuard({
+          serverUrl,
+          authQuery: `X-Plex-Token=${encodeURIComponent(serverToken)}`
+            + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`
+            + `&X-Plex-Product=Nostalgex&X-Plex-Platform=Web`,
+        })
+      : WS.mediaServerGuard({ serverUrl: plexServerUrl, userId: jellyfinUserId, authHeader: jellyfinAuthHeader });
 
     const t = {
       eligibleEntry: entryFrac <= 0.15,
@@ -3583,6 +3601,9 @@
       stopped: false,
       started: false,
       timer: null,
+      prior: null,      // what the server held before the first report (null = unreadable)
+      captureQueued: false,
+      captured: false,  // the read has finished
     };
 
     function accumulate() {
@@ -3590,60 +3611,84 @@
       t.activeWatchSeconds += (Date.now() - t.watchStart) / 1000;
       t.watchStart = null;
     }
-    function timeMs() { return (seekOffset * 1000) + Math.round(t.activeWatchSeconds * 1000); }
+    // After a Plex scrobble, any nonzero position becomes a fresh resume point on the
+    // item it just marked watched. Position 0 keeps Now Playing alive without one.
+    function timeMs() {
+      if (isPlex && t.scrobbled) return 0;
+      return (seekOffset * 1000) + Math.round(t.activeWatchSeconds * 1000);
+    }
     function durationMs() { return Math.round(totalSec * 1000); }
 
     // ── Plex reporting ──
     function plexTimeline(state) {
-      const u = `${serverUrl}/:/timeline?ratingKey=${encodeURIComponent(rk)}`
-        + `&key=${encodeURIComponent('/library/metadata/' + rk)}`
-        + `&state=${state}&time=${timeMs()}&duration=${durationMs()}`
-        + `&X-Plex-Session-Identifier=${encodeURIComponent(sessionID)}`
-        + `&X-Plex-Token=${encodeURIComponent(serverToken)}`
-        + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`
-        + `&X-Plex-Product=Nostalgex&X-Plex-Platform=Web`;
-      fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' } }).catch(() => {});
+      const u = guard.timelineUrl(rk, state, timeMs(), durationMs(), sessionID);
+      queue.enqueue(() => fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' } }).catch(() => {}));
     }
     function plexScrobble() {
-      const u = `${serverUrl}/:/scrobble?key=${encodeURIComponent('/library/metadata/' + rk)}`
-        + `&identifier=com.plexapp.plugins.library`
-        + `&X-Plex-Token=${encodeURIComponent(serverToken)}`
-        + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`;
-      fetch(u, { headers: { 'Accept': 'application/json' } }).catch(() => {});
+      const u = guard.scrobbleUrl(rk);
+      queue.enqueue(() => fetch(u, { headers: { 'Accept': 'application/json' } }).catch(() => {}));
     }
 
     // ── Jellyfin / Emby reporting ──
-    // Jellyfin owns its own play-count math: it increments PlayCount when a
-    // /Sessions/Playing/Stopped report lands with the position near completion. So we
-    // just drive the native lifecycle and let the server count once — no explicit
-    // mark-played (that would double-count). On a mid-program channel change the stop
-    // position is partial, so Jellyfin correctly does NOT count it.
-    function jfPost(path) {
-      fetch(`${plexServerUrl}${path}`, {
+    // Both bump PlayCount on the start report and store the stop position; the cleanup
+    // writes the exact final state back (prior, or prior + 1 watch when the gate passed).
+    function jfPost(path, opts) {
+      const body = JSON.stringify({
+        ItemId: rk,
+        PlaySessionId: sessionID,
+        MediaSourceId: item.partKey || rk,
+        PositionTicks: timeMs() * 10000, // ms -> 100ns ticks
+        IsPaused: false,
+      });
+      const send = () => fetch(`${plexServerUrl}${path}`, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': jellyfinAuthHeader() },
-        body: JSON.stringify({
-          ItemId: rk,
-          PlaySessionId: sessionID,
-          MediaSourceId: item.partKey || rk,
-          PositionTicks: timeMs() * 10000, // ms -> 100ns ticks
-          IsPaused: false,
-        }),
+        body,
+        keepalive: !!(opts && opts.keepalive),
       }).catch(() => {});
+      if (opts && opts.now) send(); else queue.enqueue(send);
+    }
+
+    // Read the prior state once, queued ahead of the first report.
+    function captureOnce() {
+      if (t.captureQueued) return;
+      t.captureQueued = true;
+      queue.enqueue(async () => {
+        t.prior = await guard.capture(rk);
+        t.captured = true;
+        console.log('[Tracker] PRIOR', rk, t.prior ? JSON.stringify(t.prior) : 'unreadable');
+      });
+    }
+    // Put Continue Watching / Resume back. `unloading`: the page is going away, so send
+    // now with keepalive instead of waiting on the queue (best effort).
+    function cleanup(unloading) {
+      if (!t.started) return;
+      const counted = t.scrobbled;
+      if (unloading) {
+        guard.restore(rk, t.captured ? t.prior : null, counted, { keepalive: true });
+        return;
+      }
+      queue.enqueue(() => guard.restore(rk, t.prior, counted));
     }
 
     function reportProgress() {
       if (isPlex) plexTimeline('playing');
       else jfPost('/Sessions/Playing/Progress');
     }
-    // Plex only: timeline never bumps the view count, so we scrobble explicitly when the
-    // hybrid gate passes. (Jellyfin increments itself via the stop report above.)
+    // Plex: timeline never bumps the view count, so we scrobble explicitly when the
+    // hybrid gate passes. Jellyfin/Emby: mark played unless the position is already past
+    // the server's own completion line (the stop report counts it there).
     function evaluateAndScrobble() {
-      if (!isPlex || t.scrobbled) return;
+      if (t.scrobbled) return;
       if (!t.eligibleEntry || totalSec <= 0) return;
       if (t.activeWatchSeconds / totalSec < 0.75) return;
+      const fraction = timeMs() / (totalSec * 1000);
       t.scrobbled = true;
-      plexScrobble();
+      if (isPlex) plexScrobble();
+      else if (fraction < 0.9) {
+        const u = guard.markPlayedUrl(rk);
+        queue.enqueue(() => fetch(u, { method: 'POST', headers: { 'Authorization': jellyfinAuthHeader() } }).catch(() => {}));
+      }
       console.log('[Tracker] SCROBBLE', item.title);
     }
     function tick() {
@@ -3661,32 +3706,36 @@
         if (t.stopped || t.started) return;
         t.started = true;
         t.watchStart = Date.now();
+        captureOnce();
         if (isPlex) plexTimeline('playing');
         else jfPost('/Sessions/Playing');
         t.timer = setInterval(tick, 10000);
       },
       onPause() { if (!t.stopped) accumulate(); },
       onResume() { if (!t.stopped && t.started) t.watchStart = Date.now(); },
-      // Flush, send the stop report, and do a final Plex scrobble check.
-      stop() {
+      // Flush, send the stop report, do a final scrobble check, then restore
+      // Continue Watching. `unloading` (pagehide) sends without waiting on the queue.
+      stop(unloading) {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
         accumulate();
         if (t.started) {
-          if (isPlex) plexTimeline('stopped');
-          else jfPost('/Sessions/Playing/Stopped');
+          // Unloading on Plex: skip the stopped report. The pulses already wrote a
+          // position, and a stopped report racing the cleanup could rewrite it.
+          if (!isPlex) jfPost('/Sessions/Playing/Stopped', unloading ? { now: true, keepalive: true } : null);
+          else if (!unloading) plexTimeline('stopped');
         }
-        evaluateAndScrobble();
+        if (!unloading) evaluateAndScrobble();
+        cleanup(!!unloading);
       },
-      // Tear down without reporting anything (used when the user turns off activity
-      // sync mid-program). Clears the pulse timer so no further timeline/scrobble fires
-      // and, unlike stop(), sends no final "stopped" report — so no view-offset is
-      // written and the item never lands in Continue Watching.
+      // Tear down without further reports (the user turned reporting off mid-program).
+      // Restores whatever the reports already sent wrote to Continue Watching.
       abandon() {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
+        cleanup(false);
       },
     };
   }
@@ -4578,8 +4627,9 @@
     if (document.hidden) playbackTracker.onPause();
     else playbackTracker.onResume();
   });
-  // Flush a final timeline/scrobble check if the user closes or navigates away mid-program.
-  window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(); });
+  // Restore Continue Watching if the user closes or navigates away mid-program. The page
+  // is going away, so the tracker sends with keepalive instead of waiting on its queue.
+  window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(true); });
 
   function toggleMute() {
     const video = document.getElementById('plex-video');
@@ -4663,9 +4713,9 @@
   function toggleSyncActivity() {
     syncPlexActivity = !syncPlexActivity;
     localStorage.setItem('plex90_sync_activity', syncPlexActivity);
-    // If we're turning it off mid-program, silently abandon the live tracker so no
-    // further reports fire and no final "stopped" offset is written (which would still
-    // create a Continue Watching entry). Turning it on takes effect on the next program.
+    // If we're turning it off mid-program, abandon the live tracker so no further
+    // reports fire; it restores whatever the reports already sent wrote to Continue
+    // Watching. Turning it on takes effect on the next program.
     if (!syncPlexActivity && playbackTracker) { playbackTracker.abandon(); playbackTracker = null; }
     updateSyncActivityControls();
   }

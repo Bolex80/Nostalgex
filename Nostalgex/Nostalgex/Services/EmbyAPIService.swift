@@ -505,6 +505,15 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
         )
     }
 
+    var watchStateGuard: any WatchStateGuarding {
+        MediaServerWatchStateGuard(
+            serverURL: serverURL,
+            authorization: Self.authorizationHeader(deviceID: deviceID, token: accessToken),
+            userId: userId,
+            transport: URLSessionReportTransport.shared
+        )
+    }
+
     func stopTranscode(playSessionId: String?) async {
         guard let psid = playSessionId, !psid.isEmpty else { return }
         if var c = URLComponents(string: "\(serverURL)/Videos/ActiveEncodings") {

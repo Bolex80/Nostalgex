@@ -435,18 +435,18 @@ class AppState {
     /// and items can surface in Continue Watching. Off = watch privately.
     /// Same switch for Plex, Jellyfin, and Emby. Demo never reports.
     ///
-    /// Defaults OFF. Channel surfing tunes past dozens of programs in a sitting, and
-    /// reporting each one buries the household's real "Continue Watching" row under
-    /// half-watched items nobody chose to start. Opt in, don't opt out.
+    /// Defaults OFF. Opt in, don't opt out. When on, `PlaybackTracker` restores each
+    /// program's prior state when the session ends, so channel surfing never leaves
+    /// half-watched items in the household's "Continue Watching" row.
     /// Rewatch channels still fill from plays the server already recorded.
     var syncPlexActivity: Bool = AppState.resolveSyncPlexActivity(
         stored: UserDefaults.standard.object(forKey: AppState.syncPlexActivityDefaultsKey)
     ) {
         didSet {
             UserDefaults.standard.set(syncPlexActivity, forKey: Self.syncPlexActivityDefaultsKey)
-            // Turning off mid-program: silently abandon the live tracker so the current
-            // item stops reporting immediately (no final "stopped" offset). The next item
-            // gets a tracker with no Plex API. Turning on takes effect on the next item.
+            // Turning off mid-program: abandon the live tracker so the current item stops
+            // reporting immediately; it restores what its reports already wrote. The next
+            // item gets a tracker with no Plex API. Turning on takes effect on the next item.
             if !syncPlexActivity { playbackTracker?.abandon() }
             if oldValue != syncPlexActivity {
                 Analytics.track(.settingChanged(key: "sync_plex_activity", value: syncPlexActivity ? "true" : "false"))

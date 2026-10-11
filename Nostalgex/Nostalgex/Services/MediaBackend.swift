@@ -190,6 +190,9 @@ protocol WatchActivityReporting: Sendable {
     ) async
 
     func markWatched(itemId: String) async
+
+    /// Restores Resume after a session so reporting never leaves a program there.
+    var watchStateGuard: any WatchStateGuarding { get }
 }
 
 extension MediaBackend {

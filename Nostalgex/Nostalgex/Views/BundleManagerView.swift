@@ -803,16 +803,12 @@ struct SettingsPageView: View {
             .padding(.top, 8)
 
             // Playback reporting. Same switch on every server: off, a watch here
-            // stays in the app; on, it counts on the server they connected.
+            // stays in the app; on, the server sees what's playing and a real watch
+            // counts. Either way nothing is left in Continue Watching (PlaybackTracker).
             if !appState.isDemoMode {
                 SettingsToggleRow(
                     title: "REPORT PLAYBACK TO \(appState.backendDisplayName.uppercased())",
-                    subtitle: "Off by default. When on, a real watch here counts on your server.",
-                    // Warning stays full-brightness while the row's own text dims,
-                    // so the side effect is legible exactly when it applies.
-                    warning: appState.syncPlexActivity
-                        ? "Channel surfing can mark plays and leave resume points"
-                        : nil,
+                    subtitle: "Off by default. When on, your server sees what's playing and a film you watch most of counts as watched. Channel surfing never fills your Continue Watching.",
                     isOn: appState.syncPlexActivity,
                     isFocused: focusedItem == "plex_sync"
                 ) {
@@ -820,7 +816,7 @@ struct SettingsPageView: View {
                 }
                 .focused($focusedItem, equals: "plex_sync")
                 .id("plex_sync")
-                .accessibilityHint("Updates play counts, resume points and Continue Watching in \(appState.backendDisplayName)")
+                .accessibilityHint("Shows what's playing and updates play counts in \(appState.backendDisplayName). Continue Watching is left as it was")
             }
 
             SettingsToggleRow(
