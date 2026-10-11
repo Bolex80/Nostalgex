@@ -1,21 +1,29 @@
-// TMDB enrichment for the web tuner: the same keywords, networks, production
-// companies and franchise the Apple TV app reads, so enrichment-gated channels
-// (TEEN MOVIES, MUSICALS, TRUE CRIME, SPY GAMES, BIOPICS, MIDNIGHT, TOON TOWN, ...)
-// fill on the web the way they do on tvOS.
+// TMDB and OMDb enrichment for the web tuner: the same keywords, networks,
+// production companies, franchise and IMDb rating/votes the Apple TV app reads, so
+// enrichment-gated channels (TEEN MOVIES, MUSICALS, TRUE CRIME, SPY GAMES, BIOPICS,
+// MIDNIGHT, TOON TOWN, FOREIGN FILMS, CULT CLASSICS, ...) fill on the web the way
+// they do on tvOS.
 //
 // Mirrors Nostalgex/Nostalgex/Services/EnrichmentService.swift:
 //   1. dedupe the library to one work item per TMDB id (first item's media type wins)
 //   2. read the shared Supabase cache (`media_enrichments`) for those ids
 //   3. fetch the misses from TMDB through the site relay (api/tmdb.js)
-//   4. upsert what was fetched back to Supabase with resolution=merge-duplicates
-// and TMDBService.parseResponse for turning a TMDB document into a row.
+//   4. ask OMDb, through the same relay (`path=omdb/{imdbID}`), about the titles
+//      that could land on an IMDb-gated channel: same media type plus one of that
+//      channel's keywords or genres, at most 50 per load in random order, and none
+//      at all until the next UTC midnight after OMDb says the day's quota is gone
+//      (OMDBQuota.swift / OMDBGate)
+//   5. upsert what was fetched back to Supabase with resolution=merge-duplicates
+// and TMDBService.parseResponse / OMDBService.parseResponse for turning documents
+// into a row.
 //
 // Two web-only additions:
 //   - A per-browser cache in IndexedDB with a TTL, so a reload does not repeat the
 //     Supabase read or the relay fetches.
-//   - Only TMDB ids leave the browser. No IMDb ids, titles or server details. The
-//     upsert carries the TMDB columns only, so it never touches OMDb columns an
-//     Apple TV wrote.
+//   - Only TMDB and IMDb ids leave the browser. No titles or server details. The
+//     IMDb id comes from the shared row or the TMDB document, not the server. The
+//     TMDB upsert carries the TMDB columns only, so it never touches OMDb columns
+//     an Apple TV wrote; the OMDb upsert carries the OMDb columns only.
 //
 // The attached record lives at `item.enrichment`, in the shape
 // scripts/nostalgex-channel-filter.cjs `enrichedValue()` reads (camelCase, the
@@ -34,6 +42,14 @@
     'tmdb_genres', 'franchise_id', 'franchise_name', 'fetched_at',
   ];
   const DEFAULT_RELAY = 'https://nostalgex.app/api/tmdb';
+  const OMDB_PER_LOAD = 50;
+  const OMDB_CONCURRENCY = 4;
+  const OMDB_COLUMNS = [
+    'tmdb_id', 'media_type', 'imdb_id', 'imdb_rating', 'imdb_votes', 'rt_score',
+    'metacritic_score', 'awards',
+  ];
+  const OMDB_BLOCK_KEY = 'nostalgex_omdb_blocked_until';
+  const IMDB_ID = /^tt\d{7,9}$/;
 
   // ── Pure: shapes ───────────────────────────────────────────────────────────
 
@@ -45,7 +61,8 @@
   /**
    * TMDBService.parseResponse. Movies carry keywords under `keywords.keywords`,
    * TV under `keywords.results`. Franchise comes from `belongs_to_collection`
-   * (movies only). OMDb fields stay null; the relay does not proxy OMDb.
+   * (movies only). A movie document's `imdb_id` stands in when no IMDb id was
+   * passed. OMDb fields stay null; OMDb is asked separately.
    */
   function parseTMDBResponse(json, tmdbID, imdbID, mediaType, now = new Date()) {
     const doc = json && typeof json === 'object' ? json : {};
@@ -57,7 +74,7 @@
     const franchiseName = collection && typeof collection.name === 'string' ? collection.name : null;
     return {
       tmdbID: String(tmdbID),
-      imdbID: imdbID ?? null,
+      imdbID: imdbID ?? (typeof doc.imdb_id === 'string' && IMDB_ID.test(doc.imdb_id) ? doc.imdb_id : null),
       mediaType,
       keywords: kwObj ? names(kwObj[kwKey]) : [],
       networks: names(doc.networks),
@@ -116,6 +133,168 @@
       franchise_name: e.franchiseName,
       fetched_at: e.fetchedAt,
     };
+  }
+
+  /** The OMDb upsert body: OMDb columns plus the key (see OMDB_COLUMNS). */
+  function toOMDbRow(e) {
+    return {
+      tmdb_id: e.tmdbID,
+      media_type: e.mediaType,
+      imdb_id: e.imdbID,
+      imdb_rating: e.imdbRating,
+      imdb_votes: e.imdbVotes,
+      rt_score: e.rottenTomatoesScore,
+      metacritic_score: e.metacriticScore,
+      awards: e.awards,
+    };
+  }
+
+  // ── Pure: OMDb ─────────────────────────────────────────────────────────────
+
+  function omdbValue(v) {
+    return typeof v === 'string' && v !== 'N/A' ? v : null;
+  }
+
+  /**
+   * OMDBService.parseResponse. Null for `{"Response":"False"}` (unknown id, or the
+   * daily-limit error when it arrives without the relay's 429).
+   */
+  function parseOMDbResponse(json) {
+    if (!json || typeof json !== 'object' || json.Response === 'False') return null;
+    const rating = omdbValue(json.imdbRating);
+    const votes = omdbValue(json.imdbVotes);
+    const meta = omdbValue(json.Metascore);
+    let rt = null;
+    for (const r of Array.isArray(json.Ratings) ? json.Ratings : []) {
+      if (r && r.Source === 'Rotten Tomatoes' && typeof r.Value === 'string') {
+        const n = parseInt(r.Value.replace('%', ''), 10);
+        rt = Number.isFinite(n) ? n : null;
+        break;
+      }
+    }
+    const num = (s, f) => { if (s == null) return null; const n = f(s); return Number.isFinite(n) ? n : null; };
+    return {
+      imdbRating: num(rating, Number),
+      imdbVotes: num(votes, (x) => Number(x.replace(/,/g, ''))),
+      rottenTomatoesScore: rt,
+      metacriticScore: num(meta, Number),
+      awards: omdbValue(json.Awards),
+    };
+  }
+
+  function isOMDbLimit(json) {
+    return Boolean(json && typeof json.Error === 'string' && json.Error.toLowerCase().includes('limit reached'));
+  }
+
+  /** MediaEnrichment.merging(omdb:). */
+  function mergeOMDb(record, omdb, imdbID) {
+    return { ...record, imdbID: record.imdbID ?? imdbID, ...omdb };
+  }
+
+  function needsOMDb(rules) {
+    if (!rules) return false;
+    return typeof rules.imdbRatingMin === 'number' || typeof rules.imdbVotesMin === 'number'
+      || typeof rules.rtScoreMin === 'number' || typeof rules.metacriticMin === 'number'
+      || rules.wonOscar === true;
+  }
+
+  /** OMDBGate.gates(from:): one gate per channel with an OMDb rule. */
+  function omdbGates(channels) {
+    const out = [];
+    for (const ch of channels || []) {
+      const r = ch && ch.rules;
+      if (!needsOMDb(r)) continue;
+      const lower = (list) => (Array.isArray(list) ? list : []).filter((x) => typeof x === 'string').map((x) => x.toLowerCase());
+      out.push({
+        mediaType: r.type === 'movie' ? 'movie' : r.type === 'episode' ? 'tv' : null,
+        keywords: new Set([...lower(r.keywords), ...lower(r.keywordsRequireAll)]),
+        genres: lower(r.genres && r.genres.include),
+      });
+    }
+    return out;
+  }
+
+  /** OMDBQuota.isCandidate: any gate admits the media type plus a keyword or genre. */
+  function isOMDbCandidate(mediaType, keywords, genres, gates) {
+    const kw = (keywords || []).map((k) => String(k).toLowerCase());
+    const gs = (genres || []).map((g) => String(g).toLowerCase());
+    return (gates || []).some((gate) => {
+      if (gate.mediaType && gate.mediaType !== mediaType) return false;
+      if (!gate.keywords.size && !gate.genres.length) return true;
+      if (kw.some((k) => gate.keywords.has(k))) return true;
+      return gate.genres.some((g) => gs.some((x) => x.includes(g)));
+    });
+  }
+
+  /** Server genres per TMDB id, merged across the id's items. */
+  function genresByTMDB(items) {
+    const out = new Map();
+    for (const item of items || []) {
+      if (!item || item.tmdbID == null) continue;
+      const id = String(item.tmdbID);
+      const set = out.get(id) || new Set();
+      for (const g of Array.isArray(item.genres) ? item.genres : []) set.add(g);
+      out.set(id, set);
+    }
+    return out;
+  }
+
+  /** EnrichmentService.omdbCandidates: unrated row, valid IMDb id, admitted by a gate. */
+  function omdbCandidates(work, records, genresByID, gates) {
+    if (!gates || !gates.length) return [];
+    const out = [];
+    for (const w of work) {
+      const e = records.get(w.tmdbID);
+      if (!e || e.imdbRating != null) continue;
+      if (typeof e.imdbID !== 'string' || !IMDB_ID.test(e.imdbID)) continue;
+      const genres = [...(e.tmdbGenres || []), ...((genresByID && genresByID.get(w.tmdbID)) || [])];
+      if (!isOMDbCandidate(e.mediaType, e.keywords, genres, gates)) continue;
+      out.push({ tmdbID: w.tmdbID, imdbID: e.imdbID, record: e });
+    }
+    return out;
+  }
+
+  /** OMDBQuota.pick: at most `limit`, in random order (Fisher-Yates on a copy). */
+  function pickOMDbLookups(list, limit = OMDB_PER_LOAD, random = Math.random) {
+    const a = list.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, Math.max(0, limit));
+  }
+
+  /** OMDb's daily quota resets at midnight UTC. */
+  function nextUTCMidnight(ms) {
+    const d = new Date(ms);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  }
+
+  /**
+   * OMDBBackoff: after a daily-limit answer this browser stops asking OMDb until the
+   * next UTC midnight. `storage` is localStorage-shaped; it falls back to memory when
+   * storage is missing or throws.
+   */
+  function omdbBackoff(storage) {
+    let memory = 0;
+    const read = () => {
+      try {
+        const v = storage ? Number(storage.getItem(OMDB_BLOCK_KEY)) : memory;
+        return Number.isFinite(v) ? v : 0;
+      } catch (err) { return memory; }
+    };
+    return {
+      blockedUntil: read,
+      isBlocked(nowMs) { return nowMs < read(); },
+      mark(nowMs) {
+        memory = nextUTCMidnight(nowMs);
+        try { if (storage) storage.setItem(OMDB_BLOCK_KEY, String(memory)); } catch (err) { /* memory only */ }
+      },
+    };
+  }
+
+  function defaultStorage() {
+    try { return global.localStorage || null; } catch (err) { return null; }
   }
 
   /** One work item per TMDB id. Episodes are tv, everything else movie. First item wins. */
@@ -196,16 +375,20 @@
     return out;
   }
 
-  /** SupabaseService.upsertEnrichments: chunks of 200, Prefer: resolution=merge-duplicates. */
-  async function upsertSupabase(records, cfg, fetchImpl) {
+  /**
+   * SupabaseService.upsertEnrichments: chunks of 200, Prefer: resolution=merge-duplicates.
+   * `columns` pins what the write may touch: the TMDB set by default, the OMDb set for
+   * the OMDb pass.
+   */
+  async function upsertSupabase(records, cfg, fetchImpl, columns = TMDB_COLUMNS, toRow = toSupabaseRow) {
     let written = 0;
-    const url = `${cfg.supabaseURL}/rest/v1/media_enrichments?columns=${TMDB_COLUMNS.join(',')}`;
+    const url = `${cfg.supabaseURL}/rest/v1/media_enrichments?columns=${columns.join(',')}`;
     for (const part of chunk(records, cfg.chunkSize || SUPABASE_CHUNK)) {
       try {
         const res = await fetchImpl(url, {
           method: 'POST',
           headers: { ...supabaseHeaders(cfg.anonKey), Prefer: 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify(part.map(toSupabaseRow)),
+          body: JSON.stringify(part.map(toRow)),
         });
         if (res.status >= 300) console.warn(`[Enrichment] Supabase upsert failed: HTTP ${res.status}`);
         else written += part.length;
@@ -224,6 +407,20 @@
       const res = await fetchImpl(url, { headers: { Accept: 'application/json', [CLIENT_HEADER]: CLIENT_VALUE } });
       if (res.status !== 200) return { status: res.status, json: null };
       return { status: 200, json: await res.json() };
+    } catch (err) {
+      return { status: 0, json: null };
+    }
+  }
+
+  /** One OMDb answer through the relay. Returns { status, json }; network errors are status 0. */
+  async function fetchOMDb(imdbID, cfg, fetchImpl) {
+    if (!IMDB_ID.test(String(imdbID))) return { status: 400, json: null };
+    const url = `${cfg.relayURL}?path=omdb/${imdbID}`;
+    try {
+      const res = await fetchImpl(url, { headers: { Accept: 'application/json', [CLIENT_HEADER]: CLIENT_VALUE } });
+      let json = null;
+      try { json = await res.json(); } catch (err) { json = null; }
+      return { status: res.status, json };
     } catch (err) {
       return { status: 0, json: null };
     }
@@ -344,11 +541,14 @@
    * full map when the relay fetches and the upsert are done.
    *
    * opts: { config, fetch, cache, now, concurrency, onProgress(done, total, phase),
-   *         onCacheReady(records), isCancelled() }
+   *         onCacheReady(records), isCancelled(),
+   *         channels (for the OMDb gates; none means no OMDb lookups),
+   *         omdbBackoff, omdbLimit, random }
    */
   async function enrichLibrary(items, opts = {}) {
     const cfg = opts.config || {};
     const stats = { ids: 0, local: 0, supabase: 0, fetched: 0, misses: 0, failed: 0, upserted: 0, peak: 0 };
+    const omdb = { gates: 0, candidates: 0, asked: 0, fetched: 0, misses: 0, failed: 0, limited: false, paused: false, upserted: 0 };
     const records = new Map();
     const missing = missingConfiguration(cfg);
     if (missing.length) {
@@ -356,7 +556,7 @@
         console.log(`[Enrichment] Off: missing ${missing.join(', ')}`);
         loggedSkip = true;
       }
-      return { records, stats, skipped: true };
+      return { records, stats, omdb, skipped: true };
     }
     const fetchImpl = opts.fetch || global.fetch.bind(global);
     const cache = opts.cache || memoryCache();
@@ -366,7 +566,7 @@
 
     const work = workItems(items);
     stats.ids = work.length;
-    if (!work.length) return { records, stats };
+    if (!work.length) return { records, stats, omdb };
 
     // 1. Local cache.
     const local = await cache.getMany(work.map((w) => w.tmdbID));
@@ -427,13 +627,61 @@
       });
     }
 
-    // 4. Save what this browser fetched, locally and to the shared cache.
+    // 4. OMDb for the titles that could land on an IMDb-gated channel.
+    const omdbFresh = [];
+    const gates = omdbGates(opts.channels);
+    omdb.gates = gates.length;
+    if (gates.length && !cancelled()) {
+      const backoff = opts.omdbBackoff || omdbBackoff(defaultStorage());
+      if (backoff.isBlocked(nowMs)) {
+        omdb.paused = true;
+      } else {
+        const candidates = omdbCandidates(work, records, genresByTMDB(items), gates);
+        omdb.candidates = candidates.length;
+        const picked = pickOMDbLookups(candidates, opts.omdbLimit ?? OMDB_PER_LOAD, opts.random || Math.random);
+        let stop = false;
+        await mapWithConcurrency(picked, OMDB_CONCURRENCY, async (c) => {
+          if (stop || cancelled()) return;
+          omdb.asked++;
+          const { status, json } = await fetchOMDb(c.imdbID, cfg, fetchImpl);
+          if (status === 429 || isOMDbLimit(json)) {
+            stop = true;
+            omdb.limited = true;
+            backoff.mark(nowMs);
+            return;
+          }
+          if (status !== 200) {
+            omdb.failed++;
+            // Bad key or relay down: stop for this load, as the app does.
+            if (status === 401 || status === 403 || status >= 500) stop = true;
+            return;
+          }
+          const parsed = parseOMDbResponse(json);
+          if (!parsed) { omdb.misses++; return; }
+          const merged = mergeOMDb(c.record, parsed, c.imdbID);
+          records.set(c.tmdbID, merged);
+          omdbFresh.push(merged);
+          freshStore.push({ tmdbID: c.tmdbID, savedAt: nowMs, record: merged });
+          omdb.fetched++;
+        });
+      }
+    }
+
+    // 5. Save what this browser fetched, locally and to the shared cache.
     if (freshStore.length) await cache.putMany(freshStore);
     if (fresh.length) stats.upserted = await upsertSupabase(fresh, cfg, fetchImpl);
+    if (omdbFresh.length) omdb.upserted = await upsertSupabase(omdbFresh, cfg, fetchImpl, OMDB_COLUMNS, toOMDbRow);
     attach(items, records);
     console.log(`[Enrichment] ${stats.ids} TMDB ids: ${stats.local} local, ${stats.supabase} Supabase, `
       + `${stats.fetched} fetched, ${stats.misses} not on TMDB, ${stats.failed} failed, ${stats.upserted} saved`);
-    return { records, stats };
+    if (omdb.gates) {
+      console.log(omdb.paused
+        ? '[Enrichment] OMDb paused until UTC midnight (daily limit)'
+        : `[Enrichment] OMDb: ${omdb.gates} gated channels, ${omdb.candidates} candidates, ${omdb.asked} asked, `
+          + `${omdb.fetched} found, ${omdb.misses} unknown, ${omdb.failed} failed, ${omdb.upserted} saved`
+          + (omdb.limited ? ', daily limit hit' : ''));
+    }
+    return { records, stats, omdb };
   }
 
   const api = {
@@ -442,7 +690,23 @@
     CACHE_TTL_MS,
     MISS_TTL_MS,
     TMDB_COLUMNS,
+    OMDB_COLUMNS,
+    OMDB_PER_LOAD,
+    OMDB_CONCURRENCY,
+    OMDB_BLOCK_KEY,
     parseTMDBResponse,
+    parseOMDbResponse,
+    isOMDbLimit,
+    mergeOMDb,
+    omdbGates,
+    isOMDbCandidate,
+    genresByTMDB,
+    omdbCandidates,
+    pickOMDbLookups,
+    nextUTCMidnight,
+    omdbBackoff,
+    toOMDbRow,
+    fetchOMDb,
     fromSupabaseRow,
     toSupabaseRow,
     workItems,

@@ -6172,6 +6172,8 @@
     const result = await EN.enrichLibrary(items, {
       config: EN.configFromPage(document, location),
       cache: enrichmentLocalCache || undefined,
+      // The OMDb pass only asks about titles that could land on an IMDb-gated channel.
+      channels: allChannelsUnfiltered,
       isCancelled,
       onProgress: (done, total, phase) => {
         if (isCancelled()) return;
@@ -6190,7 +6192,9 @@
     setEnrichmentStatus('');
     if (result.skipped) return;
     enrichmentRecords = result.records;
-    if (result.stats.fetched > 0 || !rebuiltEarly) refilterChannelsWithEnrichment();
+    if (result.stats.fetched > 0 || (result.omdb && result.omdb.fetched > 0) || !rebuiltEarly) {
+      refilterChannelsWithEnrichment();
+    }
   }
 
   function poolMemberKey(it) {

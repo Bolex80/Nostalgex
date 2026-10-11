@@ -3,6 +3,41 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (OMDb through the relay, branch only)
+
+**Shipped.** Nothing. Branch `omdb-relay`, cut from `report-no-cw` with
+`web-enrichment` merged in, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `omdb-relay`, both surfaces:
+
+- FOREIGN FILMS (imdbRatingMin 6.5, imdbVotesMin 5000) and CULT CLASSICS
+  (imdbVotesMin 30000) need IMDb values, and the shared Supabase cache had
+  `imdb_rating` / `imdb_votes` empty on every row: the App Store build carries
+  no OMDb key, so it never asked. `api/tmdb.js` now also answers
+  `path=omdb/{imdbID}` (`tt` plus 7 to 9 digits only) with `OMDB_API_KEY`, same
+  client header rule, CORS allowlist and Vary. Edge cache 7 days, stale for 30.
+  OMDb's daily-limit answer (HTTP 401 "Request limit reached!") becomes a clean
+  429; "Response: False" answers pass through uncached. No ids are logged.
+- `OMDBService` works like `TMDBService`: direct with a key, else the relay.
+  `EnrichmentService` now fetches TMDB first and decides OMDb afterwards.
+- Quota. OMDb free is 1,000 a day for every device together, so a title is only
+  looked up when it could land on an IMDb-gated channel: same media type plus a
+  keyword or genre from that channel's rules (gates derived from channels.json,
+  `OMDBGate`). At most 50 lookups per library load, random order, so repeat
+  loads walk through different titles. After a 429 the device stops asking until
+  the next UTC midnight (`OMDBBackoff`, UserDefaults; localStorage on the web).
+- Web (`scripts/nostalgex-enrichment.js`): same gates, cap and backoff, 4 in
+  flight, upsert back with the OMDb columns only. The IMDb id comes from the
+  shared row or the TMDB movie document (`imdb_id`), never the server, so IMDb
+  ids now leave the browser alongside TMDB ids.
+- Tests: `OMDBRelayTests` (17), relay smoke and enrichment smoke extended.
+  A local relay call for tt0133093 with the real key returned 200, rating 8.7.
+
+**Next.** Set `OMDB_API_KEY` on Vercel before deploying the relay. A one-off
+backfill of the gated candidates would fill the cache faster than 50 per load.
+
 ## 2026-10-11 (Report Playback never fills Continue Watching, branch only)
 
 **Shipped.** Nothing. Branch `report-no-cw`, cut from `shared-franchises` at

@@ -337,7 +337,10 @@ extension AppState {
 
             let enrichableCount = allItems.filter { $0.tmdbID != nil || $0.imdbID != nil }.count
             await pulseLibraryPhase(.enrichingMetadata, detail: "\(enrichableCount) titles")
-            await enrichmentService.enrichItems(allItems)
+            await enrichmentService.enrichItems(
+                allItems,
+                omdbGates: OMDBGate.gates(from: config.channels.compactMap(\.rules))
+            )
             await briefUILBeat()
 
             // Collections and enrichment both waited on the network.
