@@ -3,7 +3,7 @@
  * Smoke test for api/tmdb.js. Stubs fetch, so nothing reaches TMDB.
  * Run: `npm run test:tmdb`.
  */
-import handler, { upstreamRequest } from "../api/tmdb.js";
+import handler, { upstreamRequest, corsHeaders } from "../api/tmdb.js";
 
 let pass = 0;
 const failures = [];
@@ -44,6 +44,7 @@ async function call({ method = "GET", query = {}, headers = { "x-nostalgex-clien
     setHeader(key, value) { sent[key] = value; },
     status(code) { status = code; return this; },
     json(data) { json = data; return this; },
+    end() { return this; },
   };
   await handler({ method, query, headers }, res);
   return { status, json, headers: sent };
@@ -98,9 +99,64 @@ check("undefined rejected", upstreamRequest(undefined), null);
 }
 {
   const calls = stubTMDB({ status: 200, body: {} });
-  const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "web" } });
+  const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "android" } });
   check("wrong client header 403", r.status, 403);
   check("wrong client header no upstream", calls.length, 0);
+}
+{
+  const calls = stubTMDB({ status: 200, body: { id: 603 } });
+  const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "web" } });
+  check("web client header 200", r.status, 200);
+  check("web client one upstream call", calls.length, 1);
+  check("web client cached at the edge", r.headers["Cache-Control"], "public, s-maxage=86400, stale-while-revalidate=604800");
+}
+
+// ---- CORS ----
+for (const origin of ["https://www.nostalgex.app", "https://nostalgex.app", "http://localhost:5173"]) {
+  check(`cors echoes ${origin}`, corsHeaders(origin)["Access-Control-Allow-Origin"], origin);
+}
+for (const origin of ["https://evil.example", "http://localhost:3000", "https://nostalgex.app.evil.example", "null", "", undefined]) {
+  check(`cors refuses ${origin}`, corsHeaders(origin)["Access-Control-Allow-Origin"], undefined);
+  check(`cors refuses ${origin} headers`, corsHeaders(origin)["Access-Control-Allow-Headers"], undefined);
+}
+check("cors vary always", corsHeaders(undefined).Vary, "Origin, X-Nostalgex-Client");
+{
+  const calls = stubTMDB({ status: 200, body: {} });
+  const r = await call({ method: "OPTIONS", query: { path: "movie/603" }, headers: { origin: "http://localhost:5173" } });
+  check("preflight 204", r.status, 204);
+  check("preflight no upstream", calls.length, 0);
+  check("preflight allow origin", r.headers["Access-Control-Allow-Origin"], "http://localhost:5173");
+  check("preflight allow headers", r.headers["Access-Control-Allow-Headers"], "X-Nostalgex-Client");
+  check("preflight allow methods", r.headers["Access-Control-Allow-Methods"], "GET, OPTIONS");
+  check("preflight vary", r.headers.Vary, "Origin, X-Nostalgex-Client");
+}
+{
+  const calls = stubTMDB({ status: 200, body: {} });
+  const r = await call({ method: "OPTIONS", query: { path: "movie/603" }, headers: { origin: "https://evil.example" } });
+  check("foreign preflight 204", r.status, 204);
+  check("foreign preflight no allow origin", r.headers["Access-Control-Allow-Origin"], undefined);
+  check("foreign preflight no upstream", calls.length, 0);
+}
+{
+  stubTMDB({ status: 200, body: { id: 603 } });
+  const r = await call({
+    query: { path: "movie/603" },
+    headers: { "x-nostalgex-client": "web", origin: "https://www.nostalgex.app" },
+  });
+  check("cors GET allow origin", r.headers["Access-Control-Allow-Origin"], "https://www.nostalgex.app");
+  check("cors GET vary", r.headers.Vary, "Origin, X-Nostalgex-Client");
+}
+{
+  stubTMDB({ status: 200, body: {} });
+  const r = await call({ query: { path: "movie/603" }, headers: { origin: "http://localhost:5173" } });
+  check("cors 403 still readable", r.headers["Access-Control-Allow-Origin"], "http://localhost:5173");
+  check("cors 403 status", r.status, 403);
+}
+{
+  stubTMDB({ status: 200, body: {} });
+  const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "tvos" } });
+  check("tvos no origin no allow origin", r.headers["Access-Control-Allow-Origin"], undefined);
+  check("tvos no origin still varies", r.headers.Vary, "Origin, X-Nostalgex-Client");
 }
 {
   const calls = stubTMDB({ status: 200, body: {} });
