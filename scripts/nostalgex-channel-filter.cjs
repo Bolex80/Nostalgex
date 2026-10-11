@@ -8,17 +8,20 @@
  * tvOS reads TMDB/OMDb enrichment off `MediaEnrichment` (keywords, networks,
  * productionCompanies, imdbRating, imdbVotes, rtScore, metacriticScore, awards).
  * On the web an item may carry the same values either flat on the item or under
- * `item.enrichment` — `enrichedValue()` reads both. When the host has NO
- * enrichment pipeline (the browser tuner today), enrichment-gated rules behave
- * exactly as they do on tvOS with a missing enrichment record:
+ * `item.enrichment` — `enrichedValue()` reads both. The browser tuner attaches
+ * `item.enrichment` from scripts/nostalgex-enrichment.js (shared Supabase cache,
+ * then the TMDB relay). Until it lands, or for an item TMDB has no record of,
+ * enrichment-gated rules behave exactly as they do on tvOS with a missing
+ * enrichment record:
  *   - additive rules (keywords, networks, productionCompanies) simply don't match
  *   - keywordsExclude is SOFT — unenriched items pass
  *   - OMDb gates (imdbRatingMin/imdbVotesMin/rtScoreMin/metacriticMin/wonOscar)
  *     are HARD — unenriched items are REJECTED (mirrors AppState+Channels.swift
  *     "OMDb rating gates" block)
- * That last one means CH141 FOREIGN FILMS and CH143 CULT CLASSICS come back empty
- * on any host without OMDb data. That is the tvOS behaviour; do not "fix" it by
- * letting unrated items through — wire enrichment into the host instead.
+ * That last one means FOREIGN FILMS and CULT CLASSICS come back empty on any
+ * host without OMDb data. The web relay does not proxy OMDb, so the web only has
+ * OMDb values an Apple TV already wrote to the shared cache. That is the tvOS
+ * behaviour; do not "fix" it by letting unrated items through.
  */
 
 const HORROR = new Set(["horror"]);

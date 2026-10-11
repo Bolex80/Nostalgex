@@ -1,6 +1,6 @@
 import { resolve } from 'path'
 import { readdirSync, mkdirSync, copyFileSync } from 'fs'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { writeBlogToDist } from './scripts/build-blog.mjs'
 
 // The browser-loaded helper scripts (scripts/nostalgex-*.js|.cjs) are referenced
@@ -38,6 +38,15 @@ function emitBlog() {
     },
   }
 }
+
+// plex-tuner.html reads VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and
+// VITE_TMDB_RELAY_URL through Vite's %VITE_...% HTML replacement (see .env.example).
+// The Supabase pair is meant to be set; left unset, the placeholders stay in the page
+// and TMDB enrichment turns itself off. The relay override is for local testing only,
+// so it defaults to empty rather than warning on every build. process.env outranks
+// .env files in Vite, so it is only filled in when no env file sets it.
+const fileEnv = { ...loadEnv('development', __dirname, 'VITE_'), ...loadEnv('production', __dirname, 'VITE_') }
+if (!('VITE_TMDB_RELAY_URL' in fileEnv)) process.env.VITE_TMDB_RELAY_URL = ''
 
 export default defineConfig({
   plugins: [copyBrowserScripts(), emitBlog()],
