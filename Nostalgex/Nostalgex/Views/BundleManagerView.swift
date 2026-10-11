@@ -566,7 +566,7 @@ struct SettingsPageView: View {
             // stays in the app; on, it counts on the server they connected.
             if !appState.isDemoMode {
                 SettingsToggleRow(
-                    title: "REPORT PLAYBACK TO \(appState.backendDisplayName.uppercased())",
+                    title: "HISTORY & RESUME ON \(appState.backendDisplayName.uppercased())",
                     subtitle: "Off by default. When on, a real watch here counts on your server.",
                     // Warning stays full-brightness while the row's own text dims,
                     // so the side effect is legible exactly when it applies.
@@ -581,6 +581,18 @@ struct SettingsPageView: View {
                 .focused($focusedItem, equals: "plex_sync")
                 .id("plex_sync")
                 .accessibilityHint("Updates play counts, resume points and Continue Watching in \(appState.backendDisplayName)")
+                if appState.backendKind == .plex {
+                    SettingsToggleRow(
+                        title: "PLEX HEARTBEAT ONLY",
+                        subtitle: "Show the current title and playback state in Plex without sending progress or marking it watched.",
+                        warning: appState.heartbeatReportingNotice,
+                        isOn: appState.plexHeartbeatOnly,
+                        isFocused: focusedItem == "plex_heartbeat"
+                    ) { appState.plexHeartbeatOnly.toggle() }
+                    .focused($focusedItem, equals: "plex_heartbeat")
+                    .id("plex_heartbeat")
+                    .accessibilityHint("Reports activity without position, duration or watched calls. Disables History & Resume sync.")
+                }
             }
 
             SettingsToggleRow(

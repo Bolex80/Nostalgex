@@ -1133,6 +1133,35 @@ struct PlexAPIService: MediaBackend {
         ]
     }
 
+    /// Position-free Now Playing report. Keep this separate from history/resume
+    /// reporting so no default value can accidentally add progress to the request.
+    func heartbeatRequest(ratingKey: String, state: String, sessionID: String) -> URLRequest? {
+        guard ["playing", "paused", "buffering", "stopped"].contains(state),
+              !ratingKey.isEmpty, ratingKey.allSatisfy(\.isNumber), !sessionID.isEmpty,
+              var components = URLComponents(string: serverURL + "/:/timeline") else { return nil }
+        components.queryItems = [
+            .init(name: "ratingKey", value: ratingKey),
+            .init(name: "key", value: "/library/metadata/\(ratingKey)"),
+            .init(name: "state", value: state)
+        ]
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 10
+        baseHeaders.forEach { request.setValue($1, forHTTPHeaderField: $0) }
+        request.setValue(sessionID, forHTTPHeaderField: "X-Plex-Session-Identifier")
+        return request
+    }
+
+    func reportHeartbeat(ratingKey: String, state: String, sessionID: String) async -> Bool {
+        guard let request = heartbeatRequest(ratingKey: ratingKey, state: state, sessionID: sessionID) else { return false }
+        do {
+            let (_, response) = try await Self.session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return (200..<300).contains(http.statusCode)
+        } catch { return false }
+    }
+
     // MARK: - Session reporting (Now Playing + Scrobble)
 
     /// Report current playback position to Plex so Now Playing, On Deck, and watch history stay accurate.
@@ -1367,3 +1396,5 @@ struct PlexRawItem: Decodable {
         }
     }
 }
+
+extension PlexAPIService: PlexHeartbeatTransport {}
