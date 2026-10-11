@@ -10375,46 +10375,41 @@
     },
     "movie:22": {
       "channels": [
-        101,
         74
       ],
-      "source": "collection:Pirates of the Caribbean Collection",
+      "source": "collection-via:Pirates of the Caribbean: Dead Man's Chest (Pirates of the Caribbean Collection)",
       "name": "Pirates of the Caribbean: The Curse of the Black Pearl",
       "mediaType": "movie"
     },
     "movie:58": {
       "channels": [
-        101,
         74
       ],
-      "source": "collection:Pirates of the Caribbean Collection",
+      "source": "recommendation:5 exemplars",
       "name": "Pirates of the Caribbean: Dead Man's Chest",
       "mediaType": "movie"
     },
     "movie:285": {
       "channels": [
-        101,
         74
       ],
-      "source": "collection:Pirates of the Caribbean Collection",
+      "source": "similar:2 exemplars",
       "name": "Pirates of the Caribbean: At World's End",
       "mediaType": "movie"
     },
     "movie:1865": {
       "channels": [
-        101,
         74
       ],
-      "source": "collection:Pirates of the Caribbean Collection",
+      "source": "collection-via:Pirates of the Caribbean: Dead Man's Chest (Pirates of the Caribbean Collection)",
       "name": "Pirates of the Caribbean: On Stranger Tides",
       "mediaType": "movie"
     },
     "movie:166426": {
       "channels": [
-        101,
         74
       ],
-      "source": "collection:Pirates of the Caribbean Collection",
+      "source": "collection-via:Pirates of the Caribbean: Dead Man's Chest (Pirates of the Caribbean Collection)",
       "name": "Pirates of the Caribbean: Dead Men Tell No Tales",
       "mediaType": "movie"
     },

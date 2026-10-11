@@ -556,6 +556,7 @@
       "name": "MARVEL",
       "mediaType": "movie",
       "exemplars": [],
+      "requireProductionCompanies": ["Marvel"],
       "tmdbCollections": [
         86311,
         131295,
@@ -564,9 +565,7 @@
         284433,
         422834,
         618529,
-        633766,
         531241,
-        295,
         556,
         748,
         453993,
