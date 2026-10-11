@@ -15,7 +15,8 @@
  *   search/collection  with query (and an optional page)
  *
  * `X-Nostalgex-Client: tvos` is a cheap filter against stray browsers and crawlers,
- * not security. Nothing about a request is logged, ids included.
+ * not security. Responses carry `Vary: X-Nostalgex-Client` so the edge cache never
+ * serves a cached 200 to a request that lacks the header. Nothing about a request is logged, ids included.
  */
 
 const TMDB = 'https://api.themoviedb.org/3';
@@ -95,12 +96,14 @@ export default async function handler(req, res) {
     // Network failure, or TMDB answered with something that is not JSON (an HTML
     // error page during an outage). Either way the app should retry later, so
     // nothing is cached.
+    res.setHeader('Vary', 'X-Nostalgex-Client');
     res.setHeader('Cache-Control', NO_STORE);
     return res.status(502).json({ error: 'TMDB unavailable' });
   }
 
   // Only a 200 is worth keeping at the edge. A 404 for an id that TMDB later
   // creates, or a 429 while rate limited, should not be pinned for a day.
+  res.setHeader('Vary', 'X-Nostalgex-Client');
   res.setHeader('Cache-Control', status === 200 ? CACHE_OK : NO_STORE);
   return res.status(status).json(data);
 }
