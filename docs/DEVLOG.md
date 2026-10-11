@@ -3,6 +3,41 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-11 (web tuner)
+
+**Shipped.** nostalgex.app: the web tuner now reads the shared metadata cache, fills
+misses through the TMDB relay, and builds server collections as channels. Report
+Playback on the web no longer fills Continue Watching. No app release.
+
+**Changed.**
+
+- The web tuner never attached enrichment to items, so every enrichment-gated channel
+  was empty or thin on the web. It now batch-reads the shared Supabase cache by TMDB id,
+  looks up misses through `api/tmdb.js`, and writes them back. On a test library of about
+  11,600 items: SPY GAMES 0 to 59, TOON TOWN 0 to 44, MUSICALS 43 to 57, TEEN MOVIES 14
+  to 21, BIOPICS 13 to 18, MIDNIGHT 1 to 6, TRUE CRIME 0 to 1.
+- Plex items on the web had no TMDB id at all (the scan never asked Plex for guids, and
+  episodes did not inherit the show's id). Now about 90% carry one. Old library caches
+  are refused once so browsers rescan.
+- The relay accepts `X-Nostalgex-Client: web`, answers CORS preflight, and echoes the
+  origin only for nostalgex.app, www and localhost:5173. Other origins are blocked.
+- Server collections air on CH 500-699; ones that duplicate a stock franchise channel
+  fold out.
+- Report Playback: Plex never counted a Nostalgex watch, because `/:/scrobble` with
+  `key=/library/metadata/{id}` returns 404; it now sends the bare rating key. On leaving a
+  program the tuner puts it back the way the server had it (Plex: unscrobble, progress
+  restore, or remove from Continue Watching; Jellyfin/Emby: PlayedItems and UserData
+  restore). Verified live on Plex and Emby, Jellyfin against a local server.
+- Privacy page: the web tuner's metadata lookups and the Continue Watching promise.
+
+**Half-done.** The same enrichment, collections, franchise bundle and Continue Watching
+fix are on the app's 1.0.27 line, not released. FOREIGN FILMS and CULT CLASSICS stay
+thin on both surfaces: they gate on IMDb ratings and OMDb is not relayed yet. The
+franchise Found list is not wired into the web tuner's settings yet.
+
+**Next.** OMDb through the relay; a generated membership file places the Pirates of the
+Caribbean films on MARVEL, fix in the generator.
+
 ## 2026-10-09 (app)
 
 **Shipped.** Nothing to Apple. 1.0.24 (45) is still in TestFlight beta review.

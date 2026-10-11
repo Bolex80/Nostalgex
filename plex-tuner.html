@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nostalgex</title>
+<!-- Filled in by Vite from VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (.env.local, or the
+     Vercel project env). Left as placeholders when unset, which turns enrichment off.
+     The anon key is public by design; row level security on media_enrichments is the
+     protection. See scripts/nostalgex-enrichment.js. -->
+<meta name="nostalgex-supabase-url" content="%VITE_SUPABASE_URL%">
+<meta name="nostalgex-supabase-anon-key" content="%VITE_SUPABASE_ANON_KEY%">
+<meta name="nostalgex-tmdb-relay" content="%VITE_TMDB_RELAY_URL%">
 <link rel="icon" type="image/png" href="./logo/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
@@ -13,6 +20,9 @@
 <script src="scripts/nostalgex-music-brainz.js"></script>
 <script src="scripts/nostalgex-daily-manifest.js"></script>
 <script src="scripts/nostalgex-library-load.js"></script>
+<script src="scripts/nostalgex-enrichment.js"></script>
+<script src="scripts/nostalgex-collections.js"></script>
+<script src="scripts/nostalgex-watch-state.js"></script>
 <style>
   :root {
     --bg: #080810;
@@ -2174,7 +2184,17 @@
       <div style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px; margin-bottom: 16px;">
         Toggle channel packages on or off. Matching the tvOS app.
       </div>
+      <div id="enrichment-status" style="display:none; color: var(--cyan); font-size: 11px; letter-spacing: 1px; margin: -6px 0 16px;"></div>
       <div id="bundle-list">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="config-section-label" style="margin-top: 28px;">MY COLLECTIONS</div>
+      <div style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px; margin-bottom: 16px;">
+        Collections on your server with 3 or more movies. Switch one on and it airs from CH 500.
+      </div>
+      <div id="collections-status" style="color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 1px; margin-bottom: 12px;"></div>
+      <div id="collection-list">
         <!-- Rendered by JS -->
       </div>
     </div>
@@ -2193,7 +2213,7 @@
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08); border-radius: 6px;">
         <div>
           <div style="font-size: 22px; color: rgba(255,255,255,0.85);">Sync activity to server</div>
-          <div style="font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px;">Off by default. Turn on and every program you tune past is reported, so it piles up in Continue Watching and grows play counts.</div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 4px;">Off by default. When on, your server sees what's playing and a film you watch most of counts as watched. Channel surfing never fills your Continue Watching.</div>
         </div>
         <button class="plex-btn" id="cfg-plexsync-toggle" style="font-size: 11px; padding: 12px 22px;" onclick="toggleSyncActivity()">OFF</button>
       </div>
@@ -3562,9 +3582,18 @@
   //
   // Hybrid gate (both must pass): tuned in during the first 15% of the program
   // (entry gate) AND accumulated >= 75% of total runtime as active watch time.
+  //
+  // Continue Watching: reporting must never leave a program in Continue Watching,
+  // Resume or On Deck. Before the first report the tracker reads what the server held
+  // for the item; when the session ends (or reporting is turned off) it puts that back.
+  // The decision table and request shapes live in scripts/nostalgex-watch-state.js,
+  // shared with the Apple TV app through scripts/watch-cleanup-golden.json. Every call
+  // goes through one queue so the cleanup always lands after the last report.
   let playbackTracker = null;
 
   function makePlaybackTracker(item) {
+    const WS = window.NostalgexWatchState;
+    const queue = WS.sharedQueue;
     const totalSec = (item.duration || 0) * 60;
     const seekOffset = Math.floor(item.offsetSeconds || 0);
     const entryFrac = totalSec > 0 ? seekOffset / totalSec : 1;
@@ -3574,6 +3603,14 @@
     const serverUrl = item.serverUrl || plexServerUrl;
     const serverToken = item.serverToken || plexToken;
     const isPlex = mediaBackend !== 'jellyfin';
+    const guard = isPlex
+      ? WS.plexGuard({
+          serverUrl,
+          authQuery: `X-Plex-Token=${encodeURIComponent(serverToken)}`
+            + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`
+            + `&X-Plex-Product=Nostalgex&X-Plex-Platform=Web`,
+        })
+      : WS.mediaServerGuard({ serverUrl: plexServerUrl, userId: jellyfinUserId, authHeader: jellyfinAuthHeader });
 
     const t = {
       eligibleEntry: entryFrac <= 0.15,
@@ -3583,6 +3620,9 @@
       stopped: false,
       started: false,
       timer: null,
+      prior: null,      // what the server held before the first report (null = unreadable)
+      captureQueued: false,
+      captured: false,  // the read has finished
     };
 
     function accumulate() {
@@ -3590,60 +3630,84 @@
       t.activeWatchSeconds += (Date.now() - t.watchStart) / 1000;
       t.watchStart = null;
     }
-    function timeMs() { return (seekOffset * 1000) + Math.round(t.activeWatchSeconds * 1000); }
+    // After a Plex scrobble, any nonzero position becomes a fresh resume point on the
+    // item it just marked watched. Position 0 keeps Now Playing alive without one.
+    function timeMs() {
+      if (isPlex && t.scrobbled) return 0;
+      return (seekOffset * 1000) + Math.round(t.activeWatchSeconds * 1000);
+    }
     function durationMs() { return Math.round(totalSec * 1000); }
 
     // ── Plex reporting ──
     function plexTimeline(state) {
-      const u = `${serverUrl}/:/timeline?ratingKey=${encodeURIComponent(rk)}`
-        + `&key=${encodeURIComponent('/library/metadata/' + rk)}`
-        + `&state=${state}&time=${timeMs()}&duration=${durationMs()}`
-        + `&X-Plex-Session-Identifier=${encodeURIComponent(sessionID)}`
-        + `&X-Plex-Token=${encodeURIComponent(serverToken)}`
-        + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`
-        + `&X-Plex-Product=Nostalgex&X-Plex-Platform=Web`;
-      fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' } }).catch(() => {});
+      const u = guard.timelineUrl(rk, state, timeMs(), durationMs(), sessionID);
+      queue.enqueue(() => fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' } }).catch(() => {}));
     }
     function plexScrobble() {
-      const u = `${serverUrl}/:/scrobble?key=${encodeURIComponent('/library/metadata/' + rk)}`
-        + `&identifier=com.plexapp.plugins.library`
-        + `&X-Plex-Token=${encodeURIComponent(serverToken)}`
-        + `&X-Plex-Client-Identifier=${encodeURIComponent(getClientId())}`;
-      fetch(u, { headers: { 'Accept': 'application/json' } }).catch(() => {});
+      const u = guard.scrobbleUrl(rk);
+      queue.enqueue(() => fetch(u, { headers: { 'Accept': 'application/json' } }).catch(() => {}));
     }
 
     // ── Jellyfin / Emby reporting ──
-    // Jellyfin owns its own play-count math: it increments PlayCount when a
-    // /Sessions/Playing/Stopped report lands with the position near completion. So we
-    // just drive the native lifecycle and let the server count once — no explicit
-    // mark-played (that would double-count). On a mid-program channel change the stop
-    // position is partial, so Jellyfin correctly does NOT count it.
-    function jfPost(path) {
-      fetch(`${plexServerUrl}${path}`, {
+    // Both bump PlayCount on the start report and store the stop position; the cleanup
+    // writes the exact final state back (prior, or prior + 1 watch when the gate passed).
+    function jfPost(path, opts) {
+      const body = JSON.stringify({
+        ItemId: rk,
+        PlaySessionId: sessionID,
+        MediaSourceId: item.partKey || rk,
+        PositionTicks: timeMs() * 10000, // ms -> 100ns ticks
+        IsPaused: false,
+      });
+      const send = () => fetch(`${plexServerUrl}${path}`, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': jellyfinAuthHeader() },
-        body: JSON.stringify({
-          ItemId: rk,
-          PlaySessionId: sessionID,
-          MediaSourceId: item.partKey || rk,
-          PositionTicks: timeMs() * 10000, // ms -> 100ns ticks
-          IsPaused: false,
-        }),
+        body,
+        keepalive: !!(opts && opts.keepalive),
       }).catch(() => {});
+      if (opts && opts.now) send(); else queue.enqueue(send);
+    }
+
+    // Read the prior state once, queued ahead of the first report.
+    function captureOnce() {
+      if (t.captureQueued) return;
+      t.captureQueued = true;
+      queue.enqueue(async () => {
+        t.prior = await guard.capture(rk);
+        t.captured = true;
+        console.log('[Tracker] PRIOR', rk, t.prior ? JSON.stringify(t.prior) : 'unreadable');
+      });
+    }
+    // Put Continue Watching / Resume back. `unloading`: the page is going away, so send
+    // now with keepalive instead of waiting on the queue (best effort).
+    function cleanup(unloading) {
+      if (!t.started) return;
+      const counted = t.scrobbled;
+      if (unloading) {
+        guard.restore(rk, t.captured ? t.prior : null, counted, { keepalive: true });
+        return;
+      }
+      queue.enqueue(() => guard.restore(rk, t.prior, counted));
     }
 
     function reportProgress() {
       if (isPlex) plexTimeline('playing');
       else jfPost('/Sessions/Playing/Progress');
     }
-    // Plex only: timeline never bumps the view count, so we scrobble explicitly when the
-    // hybrid gate passes. (Jellyfin increments itself via the stop report above.)
+    // Plex: timeline never bumps the view count, so we scrobble explicitly when the
+    // hybrid gate passes. Jellyfin/Emby: mark played unless the position is already past
+    // the server's own completion line (the stop report counts it there).
     function evaluateAndScrobble() {
-      if (!isPlex || t.scrobbled) return;
+      if (t.scrobbled) return;
       if (!t.eligibleEntry || totalSec <= 0) return;
       if (t.activeWatchSeconds / totalSec < 0.75) return;
+      const fraction = timeMs() / (totalSec * 1000);
       t.scrobbled = true;
-      plexScrobble();
+      if (isPlex) plexScrobble();
+      else if (fraction < 0.9) {
+        const u = guard.markPlayedUrl(rk);
+        queue.enqueue(() => fetch(u, { method: 'POST', headers: { 'Authorization': jellyfinAuthHeader() } }).catch(() => {}));
+      }
       console.log('[Tracker] SCROBBLE', item.title);
     }
     function tick() {
@@ -3661,32 +3725,36 @@
         if (t.stopped || t.started) return;
         t.started = true;
         t.watchStart = Date.now();
+        captureOnce();
         if (isPlex) plexTimeline('playing');
         else jfPost('/Sessions/Playing');
         t.timer = setInterval(tick, 10000);
       },
       onPause() { if (!t.stopped) accumulate(); },
       onResume() { if (!t.stopped && t.started) t.watchStart = Date.now(); },
-      // Flush, send the stop report, and do a final Plex scrobble check.
-      stop() {
+      // Flush, send the stop report, do a final scrobble check, then restore
+      // Continue Watching. `unloading` (pagehide) sends without waiting on the queue.
+      stop(unloading) {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
         accumulate();
         if (t.started) {
-          if (isPlex) plexTimeline('stopped');
-          else jfPost('/Sessions/Playing/Stopped');
+          // Unloading on Plex: skip the stopped report. The pulses already wrote a
+          // position, and a stopped report racing the cleanup could rewrite it.
+          if (!isPlex) jfPost('/Sessions/Playing/Stopped', unloading ? { now: true, keepalive: true } : null);
+          else if (!unloading) plexTimeline('stopped');
         }
-        evaluateAndScrobble();
+        if (!unloading) evaluateAndScrobble();
+        cleanup(!!unloading);
       },
-      // Tear down without reporting anything (used when the user turns off activity
-      // sync mid-program). Clears the pulse timer so no further timeline/scrobble fires
-      // and, unlike stop(), sends no final "stopped" report — so no view-offset is
-      // written and the item never lands in Continue Watching.
+      // Tear down without further reports (the user turned reporting off mid-program).
+      // Restores whatever the reports already sent wrote to Continue Watching.
       abandon() {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
+        cleanup(false);
       },
     };
   }
@@ -4454,11 +4522,15 @@
       if (ch.itemPool.length >= (ch.minItems || 50)) buildChannelSchedule(ch);
       else ch.enabled = false;
     });
+    refreshCollectionChannels();
     renderConfig();
   }
 
   function saveChannelConfig() {
-    const config = CHANNELS.filter(ch => !ch.autoGenerated).map(ch => ({
+    // Collection channels are rebuilt from the server scan and the saved switches
+    // (nostalgex_enabled_collections); restoring one here would bring it back as a
+    // custom channel with no rules.
+    const config = CHANNELS.filter(ch => !ch.autoGenerated && !ch.collection).map(ch => ({
       id: ch.id,
       name: ch.name,
       colorHex: ch.colorHex,
@@ -4578,8 +4650,9 @@
     if (document.hidden) playbackTracker.onPause();
     else playbackTracker.onResume();
   });
-  // Flush a final timeline/scrobble check if the user closes or navigates away mid-program.
-  window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(); });
+  // Restore Continue Watching if the user closes or navigates away mid-program. The page
+  // is going away, so the tracker sends with keepalive instead of waiting on its queue.
+  window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(true); });
 
   function toggleMute() {
     const video = document.getElementById('plex-video');
@@ -4663,9 +4736,9 @@
   function toggleSyncActivity() {
     syncPlexActivity = !syncPlexActivity;
     localStorage.setItem('plex90_sync_activity', syncPlexActivity);
-    // If we're turning it off mid-program, silently abandon the live tracker so no
-    // further reports fire and no final "stopped" offset is written (which would still
-    // create a Continue Watching entry). Turning it on takes effect on the next program.
+    // If we're turning it off mid-program, abandon the live tracker so no further
+    // reports fire; it restores whatever the reports already sent wrote to Continue
+    // Watching. Turning it on takes effect on the next program.
     if (!syncPlexActivity && playbackTracker) { playbackTracker.abandon(); playbackTracker = null; }
     updateSyncActivityControls();
   }
@@ -4944,8 +5017,9 @@
     }
 
     const visibleBundles = bundles.filter(b => b.id !== 'collections');
-    // Clamp focus index
-    if (bundleFocusIndex >= visibleBundles.length) bundleFocusIndex = Math.max(0, visibleBundles.length - 1);
+    // Clamp focus index. The collection rows below continue the same index.
+    const focusRows = visibleBundles.length + visibleCollections().length;
+    if (bundleFocusIndex >= focusRows) bundleFocusIndex = Math.max(0, focusRows - 1);
 
     visibleBundles.forEach((bundle, idx) => {
       const isEnabled = enabledBundleIDs.has(bundle.id);
@@ -4996,6 +5070,84 @@
       container.appendChild(row);
 
       // Scroll focused row into view
+      if (isFocused) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    renderCollectionList();
+  }
+
+  // Mirrors the MY COLLECTIONS rows in BundleManagerView.swift: one switch per server
+  // collection, "N movies" or the duplicate warning underneath.
+  function renderCollectionList() {
+    const container = document.getElementById('collection-list');
+    const statusEl = document.getElementById('collections-status');
+    if (!container || !statusEl) return;
+    container.innerHTML = '';
+
+    const rows = visibleCollections();
+    const offset = bundles.filter(b => b.id !== 'collections').length;
+    const onAir = rows.filter(c => c.enabled).length;
+    let status = '';
+    if (collectionScanState === 'scanning') {
+      status = `READING COLLECTIONS FROM YOUR SERVER${collectionScanDetail ? ' ' + collectionScanDetail : ''}`;
+    } else if (collectionScanState === 'failed' && !rows.length) {
+      status = 'COULD NOT READ COLLECTIONS FROM YOUR SERVER';
+    } else if (rawCollections && !rows.length) {
+      status = 'NO COLLECTIONS WITH 3 OR MORE MOVIES';
+    } else if (rows.length) {
+      status = `${onAir}/${rows.length} ON AIR`;
+    }
+    if (collectionsOverCap > 0) {
+      status += `${status ? ' · ' : ''}${collectionsOverCap} SWITCHED ON PAST CH 699, NOT ON AIR`;
+    }
+    statusEl.textContent = status;
+
+    const channelByCollection = new Map(
+      allChannelsUnfiltered.filter(ch => ch.collection).map(ch => [ch.collectionID, ch]));
+    const CL = globalThis.NostalgexCollections;
+
+    rows.forEach((c, i) => {
+      const idx = offset + i;
+      const isFocused = configTab === 'bundles' && idx === bundleFocusIndex;
+      const ch = channelByCollection.get(c.id);
+      const warning = CL ? CL.duplicateWarning(c) : null;
+      const subtitle = warning || `${c.movieCount} movies`;
+
+      const row = document.createElement('div');
+      row.className = 'bundle-row';
+      const borderColor = isFocused ? 'var(--cyan)' : (c.enabled ? 'rgba(0,255,255,0.3)' : 'rgba(255,255,255,0.08)');
+      const bgColor = isFocused ? 'rgba(0,255,255,0.1)' : (c.enabled ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)');
+      row.style.cssText = `
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 16px; margin-bottom: 8px;
+        background: ${bgColor};
+        border: 2px solid ${borderColor};
+        border-radius: 6px; cursor: pointer;
+        transition: all 0.2s;
+        opacity: ${warning && !c.enabled ? 0.7 : 1};
+        ${isFocused ? 'box-shadow: 0 0 12px rgba(0,255,255,0.2);' : ''}
+      `;
+      row.addEventListener('click', () => {
+        bundleFocusIndex = idx;
+        toggleCollection(c.id);
+      });
+      const right = ch
+        ? `<div style="font-size: 14px; color: var(--cyan); letter-spacing: 1px;">CH ${ch.number}</div>
+           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">CHANNEL</div>`
+        : `<div style="font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${c.movieCount}</div>
+           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">MOVIES</div>`;
+      row.innerHTML = `
+        <div class="toggle-switch ${c.enabled ? 'on' : ''}" style="flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 16px; font-weight: bold; letter-spacing: 2px; color: ${c.enabled ? '#fff' : 'rgba(255,255,255,0.4)'};">
+            ${escapeHtml(c.title)}
+          </div>
+          <div style="font-size: 11px; color: ${warning ? 'rgba(255,229,0,0.7)' : 'rgba(255,255,255,0.4)'}; margin-top: 4px; letter-spacing: 1px;">
+            ${escapeHtml(subtitle)}
+          </div>
+        </div>
+        <div style="text-align: right; flex-shrink: 0;">${right}</div>
+      `;
+      container.appendChild(row);
       if (isFocused) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }
@@ -5711,6 +5863,11 @@
     // The library cache persists across sessions now, so it has to go with the
     // credentials. Otherwise a signed-out browser keeps the whole library.
     clearLibraryCache();
+    // Collection titles and their members are library data too.
+    try { localStorage.removeItem(COLLECTION_SCAN_KEY); } catch (e) {}
+    libraryExtrasGeneration++;
+    rawCollections = null;
+    collectionCandidates = [];
     mediaBackend = 'plex';
     jellyfinUserId = '';
 
@@ -5831,6 +5988,9 @@
   // ══════════════════════════════════════
   const LIBRARY_CACHE_KEY = 'plex90_library_cache';
   const LIBRARY_CACHE_TTL = 86400000; // 24 hours
+  // 2: Plex items carry a tmdbID now that the scan asks for includeGuids=1. A version-1
+  // cache would serve a whole day of items with no ids, so it is refused once.
+  const LIBRARY_CACHE_VERSION = 2;
 
   // localStorage, not sessionStorage. The 24 hour TTL above only means something
   // if the cache outlives the tab, and sessionStorage is cleared the moment the
@@ -5838,7 +5998,10 @@
   // TTL never once applied. Anything that ends a session has to clear this now
   // that it persists: see signOut().
   function saveLibraryCache(items) {
-    const payload = { ts: Date.now(), url: plexServerUrl, items };
+    // Enrichment has its own cache (IndexedDB, see nostalgex-enrichment.js); keep it
+    // out of this one so the library still fits in localStorage.
+    items = items.map(it => (it && it.enrichment ? { ...it, enrichment: undefined } : it));
+    const payload = { v: LIBRARY_CACHE_VERSION, ts: Date.now(), url: plexServerUrl, items };
     try {
       localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(payload));
       return;
@@ -5871,6 +6034,7 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       const { ts, url, items } = parsed;
+      if (parsed.v !== LIBRARY_CACHE_VERSION) return null;
       if (url !== plexServerUrl) return null;
       const stale = Date.now() - ts > LIBRARY_CACHE_TTL;
       if (stale && !allowStale) return null;
@@ -5895,7 +6059,8 @@
     if (!options.skipCacheSave) saveLibraryCache(allItems);
     if (!options.skipManifestClear) NostalgexDailyManifest.clearManifests(manifestServerKey());
 
-    const targets = allChannelsUnfiltered.filter(ch => poolIDs.has(ch.id));
+    // Collection channels have no rules; their pool is the collection itself.
+    const targets = allChannelsUnfiltered.filter(ch => poolIDs.has(ch.id) && !ch.collection);
     LL.state.channelBuildTotal = targets.length;
     LL.state.channelBuildIndex = 0;
     LL.setPhase('buildingChannels', buildAll ? 'Full lineup' : 'Enabled bundles');
@@ -5964,7 +6129,279 @@
     let working = applyMusicCacheToLibrary(allItems);
     await repopulateChannelsFromLibrary(working, options);
     if (!options.background) startDeferredMusicEnrichmentIfNeeded(working);
+    // Not awaited: the guide is built and tuned before any of this lands.
+    startLibraryExtras(working);
     return working;
+  }
+
+  // ══════════════════════════════════════
+  // TMDB ENRICHMENT + SERVER COLLECTIONS
+  // Both run after the guide is up and never hold it. Enrichment mirrors
+  // EnrichmentService.swift then AppState.refilterChannelsWithEnrichment();
+  // collections mirror AppState.scanCollections() / materializeDynamicChannels().
+  // ══════════════════════════════════════
+  let libraryExtrasGeneration = 0;
+  let enrichmentRecords = null;      // Map tmdbID -> record, re-attached after any item copy
+  let enrichmentLocalCache = null;
+  let enrichmentStatus = '';
+
+  function setEnrichmentStatus(text) {
+    enrichmentStatus = text;
+    const el = document.getElementById('enrichment-status');
+    if (el) {
+      el.textContent = text;
+      el.style.display = text ? '' : 'none';
+    }
+  }
+
+  function startLibraryExtras(items) {
+    const gen = ++libraryExtrasGeneration;
+    // The last scan's collections come back at once, so a switched-on collection
+    // channel does not drop out of the guide while the server is asked again.
+    restoreCollectionsFromCache();
+    runEnrichment(items, gen).catch(err => console.warn('[Enrichment] Failed:', err));
+    scanServerCollections(gen).catch(err => console.warn('[Collections] Scan failed:', err));
+  }
+
+  async function runEnrichment(items, gen) {
+    const EN = globalThis.NostalgexEnrichment;
+    if (!EN) return;
+    const isCancelled = () => gen !== libraryExtrasGeneration;
+    if (!enrichmentLocalCache && globalThis.indexedDB) enrichmentLocalCache = EN.indexedDBCache();
+    let rebuiltEarly = false;
+    const result = await EN.enrichLibrary(items, {
+      config: EN.configFromPage(document, location),
+      cache: enrichmentLocalCache || undefined,
+      isCancelled,
+      onProgress: (done, total, phase) => {
+        if (isCancelled()) return;
+        setEnrichmentStatus(phase === 'cache'
+          ? `CHECKING METADATA CACHE ${done}/${total}`
+          : `FETCHING METADATA ${done}/${total}`);
+      },
+      onCacheReady: (records) => {
+        if (isCancelled()) return;
+        enrichmentRecords = records;
+        refilterChannelsWithEnrichment();
+        rebuiltEarly = true;
+      },
+    });
+    if (isCancelled()) return;
+    setEnrichmentStatus('');
+    if (result.skipped) return;
+    enrichmentRecords = result.records;
+    if (result.stats.fetched > 0 || !rebuiltEarly) refilterChannelsWithEnrichment();
+  }
+
+  function poolMemberKey(it) {
+    return `${it.serverUrl || ''}|${it.ratingKey}`;
+  }
+
+  function samePoolMembers(a, b) {
+    if (a.length !== b.length) return false;
+    const keys = new Set(a.map(poolMemberKey));
+    return b.every(it => keys.has(poolMemberKey(it)));
+  }
+
+  /** Rebuilds every rules channel whose pool the enrichment changed. Returns how many. */
+  function refilterChannelsWithEnrichment() {
+    const EN = globalThis.NostalgexEnrichment;
+    if (EN && enrichmentRecords) EN.attach(allItemsCache, enrichmentRecords);
+    if (!allItemsCache.length) return 0;
+    const LL = globalThis.NostalgexLibraryLoad;
+    const poolIDs = LL.staticChannelIDsForPoolBuild({
+      buildAll: false, bundles, enabledBundleIDs, allChannelsUnfiltered, isBundleInSeason,
+    });
+    const changed = [];
+    for (const ch of allChannelsUnfiltered) {
+      if (ch.collection || !ch.rules) continue;
+      const before = ch.itemPool || [];
+      if (!poolIDs.has(ch.id) && before.length === 0) continue;
+      const matched = filterItems(allItemsCache, ch.rules, ch.id, ch.category);
+      if (samePoolMembers(before, matched)) continue;
+      ch.itemPool = shuffleArray(matched);
+      ch.enabled = ch.itemPool.length >= (ch.minItems || 50);
+      changed.push({ ch, before: before.length });
+    }
+    if (!changed.length) return 0;
+    applyBundleFilter();
+    changed.forEach(({ ch }) => { if (ch.enabled) buildChannelSchedule(ch); });
+    console.log(`[Enrichment] Re-filtered ${changed.length} channels: `
+      + changed.map(({ ch, before }) => `CH ${chNum(ch)} ${ch.name} ${before}->${ch.itemPool.length}`).join(', '));
+    refreshCollectionChannels();
+    renderConfig();
+    if (guideVisible) renderActiveGuide();
+    if (configVisible && configTab === 'bundles') renderBundleList();
+    return changed.length;
+  }
+
+  // ── Server collections ──
+  const ENABLED_COLLECTIONS_KEY = 'nostalgex_enabled_collections';
+  const COLLECTION_SCAN_KEY = 'nostalgex_collection_scan';
+  let enabledCollectionKeys = loadEnabledCollectionKeys();
+  let rawCollections = null;           // [{ id, title, childKeys, serverKey }] from the last scan
+  let collectionCandidates = [];
+  let collectionsOverCap = 0;
+  let collectionScanState = 'idle';    // idle | scanning | done | failed
+  let collectionScanDetail = '';
+
+  function loadEnabledCollectionKeys() {
+    try {
+      const v = JSON.parse(localStorage.getItem(ENABLED_COLLECTIONS_KEY) || '[]');
+      return new Set(Array.isArray(v) ? v.filter(k => typeof k === 'string') : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveEnabledCollectionKeys() {
+    try { localStorage.setItem(ENABLED_COLLECTIONS_KEY, JSON.stringify([...enabledCollectionKeys])); } catch (e) {}
+  }
+
+  // Collection ids are `${serverKey}:${ratingKey}`, saved as the viewer's switches, so the
+  // key has to outlive a change of connection: the machine identifier, as on tvOS, or
+  // 'plex' for a single server restored without one. Never the URL.
+  function collectionServerKeyForItem(it) {
+    return mediaBackend === 'jellyfin' ? 'jellyfin' : (it.serverID || 'plex');
+  }
+
+  function restoreCollectionsFromCache() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COLLECTION_SCAN_KEY) || 'null');
+      if (!saved || saved.server !== manifestServerKey() || !Array.isArray(saved.collections)) return;
+      rawCollections = saved.collections;
+      refreshCollectionChannels();
+    } catch (e) {}
+  }
+
+  function saveCollectionScan() {
+    try {
+      localStorage.setItem(COLLECTION_SCAN_KEY, JSON.stringify({
+        server: manifestServerKey(), ts: Date.now(), collections: rawCollections || [],
+      }));
+    } catch (e) {}
+  }
+
+  function setCollectionScanState(state, detail = '') {
+    collectionScanState = state;
+    collectionScanDetail = detail;
+    if (configVisible && configTab === 'bundles') renderCollectionList();
+  }
+
+  async function scanServerCollections(gen) {
+    const CL = globalThis.NostalgexCollections;
+    if (!CL || !plexServerUrl || !plexToken) return;
+    const isCancelled = () => gen !== libraryExtrasGeneration;
+    setCollectionScanState('scanning');
+    const progress = (done, total) => {
+      if (!isCancelled()) setCollectionScanState('scanning', `${done}/${total}`);
+    };
+    let found = [];
+    let anyOK = false;
+    if (mediaBackend === 'jellyfin') {
+      const headers = { 'Accept': 'application/json', 'Authorization': jellyfinAuthHeader() };
+      const getJSON = async (path) => {
+        const res = await fetch(`${plexServerUrl}${path}`, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      };
+      try {
+        found = await CL.fetchBoxSetCollections('jellyfin', jellyfinUserId, getJSON, progress);
+        anyOK = true;
+      } catch (err) {
+        console.warn('[Collections] BoxSet listing failed:', err && err.message);
+      }
+    } else {
+      const servers = selectedServers.length > 0
+        ? selectedServers
+        : [{ name: plexServerName || 'Plex', url: plexServerUrl, token: plexToken, connections: plexConnections, machineIdentifier: '' }];
+      for (const server of servers) {
+        const serverKey = server.machineIdentifier || 'plex';
+        try {
+          const list = await CL.fetchPlexCollections(serverKey, (path) => plexLibraryFetchForServer(path, server), progress);
+          found = found.concat(list);
+          anyOK = true;
+        } catch (err) {
+          console.warn(`[Collections] ${server.name}: ${err && err.message}`);
+        }
+        if (isCancelled()) return;
+      }
+    }
+    if (isCancelled()) return;
+    if (!anyOK) {
+      setCollectionScanState('failed');
+      return;
+    }
+    rawCollections = found;
+    saveCollectionScan();
+    console.log(`[Collections] ${found.length} server collections read`);
+    setCollectionScanState('done');
+    refreshCollectionChannels();
+  }
+
+  /** Recomputes the collection list and its channels from the last scan. Cheap; no network. */
+  function refreshCollectionChannels() {
+    const CL = globalThis.NostalgexCollections;
+    if (!CL || !rawCollections || !allItemsCache.length) return;
+
+    const moviesByServer = new Map();
+    for (const it of allItemsCache) {
+      if (!it || it.type !== 'movie') continue;
+      const key = collectionServerKeyForItem(it);
+      if (!moviesByServer.has(key)) moviesByServer.set(key, new Map());
+      const byKey = moviesByServer.get(key);
+      if (!byKey.has(String(it.ratingKey))) byKey.set(String(it.ratingKey), it);
+    }
+    // What the app compares against (its `allChannels`): every stock channel built with
+    // enough to air, whether or not its bundle is switched on. Fold targets are the
+    // FRANCHISES bundle's channels among them (`availableStockFranchiseChannelIDs`).
+    const staticChannels = allChannelsUnfiltered.filter(ch =>
+      ch.stock && !ch.collection && (ch.itemPool || []).length >= (ch.minItems || 50));
+    const franchiseIDs = new Set((bundles.find(b => b.id === 'franchises') || {}).channelIDs || []);
+    collectionCandidates = CL.buildCandidates(rawCollections, moviesByServer, {
+      staticChannels,
+      channelsByID: new Map(allChannelsUnfiltered.map(ch => [ch.id, ch])),
+      franchiseChannels: staticChannels.filter(ch => franchiseIDs.has(ch.id)),
+      itemKey: it => `${collectionServerKeyForItem(it)}|${it.ratingKey}`,
+      enabledKeys: enabledCollectionKeys,
+      manifest: channelMembershipManifest,
+    });
+    const folded = collectionCandidates.filter(c => c.foldedInto);
+    if (folded.length) {
+      console.log('[Collections] Folded into stock franchise channels: '
+        + folded.map(c => `${c.title} -> ${c.foldedInto}`).join(', '));
+    }
+
+    const { channels, overCap } = CL.materialize(collectionCandidates);
+    collectionsOverCap = overCap;
+    for (let i = allChannelsUnfiltered.length - 1; i >= 0; i--) {
+      if (allChannelsUnfiltered[i].collection) allChannelsUnfiltered.splice(i, 1);
+    }
+    for (const ch of channels) {
+      ch.itemPool = ch.itemPool.filter(it => !blacklist.has(String(it.ratingKey)));
+      ch.enabled = ch.itemPool.length >= ch.minItems;
+      if (ch.enabled) buildChannelSchedule(ch);
+      allChannelsUnfiltered.push(ch);
+    }
+    applyBundleFilter();
+    renderConfig();
+    if (guideVisible) renderActiveGuide();
+    if (configVisible && configTab === 'bundles') renderBundleList();
+    if (currentChannel && !CHANNELS.some(ch => ch.id === currentChannel)) {
+      const first = CHANNELS.find(ch => ch.enabled);
+      if (first) switchChannel(first.id);
+    }
+  }
+
+  function visibleCollections() {
+    return collectionCandidates.filter(c => !c.foldedInto);
+  }
+
+  function toggleCollection(id) {
+    if (enabledCollectionKeys.has(id)) enabledCollectionKeys.delete(id);
+    else enabledCollectionKeys.add(id);
+    saveEnabledCollectionKeys();
+    refreshCollectionChannels();
   }
 
   // Dispatch to the active backend's loader. Both produce the same item shape and
@@ -6332,8 +6769,12 @@
     const all = [];
     let start = 0;
     while (true) {
-      const url = `${server.url}/library/sections/${section.key}/all`
-        + `?X-Plex-Container-Start=${start}&X-Plex-Container-Size=${PLEX_PAGE_SIZE}`;
+      // includeGuids=1 is what puts `Guid: [{id: 'tmdb://603'}, ...]` on each item, the
+      // same as PlexAPIService.fetchSectionItemsPaged. Without it a library on Plex's
+      // current agents only carries `plex://movie/...` guids, so items had no tmdbID:
+      // no membership-manifest matches and nothing for enrichment to look up.
+      const url = `${server.url}/library/sections/${section.key}/all?includeGuids=1`
+        + `&X-Plex-Container-Start=${start}&X-Plex-Container-Size=${PLEX_PAGE_SIZE}`;
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
       });
@@ -6390,6 +6831,9 @@
               batch.map(async (show) => {
                 const showGenres = (show.Genre || []).map(g => g.tag);
                 showGenres.forEach(g => { discoveredGenres[g] = (discoveredGenres[g] || 0) + 1; });
+                // Episodes take the show's TMDB id, as PlexMediaItem does on tvOS
+                // (`tmdbID: show.tmdbID`). allLeaves carries no show Guid array.
+                const showTmdb = channelFilter() ? channelFilter().parseTmdbIdFromPlex(show, false) : null;
 
                 try {
                   const epRes = await fetch(`${server.url}/library/metadata/${show.ratingKey}/allLeaves`, {
@@ -6440,9 +6884,10 @@
                       addedAt: ep.addedAt || 0,
                       studio: show.studio || '',
                       librarySource,
-                      tmdbID: CF ? CF.parseTmdbIdFromPlex(ep, true) : null,
+                      tmdbID: showTmdb ?? (CF ? CF.parseTmdbIdFromPlex(ep, true) : null),
                       serverUrl: server.url,
                       serverToken: server.token,
+                      serverID: server.machineIdentifier || '',
                     };
                   }).filter(Boolean);
                 } catch (err) {
@@ -6531,6 +6976,7 @@
             tmdbID: CF ? CF.parseTmdbIdFromPlex(item, false) : null,
             serverUrl: server.url,
             serverToken: server.token,
+            serverID: server.machineIdentifier || '',
           });
         });
       } catch (err) {
@@ -6759,8 +7205,9 @@
       // Bundle tab keyboard navigation
       if (configTab === 'bundles') {
         const visibleBundles = bundles.filter(b => b.id !== 'collections');
+        const collectionRows = visibleCollections();
         if (key === 'ArrowDown') {
-          bundleFocusIndex = Math.min(bundleFocusIndex + 1, visibleBundles.length - 1);
+          bundleFocusIndex = Math.min(bundleFocusIndex + 1, visibleBundles.length + collectionRows.length - 1);
           renderBundleList();
           e.preventDefault();
           return;
@@ -6773,7 +7220,9 @@
         }
         if (key === 'Enter' || key === ' ') {
           const bundle = visibleBundles[bundleFocusIndex];
+          const collection = collectionRows[bundleFocusIndex - visibleBundles.length];
           if (bundle) toggleBundle(bundle.id);
+          else if (collection) toggleCollection(collection.id);
           e.preventDefault();
           return;
         }
