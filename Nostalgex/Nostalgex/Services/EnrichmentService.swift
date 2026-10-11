@@ -48,13 +48,36 @@ class EnrichmentService {
         }
     }
 
+    /// What keeps enrichment off, in the order the skip log names it. TMDB needs either
+    /// a key (dev builds, direct) or the site proxy (App Store builds). Supabase is
+    /// required either way: the shared cache is the point, and without it every Apple TV
+    /// would fetch the same titles from TMDB on every scan.
+    nonisolated static func missingConfiguration(
+        tmdbAPIKey: String,
+        tmdbProxyURL: String,
+        supabaseURL: String,
+        supabaseAnonKey: String
+    ) -> [String] {
+        var missing: [String] = []
+        if tmdbAPIKey.isEmpty && tmdbProxyURL.isEmpty { missing.append("tmdb proxy/key") }
+        if supabaseURL.isEmpty { missing.append("supabase url") }
+        if supabaseAnonKey.isEmpty { missing.append("anon key") }
+        return missing
+    }
+
     /// Enrich all items in the library. Runs in background, updates progress.
     func enrichItems(_ items: [PlexMediaItem]) async {
-        guard !TMDBConfig.tmdbAPIKey.isEmpty,
-              !TMDBConfig.supabaseURL.isEmpty else {
-            print("[Enrichment] Skipping: API keys not configured")
+        let missing = Self.missingConfiguration(
+            tmdbAPIKey: TMDBConfig.tmdbAPIKey,
+            tmdbProxyURL: TMDBConfig.tmdbProxyURL,
+            supabaseURL: TMDBConfig.supabaseURL,
+            supabaseAnonKey: TMDBConfig.supabaseAnonKey
+        )
+        guard missing.isEmpty else {
+            print("[Enrichment] Skipping: missing \(missing.joined(separator: ", "))")
             return
         }
+        print("[Enrichment] TMDB via \(tmdb.usesProxy ? "site proxy" : "direct key")")
 
         isEnriching = true
         statusMessage = "Preparing..."
