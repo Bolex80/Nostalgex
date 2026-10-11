@@ -119,7 +119,7 @@ enum LibrarySnapshotStore {
             )
         }
         let snapshot = LibrarySnapshotV1(
-            schemaVersion: 2,
+            schemaVersion: 3,
             credentialFingerprint: fp,
             lastLoadAtUnix: lastLoadAtUnix,
             serverName: serverName,
@@ -156,8 +156,8 @@ enum LibrarySnapshotStore {
             InstallDiagnostics.note("snapshot: decode failed (\(data.count) bytes): \(error)")
             throw error
         }
-        guard snap.schemaVersion == 2 else {
-            InstallDiagnostics.note("snapshot: schema mismatch (file=\(snap.schemaVersion), expected=2), clearing")
+        guard snap.schemaVersion == 3 else {
+            InstallDiagnostics.note("snapshot: schema mismatch (file=\(snap.schemaVersion), expected=3), clearing")
             clear()
             return nil
         }

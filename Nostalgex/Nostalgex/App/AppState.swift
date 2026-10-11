@@ -517,6 +517,7 @@ class AppState {
         didSet { if currentItem?.ratingKey != oldValue?.ratingKey { refreshNowPlayingInfo() } }
     }
     var currentPartIndex: Int = 0
+    var currentPartBaseSeconds: Double = 0
     var isFullScreen: Bool = false {
         didSet {
             if oldValue != isFullScreen {

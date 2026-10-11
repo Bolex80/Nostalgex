@@ -52,7 +52,9 @@ extension PlexMediaItem {
             studio: studio,
             tmdbID: tmdbID,
             imdbID: imdbID,
-            librarySource: librarySource
+            librarySource: librarySource, serverID: serverID, additionalPartKeys: additionalPartKeys,
+            videoBitDepth: videoBitDepth, doviProfile: doviProfile, videoWidth: videoWidth, videoHeight: videoHeight,
+            mediaIndex: mediaIndex, partIndex: partIndex, playbackParts: playbackParts, exactDurationSeconds: exactDurationSeconds
         )
     }
 
@@ -69,7 +71,9 @@ extension PlexMediaItem {
             videoCodec: videoCodec, audioCodec: audioCodec, videoProfile: videoProfile, bitrate: bitrate,
             genres: genres, rating: rating, userRating: userRating, type: type, thumb: thumb, art: art,
             viewCount: viewCount, addedAt: addedAt, studio: studio, tmdbID: tmdbID, imdbID: imdbID,
-            librarySource: librarySource
+            librarySource: librarySource, serverID: serverID, additionalPartKeys: additionalPartKeys,
+            videoBitDepth: videoBitDepth, doviProfile: doviProfile, videoWidth: videoWidth, videoHeight: videoHeight,
+            mediaIndex: mediaIndex, partIndex: partIndex, playbackParts: playbackParts, exactDurationSeconds: exactDurationSeconds
         )
     }
 
