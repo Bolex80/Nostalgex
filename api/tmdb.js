@@ -14,13 +14,24 @@
  *   collection/{id}
  *   search/collection  with query (and an optional page)
  *
- * `X-Nostalgex-Client: tvos` is a cheap filter against stray browsers and crawlers,
- * not security. Nothing about a request is logged, ids included.
+ * `X-Nostalgex-Client: tvos` (the Apple TV app) or `web` (the browser tuner) is a
+ * cheap filter against stray browsers and crawlers, not security. Nothing about a
+ * request is logged, ids included.
+ *
+ * CORS. The tuner on nostalgex.app calls this same-origin and needs nothing. A
+ * cross-origin page (www vs apex, or the Vite dev server) sends a preflight because
+ * of the custom header. Only the origins in ALLOWED_ORIGINS get their Origin echoed
+ * back; anything else gets no Access-Control-Allow-Origin and the browser blocks it.
  */
 
 const TMDB = 'https://api.themoviedb.org/3';
 const CLIENT_HEADER = 'x-nostalgex-client';
-const CLIENT_VALUE = 'tvos';
+const CLIENT_VALUES = new Set(['tvos', 'web']);
+const ALLOWED_ORIGINS = new Set([
+  'https://www.nostalgex.app',
+  'https://nostalgex.app',
+  'http://localhost:5173',
+]);
 const CACHE_OK = 'public, s-maxage=86400, stale-while-revalidate=604800';
 const NO_STORE = 'no-store';
 
@@ -61,13 +72,38 @@ export function upstreamRequest(query) {
   return null;
 }
 
+/**
+ * CORS headers for one request. Every response varies on Origin and the client
+ * header, so the edge cache never hands one origin's answer (or a 403 for a missing
+ * header) to another. Exported for the smoke test.
+ */
+export function corsHeaders(origin) {
+  const headers = { Vary: 'Origin, X-Nostalgex-Client' };
+  if (typeof origin === 'string' && ALLOWED_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Headers'] = 'X-Nostalgex-Client';
+    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
+    headers['Access-Control-Max-Age'] = '86400';
+  }
+  return headers;
+}
+
 export default async function handler(req, res) {
+  for (const [key, value] of Object.entries(corsHeaders(req.headers?.origin))) {
+    res.setHeader(key, value);
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Allow', 'GET, OPTIONS');
+    return res.status(204).end();
+  }
+
   if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
+    res.setHeader('Allow', 'GET, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (req.headers?.[CLIENT_HEADER] !== CLIENT_VALUE) {
+  if (!CLIENT_VALUES.has(req.headers?.[CLIENT_HEADER])) {
     return res.status(403).json({ error: 'Client header required' });
   }
 

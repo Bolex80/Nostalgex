@@ -96,6 +96,57 @@ lands: fetch `/franchises.json`, call `NostalgexFranchiseBuilder.build` with
 items carrying `enrichment.franchiseID` and `franchiseName`. Then merge
 `franchise-polish` and this branch together.
 
+## 2026-10-11 (web tuner: TMDB enrichment and server collections, branch only)
+
+**Shipped.** Nothing. Branch `web-enrichment`, cut from `franchise-polish` at
+`188d60d`, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `web-enrichment`:
+
+- The web tuner had no enrichment, so every keyword, network and production
+  company rule only matched through the membership manifest. It now does what
+  EnrichmentService.swift does: dedupe to TMDB ids, read the shared Supabase
+  cache in chunks of 200, fetch the misses through `api/tmdb.js` six at a time,
+  parse exactly as `TMDBService.parseResponse`, upsert back with
+  `resolution=merge-duplicates`. Only TMDB ids leave the browser; the upsert
+  names its TMDB columns so it never touches OMDb columns an Apple TV wrote. A
+  per-browser IndexedDB copy (7 days, TMDB 404s for 1 day) means a reload asks
+  nothing. The guide is built first and rebuilt when enrichment lands.
+- Plex items on the web carried no TMDB id for libraries on Plex's current
+  agents: the section scan never asked for `includeGuids=1`, and episodes read
+  their own guid instead of the show's. Both now match tvOS. The library cache
+  is versioned so an old id-less cache is refused once.
+- The relay accepts `X-Nostalgex-Client: web`, answers preflights, and echoes
+  `Access-Control-Allow-Origin` only for nostalgex.app, www.nostalgex.app and
+  localhost:5173.
+- Server collections become channels: Plex section collections, Jellyfin and
+  Emby BoxSets, 3+ movies, alphabetical, CH 500-699 capped at 200, switched on
+  under Settings, BUNDLES, MY COLLECTIONS. Stock-duplicate warnings match the
+  app. Collections that duplicate a stock franchise channel fold out using the
+  app's name, manifest and pool-overlap signals; the franchise-dictionary
+  signals and the FRANCHISES / OTHER COLLECTIONS split are not ported.
+- Measured on a test Plex library of 11,656 items (10,488 with a TMDB id,
+  1,926 unique): 1,926 Supabase hits on a warm cache, 132 relay fetches on a
+  colder one, 36 channel pools changed, about 10s after the guide was up. A
+  reload made no Supabase or relay requests. Pool sizes without and with
+  enrichment: TEEN MOVIES 14 to 21, MUSICALS 43 to 57, BIOPICS 13 to 18,
+  MIDNIGHT 1 to 6, TOON TOWN 0 to 44, SPY GAMES 0 to 59, TRUE CRIME 0 to 1,
+  FOREIGN FILMS 2 and CULT CLASSICS 4 unchanged. The last two need OMDb values
+  and the shared cache holds none (0 of about 2,100 rows), so they stay as thin
+  on Apple TV.
+- Not checked against Emby or Jellyfin servers with real credentials; the
+  BoxSet calls are unit-tested only. The 9-channel parity with the app is a
+  rule-by-rule read of `AppState+Channels.swift`, not a side-by-side run.
+
+**Next.** Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` on Vercel before
+merging, and deploy the relay with the tuner. `channels-memberships.json`
+claims all five Pirates of the Caribbean films for CH101 MARVEL and X-Men for
+CH65 BIOPICS; both surfaces read it, so the web folds a Pirates collection into
+MARVEL just as the app would. The privacy page does not yet say the web tuner
+talks to Supabase and the TMDB relay.
+
 ## 2026-10-11 (franchise numbers, Marvel TV, default-on franchises, branch only)
 
 **Shipped.** Nothing. Branch `franchise-polish`, cut from `stock-fold` at
