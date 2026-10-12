@@ -14,6 +14,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { gateableIncludes, ruleGenreReason } from "./genre-gate.mjs";
 
 const require = createRequire(import.meta.url);
 const { titleContainsWord } = require("../nostalgex-channel-filter.cjs");
@@ -210,7 +211,7 @@ async function getDetailsCached(id, mediaType) {
   return d;
 }
 
-async function processChannel(ch, globalLocks = []) {
+async function processChannel(ch, globalLocks = [], rules = {}) {
   const exemplarsList = ch.exemplars || [];
   const collectionsList = ch.tmdbCollections || [];
   console.error(`\n=== CH ${ch.id} ${ch.name} (${ch.mediaType}) — ${exemplarsList.length} exemplars, ${collectionsList.length} TMDB collections ===`);
@@ -331,6 +332,9 @@ async function processChannel(ch, globalLocks = []) {
   // entirely (Jurassic World into DOCS via viewer-overlap recs). Apply two
   // filters before letting a candidate be claimed:
   //   1. Per-channel requires — requireGenres / requireOriginalLanguage
+  //   1b. Default genre gate — the channel's own rules.genres.include from
+  //       channels.json (genre-gate.mjs). Applies to every channel that has
+  //       one, so Bond stops landing on CRIME FLICKS / MYSTERY via recs.
   //   2. Global locks — items with a marker signal (e.g. "stand-up comedy"
   //      keyword) can only ever appear on the channel they're locked to
   // Only candidates at/above the claim threshold are checked (one cached TMDB
@@ -338,7 +342,8 @@ async function processChannel(ch, globalLocks = []) {
   const wantGenres = (ch.requireGenres || []).map((g) => g.toLowerCase());
   const wantLangs = (ch.requireOriginalLanguage || []).map((l) => l.toLowerCase());
   const wantCompanies = (ch.requireProductionCompanies || []).map((c) => c.toLowerCase());
-  const hasGate = wantGenres.length || wantLangs.length || wantCompanies.length;
+  const ruleIncludes = gateableIncludes(rules);
+  const hasGate = wantGenres.length || wantLangs.length || wantCompanies.length || ruleIncludes.length;
   const minRelated = Number(process.env.MIN_RELATED || 2);
   if (hasGate || globalLocks.length) {
     const gated = [];
@@ -350,7 +355,8 @@ async function processChannel(ch, globalLocks = []) {
         console.error(`  🔒 lock dropped "${rel.name}" — globally locked to CH ${lockedTo}`);
         continue;
       }
-      const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+      const why = gateReason(det, wantGenres, wantLangs, wantCompanies)
+      || ruleGenreReason(det.genres, ruleIncludes);
       if (!why) {
         if (lockedTo != null) rel._exclusiveTo = lockedTo;
         gated.push(rel);
@@ -376,7 +382,8 @@ async function processChannel(ch, globalLocks = []) {
       console.error(`  🔒 ${label} lock dropped "${member.name}" — locked to CH ${lockedTo}`);
       return { ok: false };
     }
-    const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+    const why = gateReason(det, wantGenres, wantLangs, wantCompanies)
+        || ruleGenreReason(det.genres, ruleIncludes);
     if (why) {
       console.error(`  ⊘ ${label} dropped "${member.name}" — ${why}`);
       return { ok: false };
@@ -619,7 +626,7 @@ async function main() {
 
   const results = [];
   for (const ch of channels) {
-    results.push(await processChannel(ch, globalLocks));
+    results.push(await processChannel(ch, globalLocks, channelRulesById[ch.id]));
   }
 
   const report = renderReport(results, minRelatedCount);
