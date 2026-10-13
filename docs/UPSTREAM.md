@@ -46,8 +46,8 @@ from their filter script is how they want parity checked.
 2. **Reference:** the JS — `scripts/nostalgex-channel-filter.cjs` and the
    shared JSON files. They pointed at FRANCHISES (`franchises.json`,
    `scripts/nostalgex-franchise-builder.js`, golden file
-   `scripts/franchise-golden.json`) as new. It is already in the pinned commit
-   43f6ee7, just not ported ([PORTING.md](PORTING.md)).
+   `scripts/franchise-golden.json`) as new since the posted snapshot
+   (c2f32e6). It is ported, engine only ([PORTING.md](PORTING.md)).
 3. **Logo:** held until where the port lives is settled.
 
 They plan to try it on a Roku and give feedback in the discussion, and invited
