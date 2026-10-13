@@ -5,9 +5,8 @@ description: "ErsatzTV is in maintenance mode and Tunarr needs a server. Here's 
 excerpt: "I love what Tunarr and ErsatzTV do. But if your channels only ever play on one Apple TV, you might not need a server tool at all. Here's how I'd decide."
 author: "Chad Mueller"
 slug: tunarr-ersatztv-alternative-apple-tv
-date: 2026-10-12
-updated: 2026-10-12
-draft: true
+date: 2026-10-13
+updated: 2026-10-13
 ---
 
 # ErsatzTV and Tunarr Alternatives for Apple TV: Live Channels From Your Library, No Server Needed
