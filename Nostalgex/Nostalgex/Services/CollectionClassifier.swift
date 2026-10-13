@@ -8,6 +8,17 @@ enum CollectionClassifier {
     ///   un-enriched items. Defaulted to nil so existing callers and tests are unchanged.
     static func classify(title: String, items: [PlexMediaItem],
                          enrichmentFor: ((PlexMediaItem) -> MediaEnrichment?)? = nil) -> CollectionCategory {
+        // Shows. Every episode carries its show's title, so the repeated-word and
+        // name-in-titles rules below would call any collection of shows a franchise
+        // (one show with 30 episodes is "30 titles sharing a word"). FRANCHISES is movie
+        // series, so the films alone decide, exactly as they did when the scan kept only
+        // films; a collection with no films is the viewer's own set.
+        let films = items.filter { $0.type == .movie }
+        if films.count < items.count {
+            guard !films.isEmpty else { return .custom }
+            return classify(title: title, items: films, enrichmentFor: enrichmentFor)
+        }
+
         let cleaned = title
             .replacingOccurrences(of: " Collection", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "Collection", with: "", options: .caseInsensitive)

@@ -442,7 +442,8 @@ struct PlexAPIService: MediaBackend {
             videoHeight: media?.height,
             mediaIndex: ep.bestMediaIndex ?? 0,
             playbackParts: media?.playbackParts,
-            exactDurationSeconds: ep.duration.map { Double($0) / 1000 }
+            exactDurationSeconds: ep.duration.map { Double($0) / 1000 },
+            showKey: show.ratingKey
         )
     }
 

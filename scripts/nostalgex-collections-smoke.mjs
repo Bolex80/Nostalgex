@@ -120,7 +120,8 @@ const marvel = { id: 101, number: 101, name: "MARVEL", itemPool: [] };
     return plex[p];
   };
   const out = await C.fetchPlexCollections("mid", getJSON);
-  check("plex: movie sections only, deduped", calls.filter((c) => c.endsWith("/collections")), ["/library/sections/1/collections", "/library/sections/3/collections"]);
+  check("plex: movie and TV sections, deduped", calls.filter((c) => c.endsWith("/collections")),
+    ["/library/sections/1/collections", "/library/sections/2/collections", "/library/sections/3/collections"]);
   check("plex: failed children dropped", out, [{ id: "mid:10", title: "A", childKeys: ["1", "2"], serverKey: "mid" }]);
 }
 {
@@ -135,8 +136,89 @@ const marvel = { id: 101, number: 101, name: "MARVEL", itemPool: [] };
   };
   const out = await C.fetchBoxSetCollections("jellyfin", "u 1", getJSON);
   check("boxset: listing call", calls[0], "/Items?userId=u%201&IncludeItemTypes=BoxSet&Recursive=true&Fields=ChildCount&SortBy=SortName");
-  check("boxset: children call", calls[1], "/Items?userId=u%201&ParentId=b1&Recursive=true&IncludeItemTypes=Movie&StartIndex=0&Limit=200&SortBy=SortName");
+  check("boxset: children call", calls[1], "/Items?userId=u%201&ParentId=b1&Recursive=true&IncludeItemTypes=Movie,Series&StartIndex=0&Limit=200&SortBy=SortName");
   check("boxset: deduped, paged", [out.length, out[0].childKeys.length, out[0].id], [1, 201, "jellyfin:b1"]);
+}
+
+// ---- Collections holding shows (CollectionShowsTests.swift) ----
+{
+  const ep = (k, show, showKey, se, server = "srv") => ({
+    ratingKey: String(k), title: show, showKey, type: "episode", seTag: se, duration: 22, serverID: server,
+  });
+  const film = (k, title) => ({ ratingKey: String(k), title, type: "movie", duration: 100, serverID: "srv" });
+  const alpha = [1, 2, 3, 4].map((n) => ep(`a${n}`, "Alpha Island", "s1", `S01E0${n}`));
+  const bravo = [1, 2, 3, 4, 5].map((n) => ep(`b${n}`, "Bravo Kitchen", "s2", `S01E0${n}`));
+  const lima = [1, 2].map((n) => ep(`l${n}`, "Hotel Lima", "s4", `S01E0${n}`));
+  // Restored from a library cache written before showKey: Emby lists these by key.
+  const charlie = [1, 2, 3].map((n) => ep(`c${n}`, "Charlie Court", undefined, `S01E0${n}`));
+  const films = [film("m1", "Delta Run"), film("m2", "Echo Point"), film("m3", "Foxtrot Night")];
+  const index = C.indexLibrary([...films, ...alpha, ...bravo, ...lima, ...charlie], (it) => it.serverID);
+
+  check("index: one per server", [...index.keys()], ["srv"]);
+  check("resolve: show keys expand to episodes", C.resolveMembers(["s1", "s2"], index.get("srv")).map((i) => i.ratingKey),
+    [...alpha, ...bravo].map((i) => i.ratingKey));
+  check("resolve: episode keys (Emby) match without showKey", C.resolveMembers(["c1", "c2", "c3"], index.get("srv")).length, 3);
+  check("resolve: each item once, unknown keys ignored",
+    C.resolveMembers(["m1", "m1", "s1", "a1", "zz"], index.get("srv")).map((i) => i.ratingKey), ["m1", "a1", "a2", "a3", "a4"]);
+  check("representatives: one per show", C.titleRepresentatives([...films.slice(0, 1), ...alpha]).map((i) => i.ratingKey), ["m1", "a1"]);
+
+  const raw = [
+    { id: "srv:tv", title: "Reality TV", childKeys: ["s1", "s2"], serverKey: "srv" },
+    { id: "srv:mix", title: "Mixed Bag", childKeys: ["m1", "m2", "s4"], serverKey: "srv" },
+    { id: "srv:emby", title: "Courtroom", childKeys: ["c1", "c2", "c3"], serverKey: "srv" },
+    { id: "srv:two", title: "Two Films", childKeys: ["m1", "m2"], serverKey: "srv" },
+    { id: "srv:films", title: "Film Trio", childKeys: ["m1", "m2", "m3"], serverKey: "srv" },
+  ];
+  const list = C.buildCandidates(raw, index, { enabledKeys: new Set(raw.map((r) => r.id)) });
+  check("shows: candidates (two films still too few)", list.map((c) => c.title), ["COURTROOM", "FILM TRIO", "MIXED BAG", "REALITY TV"]);
+  check("shows: summaries", list.map((c) => C.memberSummary(c)),
+    ["1 show · 3 episodes", "3 movies", "2 movies · 1 show", "2 shows · 9 episodes"]);
+  check("shows: counts", list.map((c) => [c.movieCount, c.showCount, c.episodeCount]), [[0, 1, 3], [3, 0, 0], [2, 1, 2], [0, 2, 9]]);
+  const { channels } = C.materialize(list);
+  check("shows: channels from 500", channels.map((c) => [c.number, c.name, c.itemPool.length]),
+    [[500, "COURTROOM", 3], [501, "FILM TRIO", 3], [502, "MIXED BAG", 4], [503, "REALITY TV", 9]]);
+  check("shows: pool is episodes", channels[3].itemPool.every((i) => i.type === "episode"), true);
+  check("summary wording", [
+    C.memberSummary({ movieCount: 12, showCount: 0, episodeCount: 0 }),
+    C.memberSummary({ movieCount: 0, showCount: 1, episodeCount: 1 }),
+    C.memberSummary({ movieCount: 1, showCount: 2, episodeCount: 9 }),
+  ], ["12 movies", "1 show · 1 episode", "1 movie · 2 shows"]);
+
+  // Fold guard: a name match onto a films-only franchise channel folds the films but
+  // never a mix whose show the channel does not air.
+  const wick = { id: 104, number: 104, name: "JOHN WICK", itemPool: films };
+  const key = (it) => `${it.serverID}|${it.ratingKey}`;
+  const mixFold = C.buildCandidates([{ id: "srv:w", title: "John Wick", childKeys: ["m1", "m2", "m3", "s4"], serverKey: "srv" }], index,
+    { staticChannels: [wick], franchiseChannels: [wick], itemKey: key });
+  check("fold guard: mix with a show the channel lacks stays", mixFold[0].foldedInto, null);
+  const filmFold = C.buildCandidates([{ id: "srv:f", title: "John Wick", childKeys: ["m1", "m2", "m3"], serverKey: "srv" }], index,
+    { staticChannels: [wick], franchiseChannels: [wick], itemKey: key });
+  check("fold guard: films-only still folds", filmFold[0].foldedInto, "CH 104 JOHN WICK");
+  const wickWithShow = { ...wick, itemPool: [...films, lima[1]] };
+  const mixFold2 = C.buildCandidates([{ id: "srv:w", title: "John Wick", childKeys: ["m1", "m2", "m3", "s4"], serverKey: "srv" }], index,
+    { staticChannels: [wickWithShow], franchiseChannels: [wickWithShow], itemKey: key });
+  check("fold guard: mix folds once the channel airs the show", mixFold2[0].foldedInto, "CH 104 JOHN WICK");
+}
+
+// ---- A collection channel of episodes through the shared scheduler ----
+{
+  await import("./nostalgex-daily-manifest.js");
+  const DM = globalThis.NostalgexDailyManifest;
+  if (DM && typeof DM.interleaveByShow === "function") {
+    const eps = [];
+    for (const [show, key, n] of [["Alpha Island", "s1", 8], ["Bravo Kitchen", "s2", 6], ["Charlie Court", "s3", 5]]) {
+      for (let i = 1; i <= n; i++) eps.push({ ratingKey: `${key}-${i}`, title: show, showKey: key, type: "episode", duration: 22, seTag: `S01E${String(i).padStart(2, "0")}` });
+    }
+    const order = DM.interleaveByShow(eps, C.ID_BASE, 20375);
+    let run = 1, maxRun = 1;
+    for (let i = 1; i < order.length; i++) { run = order[i].title === order[i - 1].title ? run + 1 : 1; maxRun = Math.max(maxRun, run); }
+    const alphaTags = order.filter((i) => i.title === "Alpha Island").map((i) => i.seTag);
+    check("schedule: every episode once", new Set(order.map((i) => i.ratingKey)).size, 19);
+    check("schedule: at most two of a show in a row", maxRun <= 2, true);
+    check("schedule: shuffled, not S/E order", JSON.stringify(alphaTags) !== JSON.stringify([...alphaTags].sort()), true);
+  } else {
+    failures.push("daily manifest module did not expose interleaveByShow");
+  }
 }
 
 if (failures.length) {

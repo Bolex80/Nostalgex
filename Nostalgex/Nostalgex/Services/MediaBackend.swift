@@ -73,6 +73,13 @@ protocol MediaBackend: Sendable {
     /// is requested, so the client seeks, and an offset on the URL breaks the segment requests.
     func resolveTranscodePlayback(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)?
 
+    /// The server stream for a file that was played directly and gave no picture or
+    /// starved. Must not hand back that same file. Plex's transcode request is always a
+    /// server stream, so the default is `resolveTranscodePlayback(for:offsetSeconds:)`.
+    /// Jellyfin and Emby override it: asked the first-attempt question about a file they
+    /// can direct play, they answer with the file itself.
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)?
+
     /// Stops an active server-side transcode session so it doesn't linger (matters on a
     /// 24/7 channel-flipping app). `playSessionId` is the backend's session token when it
     /// has one (Jellyfin); backends keyed off a stable client id (Plex) may ignore it.
@@ -230,6 +237,10 @@ extension MediaBackend {
     func resolveTranscodePlayback(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
         guard let r = await resolveTranscodePlayback(for: item) else { return nil }
         return (r, false)
+    }
+
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
+        await resolveTranscodePlayback(for: item, offsetSeconds: offsetSeconds)
     }
 
     func cappedTranscodeURL(for item: PlexMediaItem, offsetSeconds: Int, sessionID: String) -> URL? { nil }

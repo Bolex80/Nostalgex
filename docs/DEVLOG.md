@@ -63,6 +63,229 @@ the sitemap: the Indexing API submission failed with "Insufficient Permission",
 so that is a service account and API enablement job in Google Cloud before it
 can be scripted.
 
+## 2026-10-13 (collections that hold shows, on a branch)
+
+**Shipped.** Nothing yet. Branch `collections-with-shows`, merged into main for the next build.
+
+**Changed (on the branch).**
+
+- A server collection of TV shows now becomes a channel, on the Apple TV and the web
+  tuner. A Plex collection, or a Jellyfin or Emby BoxSet, can hold shows, and the scan
+  threw them away in three places: it read collections from movie libraries only (a Plex
+  collection of shows lives in the TV library, so it was never listed), Jellyfin and
+  Emby asked the BoxSet for `Movie` only, and the children were matched against an index
+  of films only. A collection with fewer than 3 films was then skipped, so a collection
+  of shows always read as empty.
+- The fix leans on what the library load already holds: every episode of every show.
+  Episodes now carry their show's id (`showKey`: Plex `grandparentRatingKey`, Jellyfin and
+  Emby `SeriesId`), and a show in a collection expands to its episodes. No extra request.
+  A films-only collection is matched, classified, numbered and labelled exactly as before.
+- The three servers answer differently, measured: Plex lists the shows (a Plex
+  collection is all films or all shows; Plex refuses a film in a TV collection with a
+  400). Jellyfin 12.2 lists the series for `IncludeItemTypes=Movie,Series`. Emby 4.10
+  answers the same query with the series' episodes. The matcher takes a film id, an
+  episode id or a show id, so all three work, and Emby works even on items restored from
+  an older snapshot.
+- The channel is built and scheduled by the existing code. Episodes are shuffled within
+  each show and shows are interleaved two at a time, the same `interleaveByShow` the TV
+  channels use. A mixed collection airs its films and its shows' episodes together.
+- A collection of shows always lands in OTHER COLLECTIONS. Every episode carries its
+  show's title, so the repeated-word rule would have called one show with 30 episodes a
+  franchise. A mixed collection is classified on its films alone, which is what the
+  films-only scan did. A collection holding shows folds into a franchise only when that
+  franchise already airs an episode of each of its shows, so folding never hides episodes.
+- No snapshot format bump. `showKey` is an optional field; collection members were
+  already stored as indexes into the item list, episodes included. Items restored from a
+  snapshot written before this have no `showKey`, so a Plex or Jellyfin collection of shows
+  appears after the next library scan rather than at once.
+
+Measured on a real Plex server with a temporary three-show collection (since deleted):
+every episode came back with its show key, the old matcher found 0 films and skipped the
+collection, and the new scan built it at CH 500 with every episode of the three shows and
+a full 24 hour schedule, on the Apple TV code (`LiveCollectionShowsHarness`) and on the
+web tuner driven headless, in the same order on both. On the same server every films-only
+collection came out identical to the old scan: same members, same fold, same channel
+numbers, checked against the old matcher on the Apple TV side and against main's
+`nostalgex-collections.js` on the web side. Jellyfin 12.2 and Emby 4.10 lab servers with
+synthetic media: a shows-only BoxSet and a mixed one, both skipped before, both built
+after (web tuner on the Jellyfin lab only; it has no Emby path).
+
+NostalgexTests: 684 passed, 0 failed, 9 skipped (668 before, plus 16 in
+`CollectionShowsTests`; the new live harness skips without a server). `npm test` and
+`npm run build` green; collections smoke went from 38 to 55 checks.
+
+**Half-done.** Not on hardware. Not measured against a Jellyfin older than 12.2, which
+may answer the BoxSet query like Emby (episodes); the matcher accepts both. The web tuner
+has no Emby path, so Emby collections are Apple TV only, as before. A Plex or Jellyfin
+collection holding seasons or single episodes rather than whole shows is not handled:
+a season key matches nothing.
+
+**Next.** Chad to decide whether to merge. Before release, check one real collection of
+shows on an Apple TV, and decide whether a collection dominated by one long show should
+interleave differently: once the shorter shows run out, `interleaveByShow` plays the long
+one back to back, which is what a TV channel with the same pool does today.
+
+## 2026-10-13 (Jellyfin and Emby: the stall retry replayed the file that stalled)
+
+**Shipped.** Nothing yet. Branch `jellyfin-stall-transcode`, merged into main for the next build.
+
+**Changed.**
+
+- The question left open in the entry below is answered: it was real. When direct play
+  gave no picture (watchdog) or starved (starvation ladder), Apple TV asked Jellyfin or
+  Emby's PlaybackInfo the same question as the first attempt. For a file the server can
+  direct play, the answer is the file. Measured on an 8-bit H.264 MP4 against a local
+  Jellyfin 12.2.0 and an Emby 4.10.1.0 server: `SupportsDirectPlay=true`, no
+  TranscodingUrl, so `JellyfinPlaybackResolver.resolve` returned `stream.mp4?Static=true`
+  and the ladder played the same file again (206, `video/mp4`) under the transcode label.
+- What that cost: not a dead end, a wasted rung. By the watchdog's own deadlines, the
+  replay got the transcode deadline (20s, 40s for 4K) or a second stall window before
+  the 1080p capped rung, so a black picture lasted 15s plus 20 to 40s more, and a
+  starving film had to starve twice.
+  An MKV was never affected: it does not direct play, so PlaybackInfo always handed back
+  HLS. Plex was never affected: its transcode request is always HLS.
+- Fix: the retry goes through a new `resolveServerStream`. It sends PlaybackInfo with
+  `EnableDirectPlay=false` and `EnableDirectStream=false`, and the resolver never returns
+  the static file on a retry (it returns nil, and the service falls back to its
+  hand-built HLS stream). Both flags are needed. With only `EnableDirectPlay=false`,
+  Jellyfin returns a TranscodingUrl but Emby reports `SupportsDirectStream=true` and
+  still none.
+- After, with the branch's own body builder and resolver: the retry gets a `master.m3u8`
+  TranscodingUrl on both servers (reason `DirectPlayError`), and master, variant, init
+  and segments 0 to 2 all answer 200, for the MP4 and the MKV. For the MP4 it is a remux:
+  video and audio copied into HLS (Jellyfin's ffmpeg log `codec:v:0 copy`, Emby's session
+  `IsVideoDirect` and `IsAudioDirect` true). The first attempt sends exactly the three keys it sent before and still
+  direct plays the MP4.
+- Web tuner: not affected and unchanged. Its only retry is after a direct play errors,
+  and for an MP4 it gets no TranscodingUrl and uses the hand-built HLS fallback, which
+  walked 200 on both servers. It has no stall ladder: a stall skips after 8s.
+- Tests: `StallRetryServerStreamTests` (10): request body on first attempt and retry,
+  both services' requests, the resolver on each measured answer, the offline fallback,
+  and Plex unchanged.
+
+NostalgexTests: 682 passed (672 on the branch point plus the 10 new), 0 failed, 8 live
+harnesses skipped. `npm test` and `npm run build` green.
+
+**Half-done.** Proven at the HTTP level, not watched on an Apple TV: no forced
+no-picture or starvation has been run through the ladder on a device. The forced server
+stream is a remux at the same bitrate: it changes the container, not the video or the
+bitrate. A file whose video the device cannot decode, or a link too slow for the file,
+still depends on the 1080p rung after it, which was not re-measured here.
+
+**Next.** On an Apple TV against Jellyfin or Emby, force a direct-play stall on an MP4
+and check the diagnostics line reads "server stream" then plays HLS, not the file.
+
+## 2026-10-13 (Emby fallback stream: every segment refused for want of a PlaySessionId)
+
+**Shipped.** Nothing yet. Branch `emby-playsessionid`, merged into main for the next build.
+
+**Changed.**
+
+- On Emby, the HLS stream Nostalgex builds by hand after a failed direct play never
+  played, on Apple TV or in the web tuner. Measured against a test Emby 4.10.1 server on
+  8-bit H.264 MKV and MP4 files: master and variant playlists 200, then the init segment
+  and segments 0 to 2 all HTTP 400 "Value cannot be null. (Parameter 'key')". Emby writes
+  each segment URL as `hls1/main/0.mp4?PlaySessionId=<id>` and nothing else, taking the
+  id from the master request. The hand-built master had none, so every segment asked for
+  `PlaySessionId=` with no value. Jellyfin copies the whole query string onto segments,
+  which is why the same URL plays there.
+- Where it bites: a direct play that fails. The web tuner's retry asks PlaybackInfo,
+  which returns no TranscodingUrl for a file Emby thinks the browser can play (measured),
+  so it falls back to the hand-built URL. Apple TV's `.failed` fallback uses the
+  hand-built URL directly, as does any PlaybackInfo request that errors. PlaybackInfo's
+  own TranscodingUrl and the 1080p capped rung already carried an id and played.
+- Fix: the hand-built URL carries a client-made `PlaySessionId`. Apple TV:
+  `EmbyAPIService.buildTranscodeURL(for:sessionID:)`, and the id is tracked so a channel
+  change stops that encode, as it does a PlaybackInfo session. Web:
+  `NostalgexJellyfinUrls.fallbackHlsUrl`, a UUID where the browser has
+  `crypto.randomUUID`, else 32 hex characters (a self-hosted tuner over plain http has
+  no secure context). Leaving the parameter off is not an option: it already was off,
+  and Emby writes the empty one itself.
+- After: master, variant, init and segments 0 to 2 all 200 on the same Emby server, for
+  the URLs the Apple TV code builds (both fallback paths, both files) and the URLs the
+  built web tuner builds (both id shapes).
+- Jellyfin: the Apple TV Jellyfin code is unchanged. The web tuner signs in to Emby as
+  Jellyfin and shares one fallback, so that change reaches Jellyfin too. On a local
+  Jellyfin 12.2.0 the hand-built URL was all 200 before and is all 200 with the id.
+- Tests: `EmbyPlaySessionTests` (4) and 8 new checks in `test:jellyfin-urls`.
+
+NostalgexTests: 672 passed (668 on main plus the 4 new), 0 failed, 8 live harnesses
+skipped. `npm test` and `npm run build` green.
+
+**Half-done.** Proven at the HTTP level (playlist and segment statuses), not watched on
+an Apple TV or in a browser. The web tuner still never stops a Jellyfin or Emby encode
+on channel change (`stopActiveTranscode` returns early for them), so the web id is not
+yet used for cleanup.
+
+**Next.** Watch one forced direct-play failure on an Apple TV against Emby. Worth a
+measured look: when direct play gives no picture or starves, Apple TV asks PlaybackInfo
+for the server stream, and for a file the server calls direct-playable
+`JellyfinPlaybackResolver.resolve` returns the same static file rather than an HLS
+stream. Seen in the PlaybackInfo responses above, not yet on a device.
+
+## 2026-10-13 (membership generator keeps the cleanup)
+
+**Shipped.** Nothing. Branch `membership-generator-rules`, merged into main.
+`channels-memberships.json` on main is untouched.
+
+**Changed.**
+
+- The 2026-10-12 memberships cleanup (5,154 to 4,898 entries) was applied to
+  the shipped file by hand, and the keyword tuner only knew the first of its
+  three rules. The next regeneration would have put 22 horror-only titles back
+  on SCI-FI and dropped 20 real musicals. The tuner now carries all three:
+  - Genre gate (cherry-picked from `membership-genre-gate`): recommendation,
+    similar and collection claims must match the channel's `genres.include`.
+  - `genres.requireAll` from channels.json gates the same claims. SCI-FI's
+    Science Fiction is the one that bites. ROM COMS and GIRLS NIGHT opt out
+    with `gateRequireAll: false` in exemplars.json, as decided on 2026-10-12;
+    applying it there would take 83 and 19 titles off. DATE NIGHT and TRUE
+    CRIME also carry requireAll and lose nothing extra to it today.
+  - MUSICALS `genreRescueKeywords`: musical, song and dance, broadway. Not
+    "based on play or musical", which would add 10 plays (Roxanne, Cyrano de
+    Bergerac, On Golden Pond), and not "singing".
+- The rule data lives in exemplars.json, the generator's input. channels.json,
+  the Swift app and the web filter are unchanged: a manifest claim bypasses
+  include and requireAll at runtime, so gating is the generator's job alone.
+- `--cache <file>` keeps every TMDB response on disk and `--out <dir>` writes
+  somewhere other than the shipped files. A rerun from the cache with no
+  network gave the same file apart from the timestamp.
+- `npm run test:tuner-gate` (24 checks, in `npm test`) runs the rule function
+  against the real rule data. Removing the rescue list, adding the plays
+  keyword, dropping the ROM COMS opt-out or ignoring requireAll each fail it.
+
+How it was checked:
+
+- Replaying the cleanup over the pre-cleanup file with the generator's rule
+  function gives the shipped content exactly: 4,898 items, 5,593 title and
+  channel pairs, every field equal. Not byte-identical, because 5 items list
+  their channels in another order and the rescued musicals sit at the end of
+  the file, both left by the two-step hand edit. TMDB genres had not changed
+  on any of 2,830 titles between 10-12 and today.
+- A full live regeneration today gives 3,737 items: 2,146 pairs only in it,
+  3,057 only in the shipped file. A control run with the gate off, on the same
+  cached TMDB data, accounts for all but one pair:
+  - 1,320 STAND-UP claims come from `discover-standup.mjs`, not from the
+    tuner, so a full regeneration has to rerun it afterwards.
+  - The rest is the candidate set moving: TMDB recommendations, similar lists
+    and search matches, and exemplar lists edited since a channel was last
+    generated (MIDNIGHT, CULT CLASSICS and BIOPICS each gain 110 to 150). The
+    gate-off control differs from the pre-cleanup file by 2,542 and 3,598
+    pairs on its own.
+  - The one rule difference is Heat on MYSTERY. The hand cleanup gated by each
+    entry's single source label, and Heat's says exemplar (it is one on
+    another channel), so its MYSTERY claim was never checked. The tuner gates
+    per claim, and Heat (Crime, Drama, Action) misses MYSTERY's Mystery rule.
+  - No pair the cleanup removed comes back.
+
+**Half-done.** The regenerated file is not committed: it would change about
+5,200 title and channel pairs for reasons that have nothing to do with these
+rules. Swift tests were not run, since nothing the app reads changed.
+
+**Next.** Chad reviews and merges `membership-generator-rules`; it supersedes
+`membership-genre-gate`. Whether to regenerate the shipped memberships at all
+is a separate call, and if so, `discover-standup.mjs` runs after the tuner.
+
 ## 2026-10-13 (channel guide pages)
 
 **Shipped.** Nothing. Branch `seo/bundle-pages`, draft PR, waiting on Chad's
@@ -110,7 +333,6 @@ are. The homepage lineup still does not link to the bundle pages.
 
 **Next.** Chad reads the 14 intros and the legal flags. After merge, request
 indexing for /channels in Search Console.
-
 ## 2026-10-13 (1.0.26 (48) cut)
 
 **Shipped.** main pushed, which deploys the site and web tuner. Build 1.0.26 (48) archived

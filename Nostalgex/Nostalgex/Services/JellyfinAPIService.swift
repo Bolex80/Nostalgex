@@ -268,7 +268,8 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
                     imdbID: show.imdbID,
                     librarySource: .tv,
                     serverID: serverID.isEmpty ? nil : serverID,
-                    videoBitDepth: source?.videoBitDepth
+                    videoBitDepth: source?.videoBitDepth,
+                    showKey: show.Id
                 )
             }
         } catch {
@@ -398,10 +399,12 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         return boxSets
     }
 
-    /// Movie ids inside a BoxSet. Ids match the ratingKeys parsed in `parseMovieItem`,
-    /// which is what lets the shared collection matcher pair them with library items.
+    /// Film and series ids inside a BoxSet. Film ids match the ratingKeys parsed in
+    /// `parseMovieItem`; a series id matches the `showKey` on that series' episodes, so
+    /// the shared collection matcher can expand it (CollectionMemberIndex). Asking for
+    /// Movie alone dropped every series, so a BoxSet of shows read as empty.
     func loadCollectionItems(collectionKey: String) async throws -> [String] {
-        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie").map(\.Id)
+        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie,Series").map(\.Id)
     }
 
     // MARK: - Stream URLs
@@ -486,10 +489,30 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
 
     // MARK: - Playback negotiation (PlaybackInfo) + session lifecycle
 
-    private struct PlaybackInfoBody: Encodable {
-        let DeviceProfile: JellyfinDeviceProfile
-        let MediaSourceId: String
-        let MaxStreamingBitrate: Int
+    /// The PlaybackInfo POST. `serverStreamOnly` is the retry after a direct play failed;
+    /// see `JellyfinPlaybackResolver.playbackInfoBody`.
+    func playbackInfoRequest(for item: PlexMediaItem, serverStreamOnly: Bool) -> URLRequest? {
+        guard var components = URLComponents(string: "\(serverURL)/Items/\(item.ratingKey)/PlaybackInfo") else {
+            return nil
+        }
+        components.queryItems = [.init(name: "userId", value: userId)]
+        guard let url = components.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        // Short timeout: this is a quick negotiation, not a stream. If it hangs we must
+        // fall through fast (to the hand-built URL) rather than hold the tuning screen.
+        req.timeoutInterval = 12
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(Self.authorizationHeader(deviceID: deviceID, token: accessToken), forHTTPHeaderField: "Authorization")
+        let body = JellyfinPlaybackResolver.playbackInfoBody(
+            mediaSourceId: item.partKey ?? item.ratingKey,
+            supportsHEVC: Self.deviceSupportsHEVC,
+            serverStreamOnly: serverStreamOnly
+        )
+        guard let encoded = try? JSONEncoder().encode(body) else { return nil }
+        req.httpBody = encoded
+        return req
     }
 
     /// Asks Jellyfin how to play a transcode-bound item. Sending a DeviceProfile lets the
@@ -498,36 +521,33 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
     /// NOTE: we deliberately do NOT send StartTimeTicks — the app seeks client-side after
     /// readyToPlay, so a server-side offset would double-apply.
     func resolveTranscodePlayback(for item: PlexMediaItem) async -> PlaybackResolution? {
+        await negotiatePlayback(for: item, serverStreamOnly: false)
+    }
+
+    private func negotiatePlayback(for item: PlexMediaItem, serverStreamOnly: Bool) async -> PlaybackResolution? {
         let msid = item.partKey ?? item.ratingKey
         do {
-            guard var components = URLComponents(string: "\(serverURL)/Items/\(item.ratingKey)/PlaybackInfo") else {
+            guard let req = playbackInfoRequest(for: item, serverStreamOnly: serverStreamOnly) else {
                 return fallbackResolution(for: item)
             }
-            components.queryItems = [.init(name: "userId", value: userId)]
-            guard let url = components.url else { return fallbackResolution(for: item) }
-            var req = URLRequest(url: url)
-            req.httpMethod = "POST"
-            // Short timeout: this is a quick negotiation, not a stream. If it hangs we must
-            // fall through fast (to the hand-built URL) rather than hold the tuning screen.
-            req.timeoutInterval = 12
-            req.setValue("application/json", forHTTPHeaderField: "Accept")
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.setValue(Self.authorizationHeader(deviceID: deviceID, token: accessToken), forHTTPHeaderField: "Authorization")
-            let body = PlaybackInfoBody(
-                DeviceProfile: JellyfinPlaybackResolver.deviceProfile(supportsHEVC: Self.deviceSupportsHEVC),
-                MediaSourceId: msid,
-                MaxStreamingBitrate: StreamQuality.current.maxBitrateBps
-            )
-            req.httpBody = try JSONEncoder().encode(body)
             let (data, response) = try await Self.session.data(for: req)
             let info = try Self.decode(JellyfinPlaybackResolver.PlaybackInfoResponse.self, data: data, response: response)
             return JellyfinPlaybackResolver.resolve(
-                info, serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid
+                info, serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid,
+                serverStreamOnly: serverStreamOnly
             ) ?? fallbackResolution(for: item)
         } catch {
             print("[Plex90] PlaybackInfo failed for \(item.ratingKey): \(error) — falling back to hand-built URL")
             return fallbackResolution(for: item)
         }
+    }
+
+    /// The server stream after a direct play gave no picture or starved. Never the static
+    /// file: PlaybackInfo is asked with direct play and direct stream off, and if it still
+    /// offers nothing but the file, the hand-built HLS stream is used instead.
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
+        guard let r = await negotiatePlayback(for: item, serverStreamOnly: true) else { return nil }
+        return JellyfinPlaybackResolver.offsetPlayback(r, offsetSeconds: offsetSeconds)
     }
 
     /// The client seeks to the offset itself. Jellyfin rejects `StartTimeTicks` on HLS

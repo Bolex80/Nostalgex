@@ -53,6 +53,47 @@ check("no query string yet", () =>
 check("a param that merely ends in api_key does not count", () =>
   strictEqual(JU.withApiKey(`${S}/x?not_api_key=1`, "TOK"), `${S}/x?not_api_key=1&api_key=TOK&ApiKey=TOK`));
 
+// Hand-built HLS fallback. Emby 4.10.1.0 puts only `PlaySessionId=<id>` on each segment
+// URL, taken from the master; a master without one gave `PlaySessionId=` and a 400 on
+// every segment.
+const fb = (extra = {}) =>
+  JU.fallbackHlsUrl({ serverUrl: S, itemId: "abc", mediaSourceId: "ms 1", token: "TOK", deviceId: "dev", ...extra });
+const sessionOf = (url) => new URL(url).searchParams.getAll("PlaySessionId");
+
+check("fallback HLS URL shape, with the session it was given", () =>
+  strictEqual(fb({ playSessionId: "ps-1" }),
+    `${S}/Videos/abc/master.m3u8?MediaSourceId=ms%201&api_key=TOK&VideoCodec=h264&AudioCodec=aac`
+    + `&MaxWidth=3840&SegmentContainer=ts&DeviceId=dev&PlaySessionId=ps-1&ApiKey=TOK`));
+check("fallback mints a session when none is given", () => {
+  const ids = sessionOf(fb());
+  strictEqual(ids.length, 1);
+  strictEqual(ids[0].length > 0, true);
+});
+check("fallback never carries an empty PlaySessionId", () =>
+  strictEqual(/[?&]PlaySessionId=(&|$)/.test(fb({ playSessionId: "" })), false));
+check("each fallback is its own session", () =>
+  strictEqual(sessionOf(fb())[0] === sessionOf(fb())[0], false));
+check("fallback keeps api_key and ApiKey, once each", () => {
+  const p = new URL(fb()).searchParams;
+  strictEqual(p.getAll("api_key").join(), "TOK");
+  strictEqual(p.getAll("ApiKey").join(), "TOK");
+});
+check("fallback carries no StartTimeTicks (Jellyfin refuses it on segments)", () =>
+  strictEqual(fb().includes("StartTimeTicks"), false));
+check("session id is escaped", () =>
+  strictEqual(sessionOf(fb({ playSessionId: "a&b" }))[0], "a&b"));
+check("no secure context (plain-http LAN tuner): still a 32-hex id", () => {
+  const desc = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true, writable: true });
+  try {
+    const id = JU.newPlaySessionId();
+    strictEqual(/^[0-9a-f]{32}$/.test(id), true, id);
+    strictEqual(/^[0-9a-f]{32}$/.test(sessionOf(fb())[0]), true);
+  } finally {
+    Object.defineProperty(globalThis, "crypto", desc);
+  }
+});
+
 if (failures.length) {
   console.error(`jellyfin-urls: ${failures.length} failed, ${passed} passed`);
   for (const f of failures) console.error("  " + f);
