@@ -127,6 +127,9 @@ enum FranchiseChannelBuilder {
         // token can never over-match an auto-found franchise the dictionary does not
         // know about; those stay franchiseID-only.
         var autoFoundNames: [Int: String] = [:]   // fid -> cleaned franchiseName
+        // Auto-found films wait until every collection has its name, then go into one
+        // bucket per merge key (see `franchiseMergeKey`), in input order.
+        var autoFoundFilms: [(movie: PlexMediaItem, fid: Int)] = []
         for movie in movies {
             let enrichment = enrichmentFor(movie)
             let fid = enrichment?.franchiseID
@@ -155,19 +158,33 @@ enum FranchiseChannelBuilder {
                 if autoFoundNames[fid] == nil, let raw = enrichment?.franchiseName {
                     autoFoundNames[fid] = FranchiseDictionary.cleanFranchiseName(raw).uppercased()
                 }
-                let name = autoFoundNames[fid] ?? ""
-                let key = "found:\(fid)"
-                var bucket = buckets[key] ?? Bucket(name: name, definition: nil)
-                if bucket.name.isEmpty { bucket.name = name }
-                bucket.movies.append(movie)
-                bucket.franchiseIDs.insert(fid)
-                buckets[key] = bucket
+                autoFoundFilms.append((movie, fid))
             }
             // d. no franchise signal: skip
         }
-        // An auto-found bucket whose films never carried a franchiseName cannot be
-        // named, so it cannot be a channel.
-        buckets = buckets.filter { !($0.value.definition == nil && $0.value.name.isEmpty) }
+
+        // A collection whose films never carried a franchiseName cannot be named, so it
+        // cannot be a channel. Named ones whose names match after `franchiseMergeKey`
+        // share one bucket: "Spider-Man" + "Spider-Man (MCU)", "American Pie" +
+        // "American Pie (Spin-off)". TMDB splits those; viewers see one franchise.
+        func foundKey(_ fid: Int) -> String? {
+            guard let name = autoFoundNames[fid], !name.isEmpty else { return nil }
+            let mergeKey = Self.franchiseMergeKey(name)
+            return mergeKey.isEmpty ? "found:#\(fid)" : "found:\(mergeKey)"
+        }
+        for (movie, fid) in autoFoundFilms {
+            guard let key = foundKey(fid) else { continue }
+            var bucket = buckets[key] ?? Bucket(name: "", definition: nil)
+            bucket.movies.append(movie)
+            bucket.franchiseIDs.insert(fid)
+            buckets[key] = bucket
+        }
+        // Named after the lowest collection id; a merged bucket drops its "(MCU)" suffix.
+        for key in buckets.keys where buckets[key]?.definition == nil {
+            guard let ids = buckets[key]?.franchiseIDs, let lowest = ids.min() else { continue }
+            let name = autoFoundNames[lowest] ?? ""
+            buckets[key]?.name = ids.count > 1 ? Self.stripParentheticalSuffix(name) : name
+        }
 
         // Found buckets in ascending collection id, the fixed order TV tries them in.
         let foundKeys: [String] = buckets
@@ -327,6 +344,28 @@ enum FranchiseChannelBuilder {
             }
         }
         return nil
+    }
+
+    /// "Spider-Man (MCU)" -> "Spider-Man". Drops trailing parenthetical suffixes, one or
+    /// more, never the whole name. Mirrors `stripParentheticalSuffix` in the web port.
+    static func stripParentheticalSuffix(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        while s.hasSuffix(")") {
+            guard let open = s.lastIndex(of: "("), open != s.startIndex else { break }
+            s = String(s[..<open]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return s
+    }
+
+    /// Found franchises with the same merge key are one channel: drop " Collection" and
+    /// any trailing parenthetical ("(MCU)", "(Spin-off)", "(Reboot)"), compare by
+    /// `explicitTitleKey` (case and punctuation ignored), and ignore a leading "The".
+    /// Pinned by `mergeKeys` in scripts/franchise-golden.json, same as the web port.
+    static func franchiseMergeKey(_ raw: String) -> String {
+        let base = FranchiseDictionary.cleanFranchiseName(
+            stripParentheticalSuffix(FranchiseDictionary.cleanFranchiseName(raw)))
+        let key = explicitTitleKey(base)
+        return key.hasPrefix("the ") ? String(key.dropFirst(4)) : key
     }
 
     /// Lowercased, with any trailing " (YYYY)" suffix dropped (Plex's TMDB agent appends

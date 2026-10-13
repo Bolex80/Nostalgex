@@ -178,14 +178,18 @@ enum DemoData {
     /// Real TMDB collection ids (the same ones FranchiseDictionary lists) over invented
     /// item ids. Covers every row kind Settings can show:
     ///   - STAR WARS: titled so CH100's own `titleContains` rule builds the stock channel,
-    ///     so the found franchise folds into it and lists greyed as "N movies on CH 100".
+    ///     so the found franchise folds into it and lists as the CH 100 row.
     ///   - JOHN WICK, THE HUNGER GAMES, BACK TO THE FUTURE, STAR TREK: dictionary
     ///     franchises with no stock channel, listed with a switch. STAR TREK carries a show.
     ///   - SPY KIDS: no dictionary entry, found purely from `belongs_to_collection`.
+    ///   - SPIDER-MAN (two TMDB collections, dictionary) and AMERICAN PIE (two
+    ///     collections, general name rule) each list as one franchise; Loki puts a show
+    ///     on MARVEL CH101 next to three Marvel Studios films.
     ///   - Two server collections: one that IS John Wick (folds away), one actor set that
     ///     stays under OTHER COLLECTIONS.
     static func franchiseFixture() -> FranchiseFixture {
-        func film(_ id: String, _ title: String, _ year: Int, tmdb: String) -> PlexMediaItem {
+        func film(_ id: String, _ title: String, _ year: Int, tmdb: String,
+                  studio: String = "Nostalgex Demo") -> PlexMediaItem {
             PlexMediaItem(
                 id: id, title: title, artist: nil, episodeTitle: nil, seTag: nil,
                 summary: "Sample content for demo mode.",
@@ -196,7 +200,7 @@ enum DemoData {
                 type: .movie,
                 thumb: nil, art: nil,
                 viewCount: 0, addedAt: Int(Date().timeIntervalSince1970),
-                studio: "Nostalgex Demo",
+                studio: studio,
                 tmdbID: tmdb, imdbID: nil,
                 librarySource: .movie
             )
@@ -212,10 +216,11 @@ enum DemoData {
 
         var items: [PlexMediaItem] = []
         var rows: [MediaEnrichment] = []
-        func add(_ titles: [(String, Int)], prefix: String, tmdbBase: Int, franchiseID: Int, franchiseName: String) {
+        func add(_ titles: [(String, Int)], prefix: String, tmdbBase: Int, franchiseID: Int, franchiseName: String,
+                 studio: String = "Nostalgex Demo") {
             for (i, entry) in titles.enumerated() {
                 let tmdb = "\(tmdbBase + i)"
-                items.append(film("fx-\(prefix)-\(i + 1)", entry.0, entry.1, tmdb: tmdb))
+                items.append(film("fx-\(prefix)-\(i + 1)", entry.0, entry.1, tmdb: tmdb, studio: studio))
                 rows.append(row(tmdb: tmdb, franchiseID: franchiseID, franchiseName: franchiseName))
             }
         }
@@ -236,6 +241,25 @@ enum DemoData {
             prefix: "st", tmdbBase: 900_050, franchiseID: 115575, franchiseName: "Star Trek: Alternate Reality Collection")
         add([("Spy Kids", 2001), ("Spy Kids 2: The Island of Lost Dreams", 2002), ("Spy Kids 3-D: Game Over", 2003)],
             prefix: "sk", tmdbBase: 900_060, franchiseID: 86027, franchiseName: "Spy Kids Collection")
+        // Split on TMDB, one franchise to a viewer. SPIDER-MAN merges by dictionary
+        // (Raimi + MCU collections); AMERICAN PIE by the general name rule.
+        // The MCU pair is also Marvel Studios, so CH101's studio rule airs it; Settings
+        // counts it under SPIDER-MAN only.
+        add([("Spider-Man", 2002)],
+            prefix: "smr", tmdbBase: 900_090, franchiseID: 556, franchiseName: "Spider-Man Collection")
+        add([("Spider-Man: Homecoming", 2017), ("Spider-Man: No Way Home", 2021)],
+            prefix: "smm", tmdbBase: 900_095, franchiseID: 531241, franchiseName: "Spider-Man (MCU) Collection",
+            studio: "Marvel Studios")
+        // Three Marvel Studios films with no collection, so CH101 builds from its rule.
+        for (i, entry) in [("Iron Man", 2008), ("Thor", 2011), ("The Avengers", 2012)].enumerated() {
+            let tmdb = "\(900_110 + i)"
+            items.append(film("fx-mcu-\(i + 1)", entry.0, entry.1, tmdb: tmdb, studio: "Marvel Studios"))
+            rows.append(row(tmdb: tmdb, franchiseID: nil, franchiseName: nil))
+        }
+        add([("American Pie", 1999), ("American Pie 2", 2001)],
+            prefix: "ap", tmdbBase: 900_100, franchiseID: 2806, franchiseName: "American Pie Collection")
+        add([("American Pie Presents: Band Camp", 2005)],
+            prefix: "aps", tmdbBase: 900_105, franchiseID: 298820, franchiseName: "American Pie (Spin-off) Collection")
 
         // Shows join by dictionary title (The Mandalorian -> STAR WARS) or by token
         // (Star Trek: The Next Generation -> STAR TREK). TV rows carry no franchise.
@@ -245,6 +269,11 @@ enum DemoData {
         for se in ["S03E15", "S03E16"] {
             items.append(episode(id: "fx-tng-\(se)", show: "Star Trek: The Next Generation", se: se, year: 1990, duration: 45, tmdbID: "900_071"))
         }
+        // An MCU show: joins MARVEL (CH101) by its exact title.
+        for se in ["S01E01", "S01E02"] {
+            items.append(episode(id: "fx-loki-\(se)", show: "Loki", se: se, year: 2021, duration: 50, tmdbID: "900_072"))
+        }
+        rows.append(row(tmdb: "900_072", mediaType: "tv", franchiseID: nil, franchiseName: nil))
         rows.append(row(tmdb: "900_070", mediaType: "tv", franchiseID: nil, franchiseName: nil))
         rows.append(row(tmdb: "900_071", mediaType: "tv", franchiseID: nil, franchiseName: nil))
 

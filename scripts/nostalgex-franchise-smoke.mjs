@@ -46,10 +46,10 @@ function project(groupings) {
 }
 
 // The dictionary file itself.
-check("franchises.json: 18 definitions, unique names, ids verified header", () => {
+check("franchises.json: 19 definitions, unique names, ids verified header", () => {
   const defs = FB.normalizeDefinitions(dictionary);
-  deepStrictEqual(defs.length, 18);
-  deepStrictEqual(new Set(defs.map((d) => d.canonicalName)).size, 18);
+  deepStrictEqual(defs.length, 19);
+  deepStrictEqual(new Set(defs.map((d) => d.canonicalName)).size, 19);
   deepStrictEqual(dictionary.verified, "2026-10-11");
   const ids = defs.flatMap((d) => d.tmdbCollectionIDs);
   deepStrictEqual(new Set(ids).size, ids.length, "a collection id is claimed by two franchises");
@@ -80,6 +80,10 @@ for (const v of golden.filmMatches) {
   });
 }
 
+for (const v of golden.mergeKeys) {
+  check(`mergeKey ${JSON.stringify(v.name)}`, () => deepStrictEqual(FB.franchiseMergeKey(v.name), v.key));
+}
+
 for (const v of golden.collectionFolds) {
   check(`collectionFold ${v.about}`, () => {
     const got = FB.stockChannelForCollectionItems({
@@ -99,5 +103,5 @@ if (failures.length) {
 }
 console.log(
   `franchise golden: ${total} checks passed (${golden.cases.length} cases, ${golden.titleKeys.length} title keys, ` +
-    `${golden.filmMatches.length} film matches, ${golden.collectionFolds.length} collection folds)`
+    `${golden.filmMatches.length} film matches, ${golden.mergeKeys.length} merge keys, ${golden.collectionFolds.length} collection folds)`
 );

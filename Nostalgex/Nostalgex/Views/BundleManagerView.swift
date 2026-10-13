@@ -74,24 +74,9 @@ struct SettingsPageView: View {
 
                         settingsDivider
 
-                        // Display
+                        // Playback: how a channel looks and sounds once it is on screen.
                         VStack(alignment: .leading, spacing: 20) {
-                            sectionHeader("DISPLAY", subtitle: "Visual effects and aspect ratio")
-
-                            // Off by default and per-TV. Turning it on pushes this TV's
-                            // lineup and settings to iCloud first, then listens.
-                            SettingsToggleRow(
-                                title: "SYNC WITH MY OTHER APPLE TVS",
-                                subtitle: appState.iCloudSyncEnabled
-                                    ? "On. This Apple TV's lineup is shared through iCloud."
-                                    : "Off. Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
-                                isOn: appState.iCloudSyncEnabled,
-                                isFocused: focusedItem == "icloud_sync"
-                            ) {
-                                appState.iCloudSyncEnabled.toggle()
-                            }
-                            .focused($focusedItem, equals: "icloud_sync")
-                            .id("icloud_sync")
+                            sectionHeader("PLAYBACK", subtitle: "Picture, quality, subtitles and audio")
 
                             SettingsToggleRow(
                                 title: "RETRO MODE",
@@ -182,19 +167,26 @@ struct SettingsPageView: View {
                                     let available = availableNames.count
                                     let total = bundle.channelIDs.count
 
-                                    // Line 1: channels you have. Line 2 (amber): channels that
-                                    // can't build yet because there isn't enough content.
+                                    // Availability is only computed for packages that are on, so
+                                    // an OFF package is an invitation, never a warning.
+                                    // ON: line 1 is the channels you have, line 2 (amber) the
+                                    // ones that can't build yet for lack of content.
                                     let subtitle: String = {
+                                        if !bundle.enabled {
+                                            let invite = "Off. Turn on to add up to \(total) channel\(total == 1 ? "" : "s") from your library."
+                                            guard bundle.activeMonths != nil, !inSeason else { return invite }
+                                            return "\(seasonalLabel(for: bundle)) · \(invite)"
+                                        }
                                         if available == 0 { return "Not enough content to build this bundle" }
                                         let names = availableNames.joined(separator: ", ")
                                         guard bundle.activeMonths != nil, !inSeason else { return names }
                                         return "\(seasonalLabel(for: bundle)) · \(names)"
                                     }()
                                     let warning: String? = {
-                                        guard available > 0, !missingNames.isEmpty else { return nil }
+                                        guard bundle.enabled, available > 0, !missingNames.isEmpty else { return nil }
                                         return "Needs more content: \(missingNames.joined(separator: ", "))"
                                     }()
-                                    let detail: String? = "\(available)/\(total) CH"
+                                    let detail: String? = bundle.enabled ? "\(available)/\(total) CH" : "\(total) CH"
 
                                     SettingsToggleRow(
                                         title: bundle.name,
@@ -208,7 +200,7 @@ struct SettingsPageView: View {
                                     }
                                     .focused($focusedItem, equals: "bundle_\(bundle.id)")
                                     .id("bundle_\(bundle.id)")
-                                    .opacity(available == 0 ? 0.5 : 1.0)
+                                    .opacity(bundle.enabled && available == 0 ? 0.5 : 1.0)
 
                                     // The classics above are the stock half of FRANCHISES.
                                     // Everything the library itself turned out to hold
@@ -433,18 +425,18 @@ struct SettingsPageView: View {
         SubtitleLanguagePreset.displayLabel(for: code)
     }
 
-    // MARK: - Found franchises (under the FRANCHISES package row)
+    // MARK: - Franchises (under the FRANCHISES package row)
 
-    /// The indented block under FRANCHISES: a header with the count, ADD ALL / REMOVE
-    /// ALL, one switch per found franchise, then the ones a classic already covers,
-    /// greyed. Hidden entirely while the package is off (see the caller).
+    /// The indented block under FRANCHISES: one alphabetical list of every franchise,
+    /// the stock classics (CH100-106) and the ones found in the library, each with its
+    /// own switch. ADD ALL / REMOVE ALL act on the whole list. Hidden while the package
+    /// is off (see the caller).
     @ViewBuilder
     private var foundFranchisesBlock: some View {
-        let listed = appState.listedFoundFranchises
-        let covered = appState.coveredFoundFranchises
+        let rows = appState.franchiseListRows
 
         VStack(alignment: .leading, spacing: 4) {
-            if listed.isEmpty && covered.isEmpty {
+            if rows.isEmpty {
                 Text(foundFranchisesEmptyHint)
                     .font(.custom("DMMono-Regular", size: 20))
                     .foregroundStyle(.white.opacity(0.6))
@@ -453,10 +445,10 @@ struct SettingsPageView: View {
                     .padding(.vertical, 12)
             } else {
                 HStack(spacing: 12) {
-                    Text("FOUND IN YOUR LIBRARY")
+                    Text("YOUR FRANCHISES")
                         .font(.custom("DMMono-Medium", size: 20))
                         .foregroundStyle(.white.opacity(0.8))
-                    Text("\(listed.filter(\.enabled).count)/\(listed.count) ON AIR")
+                    Text("\(rows.filter(\.enabled).count)/\(rows.count) ON")
                         .font(.custom("VT323-Regular", size: 22))
                         .foregroundStyle(.white.opacity(0.4))
                     Spacer()
@@ -476,54 +468,44 @@ struct SettingsPageView: View {
                         .padding(.bottom, 6)
                 }
 
-                if !listed.isEmpty {
-                    let allOn = listed.allSatisfy(\.enabled)
-                    let allOff = !listed.contains(where: \.enabled)
-                    HStack(spacing: 12) {
-                        FranchiseActionButton(
-                            title: "ADD ALL",
-                            subtitle: allOn ? "Every found franchise is on" : "Turn on all \(listed.count)",
-                            isEnabled: !allOn,
-                            isFocused: focusedItem == "franchise_add_all"
-                        ) {
-                            appState.setAllFoundFranchises(enabled: true)
-                        }
-                        .focused($focusedItem, equals: "franchise_add_all")
-                        .id("franchise_add_all")
-
-                        FranchiseActionButton(
-                            title: "REMOVE ALL",
-                            subtitle: allOff ? "None are on" : "Take them all out of the guide",
-                            isEnabled: !allOff,
-                            isFocused: focusedItem == "franchise_remove_all"
-                        ) {
-                            appState.setAllFoundFranchises(enabled: false)
-                        }
-                        .focused($focusedItem, equals: "franchise_remove_all")
-                        .id("franchise_remove_all")
-                    }
-                }
-
-                ForEach(listed) { franchise in
-                    SettingsToggleRow(
-                        title: franchise.name,
-                        subtitle: franchise.countLabel,
-                        isOn: franchise.enabled,
-                        isFocused: focusedItem == "franchise_\(franchise.id)"
+                let allOn = rows.allSatisfy(\.enabled)
+                let allOff = !rows.contains(where: \.enabled)
+                HStack(spacing: 12) {
+                    FranchiseActionButton(
+                        title: "ADD ALL",
+                        subtitle: allOn ? "Every franchise is on" : "Turn on all \(rows.count)",
+                        isEnabled: !allOn,
+                        isFocused: focusedItem == "franchise_add_all"
                     ) {
-                        appState.toggleFranchise(franchise)
+                        appState.setAllFranchises(enabled: true)
                     }
-                    .focused($focusedItem, equals: "franchise_\(franchise.id)")
-                    .id("franchise_\(franchise.id)")
+                    .focused($focusedItem, equals: "franchise_add_all")
+                    .id("franchise_add_all")
+
+                    FranchiseActionButton(
+                        title: "REMOVE ALL",
+                        subtitle: allOff ? "None are on" : "Take them all out of the guide",
+                        isEnabled: !allOff,
+                        isFocused: focusedItem == "franchise_remove_all"
+                    ) {
+                        appState.setAllFranchises(enabled: false)
+                    }
+                    .focused($focusedItem, equals: "franchise_remove_all")
+                    .id("franchise_remove_all")
                 }
 
-                // Already on with the package through its classic: no switch, just the fact.
-                ForEach(covered) { franchise in
-                    FranchiseCoveredRow(
-                        title: franchise.name,
-                        subtitle: franchise.coveredLabel,
-                        detail: "ON AIR"
-                    )
+                ForEach(rows) { row in
+                    SettingsToggleRow(
+                        title: row.name,
+                        subtitle: row.countLabel,
+                        detail: row.channelNumber.map { "CH \($0)" },
+                        isOn: row.enabled,
+                        isFocused: focusedItem == "franchise_\(row.id)"
+                    ) {
+                        appState.toggleFranchiseRow(row)
+                    }
+                    .focused($focusedItem, equals: "franchise_\(row.id)")
+                    .id("franchise_\(row.id)")
                 }
             }
         }
@@ -820,6 +802,21 @@ struct SettingsPageView: View {
                 .accessibilityHint("Shows what's playing and updates play counts in \(appState.backendDisplayName). Continue Watching is left as it was")
             }
 
+            // Off by default and per-TV. Turning it on pushes this TV's lineup and
+            // settings to iCloud first, then listens.
+            SettingsToggleRow(
+                title: "SYNC WITH MY OTHER APPLE TVS",
+                subtitle: appState.iCloudSyncEnabled
+                    ? "On. This Apple TV's lineup is shared through iCloud."
+                    : "Off. Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
+                isOn: appState.iCloudSyncEnabled,
+                isFocused: focusedItem == "icloud_sync"
+            ) {
+                appState.iCloudSyncEnabled.toggle()
+            }
+            .focused($focusedItem, equals: "icloud_sync")
+            .id("icloud_sync")
+
             SettingsToggleRow(
                 title: "DISCONNECT FROM \(appState.backendDisplayName.uppercased())",
                 subtitle: "Clears saved \(appState.backendDisplayName) access. Use when switching servers",
@@ -895,7 +892,7 @@ private struct CollectionAccordionHeaderRow: View {
     }
 }
 
-// MARK: - Found franchises: ADD ALL / REMOVE ALL and the covered row
+// MARK: - Franchises: ADD ALL / REMOVE ALL
 
 /// Half-width action row for the found-franchise block. Same chrome as
 /// SettingsToggleRow (DMMono, cyan focus stroke), no switch, dims when it has nothing
@@ -937,41 +934,6 @@ private struct FranchiseActionButton: View {
         .accessibilityLabel(title)
         .accessibilityHint(subtitle)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
-    }
-}
-
-/// A found franchise that a classic (CH100-106) already carries. Not focusable: there
-/// is nothing to decide, the package switch above already covers it.
-private struct FranchiseCoveredRow: View {
-    let title: String
-    let subtitle: String
-    let detail: String
-
-    var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.custom("DMMono-Medium", size: 22))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.custom("DMMono-Regular", size: 20))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(2)
-            }
-            Spacer()
-            Text(detail)
-                .font(.custom("VT323-Regular", size: 22))
-                .foregroundStyle(Color("BrandCyan").opacity(0.75))
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.white.opacity(0.02))
-        )
-        .opacity(0.5)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(subtitle), already \(detail)")
     }
 }
 

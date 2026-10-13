@@ -17,7 +17,13 @@ final class FranchiseGoldenTests: XCTestCase {
         let cases: [Case]
         let titleKeys: [TitleKey]
         let filmMatches: [FilmMatch]
+        let mergeKeys: [MergeKey]
         let collectionFolds: [Fold]
+    }
+
+    private struct MergeKey: Decodable {
+        let name: String
+        let key: String
     }
 
     private struct Enrichment: Decodable {
@@ -147,7 +153,7 @@ final class FranchiseGoldenTests: XCTestCase {
     func testBundledDictionaryIsTheRepoFile() throws {
         let repoFile = try FranchiseDictionary.decode(
             Data(contentsOf: Self.repoRoot.appendingPathComponent("franchises.json")))
-        XCTAssertEqual(FranchiseDictionary.all.count, 18)
+        XCTAssertEqual(FranchiseDictionary.all.count, 19)
         XCTAssertEqual(FranchiseDictionary.all.map(signature), repoFile.map(signature),
                        "the app bundle carries a stale franchises.json; check the Sync channel config build phase")
     }
@@ -167,7 +173,7 @@ final class FranchiseGoldenTests: XCTestCase {
 
     func testGoldenCases() throws {
         let golden = try loadGolden()
-        XCTAssertGreaterThanOrEqual(golden.cases.count, 13)
+        XCTAssertGreaterThanOrEqual(golden.cases.count, 15)
         for c in golden.cases {
             let groupings = FranchiseChannelBuilder.build(
                 movies: c.movies.map(movie),
@@ -191,6 +197,14 @@ final class FranchiseGoldenTests: XCTestCase {
         for v in try loadGolden().filmMatches {
             XCTAssertEqual(FranchiseChannelBuilder.dictionaryMatch(forFilmTitle: v.title)?.canonicalName,
                            v.franchise, "film match \(v.title)")
+        }
+    }
+
+    func testGoldenMergeKeys() throws {
+        let keys = try loadGolden().mergeKeys
+        XCTAssertFalse(keys.isEmpty)
+        for v in keys {
+            XCTAssertEqual(FranchiseChannelBuilder.franchiseMergeKey(v.name), v.key, "merge key \(v.name)")
         }
     }
 

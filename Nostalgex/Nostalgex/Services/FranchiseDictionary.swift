@@ -54,7 +54,7 @@ struct FranchiseDefinition: Decodable {
     let studioRuled: Bool
 
     /// A found franchise with this flag starts switched ON (a dynamic franchise only;
-    /// a stock fold is always on with the package). The viewer can still turn it off,
+    /// a stock classic always starts on and has its own switch in Settings). The viewer can still turn it off,
     /// and that choice is kept (`nostalgex_disabled_franchises`). Nothing is built when
     /// the library has none of it: the usual three-film gate still applies.
     let defaultOn: Bool
@@ -193,10 +193,23 @@ enum FranchiseDictionary {
     /// the dictionary default. Shared by the rebuild, the snapshot restore and iCloud
     /// arrivals so all three agree.
     static func isOn(_ id: String, enabledIDs: Set<String>, disabledIDs: Set<String>) -> Bool {
+        isOn(id, enabledIDs: enabledIDs, disabledIDs: disabledIDs, defaultOn: defaultOnIDs.contains(id))
+    }
+
+    /// Same rule with an explicit default. A stock classic (CH100-106) defaults ON: it
+    /// is off only when the viewer switched it off (`nostalgex_disabled_franchises`).
+    static func isOn(_ id: String, enabledIDs: Set<String>, disabledIDs: Set<String>, defaultOn: Bool) -> Bool {
         if enabledIDs.contains(id) { return true }
         if disabledIDs.contains(id) { return false }
-        return defaultOnIDs.contains(id)
+        return defaultOn
     }
+
+    /// The stock definitions (a `stockChannelID`), keyed by that channel id.
+    static let byStockChannelID: [Int: FranchiseDefinition] = {
+        var map: [Int: FranchiseDefinition] = [:]
+        for def in all { if let id = def.stockChannelID { map[id] = def } }
+        return map
+    }()
 
     /// Strip a trailing " Collection" (case insensitive) and tidy whitespace.
     /// "John Wick Collection" -> "John Wick".

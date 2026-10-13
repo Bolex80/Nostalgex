@@ -229,6 +229,8 @@ extension AppState {
         // row keeps reading "7/7 CH" and naming the classics only.
         if isFranchisesBundleOn {
             enabledChannelIDs.formUnion(foundFranchiseChannelIDs)
+            // A classic switched off in the franchise list leaves the guide on its own.
+            enabledChannelIDs.subtract(switchedOffStockFranchiseChannelIDs)
         }
 
         // A seasonal package leads the guide while it runs — see GuideChannelOrder.

@@ -438,4 +438,128 @@ final class FranchiseSettingsTests: XCTestCase {
 
         XCTAssertEqual(pool(state, 100).sorted(), ["a1", "sw1", "sw2", "sw3"])
     }
+
+    // MARK: - One franchise list: stock classics and found franchises together
+
+    /// FRANCHISES on, CH100 and CH101 built from their rules, plus found franchises.
+    private func listState() async -> AppState {
+        let state = makeState()
+        let marvelFilms = [marvelFilm("mv1", "The Avengers"), marvelFilm("mv2", "Iron Man"),
+                           marvelFilm("mv3", "Thor")]
+        let items = films(starWars) + marvelFilms + films(wick) + films(hunger)
+            + [episode("loki1", show: "Loki"), episode("loki2", show: "Loki")]
+        await buildStockLineup(state, items: items, marvel: true)
+        state.materializeDynamicChannels()
+        state.applyBundleFilter()
+        return state
+    }
+
+    func testListIsAlphabeticalStockAndFoundTogetherWithChannelNumbers() async {
+        let state = await listState()
+        let rows = state.franchiseListRows
+        // Every stock classic in the package is listed, built or not, plus the found ones.
+        XCTAssertEqual(rows.map(\.name), [
+            "HARRY POTTER", "JASON BOURNE", "JOHN WICK", "JURASSIC PARK", "LORD OF THE RINGS",
+            "MARVEL", "MISSION IMPOSSIBLE", "STAR WARS", "THE HUNGER GAMES"
+        ])
+        let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0.name, $0) })
+        XCTAssertEqual(byName["STAR WARS"]?.channelNumber, 100)
+        XCTAssertEqual(byName["STAR WARS"]?.enabled, true, "stock classics default on")
+        XCTAssertEqual(byName["STAR WARS"]?.countLabel, "3 movies")
+        XCTAssertEqual(byName["JOHN WICK"]?.channelNumber, nil)
+        XCTAssertEqual(byName["JOHN WICK"]?.enabled, false, "found franchises still default off")
+        XCTAssertEqual(byName["HARRY POTTER"]?.countLabel, "None in your library yet")
+    }
+
+    func testMarvelIsListedWithItsFilmsAndMCUShows() async {
+        let state = await listState()
+        let marvel = state.franchiseListRows.first { $0.name == "MARVEL" }
+        XCTAssertEqual(marvel?.id, "dict:MARVEL")
+        XCTAssertEqual(marvel?.stockChannelID, 101)
+        XCTAssertEqual(marvel?.countLabel, "3 movies, 1 show")
+    }
+
+    func testSwitchingAStockClassicOffTakesItsChannelOutAndPersists() async {
+        let state = await listState()
+        XCTAssertTrue(state.channels.contains { $0.id == 100 })
+        let starWarsRow = state.franchiseListRows.first { $0.name == "STAR WARS" }!
+
+        state.toggleFranchiseRow(starWarsRow)
+
+        XCTAssertFalse(state.channels.contains { $0.id == 100 }, "CH100 leaves the guide")
+        XCTAssertTrue(state.channels.contains { $0.id == 101 }, "the other classics stay")
+        XCTAssertTrue(state.allChannels.contains { $0.id == 100 }, "built, just not shown")
+        XCTAssertEqual(UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey), ["dict:STAR WARS"])
+        XCTAssertEqual(state.franchiseListRows.first { $0.name == "STAR WARS" }?.enabled, false)
+
+        // Relaunch: the choice is read back and the bundle filter honours it.
+        let relaunched = makeState(stockStarWars: true)
+        relaunched.applyBundleFilter()
+        XCTAssertFalse(relaunched.channels.contains { $0.id == 100 })
+
+        // Back on.
+        state.toggleFranchiseRow(state.franchiseListRows.first { $0.name == "STAR WARS" }!)
+        XCTAssertTrue(state.channels.contains { $0.id == 100 })
+        XCTAssertEqual(UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey), [])
+    }
+
+    func testAddAllAndRemoveAllCoverTheWholeList() async {
+        let state = await listState()
+
+        state.setAllFranchises(enabled: false)
+        XCTAssertTrue(state.franchiseListRows.allSatisfy { !$0.enabled })
+        XCTAssertFalse(state.channels.contains { $0.id == 100 || $0.id == 101 })
+        XCTAssertTrue(state.channels.filter { $0.rules == nil }.isEmpty)
+
+        state.setAllFranchises(enabled: true)
+        XCTAssertTrue(state.franchiseListRows.allSatisfy(\.enabled))
+        XCTAssertTrue(state.channels.contains { $0.id == 100 })
+        XCTAssertTrue(state.channels.contains { $0.id == 101 })
+        XCTAssertEqual(Set(state.channels.filter { $0.rules == nil }.map(\.name)), ["JOHN WICK", "THE HUNGER GAMES"])
+    }
+
+    func testAStockChoiceFromAnotherAppleTVChangesTheGuide() async {
+        let state = await listState()
+        state.applyEnabledFranchiseIDs([], disabled: ["dict:MARVEL"])
+        XCTAssertFalse(state.channels.contains { $0.id == 101 })
+        state.applyEnabledFranchiseIDs([], disabled: [])
+        XCTAssertTrue(state.channels.contains { $0.id == 101 })
+    }
+
+    func testMCUSpiderManFilmsCountOnSpiderManNotAlsoOnMarvel() async {
+        let state = makeState()
+        let mcu = [marvelFilm("sm1", "Spider-Man: Homecoming"), marvelFilm("sm2", "Spider-Man: Far From Home"),
+                   marvelFilm("sm3", "Spider-Man: No Way Home")]
+        let others = [marvelFilm("mv1", "The Avengers"), marvelFilm("mv2", "Iron Man")]
+        let raimi = [movie("r1", "Spider-Man (2002)")]
+        let items = films(starWars) + mcu + others + raimi
+        state.allItems = items
+        state.allChannels = await state.rebuildStaticChannelPools(
+            configChannels: [starWarsConfigChannel(), marvelConfigChannel()], items: items, onlyChannelIDs: [100, 101]
+        )
+        var table: [String: (Int, String)] = [:]
+        for id in ["sm1", "sm2", "sm3"] { table[id] = (531241, "Spider-Man (MCU) Collection") }
+        table["r1"] = (556, "Spider-Man Collection")
+        state.rebuildFoundFranchises(enrichmentFor: lookup(table))
+
+        XCTAssertEqual(pool(state, 101).count, 5, "CH101's studio rule still airs all five")
+        let rows = Dictionary(uniqueKeysWithValues: state.franchiseListRows.map { ($0.name, $0) })
+        XCTAssertEqual(rows["SPIDER-MAN"]?.countLabel, "4 movies")
+        XCTAssertEqual(rows["MARVEL"]?.countLabel, "2 movies", "the MCU Spider-Man films are counted once")
+    }
+
+    func testMergedFoundFranchiseIsOneRow() {
+        let state = makeState()
+        let pie = ["p1": "American Pie", "p2": "American Pie 2"]
+        let spin = ["q1": "American Pie Presents: Band Camp", "q2": "American Pie Presents: The Naked Mile"]
+        state.allItems = films(pie) + films(spin)
+        var table: [String: (Int, String)] = [:]
+        for id in pie.keys { table[id] = (2806, "American Pie Collection") }
+        for id in spin.keys { table[id] = (298820, "American Pie (Spin-off) Collection") }
+        state.rebuildFoundFranchises(enrichmentFor: lookup(table))
+        let found = state.franchiseListRows.filter { !$0.isStock }
+        XCTAssertEqual(found.map(\.name), ["AMERICAN PIE"])
+        XCTAssertEqual(found.first?.id, "tmdb:2806")
+        XCTAssertEqual(found.first?.countLabel, "4 movies")
+    }
 }

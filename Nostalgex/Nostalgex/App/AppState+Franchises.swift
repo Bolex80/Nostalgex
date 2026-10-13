@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-// Found franchises: the "FOUND IN YOUR LIBRARY" half of the FRANCHISES package.
+// Franchises: the stock classics and the ones found in the library, one Settings list.
 //
 // `FranchiseChannelBuilder` decides WHAT the franchises are from the library plus its
 // TMDB enrichment. This file owns everything around that: when the list is rebuilt, how
@@ -20,7 +20,7 @@ struct FoundFranchise: Identifiable, Equatable {
     /// Episodes of the shows that joined (the show title is `PlexMediaItem.title`).
     let tvItems: [PlexMediaItem]
     /// The stock channel (CH100-106) this franchise folds into, when one exists. Such a
-    /// franchise is already on with the FRANCHISES bundle and gets no switch of its own.
+    /// franchise is listed (and switched) as that classic's row, see `franchiseListRows`.
     let coveredByChannelID: Int?
     let fromDictionary: Bool
     var enabled: Bool
@@ -56,6 +56,32 @@ struct FoundFranchise: Identifiable, Equatable {
     }
 }
 
+/// One row of the single franchise list in Settings: a stock classic (CH100-106,
+/// channels.json) or a franchise found in the library. Both have a switch and share one
+/// on/off store (`enabledFranchiseIDs` / `disabledFranchiseIDs`), keyed by stable id.
+struct FranchiseListRow: Identifiable, Equatable {
+    /// `FranchiseGrouping.stableID`: "dict:STAR WARS", "tmdb:2806".
+    let id: String
+    let name: String
+    /// "12 movies, 1 show". A stock row counts its channel's pool.
+    let countLabel: String
+    /// The stock channel this row switches, nil for a found franchise.
+    let stockChannelID: Int?
+    /// The number Settings shows for a stock row ("CH 100").
+    let channelNumber: Int?
+    let enabled: Bool
+
+    var isStock: Bool { stockChannelID != nil }
+
+    /// "3 movies", "1 movie", "5 movies, 2 shows"; never empty.
+    static func countLabel(movies: Int, shows: Int) -> String {
+        var parts: [String] = []
+        if movies > 0 { parts.append(movies == 1 ? "1 movie" : "\(movies) movies") }
+        if shows > 0 { parts.append(shows == 1 ? "1 show" : "\(shows) shows") }
+        return parts.isEmpty ? "None in your library yet" : parts.joined(separator: ", ")
+    }
+}
+
 extension AppState {
 
     static let enabledFranchisesKey = PreferenceSync.enabledFranchisesKey
@@ -73,9 +99,74 @@ extension AppState {
         foundFranchises.filter { !$0.isCoveredByStock }
     }
 
-    /// Found franchises already carried by a stock channel. Shown greyed, no switch.
+    /// Found franchises already carried by a stock channel. Settings lists the classic
+    /// itself instead (`franchiseListRows`); these feed its pool and the collection fold.
     var coveredFoundFranchises: [FoundFranchise] {
         foundFranchises.filter(\.isCoveredByStock)
+    }
+
+    // MARK: - The one franchise list
+
+    /// Every franchise Settings lists under the FRANCHISES package, stock classics and
+    /// found ones together, alphabetical, each with its own switch. MARVEL is here even
+    /// though the builder groups none of its films (its studio rule owns them).
+    var franchiseListRows: [FranchiseListRow] {
+        var rows: [FranchiseListRow] = []
+        var seen = Set<String>()
+
+        // A film a non-stock dictionary franchise owns (SPIDER-MAN's MCU films) also
+        // passes CH101's studio rule. It is counted once, on its own franchise.
+        let claimed = Set(foundFranchises
+            .filter { $0.fromDictionary && !$0.isCoveredByStock }
+            .flatMap { $0.items.map(\.id) })
+        let stockChannelIDs = bundles.first(where: { $0.id == Self.franchisesBundleID })?.channelIDs ?? []
+        for channelID in stockChannelIDs {
+            guard let def = FranchiseDictionary.byStockChannelID[channelID] else { continue }
+            let channel = allChannels.first { $0.id == channelID }
+            let pool = (channel?.itemPool ?? []).filter { !claimed.contains($0.id) }
+            let movies = pool.filter { $0.type == .movie }.count
+            let shows = Set(pool.filter { $0.type == .episode }.map(\.title)).count
+            rows.append(FranchiseListRow(
+                id: def.stableID,
+                name: def.canonicalName,
+                countLabel: FranchiseListRow.countLabel(movies: movies, shows: shows),
+                stockChannelID: channelID,
+                channelNumber: channel?.number ?? channelID,
+                enabled: isStockFranchiseOn(def.stableID)
+            ))
+            seen.insert(def.stableID)
+        }
+        for franchise in listedFoundFranchises where !seen.contains(franchise.id) {
+            rows.append(FranchiseListRow(
+                id: franchise.id,
+                name: franchise.name,
+                countLabel: franchise.countLabel,
+                stockChannelID: nil,
+                channelNumber: nil,
+                enabled: franchise.enabled
+            ))
+        }
+        return rows.sorted { a, b in
+            switch a.name.localizedStandardCompare(b.name) {
+            case .orderedAscending: return true
+            case .orderedDescending: return false
+            case .orderedSame: return a.id < b.id
+            }
+        }
+    }
+
+    /// A stock classic is on unless the viewer switched it off.
+    func isStockFranchiseOn(_ id: String) -> Bool {
+        FranchiseDictionary.isOn(id, enabledIDs: enabledFranchiseIDs,
+                                 disabledIDs: disabledFranchiseIDs, defaultOn: true)
+    }
+
+    /// Stock channels the viewer switched off in the franchise list. `applyBundleFilter`
+    /// keeps them out of the guide while the FRANCHISES package is on.
+    var switchedOffStockFranchiseChannelIDs: Set<Int> {
+        Set(FranchiseDictionary.byStockChannelID.compactMap { channelID, def in
+            isStockFranchiseOn(def.stableID) ? nil : channelID
+        })
     }
 
     /// Server collections that still belong under MY COLLECTIONS: everything the fold
@@ -288,6 +379,48 @@ extension AppState {
         reselectIfCurrentChannelLeft()
     }
 
+    /// One row's switch in the franchise list. A stock row takes its channel in or out
+    /// of the guide; a found row builds or drops its runtime channel.
+    func toggleFranchiseRow(_ row: FranchiseListRow) {
+        guard row.isStock else {
+            if let franchise = foundFranchises.first(where: { $0.id == row.id }) {
+                toggleFranchise(franchise)
+            }
+            return
+        }
+        let nowOn = !isStockFranchiseOn(row.id)
+        recordFranchiseChoice(row.id, on: nowOn)
+        Analytics.track(.settingChanged(key: "franchise", value: nowOn ? "true" : "false"))
+        saveFranchisePreferences()
+        applyBundleFilter()
+        reselectIfCurrentChannelLeft()
+    }
+
+    /// ADD ALL / REMOVE ALL over the whole franchise list, stock classics included.
+    func setAllFranchises(enabled: Bool) {
+        let stockOffBefore = switchedOffStockFranchiseChannelIDs
+        for row in franchiseListRows where row.isStock {
+            recordFranchiseChoice(row.id, on: enabled)
+        }
+        let stockChanged = stockOffBefore != switchedOffStockFranchiseChannelIDs
+        let foundChanged = foundFranchises.contains { !$0.isCoveredByStock && $0.enabled != enabled }
+        if foundChanged {
+            // Records the found choices, saves, rebuilds and refilters.
+            setAllFoundFranchises(enabled: enabled)
+        } else {
+            for i in foundFranchises.indices where !foundFranchises[i].isCoveredByStock {
+                recordFranchiseChoice(foundFranchises[i].id, on: enabled)
+            }
+            saveFranchisePreferences()
+        }
+        guard stockChanged else { return }
+        if !foundChanged {
+            Analytics.track(.settingChanged(key: "franchise:all", value: enabled ? "true" : "false"))
+        }
+        applyBundleFilter()
+        reselectIfCurrentChannelLeft()
+    }
+
     /// ADD ALL / REMOVE ALL over the listed (non-covered) found franchises.
     func setAllFoundFranchises(enabled: Bool) {
         var changed = false
@@ -332,9 +465,11 @@ extension AppState {
     /// kept so they survive a round trip and simply match nothing here. `disabled` is
     /// the explicit-off set when it arrived too; nil keeps this TV's.
     func applyEnabledFranchiseIDs(_ ids: Set<String>, disabled: Set<String>? = nil) {
+        let stockOffBefore = switchedOffStockFranchiseChannelIDs
         enabledFranchiseIDs = ids
         if let disabled { disabledFranchiseIDs = disabled }
-        var changed = false
+        // A stock classic switched on or off on another TV changes the guide too.
+        var changed = stockOffBefore != switchedOffStockFranchiseChannelIDs
         for i in foundFranchises.indices where !foundFranchises[i].isCoveredByStock {
             let on = FranchiseDictionary.isOn(
                 foundFranchises[i].id, enabledIDs: enabledFranchiseIDs, disabledIDs: disabledFranchiseIDs)
@@ -366,7 +501,7 @@ extension AppState {
     // MARK: - Demo fixture
 
     /// `-uiTestFranchiseFixture`: layers a small enriched library over demo mode so the
-    /// FOUND IN YOUR LIBRARY block and a found-franchise channel can be seen on a
+    /// franchise list and a found-franchise channel can be seen on a
     /// simulator with no server and no Supabase franchise columns. Never runs without the
     /// launch argument. See `DemoData.franchiseFixture`.
     func installFranchiseFixture() async {

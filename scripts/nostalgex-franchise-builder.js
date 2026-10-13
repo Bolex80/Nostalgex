@@ -141,6 +141,32 @@
     return name.trim();
   }
 
+  /**
+   * "Spider-Man (MCU)" -> "Spider-Man". Drops trailing parenthetical suffixes, one or
+   * more, never the whole name. Mirrors `FranchiseChannelBuilder.stripParentheticalSuffix`.
+   */
+  function stripParentheticalSuffix(raw) {
+    let s = String(raw == null ? '' : raw).trim();
+    while (s.endsWith(')')) {
+      const open = s.lastIndexOf('(');
+      if (open <= 0) break;
+      s = s.slice(0, open).trim();
+    }
+    return s;
+  }
+
+  /**
+   * Found franchises with the same merge key are one channel. Mirrors
+   * `FranchiseChannelBuilder.franchiseMergeKey`: drop " Collection" and any trailing
+   * parenthetical ("(MCU)", "(Spin-off)", "(Reboot)"), compare by `explicitTitleKey`
+   * (case and punctuation ignored), and ignore a leading "The".
+   */
+  function franchiseMergeKey(raw) {
+    let key = explicitTitleKey(cleanFranchiseName(stripParentheticalSuffix(cleanFranchiseName(raw))));
+    if (key.startsWith('the ')) key = key.slice(4);
+    return key;
+  }
+
   // MARK: - Dictionary
 
   function intOrNull(v) {
@@ -264,7 +290,10 @@
 
     // 1. Movies, placed once each: dictionary by collection id, dictionary by title
     //    (explicit beats token), auto-found by collection id, otherwise skipped.
+    //    Auto-found films are held back until every collection has a name, then go
+    //    into one bucket per merge key (see franchiseMergeKey), in input order.
     const autoFoundNames = new Map();
+    const autoFoundFilms = [];
     for (const movie of movies) {
       const { fid, name: rawName } = readEnrichment(enrichmentFor, movie);
 
@@ -286,16 +315,31 @@
         if (!autoFoundNames.has(fid) && rawName !== null) {
           autoFoundNames.set(fid, cleanFranchiseName(rawName).toUpperCase());
         }
-        const name = autoFoundNames.has(fid) ? autoFoundNames.get(fid) : '';
-        const b = bucketFor('found:' + fid, name, null);
-        if (b.name === '') b.name = name;
-        b.movies.push(movie);
-        b.franchiseIDs.add(fid);
+        autoFoundFilms.push([movie, fid]);
       }
     }
-    // An auto-found bucket whose films never carried a franchiseName cannot be named.
-    for (const [key, b] of Array.from(buckets)) {
-      if (b.definition === null && b.name === '') buckets.delete(key);
+    // A collection whose films never carried a franchiseName cannot be named, so it is
+    // dropped. Named ones whose names match after franchiseMergeKey share one bucket:
+    // "Spider-Man" + "Spider-Man (MCU)", "American Pie" + "American Pie (Spin-off)".
+    const foundKeyFor = (fid) => {
+      const name = autoFoundNames.get(fid);
+      if (!name) return null;
+      const mk = franchiseMergeKey(name);
+      return mk ? 'found:' + mk : 'found:#' + fid;
+    };
+    for (const [movie, fid] of autoFoundFilms) {
+      const key = foundKeyFor(fid);
+      if (key === null) continue;
+      const b = bucketFor(key, '', null);
+      b.movies.push(movie);
+      b.franchiseIDs.add(fid);
+    }
+    // Named after the lowest collection id; a merged bucket drops its "(MCU)" suffix.
+    for (const b of buckets.values()) {
+      if (b.definition !== null) continue;
+      const ids = Array.from(b.franchiseIDs);
+      const name = autoFoundNames.get(Math.min(...ids));
+      b.name = ids.length > 1 ? stripParentheticalSuffix(name) : name;
     }
 
     // Found buckets in ascending collection id, the fixed order TV tries them in.
@@ -393,6 +437,8 @@
     defaultOnIDs,
     isOn,
     cleanFranchiseName,
+    stripParentheticalSuffix,
+    franchiseMergeKey,
     explicitTitleKey,
     normalizedTitle,
     titleContainsToken,
