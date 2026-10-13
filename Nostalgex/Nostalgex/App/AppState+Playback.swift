@@ -979,7 +979,9 @@ extension AppState {
                 let offset = self.seekOffset
                 Task { @MainActor [weak self] in
                     guard let self, self.loadGeneration == generation else { return }
-                    guard let resolved = await backend.resolveTranscodePlayback(for: item, offsetSeconds: offset),
+                    // Not resolveTranscodePlayback: asked that, Jellyfin and Emby hand back
+                    // the same file for anything they can direct play.
+                    guard let resolved = await backend.resolveServerStream(for: item, offsetSeconds: offset),
                           self.loadGeneration == generation else {
                         if self.loadGeneration == generation {
                             self.emitPlaybackError(.watchdogSkip)
@@ -1083,7 +1085,8 @@ extension AppState {
             let backend = api(for: item.serverID)
             Task { @MainActor [weak self] in
                 guard let self, self.loadGeneration == generation else { return }
-                guard let resolved = await backend.resolveTranscodePlayback(for: item, offsetSeconds: position),
+                // The server stream, never the file that just starved; see resolveServerStream.
+                guard let resolved = await backend.resolveServerStream(for: item, offsetSeconds: position),
                       self.loadGeneration == generation else {
                     if self.loadGeneration == generation { self.advanceToNextItem() }
                     return

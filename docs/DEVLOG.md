@@ -3,6 +3,56 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Jellyfin and Emby: the stall retry replayed the file that stalled)
+
+**Shipped.** Nothing. Branch `jellyfin-stall-transcode`, not merged.
+
+**Changed.**
+
+- The question left open in the entry below is answered: it was real. When direct play
+  gave no picture (watchdog) or starved (starvation ladder), Apple TV asked Jellyfin or
+  Emby's PlaybackInfo the same question as the first attempt. For a file the server can
+  direct play, the answer is the file. Measured on an 8-bit H.264 MP4 against a local
+  Jellyfin 12.2.0 and an Emby 4.10.1.0 server: `SupportsDirectPlay=true`, no
+  TranscodingUrl, so `JellyfinPlaybackResolver.resolve` returned `stream.mp4?Static=true`
+  and the ladder played the same file again (206, `video/mp4`) under the transcode label.
+- What that cost: not a dead end, a wasted rung. By the watchdog's own deadlines, the
+  replay got the transcode deadline (20s, 40s for 4K) or a second stall window before
+  the 1080p capped rung, so a black picture lasted 15s plus 20 to 40s more, and a
+  starving film had to starve twice.
+  An MKV was never affected: it does not direct play, so PlaybackInfo always handed back
+  HLS. Plex was never affected: its transcode request is always HLS.
+- Fix: the retry goes through a new `resolveServerStream`. It sends PlaybackInfo with
+  `EnableDirectPlay=false` and `EnableDirectStream=false`, and the resolver never returns
+  the static file on a retry (it returns nil, and the service falls back to its
+  hand-built HLS stream). Both flags are needed. With only `EnableDirectPlay=false`,
+  Jellyfin returns a TranscodingUrl but Emby reports `SupportsDirectStream=true` and
+  still none.
+- After, with the branch's own body builder and resolver: the retry gets a `master.m3u8`
+  TranscodingUrl on both servers (reason `DirectPlayError`), and master, variant, init
+  and segments 0 to 2 all answer 200, for the MP4 and the MKV. For the MP4 it is a remux:
+  video and audio copied into HLS (Jellyfin's ffmpeg log `codec:v:0 copy`, Emby's session
+  `IsVideoDirect` and `IsAudioDirect` true). The first attempt sends exactly the three keys it sent before and still
+  direct plays the MP4.
+- Web tuner: not affected and unchanged. Its only retry is after a direct play errors,
+  and for an MP4 it gets no TranscodingUrl and uses the hand-built HLS fallback, which
+  walked 200 on both servers. It has no stall ladder: a stall skips after 8s.
+- Tests: `StallRetryServerStreamTests` (10): request body on first attempt and retry,
+  both services' requests, the resolver on each measured answer, the offline fallback,
+  and Plex unchanged.
+
+NostalgexTests: 682 passed (672 on the branch point plus the 10 new), 0 failed, 8 live
+harnesses skipped. `npm test` and `npm run build` green.
+
+**Half-done.** Proven at the HTTP level, not watched on an Apple TV: no forced
+no-picture or starvation has been run through the ladder on a device. The forced server
+stream is a remux at the same bitrate: it changes the container, not the video or the
+bitrate. A file whose video the device cannot decode, or a link too slow for the file,
+still depends on the 1080p rung after it, which was not re-measured here.
+
+**Next.** On an Apple TV against Jellyfin or Emby, force a direct-play stall on an MP4
+and check the diagnostics line reads "server stream" then plays HLS, not the file.
+
 ## 2026-10-13 (Emby fallback stream: every segment refused for want of a PlaySessionId)
 
 **Shipped.** Nothing yet. Branch `emby-playsessionid`, merged into main for the next build.
