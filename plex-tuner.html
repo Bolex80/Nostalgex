@@ -2402,7 +2402,10 @@
     <!-- VIDEO CONTAINER (wraps video + overlays) -->
     <div class="video-container" id="video-container">
       <!-- Actual video player -->
-      <video id="plex-video" autoplay muted></video>
+      <!-- playsinline is load-bearing on iPhone: without it iOS refuses to run the
+           video inline at all, hands playback to the native fullscreen player, and
+           pauses on the way out. webkit-playsinline is the same promise for older iOS. -->
+      <video id="plex-video" autoplay muted playsinline webkit-playsinline></video>
 
       <!-- Unmute button -->
       <button class="unmute-btn" id="unmute-btn">CLICK TO UNMUTE &nbsp;/&nbsp; M KEY</button>
@@ -4128,6 +4131,41 @@
     };
   }
 
+  // Start playback and, if the browser refuses, try again on the viewer's next touch or
+  // key instead of logging and giving up. A refused play() used to leave the channel on a
+  // loaded but frozen frame with no way back short of a reload, which is what an iPhone
+  // did on every tune: the element had no playsinline, so iOS would not run it inline and
+  // rejected every play() the schedule made outside a gesture.
+  let pendingPlayRetry = null;
+  function startVideoPlayback(video) {
+    const p = video.play();
+    if (!p || !p.catch) return;
+    p.catch(e => {
+      console.warn('Playback blocked, will retry on the next tap or key:', e);
+      armPlayRetry(video);
+    });
+  }
+  function armPlayRetry(video) {
+    if (pendingPlayRetry) return;   // one armed listener, not one per refused play
+    const retry = () => {
+      disarmPlayRetry();
+      // Only chase it if the element still wants to be playing (the viewer did not
+      // deliberately pause, and the channel did not move on).
+      if (!video.paused || !video.src && !video.currentSrc) return;
+      const p = video.play();
+      if (p && p.catch) p.catch(() => {});
+    };
+    pendingPlayRetry = retry;
+    for (const ev of ['pointerdown', 'touchend', 'keydown'])
+      document.addEventListener(ev, retry, { once: true, capture: true });
+  }
+  function disarmPlayRetry() {
+    if (!pendingPlayRetry) return;
+    for (const ev of ['pointerdown', 'touchend', 'keydown'])
+      document.removeEventListener(ev, pendingPlayRetry, { capture: true });
+    pendingPlayRetry = null;
+  }
+
   async function playCurrentItem(item, channel) {
     // Finalize the previous program's tracker before starting a new one.
     if (playbackTracker) { playbackTracker.stop(); playbackTracker = null; }
@@ -4143,6 +4181,7 @@
     }
 
     clearVideoError();
+    disarmPlayRetry();   // a retry armed for the outgoing program must not start this one
     const video = document.getElementById('plex-video');
 
     // Hide the text display
@@ -4242,7 +4281,7 @@
       hlsInstance.loadSource(streamUrl);
       hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       });
       // One recovery attempt per kind, per program. The flags live out here on purpose:
       // hls.js builds a fresh payload object for every error event, so a flag written onto
@@ -4304,14 +4343,14 @@
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       }, { once: true });
     } else {
       // Direct play (mp4, webm)
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       }, { once: true });
     }
 
@@ -4409,6 +4448,7 @@
   function stopVideo() {
     // Finalize any in-flight watch session (flush + scrobble check) before tearing down.
     if (playbackTracker) { playbackTracker.stop(); playbackTracker = null; }
+    disarmPlayRetry();
     const video = document.getElementById('plex-video');
     video.pause();
     video.removeAttribute('src');
@@ -4977,12 +5017,32 @@
   // ══════════════════════════════════════
   // CONFIG VISIBILITY
   // ══════════════════════════════════════
+  // iPhone has no element fullscreen API at all: Element.requestFullscreen and its webkit
+  // spelling are both undefined there, so the old call threw a TypeError and the FULL
+  // SCREEN control did nothing. The video element's own webkitEnterFullscreen is the only
+  // fullscreen iOS offers, so fall back to it.
+  function isVideoFullscreen() {
+    if (document.fullscreenElement) return true;
+    const video = document.getElementById('plex-video');
+    return !!(video && video.webkitDisplayingFullscreen);
+  }
+
   function toggleFullscreen() {
     const container = document.getElementById('video-container');
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(e => console.warn('Fullscreen failed:', e));
-    } else {
+    const video = document.getElementById('plex-video');
+    if (!isVideoFullscreen()) {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(e => console.warn('Fullscreen failed:', e));
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (video && video.webkitEnterFullscreen) {
+        // iPhone. Leaving this player pauses the video; webkitendfullscreen resumes it.
+        try { video.webkitEnterFullscreen(); } catch (e) { console.warn('Fullscreen failed:', e); }
+      }
+    } else if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen();
+    } else if (video && video.webkitExitFullscreen) {
+      video.webkitExitFullscreen();
     }
   }
 
@@ -4995,6 +5055,22 @@
       clearSubtitleTracks();
     }
   });
+
+  // iOS native player: same subtitle gate as fullscreenchange, and, on the way out,
+  // put playback back inline. iOS pauses the element when the native player closes, so
+  // without this the tuner sits on a still frame with the schedule running on without it.
+  (() => {
+    const video = document.getElementById('plex-video');
+    if (!video) return;
+    video.addEventListener('webkitbeginfullscreen', () => {
+      loadSubtitleForCurrentItem(currentPlayingItem);
+    });
+    video.addEventListener('webkitendfullscreen', () => {
+      clearSubtitleTracks();
+      // The handler runs inside the dismissal gesture, so this play() is allowed.
+      if (video.paused && !video.ended && (video.src || video.currentSrc)) startVideoPlayback(video);
+    });
+  })();
 
   // Pause the watch clock when the tab is hidden, resume when it returns — so
   // background time doesn't count toward the 75% scrobble gate.
@@ -5200,7 +5276,7 @@
   async function loadSubtitleForCurrentItem(item) {
     const autoForeign = item && shouldAutoEnableSubs(item.audioStreams || []);
     if ((!subtitlesEnabled && !autoForeign) || mediaBackend !== 'jellyfin') return;
-    if (!document.fullscreenElement) return;  // fullscreen-only, matching tvOS
+    if (!isVideoFullscreen()) return;  // fullscreen-only, matching tvOS
     if (!item || !Array.isArray(item.subtitles) || item.subtitles.length === 0) return;
     const sub = pickSubtitle(item.subtitles);
     if (!sub) return;
@@ -5263,8 +5339,9 @@
   let fsOverlayTimer = null;
 
   function toggleFsOverlay() {
-    // Enter fullscreen if not already
-    if (!document.fullscreenElement) {
+    // Enter fullscreen if not already. requestFullscreen is undefined on iPhone, where
+    // this overlay is keyboard-only anyway, so guard rather than throw.
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
     fsOverlayVisible = !fsOverlayVisible;
