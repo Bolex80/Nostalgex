@@ -3,8 +3,8 @@ import os
 
 /// The "Enjoying Nostalgex?" banner below the guide.
 ///
-/// It takes focus when it appears, landing on NOT NOW, so an accidental Select only
-/// dismisses it and never opens the App Store. Any way out (NOT NOW, RATE, Up back to
+/// It takes focus when it appears, landing on RATE so rating is one press (owner's
+/// call, 2026-10-13: "make it easy to rate"). Any way out (NOT NOW, RATE, Up back to
 /// the guide, Menu, or 8 untouched seconds) dismisses it, and AppState then puts focus
 /// back on the live channel row. Moving between the two buttons counts as touching it
 /// and stops the timer. Whether it may appear at all is `RatingNudgePolicy`'s call.
@@ -60,11 +60,15 @@ struct RatingNudgeBanner: View {
                 .stroke(Color("BrandCyan").opacity(focused == nil ? 0.25 : 0.5), lineWidth: 1.5)
         )
         .focusSection()
+        .defaultFocus($focused, .rate)
         .onAppear {
-            // The safe default. Async so the buttons are in the focus tree first.
-            DispatchQueue.main.async { focused = .notNow }
+            // The safe default. On hardware a single async request was not enough:
+            // the banner slides in and the guide restores its own focus on the way back
+            // from fullscreen, so ask again until it lands (or the banner is gone).
+            requestFocus(attempt: 0)
         }
         .onChange(of: focused) { oldValue, newValue in
+            print("[Plex90] Rating nudge focus: \(String(describing: oldValue)) -> \(String(describing: newValue))")
             switch (oldValue, newValue) {
             case (.some(let from), .some(let to)) where from != to:
                 // The viewer moved between the buttons: they are deciding, so stop the clock.
@@ -79,6 +83,22 @@ struct RatingNudgeBanner: View {
         .onExitCommand { appState.dismissRatingNudge() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ratingNudgeBanner")
+    }
+
+    /// Tries at 0, 0.35 and 0.9 seconds: after the slide-in transition and after the
+    /// guide's own return-from-fullscreen focus restore. Stops once focus is on the banner.
+    private func requestFocus(attempt: Int) {
+        let delays: [Double] = [0, 0.35, 0.9]
+        guard attempt < delays.count else {
+            print("[Plex90] Rating nudge focus: gave up, focused=\(String(describing: focused))")
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delays[attempt]) {
+            guard appState.isRatingNudgeVisible else { return }
+            if focused == nil { focused = .rate }
+            print("[Plex90] Rating nudge focus: attempt \(attempt + 1), focused=\(String(describing: focused))")
+            if focused == nil { requestFocus(attempt: attempt + 1) }
+        }
     }
 
     private func choiceButton(_ title: String, choice: Choice, action: @escaping () -> Void) -> some View {
