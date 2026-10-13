@@ -56,6 +56,7 @@ import {
   renderCover,
   renderClip,
   markedImageRenderer,
+  unwrapFigures,
   mediaText,
   isRemote,
 } from "./site-media.mjs";
@@ -802,6 +803,7 @@ function renderBundlePage(bundle, model, assetHrefs) {
   const introHtml = new Marked({
     renderer: markedImageRenderer({ file: copy.file, rootDir: ROOT }),
   }).parse(copy.markdown);
+  const introHtmlFinal = unwrapFigures(introHtml);
   const appScript = assetHrefs.appScriptHref || "/app.js";
 
   // The social card prefers its own 1200x630 file, then the hero, then the
@@ -836,7 +838,7 @@ ${renderBreadcrumb(crumbs)}
       </header>
 ${copy.image ? `      ${renderCover(copy.image, { className: "channels-cover" })}\n` : ""}
       <div class="bundle-intro">
-${introHtml}
+${introHtmlFinal}
       </div>${copy.clip ? renderClip(copy.clip) : ""}
 
       <section class="bundle-channels" aria-labelledby="bundle-channels-heading">

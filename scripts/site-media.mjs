@@ -69,16 +69,41 @@ function readWebpSize(buf) {
   return null;
 }
 
+// Returns {width, height} from the leading bytes of an image, or null for a
+// format this cannot read. The header is all that is needed, so a range request
+// is enough for a remote file.
+export function imageSizeFromBuffer(buf, ext) {
+  const e = String(ext).toLowerCase();
+  if (e === ".png") return readPngSize(buf);
+  if (e === ".jpg" || e === ".jpeg") return readJpegSize(buf);
+  if (e === ".webp") return readWebpSize(buf);
+  return null;
+}
+
 // Returns {width, height} for a local image, or null when the file is missing
 // or in a format this cannot read.
 export function readImageSize(filePath) {
   if (!existsSync(filePath)) return null;
-  const buf = readFileSync(filePath);
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".png") return readPngSize(buf);
-  if (ext === ".jpg" || ext === ".jpeg") return readJpegSize(buf);
-  if (ext === ".webp") return readWebpSize(buf);
-  return null;
+  return imageSizeFromBuffer(readFileSync(filePath), path.extname(filePath));
+}
+
+// Sizes for remote images, measured once by scripts/measure-media.mjs and
+// committed. The build stays offline and deterministic: it never reaches for
+// the network, and a new remote image fails the build until it is measured,
+// rather than shipping without width and height.
+const SIZE_CACHE_PATH = new URL("./media-sizes.json", import.meta.url);
+
+let sizeCache = null;
+function remoteSize(src) {
+  if (sizeCache === null) {
+    try {
+      sizeCache = JSON.parse(readFileSync(SIZE_CACHE_PATH, "utf8"));
+    } catch {
+      sizeCache = {};
+    }
+  }
+  const hit = sizeCache[src];
+  return hit && hit.width && hit.height ? { width: hit.width, height: hit.height } : null;
 }
 
 export function isRemote(src) {
@@ -120,11 +145,18 @@ export function resolveImage(frontmatter, { file, rootDir, keys, required = fals
   let width = frontmatter[k.width] ? Number(frontmatter[k.width]) : null;
   let height = frontmatter[k.height] ? Number(frontmatter[k.height]) : null;
 
-  if ((!width || !height) && !isRemote(src)) {
-    // Site relative path: the file is in public/ or at the project root.
-    const rel = src.replace(/^\//, "");
-    const measured =
-      readImageSize(path.join(rootDir, "public", rel)) || readImageSize(path.join(rootDir, rel));
+  if (!width || !height) {
+    const measured = isRemote(src)
+      ? // Measured earlier and committed: see scripts/media-sizes.json.
+        remoteSize(src)
+      : // Site relative path: the file is in public/ or at the project root.
+        (() => {
+          const rel = src.replace(/^\//, "");
+          return (
+            readImageSize(path.join(rootDir, "public", rel)) ||
+            readImageSize(path.join(rootDir, rel))
+          );
+        })();
     if (measured) {
       width = measured.width;
       height = measured.height;
@@ -134,7 +166,7 @@ export function resolveImage(frontmatter, { file, rootDir, keys, required = fals
   if (!width || !height) {
     throw new Error(
       isRemote(src)
-        ? `${file}: "${k.src}" is a remote file, so it needs "${k.width}" and "${k.height}" (the build cannot measure it).`
+        ? `${file}: no size on record for "${src}". Run "npm run media:measure" to fetch it, or set "${k.width}" and "${k.height}".`
         : `${file}: could not measure "${src}". Check the path, or set "${k.width}" and "${k.height}".`,
     );
   }
@@ -236,6 +268,17 @@ export function markedImageRenderer({ file, rootDir }) {
 </figure>`;
     },
   };
+}
+
+// An image on its own line is a paragraph holding one image, so the renderer
+// above leaves <p><figure>...</figure></p>. A figure cannot live inside a
+// paragraph: the browser closes the <p> early and leaves a stray empty one.
+// Unwrap the paragraphs that hold nothing but a figure.
+export function unwrapFigures(html) {
+  return String(html).replace(
+    /<p>\s*(<figure[\s\S]*?<\/figure>)\s*<\/p>/g,
+    (_, figure) => figure,
+  );
 }
 
 // Every image and clip on a page, as plain strings, for the copy checks: alt

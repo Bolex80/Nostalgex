@@ -44,6 +44,7 @@ import {
   resolveClip,
   renderClip,
   markedImageRenderer,
+  unwrapFigures,
   isRemote,
 } from "./site-media.mjs";
 
@@ -285,7 +286,7 @@ function renderPostPage(post, assetHrefs = {}) {
   // shared instance would stack one closure per post.
   const md = new Marked({ renderer: markedImageRenderer({ file: post.rel, rootDir: ROOT }) });
   const bodyHtml =
-    wrapTables(md.parse(stripLeadingH1(post.markdown, post.title))) +
+    unwrapFigures(wrapTables(md.parse(stripLeadingH1(post.markdown, post.title)))) +
     (post.clip ? renderClip(post.clip) : "");
 
   const appScript = assetHrefs.appScriptHref || "/app.js";
