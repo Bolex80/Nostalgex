@@ -26,6 +26,9 @@ enum RatingNudgePolicy {
         /// `CFBundleShortVersionString` the banner was last shown on, whatever the
         /// viewer chose.
         var lastShownVersion: String? = nil
+        /// The viewer pressed RATE (banner or Settings). tvOS cannot tell us whether a
+        /// rating was actually left, so the press is the best signal: never ask again.
+        var rated: Bool = false
     }
 
     /// Facts about the current app launch only.
@@ -47,6 +50,7 @@ enum RatingNudgePolicy {
     static func shouldShow(persisted: Persisted, launch: Launch) -> Bool {
         if launch.shownThisLaunch { return false }
         if launch.forced { return true }
+        if persisted.rated { return false }
         if launch.isFirstLaunch { return false }
         if launch.hadPlaybackFailure || launch.hadConnectError { return false }
         if persisted.lastShownVersion == launch.appVersion { return false }
@@ -60,6 +64,7 @@ final class RatingNudgeStore {
     static let qualifyingSessionsKey = "nostalgex_rating_nudge_sessions"
     static let lastShownVersionKey = "nostalgex_rating_nudge_shown_version"
     static let hasLaunchedKey = "nostalgex_rating_nudge_has_launched"
+    static let ratedKey = "nostalgex_rating_nudge_rated"
     /// Written by the launch analytics on every install since analytics shipped. Its
     /// presence proves an earlier launch for people upgrading from a build without
     /// the nudge, so their first launch of this build is not mistaken for a first install.
@@ -74,7 +79,8 @@ final class RatingNudgeStore {
     var persisted: RatingNudgePolicy.Persisted {
         RatingNudgePolicy.Persisted(
             qualifyingSessions: defaults.integer(forKey: Self.qualifyingSessionsKey),
-            lastShownVersion: defaults.string(forKey: Self.lastShownVersionKey)
+            lastShownVersion: defaults.string(forKey: Self.lastShownVersionKey),
+            rated: defaults.bool(forKey: Self.ratedKey)
         )
     }
 
@@ -89,6 +95,10 @@ final class RatingNudgeStore {
 
     func recordViewingSession() {
         defaults.set(defaults.integer(forKey: Self.qualifyingSessionsKey) + 1, forKey: Self.qualifyingSessionsKey)
+    }
+
+    func recordRated() {
+        defaults.set(true, forKey: Self.ratedKey)
     }
 
     func recordShown(version: String) {

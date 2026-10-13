@@ -23,7 +23,7 @@ struct RatingNudgeBanner: View {
                 Text("Enjoying Nostalgex?")
                     .font(.custom("DMMono-Medium", size: 22))
                     .foregroundStyle(.white)
-                Text("A star rating helps other people find it.")
+                Text("A star rating helps other people find it. Back brings you right here.")
                     .font(.custom("DMMono-Regular", size: 20))
                     .foregroundStyle(.white.opacity(0.8))
             }

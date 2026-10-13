@@ -50,7 +50,7 @@ struct SettingsPageView: View {
                                 // RATE alone keeps the full-width row it always had.
                                 SettingsToggleRow(
                                     title: "RATE NOSTALGEX",
-                                    subtitle: "Opens the App Store on your Apple TV",
+                                    subtitle: appState.hasTappedRate ? "Thanks for rating. Rate again anytime" : "Opens the App Store on your Apple TV",
                                     isOn: true,
                                     isFocused: focusedItem == "rate",
                                     showToggle: false
@@ -312,6 +312,7 @@ struct SettingsPageView: View {
 
     private func rateTapped() {
         Analytics.track(.rateTapped)
+        appState.recordRatingTapped()
         openURL(AppStoreLink.productPage)
     }
 
@@ -327,7 +328,7 @@ struct SettingsPageView: View {
             SupportTile(
                 art: PixelIcons.star,
                 title: "RATE NOSTALGEX",
-                caption: "Leave a star rating",
+                caption: appState.hasTappedRate ? "Thanks for rating" : "Leave a star rating",
                 isFocused: focusedItem == "rate"
             ) {
                 rateTapped()

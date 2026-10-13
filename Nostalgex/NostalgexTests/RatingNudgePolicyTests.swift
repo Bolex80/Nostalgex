@@ -14,6 +14,25 @@ final class RatingNudgePolicyTests: XCTestCase {
         return l
     }
 
+    // MARK: - After RATE
+
+    func testRatePressStopsTheBannerForGoodAcrossVersions() {
+        var rated = Policy.Persisted(qualifyingSessions: 9, lastShownVersion: "1.0.25")
+        rated.rated = true
+        XCTAssertFalse(Policy.shouldShow(persisted: rated, launch: launch("1.0.26")))
+        XCTAssertFalse(Policy.shouldShow(persisted: rated, launch: launch("2.0")))
+        // The test switch still forces it, for checking the banner on hardware.
+        XCTAssertTrue(Policy.shouldShow(persisted: rated, launch: launch { $0.forced = true }))
+    }
+
+    func testStoreRemembersTheRatePress() {
+        let defaults = UserDefaults(suiteName: "rating-nudge-rated-\(UUID().uuidString)")!
+        let store = RatingNudgeStore(defaults: defaults)
+        XCTAssertFalse(store.persisted.rated)
+        store.recordRated()
+        XCTAssertTrue(RatingNudgeStore(defaults: defaults).persisted.rated)
+    }
+
     // MARK: - Session counting
 
     func testUnderThreeSessionsDoesNotShow() {

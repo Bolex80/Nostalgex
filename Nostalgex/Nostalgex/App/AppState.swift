@@ -529,6 +529,9 @@ class AppState {
     /// anchor it uses on return from fullscreen. Used when the rating banner closes.
     var guideLiveRowFocusRequest: Int = 0
     @ObservationIgnored let ratingNudgeStore = RatingNudgeStore()
+    /// The viewer has pressed RATE at some point (banner or Settings). Drives the
+    /// Settings tile's thank-you line; persisted in `RatingNudgeStore`.
+    var hasTappedRate: Bool = UserDefaults.standard.bool(forKey: RatingNudgeStore.ratedKey)
     /// Built when AppState is, which is before RootView's launch analytics writes its
     /// own marker, so the first-launch read is honest.
     @ObservationIgnored var ratingNudgeLaunch = RatingNudgePolicy.Launch(

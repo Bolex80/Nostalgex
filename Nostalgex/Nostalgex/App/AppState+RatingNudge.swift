@@ -43,7 +43,15 @@ extension AppState {
     /// RATE: the caller opens the product page.
     func ratingNudgeRateTapped() {
         Analytics.track(.ratingNudgeTapped)
+        recordRatingTapped()
         dismissRatingNudge()
+    }
+
+    /// Any RATE press (banner or the Settings tile). The banner never shows again and
+    /// the Settings tile says thanks.
+    func recordRatingTapped() {
+        ratingNudgeStore.recordRated()
+        hasTappedRate = true
     }
 
     /// Every way out (NOT NOW, RATE, Up, Menu, the timeout) ends here, and focus goes
