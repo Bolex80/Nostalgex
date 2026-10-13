@@ -101,6 +101,14 @@ final class PlaybackTracker {
         sendTimeline(state: "playing")
     }
 
+    /// Keep one logical viewing session across parts without counting loading time.
+    func onPlaybackPreparing() {
+        guard !stopped else { return }
+        accumulateTime()
+        timelineTimer?.invalidate()
+        timelineTimer = nil
+    }
+
     /// Call when the app enters the background.
     func onBackground() {
         guard !stopped else { return }
