@@ -21,7 +21,7 @@ and already pinned to the Apple TV.
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js`: TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | — | not ported; it calls upstream's own hosted services |
-| `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series; golden file `scripts/franchise-golden.json` (since 43f6ee7) | — | not yet |
+| `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | engine ported, passing off-device; not in the guide (below) |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text; the maintainer holds the artwork until it is settled where the port lives ([UPSTREAM.md](UPSTREAM.md)) |
@@ -50,6 +50,16 @@ affect results:
 - Rule lists are lowercased and title patterns compiled once per channel
   (`NxFilterChannel`), and item fields once per item (`NxFilterItem`).
   Upstream redoes both on every call.
+
+The franchise builder is ported as an engine only. Upstream's web tuner
+doesn't call it yet (upstream `docs/DEVLOG.md`: wiring waits on its enrichment
+work), so only the Apple TV app turns its groupings into channels, and the
+guide here has no JS to follow for that step. Without enrichment a film has no
+TMDB collection id, so only the dictionary's film titles and name tokens place
+films, and no franchise is found that the dictionary doesn't list. Text is
+walked by code point with letter ranges written out, where upstream uses
+grapheme clusters and `\p{Alphabetic}` (the file header has the details);
+no result in the golden file or the generated edge cases differs.
 
 The filter runs with no TMDB/OMDb enrichment. The web tuner did the same until
 upstream 43f6ee7, which added enrichment through upstream's hosted cache and
@@ -80,9 +90,17 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   from upstream's filter smoke test, over a library built from the channels'
   own rules (a match, a near miss and real manifest claims for each), under
   two pinned clocks. It reaches every reachable line of upstream's filter.
+- Franchises are checked against upstream's own golden file,
+  `scripts/franchise-golden.json`, vendored unchanged as
+  `tests/vectors/franchise-golden.json` and read as upstream's
+  `nostalgex-franchise-smoke.mjs` reads it. `tests/gen-franchise.mjs` adds
+  `tests/vectors/franchise.json` from upstream's builder: non-ASCII titles and
+  tokens, combining marks, full-width digits, and found names that only sort
+  and upper-case right by code point.
 - `tests/run.sh` runs them in the off-device interpreter. It fails if
   `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
-  and notes when the clone's `origin/main` has moved past it.
+  runs upstream's franchise smoke test at that commit, and notes when the
+  clone's `origin/main` has moved past it.
 - `scripts/deploy.sh --test` runs the same suite on each TV in `ROKU_HOSTS`.
   **The TV run is the one that counts**, for the reason below.
 - A divergence is a bug here, never a fix to the vectors. Regenerating is only

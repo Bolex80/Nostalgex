@@ -74,10 +74,11 @@ push, against a fresh clone of upstream.
 | `components/` | SceneGraph screens (sign-in, guide, settings) and background tasks |
 | `source/schedule/` | The daily schedule builder, ported from upstream |
 | `source/filter/` | The channel filter, ported from upstream |
+| `source/franchise/` | The franchise builder, ported from upstream; not in the guide yet |
 | `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules |
 | `source/plex/` | Plex sign-in, library loader, playback |
 | `source/util/` | Shared helpers |
-| `data/` | Upstream's channel config, vendored unchanged (`data/UPSTREAM`) |
+| `data/` | Upstream's channel config and franchise dictionary, vendored unchanged (`data/UPSTREAM`) |
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |
 | `images/` | Home-screen icons and splash: text only, drawn by `scripts/icons.sh` |
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |

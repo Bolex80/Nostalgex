@@ -4,7 +4,7 @@
 // the Apple TV Swift. The BrightScript port must reproduce every vector; a
 // divergence is a bug in the port, never a reason to regenerate.
 //
-//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter}.json
+//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise}.json
 //   node tests/gen-vectors.mjs --check    # fail if the file is stale
 //
 // Upstream clone: $NOSTALGEX_DIR, default ../nostalgex next to this repo.
@@ -19,6 +19,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { filterVectors } from "./gen-filter.mjs";
 import { lineupVectors } from "./gen-lineup.mjs";
+import { franchiseVectors } from "./gen-franchise.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", "..", "nostalgex"));
@@ -211,6 +212,11 @@ const files = [
     generatedBy: "tests/gen-vectors.mjs (tests/gen-lineup.mjs)",
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "plex-tuner.html, scripts/nostalgex-daily-manifest.js" },
     ...lineupVectors(upstream, M, poolB),
+  }],
+  [join(here, "vectors", "franchise.json"), {
+    generatedBy: "tests/gen-vectors.mjs (tests/gen-franchise.mjs)",
+    upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-franchise-builder.js" },
+    ...franchiseVectors(upstream),
   }],
 ];
 let stale = false;

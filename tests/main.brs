@@ -10,5 +10,8 @@ sub Main(args = invalid as Dynamic)
     timer.Mark()
     failures = failures + NxRunLineupTests("pkg:/tests/vectors/lineup.json")
     print "  lineup took "; timer.TotalMilliseconds(); " ms"
+    timer.Mark()
+    failures = failures + NxRunFranchiseTests("pkg:/tests/vectors/franchise-golden.json", "pkg:/tests/vectors/franchise.json", "pkg:/data/franchises.json")
+    print "  franchise took "; timer.TotalMilliseconds(); " ms"
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub

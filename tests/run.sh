@@ -22,9 +22,13 @@ if [ -d "$upstream/.git" ]; then
     trap 'rm -rf "$pin_dir"' EXIT
     git clone -q --shared --no-checkout "$upstream" "$pin_dir"
     git -C "$pin_dir" checkout -q "$pinned"
-    for f in channels.json channels-memberships.json; do
+    for f in channels.json channels-memberships.json franchises.json; do
         cmp -s "$pin_dir/$f" "data/$f" || { echo "FAIL data/$f differs from upstream ${pinned:0:7}" >&2; exit 1; }
     done
+    cmp -s "$pin_dir/scripts/franchise-golden.json" tests/vectors/franchise-golden.json ||
+        { echo "FAIL tests/vectors/franchise-golden.json differs from upstream ${pinned:0:7}" >&2; exit 1; }
+    # Upstream's own builder must pass its golden file, or the file proves nothing.
+    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs)
     NOSTALGEX_DIR=$pin_dir node tests/gen-vectors.mjs --check
     if ahead=$(git -C "$upstream" rev-list --count "$pinned..origin/main" 2>/dev/null) && [ "$ahead" -gt 0 ]; then
         echo "note: upstream origin/main is $ahead commits past the pinned ${pinned:0:7} (as of the clone's last fetch)"
@@ -54,6 +58,6 @@ if [ -n "$shadow" ]; then
 fi
 
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
-    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs 2>&1 | grep -v '^npm warn')
+    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
 grep -q '^ALL TESTS PASSED' <<<"$out"

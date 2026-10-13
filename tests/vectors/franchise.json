@@ -1,0 +1,1048 @@
+{
+ "generatedBy": "tests/gen-vectors.mjs (tests/gen-franchise.mjs)",
+ "upstream": {
+  "repo": "https://github.com/chadMueller/Nostalgex",
+  "commit": "43f6ee71a5a1d192b05788a0b6bdb20b4a846f4a",
+  "engine": "scripts/nostalgex-franchise-builder.js"
+ },
+ "text": [
+  {
+   "title": "",
+   "normalized": "",
+   "key": ""
+  },
+  {
+   "title": "Amélie",
+   "normalized": "amélie",
+   "key": "amélie"
+  },
+  {
+   "title": "AMÉLIE (2001)",
+   "normalized": "amélie",
+   "key": "amélie"
+  },
+  {
+   "title": "Amélie",
+   "normalized": "amélie",
+   "key": "amélie"
+  },
+  {
+   "title": "Pokémon: Best Wishes!",
+   "normalized": "pokémon: best wishes!",
+   "key": "pokémon best wishes"
+  },
+  {
+   "title": "Léon: The Professional",
+   "normalized": "léon: the professional",
+   "key": "léon the professional"
+  },
+  {
+   "title": "Ōkami",
+   "normalized": "ōkami",
+   "key": "ōkami"
+  },
+  {
+   "title": "ΤΈΛΟΣ",
+   "normalized": "τέλος",
+   "key": "τέλος"
+  },
+  {
+   "title": "Брат 2",
+   "normalized": "брат 2",
+   "key": "брат 2"
+  },
+  {
+   "title": "千と千尋の神隠し",
+   "normalized": "千と千尋の神隠し",
+   "key": "千と千尋の神隠し"
+  },
+  {
+   "title": "ラーメン・ガール",
+   "normalized": "ラーメン・ガール",
+   "key": "ラーメン ガール"
+  },
+  {
+   "title": "Ｓｔａｒ Ｗａｒｓ",
+   "normalized": "ｓｔａｒ ｗａｒｓ",
+   "key": "ｓｔａｒ ｗａｒｓ"
+  },
+  {
+   "title": "x² Squared",
+   "normalized": "x² squared",
+   "key": "x² squared"
+  },
+  {
+   "title": "Café — Noir",
+   "normalized": "café — noir",
+   "key": "café noir"
+  },
+  {
+   "title": "Amélie (２００１)",
+   "normalized": "amélie",
+   "key": "amélie"
+  },
+  {
+   "title": "Rocky (19)",
+   "normalized": "rocky (19)",
+   "key": "rocky 19"
+  },
+  {
+   "title": "Rocky(2001)",
+   "normalized": "rocky(2001)",
+   "key": "rocky 2001"
+  },
+  {
+   "title": "Rocky (2001) ",
+   "normalized": "rocky (2001) ",
+   "key": "rocky 2001"
+  },
+  {
+   "title": "Hello World",
+   "normalized": "hello world",
+   "key": "hello world"
+  },
+  {
+   "title": "Mr.Robot",
+   "normalized": "mr.robot",
+   "key": "mr robot"
+  },
+  {
+   "title": "Up!",
+   "normalized": "up!",
+   "key": "up"
+  },
+  {
+   "title": "(500) Days of Summer",
+   "normalized": "(500) days of summer",
+   "key": "500 days of summer"
+  },
+  {
+   "title": "Bob's Burgers",
+   "normalized": "bob's burgers",
+   "key": "bobs burgers"
+  },
+  {
+   "title": "‘Allo ‘Allo!",
+   "normalized": "‘allo ‘allo!",
+   "key": "allo allo"
+  },
+  {
+   "title": "M*A*S*H",
+   "normalized": "m*a*s*h",
+   "key": "m a s h"
+  },
+  {
+   "title": "Æon Flux",
+   "normalized": "æon flux",
+   "key": "æon flux"
+  },
+  {
+   "title": "Straße",
+   "normalized": "straße",
+   "key": "straße"
+  },
+  {
+   "title": "Ⅻ Monkeys",
+   "normalized": "ⅻ monkeys",
+   "key": "ⅻ monkeys"
+  },
+  {
+   "title": "Nº 1",
+   "normalized": "nº 1",
+   "key": "nº 1"
+  },
+  {
+   "title": "½ Price",
+   "normalized": "½ price",
+   "key": "½ price"
+  },
+  {
+   "title": "¿Qué?",
+   "normalized": "¿qué?",
+   "key": "qué"
+  },
+  {
+   "title": "Señor × Señora",
+   "normalized": "señor × señora",
+   "key": "señor señora"
+  },
+  {
+   "title": "Daredevil (2015) (2015)",
+   "normalized": "daredevil (2015)",
+   "key": "daredevil 2015"
+  }
+ ],
+ "tokens": [
+  {
+   "title": "star wars rebels",
+   "token": "star wars",
+   "out": true
+  },
+  {
+   "title": "the mentalist",
+   "token": "men",
+   "out": false
+  },
+  {
+   "title": "amélie",
+   "token": "am",
+   "out": false
+  },
+  {
+   "title": "café",
+   "token": "caf",
+   "out": false
+  },
+  {
+   "title": "amélie",
+   "token": "ame",
+   "out": true
+  },
+  {
+   "title": "pokémon go",
+   "token": "pokémon",
+   "out": true
+  },
+  {
+   "title": "x-men: first class",
+   "token": "x-men",
+   "out": true
+  },
+  {
+   "title": "x-men",
+   "token": "men",
+   "out": true
+  },
+  {
+   "title": "star wars",
+   "token": "",
+   "out": false
+  },
+  {
+   "title": "a star wars story",
+   "token": "star wars",
+   "out": true
+  },
+  {
+   "title": "star warsy",
+   "token": "star wars",
+   "out": false
+  },
+  {
+   "title": "ラーメン・ガール",
+   "token": "ラーメン",
+   "out": true
+  },
+  {
+   "title": "брат 2",
+   "token": "брат",
+   "out": true
+  },
+  {
+   "title": "ébrat",
+   "token": "brat",
+   "out": false
+  },
+  {
+   "title": "1brat",
+   "token": "brat",
+   "out": false
+  },
+  {
+   "title": "brat²",
+   "token": "brat",
+   "out": false
+  },
+  {
+   "title": "brat…",
+   "token": "brat",
+   "out": true
+  },
+  {
+   "title": "the matrix the matrix",
+   "token": "matrix",
+   "out": true
+  },
+  {
+   "title": "matrixx matrix",
+   "token": "matrix",
+   "out": true
+  },
+  {
+   "title": "star",
+   "token": "star wars",
+   "out": false
+  }
+ ],
+ "names": [
+  {
+   "name": "The Matrix Collection",
+   "clean": "The Matrix",
+   "strip": "The Matrix Collection",
+   "merge": "matrix"
+  },
+  {
+   "name": "Pokémon Collection",
+   "clean": "Pokémon",
+   "strip": "Pokémon Collection",
+   "merge": "pokémon"
+  },
+  {
+   "name": "Alien (Original) (1979) Collection",
+   "clean": "Alien (Original) (1979)",
+   "strip": "Alien (Original) (1979) Collection",
+   "merge": "alien"
+  },
+  {
+   "name": "(Untitled)",
+   "clean": "(Untitled)",
+   "strip": "(Untitled)",
+   "merge": "untitled"
+  },
+  {
+   "name": "Star Trek: The Original Series Collection",
+   "clean": "Star Trek: The Original Series",
+   "strip": "Star Trek: The Original Series Collection",
+   "merge": "star trek the original series"
+  },
+  {
+   "name": "THE AVENGERS COLLECTION",
+   "clean": "THE AVENGERS",
+   "strip": "THE AVENGERS COLLECTION",
+   "merge": "avengers"
+  },
+  {
+   "name": "Theater Camp",
+   "clean": "Theater Camp",
+   "strip": "Theater Camp",
+   "merge": "theater camp"
+  },
+  {
+   "name": "Spider-Man (MCU)",
+   "clean": "Spider-Man (MCU)",
+   "strip": "Spider-Man",
+   "merge": "spider man"
+  },
+  {
+   "name": "(MCU)",
+   "clean": "(MCU)",
+   "strip": "(MCU)",
+   "merge": "mcu"
+  },
+  {
+   "name": "A (b) (c)",
+   "clean": "A (b) (c)",
+   "strip": "A",
+   "merge": "a"
+  },
+  {
+   "name": "A (b) c",
+   "clean": "A (b) c",
+   "strip": "A (b) c",
+   "merge": "a b c"
+  },
+  {
+   "name": "  X  ",
+   "clean": "X",
+   "strip": "X",
+   "merge": "x"
+  },
+  {
+   "name": "John Wick Collection",
+   "clean": "John Wick",
+   "strip": "John Wick Collection",
+   "merge": "john wick"
+  },
+  {
+   "name": "Collection",
+   "clean": "Collection",
+   "strip": "Collection",
+   "merge": "collection"
+  },
+  {
+   "name": " collection",
+   "clean": "",
+   "strip": "collection",
+   "merge": ""
+  },
+  {
+   "name": "JOHN WICK COLLECTION",
+   "clean": "JOHN WICK",
+   "strip": "JOHN WICK COLLECTION",
+   "merge": "john wick"
+  },
+  {
+   "name": "The ",
+   "clean": "The",
+   "strip": "The",
+   "merge": "the"
+  },
+  {
+   "name": "The",
+   "clean": "The",
+   "strip": "The",
+   "merge": "the"
+  },
+  {
+   "name": "Thé Room Collection",
+   "clean": "Thé Room",
+   "strip": "Thé Room Collection",
+   "merge": "thé room"
+  }
+ ],
+ "defaultOn": [
+  "dict:STAR TREK",
+  "dict:FAST & FURIOUS"
+ ],
+ "cases": [
+  {
+   "name": "auto-found-names-sort-by-code-point",
+   "availableStockChannelIDs": [],
+   "movies": [
+    {
+     "id": "z1",
+     "title": "Zorro 1",
+     "enrichment": {
+      "franchiseID": 9001,
+      "franchiseName": "Zorro Collection"
+     }
+    },
+    {
+     "id": "z2",
+     "title": "Zorro 2",
+     "enrichment": {
+      "franchiseID": 9001,
+      "franchiseName": "Zorro Collection"
+     }
+    },
+    {
+     "id": "z3",
+     "title": "Zorro 3",
+     "enrichment": {
+      "franchiseID": 9001,
+      "franchiseName": "Zorro Collection"
+     }
+    },
+    {
+     "id": "e1",
+     "title": "Émile 1",
+     "enrichment": {
+      "franchiseID": 9002,
+      "franchiseName": "Émile Collection"
+     }
+    },
+    {
+     "id": "e2",
+     "title": "Émile 2",
+     "enrichment": {
+      "franchiseID": 9002,
+      "franchiseName": "Émile Collection"
+     }
+    },
+    {
+     "id": "e3",
+     "title": "Émile 3",
+     "enrichment": {
+      "franchiseID": 9002,
+      "franchiseName": "Émile Collection"
+     }
+    },
+    {
+     "id": "a1",
+     "title": "Ålien 1",
+     "enrichment": {
+      "franchiseID": 9003,
+      "franchiseName": "Ålien Collection"
+     }
+    },
+    {
+     "id": "a2",
+     "title": "Ålien 2",
+     "enrichment": {
+      "franchiseID": 9003,
+      "franchiseName": "Ålien Collection"
+     }
+    },
+    {
+     "id": "a3",
+     "title": "Ålien 3",
+     "enrichment": {
+      "franchiseID": 9003,
+      "franchiseName": "Ålien Collection"
+     }
+    },
+    {
+     "id": "p1",
+     "title": "Pokémon 1",
+     "enrichment": {
+      "franchiseID": 9004,
+      "franchiseName": "Pokémon Collection"
+     }
+    },
+    {
+     "id": "p2",
+     "title": "Pokémon 2",
+     "enrichment": {
+      "franchiseID": 9004,
+      "franchiseName": "Pokémon Collection"
+     }
+    },
+    {
+     "id": "p3",
+     "title": "Pokémon 3",
+     "enrichment": {
+      "franchiseID": 9004,
+      "franchiseName": "Pokémon Collection"
+     }
+    },
+    {
+     "id": "b1",
+     "title": "bambi 1",
+     "enrichment": {
+      "franchiseID": 9005,
+      "franchiseName": "bambi collection"
+     }
+    },
+    {
+     "id": "b2",
+     "title": "bambi 2",
+     "enrichment": {
+      "franchiseID": 9005,
+      "franchiseName": "bambi collection"
+     }
+    },
+    {
+     "id": "b3",
+     "title": "bambi 3",
+     "enrichment": {
+      "franchiseID": 9005,
+      "franchiseName": "bambi collection"
+     }
+    }
+   ],
+   "tvItems": [
+    {
+     "id": "t1",
+     "title": "Pokémon Journeys"
+    },
+    {
+     "id": "t2",
+     "title": "Zorro (1957)"
+    },
+    {
+     "id": "t3",
+     "title": "Émile et Moi"
+    },
+    {
+     "id": "t4",
+     "title": "Pokémonster"
+    }
+   ],
+   "expected": [
+    {
+     "name": "BAMBI",
+     "stableID": "tmdb:9005",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "b1",
+      "b2",
+      "b3"
+     ],
+     "tvItems": [],
+     "mergedFranchiseIDs": [
+      9005
+     ],
+     "fromDictionary": false
+    },
+    {
+     "name": "POKÉMON",
+     "stableID": "tmdb:9004",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "p1",
+      "p2",
+      "p3"
+     ],
+     "tvItems": [
+      "t1"
+     ],
+     "mergedFranchiseIDs": [
+      9004
+     ],
+     "fromDictionary": false
+    },
+    {
+     "name": "ZORRO",
+     "stableID": "tmdb:9001",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "z1",
+      "z2",
+      "z3"
+     ],
+     "tvItems": [
+      "t2"
+     ],
+     "mergedFranchiseIDs": [
+      9001
+     ],
+     "fromDictionary": false
+    },
+    {
+     "name": "ÅLIEN",
+     "stableID": "tmdb:9003",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "a1",
+      "a2",
+      "a3"
+     ],
+     "tvItems": [],
+     "mergedFranchiseIDs": [
+      9003
+     ],
+     "fromDictionary": false
+    },
+    {
+     "name": "ÉMILE",
+     "stableID": "tmdb:9002",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "e1",
+      "e2",
+      "e3"
+     ],
+     "tvItems": [
+      "t3"
+     ],
+     "mergedFranchiseIDs": [
+      9002
+     ],
+     "fromDictionary": false
+    }
+   ]
+  },
+  {
+   "name": "same-name-ties-break-by-stable-id",
+   "availableStockChannelIDs": [],
+   "movies": [
+    {
+     "id": "x1",
+     "title": "Twin A 1",
+     "enrichment": {
+      "franchiseID": 7002,
+      "franchiseName": "Twins Collection"
+     }
+    },
+    {
+     "id": "x2",
+     "title": "Twin A 2",
+     "enrichment": {
+      "franchiseID": 7002,
+      "franchiseName": "Twins Collection"
+     }
+    },
+    {
+     "id": "x3",
+     "title": "Twin A 3",
+     "enrichment": {
+      "franchiseID": 7002,
+      "franchiseName": "Twins Collection"
+     }
+    },
+    {
+     "id": "y1",
+     "title": "Twin B 1",
+     "enrichment": {
+      "franchiseID": 7001,
+      "franchiseName": "Twins (Remake) Collection"
+     }
+    },
+    {
+     "id": "y2",
+     "title": "Twin B 2",
+     "enrichment": {
+      "franchiseID": 7001,
+      "franchiseName": "Twins (Remake) Collection"
+     }
+    },
+    {
+     "id": "y3",
+     "title": "Twin B 3",
+     "enrichment": {
+      "franchiseID": 7001,
+      "franchiseName": "Twins (Remake) Collection"
+     }
+    },
+    {
+     "id": "w1",
+     "title": "Other 1",
+     "enrichment": {
+      "franchiseID": 7003,
+      "franchiseName": "Twins: Again"
+     }
+    },
+    {
+     "id": "w2",
+     "title": "Other 2",
+     "enrichment": {
+      "franchiseID": 7003,
+      "franchiseName": "Twins: Again"
+     }
+    },
+    {
+     "id": "w3",
+     "title": "Other 3",
+     "enrichment": {
+      "franchiseID": 7003,
+      "franchiseName": "Twins: Again"
+     }
+    },
+    {
+     "id": "u1",
+     "title": "Unnamed 1",
+     "enrichment": {
+      "franchiseID": 7004
+     }
+    },
+    {
+     "id": "u2",
+     "title": "Unnamed 2",
+     "enrichment": {
+      "franchiseID": 7004
+     }
+    },
+    {
+     "id": "u3",
+     "title": "Unnamed 3",
+     "enrichment": {
+      "franchiseID": 7004
+     }
+    }
+   ],
+   "tvItems": [
+    {
+     "id": "t1",
+     "title": "Twins"
+    },
+    {
+     "id": "t2",
+     "title": "Twins: Again"
+    }
+   ],
+   "expected": [
+    {
+     "name": "TWINS",
+     "stableID": "tmdb:7001",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "x1",
+      "x2",
+      "x3",
+      "y1",
+      "y2",
+      "y3"
+     ],
+     "tvItems": [
+      "t1",
+      "t2"
+     ],
+     "mergedFranchiseIDs": [
+      7001,
+      7002
+     ],
+     "fromDictionary": false
+    },
+    {
+     "name": "TWINS: AGAIN",
+     "stableID": "tmdb:7003",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "w1",
+      "w2",
+      "w3"
+     ],
+     "tvItems": [],
+     "mergedFranchiseIDs": [
+      7003
+     ],
+     "fromDictionary": false
+    }
+   ]
+  },
+  {
+   "name": "dictionary-and-found-mixed-with-episodes",
+   "availableStockChannelIDs": [
+    100,
+    102
+   ],
+   "movies": [
+    {
+     "id": "sw1",
+     "title": "Star Wars",
+     "enrichment": {
+      "franchiseID": 10,
+      "franchiseName": "Star Wars Collection"
+     }
+    },
+    {
+     "id": "hp1",
+     "title": "Harry Potter and the Philosopher's Stone",
+     "enrichment": {
+      "franchiseID": 1241,
+      "franchiseName": "Harry Potter Collection"
+     }
+    },
+    {
+     "id": "r1",
+     "title": "Rocky 1",
+     "enrichment": {
+      "franchiseID": 1575,
+      "franchiseName": "Rocky Collection"
+     }
+    },
+    {
+     "id": "r2",
+     "title": "Rocky 2",
+     "enrichment": {
+      "franchiseID": 1575,
+      "franchiseName": "Rocky Collection"
+     }
+    },
+    {
+     "id": "r3",
+     "title": "Rocky 3",
+     "enrichment": {
+      "franchiseID": 1575,
+      "franchiseName": "Rocky Collection"
+     }
+    },
+    {
+     "id": "rog",
+     "title": "Rogue One: A Star Wars Story (2016)"
+    },
+    {
+     "id": "nn",
+     "title": "No Collection",
+     "enrichment": {
+      "franchiseID": null
+     }
+    }
+   ],
+   "tvItems": [
+    {
+     "id": "m1",
+     "title": "The Mandalorian",
+     "episodeTitle": "Chapter 1"
+    },
+    {
+     "id": "m2",
+     "title": "The Mandalorian",
+     "episodeTitle": "Chapter 2"
+    },
+    {
+     "id": "m3",
+     "title": "The Mandalorian",
+     "episodeTitle": "Chapter 3"
+    },
+    {
+     "id": "rk",
+     "title": "Rocky and Bullwinkle"
+    },
+    {
+     "id": "sw",
+     "title": "STAR WARS: VISIONS (2021)"
+    }
+   ],
+   "expected": [
+    {
+     "name": "STAR WARS",
+     "stableID": "dict:STAR WARS",
+     "placement": {
+      "type": "stock",
+      "channelID": 100
+     },
+     "movies": [
+      "sw1",
+      "rog"
+     ],
+     "tvItems": [
+      "m1",
+      "m2",
+      "m3",
+      "sw"
+     ],
+     "mergedFranchiseIDs": [
+      10
+     ],
+     "fromDictionary": true
+    },
+    {
+     "name": "HARRY POTTER",
+     "stableID": "dict:HARRY POTTER",
+     "placement": {
+      "type": "stock",
+      "channelID": 102
+     },
+     "movies": [
+      "hp1"
+     ],
+     "tvItems": [],
+     "mergedFranchiseIDs": [
+      1241
+     ],
+     "fromDictionary": true
+    },
+    {
+     "name": "ROCKY",
+     "stableID": "tmdb:1575",
+     "placement": {
+      "type": "dynamic"
+     },
+     "movies": [
+      "r1",
+      "r2",
+      "r3"
+     ],
+     "tvItems": [
+      "rk"
+     ],
+     "mergedFranchiseIDs": [
+      1575
+     ],
+     "fromDictionary": false
+    }
+   ]
+  }
+ ],
+ "collectionFolds": [
+  {
+   "items": [
+    {
+     "id": "a",
+     "title": "A",
+     "enrichment": {
+      "franchiseID": 10
+     }
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "enrichment": {
+      "franchiseID": 10
+     }
+    },
+    {
+     "id": "c",
+     "title": "C",
+     "enrichment": {
+      "franchiseID": 1241
+     }
+    },
+    {
+     "id": "d",
+     "title": "D",
+     "enrichment": {
+      "franchiseID": 1241
+     }
+    }
+   ],
+   "availableStockChannelIDs": [
+    100,
+    102
+   ],
+   "stockChannelID": 100
+  },
+  {
+   "items": [
+    {
+     "id": "a",
+     "title": "A",
+     "enrichment": {
+      "franchiseID": 10
+     }
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "enrichment": {
+      "franchiseID": 10
+     }
+    },
+    {
+     "id": "c",
+     "title": "C",
+     "enrichment": {
+      "franchiseID": 1241
+     }
+    },
+    {
+     "id": "d",
+     "title": "D",
+     "enrichment": {
+      "franchiseID": 1241
+     }
+    }
+   ],
+   "availableStockChannelIDs": [
+    102
+   ],
+   "stockChannelID": 102
+  },
+  {
+   "items": [
+    {
+     "id": "a",
+     "title": "A",
+     "enrichment": {
+      "franchiseID": 10
+     }
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "enrichment": {
+      "franchiseID": "10"
+     }
+    }
+   ],
+   "availableStockChannelIDs": [
+    "100"
+   ],
+   "stockChannelID": 100
+  },
+  {
+   "items": [
+    {
+     "id": "a",
+     "title": "A"
+    },
+    {
+     "id": "b",
+     "title": "B",
+     "enrichment": {
+      "franchiseID": null
+     }
+    }
+   ],
+   "availableStockChannelIDs": [
+    100
+   ],
+   "stockChannelID": null
+  }
+ ]
+}
