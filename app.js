@@ -85,32 +85,44 @@
     var grid = group.querySelector(".lineup__grid");
     if (!head || !grid) return;
 
-    var marker = document.createElement("span");
-    marker.className = "faq-marker";
-    marker.setAttribute("aria-hidden", "true");
+    // The bundle name is a link to that bundle's guide page, so the row itself
+    // must not be the button: a link inside a role="button" is invalid nesting
+    // and screen readers end up reading the link as part of the button's name.
+    // The chevron is the real control; clicking anywhere else in the row still
+    // toggles, which keeps the mouse behaviour people already have.
+    var marker = document.createElement("button");
+    marker.className = "faq-marker lineup__group-toggle";
+    marker.type = "button";
     head.appendChild(marker);
 
     var open = i === 0;
-    head.setAttribute("role", "button");
-    head.setAttribute("tabindex", "0");
+    if (!grid.id) grid.id = "lineup-grid-" + (i + 1);
+    marker.setAttribute("aria-controls", grid.id);
+
+    var name = group.querySelector(".lineup__group-name");
+    var label = name ? name.textContent.trim() : "this bundle";
 
     function apply() {
       group.classList.toggle("is-open", open);
-      head.setAttribute("aria-expanded", String(open));
+      marker.setAttribute("aria-expanded", String(open));
+      marker.setAttribute("aria-label", (open ? "Collapse " : "Expand ") + label + " channels");
       grid.hidden = !open;
     }
     apply();
 
-    head.addEventListener("click", function () {
+    function toggle() {
       open = !open;
       apply();
+    }
+
+    marker.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggle();
     });
-    head.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-        e.preventDefault();
-        open = !open;
-        apply();
-      }
+    head.addEventListener("click", function (e) {
+      // Let the guide link and the chevron handle their own clicks.
+      if (e.target.closest("a") || e.target.closest(".lineup__group-toggle")) return;
+      toggle();
     });
   });
 

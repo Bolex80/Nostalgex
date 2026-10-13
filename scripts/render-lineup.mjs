@@ -97,7 +97,10 @@ const lineup = bundles
     const group = [
       `    <div class="lineup__group fade-in">`,
       `      <div class="lineup__group-head">`,
-      `        <span class="lineup__group-name">${esc(b.meta.label)}</span>`,
+      // The name links to the bundle's guide page; the rest of the head stays
+      // the collapse toggle that app.js wires up. Anchor text is the bundle
+      // name on purpose, so the internal link says what it points at.
+      `        <a class="lineup__group-name lineup__group-link" href="/channels/${b.id}">${esc(b.meta.label)}</a>`,
       `        <span class="lineup__group-count">${b.chans.length} CHANNELS</span>`,
       `      </div>`,
       `      <div class="lineup__grid">`,
