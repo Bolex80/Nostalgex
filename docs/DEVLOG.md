@@ -3,6 +3,36 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Web tuner: guide wraps, Blacklist tab gone)
+
+**Half-done.** Branch `web-tuner-guide-wrap`, not merged, not deployed.
+
+- The web guide wraps at both ends. Down on the last channel goes to channel one, Up on
+  channel one goes to the last. A wrap centers the landed row, which scrolls the guide to
+  that end, so the seasonal invite above channel one shows again. Apple TV is not the
+  same: Down on the last channel wraps, but Up on channel one goes to the seasonal row
+  and then SETTINGS, on purpose (see `ChannelGuideView.swift`). Left/Right on the web
+  and channel up/down on Apple TV already wrapped.
+- Settings → Blacklist is removed, and the saved list with it. `plex90_blacklist` is no
+  longer read, because titles hidden through a tab nobody can open would stay missing
+  for good. The key is left in place in browsers that have one. The tab also trapped the
+  keyboard: arriving on it focused its search box, and the tuner ignores keys while an
+  input has focus, so Left, Right and Escape stopped working there.
+
+**Verified.** Built site in headless Chromium, with a synthetic 5,000 item library seeded
+into the tuner's own library cache (plex.tv and the server stubbed), so the real load path
+built a 16 channel guide taller than its pane. Before: Down on the last row and Up on the
+first did nothing. After: both wrap in both guide layouts, 35 presses with no pause land
+on the right row, Enter after a wrap tunes it. With 300 saved blacklist entries, 0 of
+those titles were in any pool before and 278 after, the same 278 a browser with no list
+pools. `npm test` green. Not tried with a real server or on a TV browser.
+
+Settings → Help said Up/Down change channel; Left/Right is what does, so Help now says so.
+
+**Next.** Found while measuring, left alone. In fullscreen (F), Up/Down move the hidden
+guide cursor and the channel does not change. The guide footer advertises [V] HIDE GUIDE,
+and no key handles V.
+
 ## 2026-10-13 (Report Playback rebuilt on PR #18)
 
 **Changed.** w6trp's #18 merged with their commit kept, then folded into the one REPORT

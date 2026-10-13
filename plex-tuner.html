@@ -1845,43 +1845,6 @@
   }
 
 
-  /* Blacklist tab */
-  .blacklist-search-wrap { position: relative; margin-bottom: 4px; }
-  .blacklist-input {
-    width: 100%; box-sizing: border-box;
-    background: rgba(255,255,255,0.05);
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 6px; color: #fff;
-    font-family: inherit; font-size: 14px;
-    padding: 12px 16px; outline: none;
-    letter-spacing: 0.5px;
-  }
-  .blacklist-input:focus { border-color: var(--cyan); }
-  .blacklist-input::placeholder { color: rgba(255,255,255,0.25); }
-  .blacklist-results {
-    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
-    background: #1a1a1a; border: 2px solid var(--cyan);
-    border-radius: 6px; max-height: 240px; overflow-y: auto;
-    z-index: 20;
-  }
-  .blacklist-result-row {
-    padding: 10px 16px; cursor: pointer; font-size: 13px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .blacklist-result-row:last-child { border-bottom: none; }
-  .blacklist-result-row:hover { background: rgba(0,255,255,0.08); color: var(--cyan); }
-  .blacklist-entry {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; margin-bottom: 4px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 4px;
-    font-size: 13px; gap: 12px;
-  }
-  .blacklist-entry span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .blacklist-remove { cursor: pointer; color: rgba(255,255,255,0.25); font-size: 14px; flex-shrink: 0; line-height: 1; }
-  .blacklist-remove:hover { color: #ff4444; }
-
   /* Minimal fullscreen overlay (G key) */
   .fs-overlay {
     position: absolute;
@@ -2177,7 +2140,6 @@
       <div class="config-tab active" id="tab-bundles" onclick="switchConfigTab('bundles')">BUNDLES</div>
       <div class="config-tab" id="tab-server" onclick="switchConfigTab('server')">SERVER</div>
       <div class="config-tab" id="tab-help" onclick="switchConfigTab('help')">HELP</div>
-      <div class="config-tab" id="tab-blacklist" onclick="switchConfigTab('blacklist')">BLACKLIST</div>
     </div>
 
     <div id="config-tab-bundles" style="display:none">
@@ -2346,21 +2308,10 @@
     </div><!-- end config-columns -->
     </div><!-- end config-tab-channels -->
 
-    <div id="config-tab-blacklist" style="display:none">
-      <div class="config-section-label">BLACKLIST</div>
-      <div style="color:rgba(255,255,255,0.35);font-size:12px;margin-bottom:16px;letter-spacing:0.5px;">Exclude titles from all channels. Search your library and click to add.</div>
-      <div class="blacklist-search-wrap">
-        <input type="text" id="blacklist-input" class="blacklist-input" placeholder="Search your library..." autocomplete="off" spellcheck="false" />
-        <div class="blacklist-results" id="blacklist-results" style="display:none"></div>
-      </div>
-      <div class="config-section-label" id="blacklist-count-label" style="margin-top:24px;font-size:9px;"></div>
-      <div id="blacklist-list"></div>
-    </div>
-
     <div id="config-tab-help" style="display:none">
       <div class="help-content">
         <div class="help-section-label">PLAYBACK</div>
-        <div class="help-row"><div class="help-key">UP / DOWN</div><div class="help-desc">Change channel</div></div>
+        <div class="help-row"><div class="help-key">LEFT / RIGHT</div><div class="help-desc">Change channel</div></div>
         <div class="help-row"><div class="help-key">M</div><div class="help-desc">Mute / unmute</div></div>
         <div class="help-row"><div class="help-key">F</div><div class="help-desc">Fullscreen</div></div>
         <div class="help-row"><div class="help-key">B</div><div class="help-desc">Toggle retro mode (4:3 + CRT)</div></div>
@@ -2596,12 +2547,6 @@
     return item.title || '';
   }
 
-  function itemTitleHaystack(item) {
-    const MB = globalThis.NostalgexMusicBrainz;
-    if (MB) return MB.titleHaystack(item);
-    return (item.title || '').toLowerCase();
-  }
-
 
   // Stock channel definitions — the single source of truth is channels.json, the
   // same file the Apple TV app reads. There used to be an inline fallback lineup
@@ -2739,7 +2684,10 @@
       manifest: channelMembershipManifest,
       exclusiveRules,
     });
-    return pool.items.filter(item => !blacklist.has(String(item.ratingKey)));
+    // A Settings blacklist used to be filtered out here. The tab is gone, so a
+    // list saved under plex90_blacklist is no longer read: titles hidden through
+    // a tab nobody can open would stay missing with no way to bring them back.
+    return pool.items;
   }
 
   function getCoveredGenres() {
@@ -2820,7 +2768,7 @@
   let discoveredGenres = {}; // { genreName: itemCount }
   let allItemsCache = []; // cached items for populating new channels
   let guideLayout = localStorage.getItem('plex90_guide_layout') || 'side';
-  let configTab = 'channels'; // 'channels' | 'help' | 'blacklist' | 'server'
+  let configTab = 'channels'; // 'channels' | 'help' | 'server'
   let activeSuggestedTab = 'movie'; // 'general' | 'movie' | 'tv' | 'music'
   let retroMode = localStorage.getItem('plex90_retro_mode') !== 'false';
 
@@ -2842,15 +2790,10 @@
   const activeSubtitleTracks = [];
   const activeSubtitleBlobUrls = [];
 
-  // Blacklist — ratingKeys excluded from all channels
-  let blacklist = new Set();
-  let blacklistedItems = []; // [{ratingKey, title}] for display
-
   // ══════════════════════════════════════
   // INITIALIZE
   // ══════════════════════════════════════
   async function init() {
-    loadBlacklist();
     await loadStockChannelsFromJSON();
     if (channelsLoadFailed) {
       const errorEl = document.getElementById('plex-error-label');
@@ -4214,7 +4157,7 @@
     }
   }
 
-  function updateGuideFocus() {
+  function updateGuideFocus(wrapped = false) {
     // `guideFocusIndex` indexes getEnabledChannels(), but the promo rows share the
     // .grid-row class, so walking the full NodeList by position drifted one row per
     // promo row above the cursor. The highlight then sat on the channel before the
@@ -4235,7 +4178,10 @@
     });
 
     if (focusedRow) {
-      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // A wrap lands at the far end of the list. Centering the row there runs the
+      // scroll all the way to that end, so wrapping to channel one shows the top of
+      // the guide again, seasonal invite included, the way Apple TV centers its rows.
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: wrapped ? 'center' : 'nearest' });
     }
   }
 
@@ -4529,32 +4475,6 @@
     }
 
     saveChannelConfig();
-  }
-
-  function saveBlacklist() {
-    localStorage.setItem('plex90_blacklist', JSON.stringify(blacklistedItems));
-  }
-  function loadBlacklist() {
-    try {
-      const raw = localStorage.getItem('plex90_blacklist');
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      arr.forEach(e => {
-        blacklist.add(String(e.ratingKey));
-        blacklistedItems.push({ ratingKey: e.ratingKey, title: e.title });
-      });
-    } catch(e) {}
-  }
-
-  function applyBlacklistToChannels() {
-    CHANNELS.forEach(ch => {
-      if (!ch.rules || !allItemsCache.length) return;
-      ch.itemPool = shuffleArray(filterItems(allItemsCache, ch.rules, ch.id, ch.category));
-      if (ch.itemPool.length >= (ch.minItems || 50)) buildChannelSchedule(ch);
-      else ch.enabled = false;
-    });
-    refreshCollectionChannels();
-    renderConfig();
   }
 
   function saveChannelConfig() {
@@ -5188,20 +5108,14 @@
     configTab = tab;
     document.getElementById('tab-bundles').classList.toggle('active', tab === 'bundles');
     document.getElementById('tab-help').classList.toggle('active', tab === 'help');
-    document.getElementById('tab-blacklist').classList.toggle('active', tab === 'blacklist');
     document.getElementById('tab-general').classList.toggle('active', tab === 'general');
     document.getElementById('tab-server').classList.toggle('active', tab === 'server');
     document.getElementById('config-tab-channels').style.display = 'none';
     document.getElementById('config-tab-bundles').style.display = tab === 'bundles' ? '' : 'none';
     document.getElementById('config-tab-help').style.display = tab === 'help' ? '' : 'none';
-    document.getElementById('config-tab-blacklist').style.display = tab === 'blacklist' ? '' : 'none';
     document.getElementById('config-tab-general').style.display = tab === 'general' ? '' : 'none';
     document.getElementById('config-tab-server').style.display = tab === 'server' ? '' : 'none';
     if (tab === 'bundles') { bundleFocusIndex = 0; renderBundleList(); }
-    if (tab === 'blacklist') {
-      renderBlacklistList();
-      setTimeout(initBlacklistSearch, 50);
-    }
     // Give the new pane a focus anchor so the first Up/Down has somewhere to
     // start from. Bundles runs its own index, so leave that one alone.
     if (tab !== 'bundles') {
@@ -5215,89 +5129,6 @@
       btn.classList.toggle('active', btn.dataset.tab === tab);
     });
     renderSuggestedList();
-  }
-
-  // ══════════════════════════════════════
-  // BLACKLIST
-  // ══════════════════════════════════════
-  function addToBlacklist(item) {
-    blacklist.add(String(item.ratingKey));
-    blacklistedItems.push({ ratingKey: item.ratingKey, title: item.title });
-    saveBlacklist();
-    applyBlacklistToChannels();
-    renderBlacklistList();
-    document.getElementById('blacklist-input').value = '';
-    hideBlacklistResults();
-  }
-
-  function removeFromBlacklist(ratingKey) {
-    blacklist.delete(String(ratingKey));
-    blacklistedItems = blacklistedItems.filter(e => String(e.ratingKey) !== String(ratingKey));
-    saveBlacklist();
-    applyBlacklistToChannels();
-    renderBlacklistList();
-  }
-
-  function renderBlacklistResults(matches) {
-    const el = document.getElementById('blacklist-results');
-    if (!matches.length) { hideBlacklistResults(); return; }
-    el.innerHTML = '';
-    matches.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'blacklist-result-row';
-      const typeTag = item.type === 'movie' ? 'MOVIE' : item.type === 'episode' ? 'TV' : 'MUSIC';
-      const line = itemGuideTitle(item);
-      row.innerHTML = `<span>${escapeHtml(line)}</span> <span style="opacity:0.4;font-size:11px;">${typeTag} ${item.year || ''}</span>`;
-      row.addEventListener('mousedown', (e) => { e.preventDefault(); addToBlacklist(item); });
-      el.appendChild(row);
-    });
-    el.style.display = 'block';
-  }
-
-  function hideBlacklistResults() {
-    const el = document.getElementById('blacklist-results');
-    if (el) el.style.display = 'none';
-  }
-
-  function renderBlacklistList() {
-    const el = document.getElementById('blacklist-list');
-    const label = document.getElementById('blacklist-count-label');
-    if (!el) return;
-    if (label) label.textContent = blacklistedItems.length
-      ? `${blacklistedItems.length} EXCLUDED TITLE${blacklistedItems.length !== 1 ? 'S' : ''}`
-      : '';
-    if (!blacklistedItems.length) {
-      el.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;padding:12px 0;">No titles blacklisted yet.</div>';
-      return;
-    }
-    el.innerHTML = '';
-    [...blacklistedItems].reverse().forEach(entry => {
-      const row = document.createElement('div');
-      row.className = 'blacklist-entry';
-      row.innerHTML = `<span>${escapeHtml(entry.title)}</span><span class="blacklist-remove" onclick="removeFromBlacklist('${escapeHtml(String(entry.ratingKey))}')">&#x2715;</span>`;
-      el.appendChild(row);
-    });
-  }
-
-  let blacklistSearchTimer = null;
-  function initBlacklistSearch() {
-    const input = document.getElementById('blacklist-input');
-    if (!input || input._blacklistInit) return;
-    input._blacklistInit = true;
-    input.addEventListener('input', () => {
-      clearTimeout(blacklistSearchTimer);
-      blacklistSearchTimer = setTimeout(() => {
-        const q = input.value.trim().toLowerCase();
-        if (q.length < 2) { hideBlacklistResults(); return; }
-        const matches = allItemsCache
-          .filter(i => itemTitleHaystack(i).includes(q) && !blacklist.has(String(i.ratingKey)))
-          .slice(0, 20);
-        renderBlacklistResults(matches);
-      }, 200);
-    });
-    input.addEventListener('blur', () => {
-      setTimeout(hideBlacklistResults, 200);
-    });
   }
 
   function showConfig() {
@@ -5336,14 +5167,13 @@
   // ── Settings keyboard navigation ──────────────────────────────
   // Up/Down used to walk `.config-channel-row` no matter which tab was open.
   // Those rows live in #config-tab-channels, which is always display:none, so
-  // on General, Server and Blacklist the index moved while nothing on screen
-  // changed and the cursor appeared stuck. Walk the visible pane instead.
+  // on General and Server the index moved while nothing on screen changed and
+  // the cursor appeared stuck. Walk the visible pane instead.
   const CONFIG_FOCUSABLE_SEL = [
     'button',
     'select',
     'input:not([type="hidden"])',
     'a[href]',
-    '.blacklist-remove',
     '[tabindex]:not([tabindex="-1"])',
   ].join(', ');
 
@@ -5369,11 +5199,6 @@
     let next = current === -1 ? (delta > 0 ? 0 : items.length - 1) : current + delta;
     next = Math.max(0, Math.min(next, items.length - 1));
     const el = items[next];
-    // Spans like .blacklist-remove are not focusable on their own; -1 allows
-    // programmatic focus without adding them to the tab order.
-    if (!el.hasAttribute('tabindex') && !/^(BUTTON|INPUT|SELECT|A)$/.test(el.tagName)) {
-      el.setAttribute('tabindex', '-1');
-    }
     el.focus({ preventScroll: true });
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -5381,12 +5206,6 @@
   function focusFirstConfigItem() {
     const items = getConfigFocusables();
     if (items.length) items[0].focus({ preventScroll: true });
-  }
-
-  /** True when the user is typing, so arrows should move the caret, not the UI. */
-  function isTypingInConfig() {
-    const el = document.activeElement;
-    return !!el && el.tagName === 'INPUT' && /^(text|search|email|url|password|number)$/i.test(el.type || 'text');
   }
 
   function toggleChannel(index) {
@@ -6414,7 +6233,6 @@
       if (allChannelsUnfiltered[i].collection) allChannelsUnfiltered.splice(i, 1);
     }
     for (const ch of channels) {
-      ch.itemPool = ch.itemPool.filter(it => !blacklist.has(String(it.ratingKey)));
       ch.enabled = ch.itemPool.length >= ch.minItems;
       if (ch.enabled) buildChannelSchedule(ch);
       allChannelsUnfiltered.push(ch);
@@ -7229,10 +7047,7 @@
         return;
       }
       if (key === 'ArrowLeft' || key === 'ArrowRight') {
-        // Don't yank the user off the tab while they are typing in the
-        // blacklist search box; let the arrows move the caret instead.
-        if (isTypingInConfig()) return;
-        const tabs = ['general', 'bundles', 'server', 'help', 'blacklist'];
+        const tabs = ['general', 'bundles', 'server', 'help'];
         const idx = tabs.indexOf(configTab);
         switchConfigTab(key === 'ArrowRight' ? tabs[(idx + 1) % tabs.length] : tabs[(idx + tabs.length - 1) % tabs.length]);
         e.preventDefault();
@@ -7265,8 +7080,8 @@
         e.preventDefault();
         return;
       }
-      // General, Server, Blacklist and Help: walk whatever is actually on
-      // screen in the active tab.
+      // General, Server and Help: walk whatever is actually on screen in the
+      // active tab.
       if (key === 'ArrowDown') {
         moveConfigFocus(1);
         e.preventDefault();
@@ -7278,8 +7093,8 @@
         return;
       }
       if (key === 'Enter') {
-        // Let the focused control handle it. Inputs keep their own behaviour
-        // (the blacklist search commits on Enter), everything else is a click.
+        // Let the focused control handle it. Inputs keep their own behaviour,
+        // everything else is a click.
         const el = document.activeElement;
         if (el && el.tagName !== 'INPUT' && typeof el.click === 'function') {
           el.click();
@@ -7303,20 +7118,21 @@
         return;
       }
 
-      // Navigation: Up/Down to browse channels
+      // Navigation: Up/Down to browse channels. Both ends wrap: Down on the
+      // last channel goes to channel one, Up on channel one goes to the last.
       const prevKey = 'ArrowUp';
       const nextKey = 'ArrowDown';
 
-      if (key === prevKey) {
-        guideFocusIndex = Math.max(guideFocusIndex - 1, 0);
-        updateGuideFocus();
-        e.preventDefault();
-        return;
-      }
-      if (key === nextKey) {
-        const enabled = getEnabledChannels();
-        guideFocusIndex = Math.min(guideFocusIndex + 1, enabled.length - 1);
-        updateGuideFocus();
+      if (key === prevKey || key === nextKey) {
+        const count = getEnabledChannels().length;
+        if (count > 0) {
+          // The index can sit past the end after channels were switched off.
+          const from = Math.min(Math.max(guideFocusIndex, 0), count - 1);
+          const step = key === nextKey ? 1 : -1;
+          const wrapped = step === 1 ? from === count - 1 : from === 0;
+          guideFocusIndex = (from + step + count) % count;
+          updateGuideFocus(wrapped);
+        }
         e.preventDefault();
         return;
       }
