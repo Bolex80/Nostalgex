@@ -7,9 +7,11 @@ Apple TV app and the web tuner in step." So this port is maintained here, not
 by upstream. Where it lives long-term (a companion repo or a surface in theirs)
 is the maintainer's call. The Fire TV fork (Discussion #2) is the precedent.
 
-## Draft reply for Discussion #8
+## Reply posted to Discussion #8
 
-Not posted. It goes out under the repo owner's account, when they choose.
+[Posted](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18901675)
+on 2026-10-13. The maintainer's answers to the three questions decide the next
+steps here.
 
 > Hi! Since Roku isn't on the roadmap, I built a port:
 > https://github.com/tydude001/nostalgex-roku
