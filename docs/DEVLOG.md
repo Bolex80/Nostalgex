@@ -3,6 +3,47 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Docker web tuner, branch)
+
+**Changed.** All on branch `docker-selfhost`, not main, nothing published.
+
+- `npm run build:selfhost` builds web-tuner.html (also as index.html) and plex-tuner.html
+  into `dist-selfhost/` with hls.js, qrcodejs and the fonts vendored from pinned npm
+  packages (the files match the jsDelivr SRI hashes), analytics removed, and marketing
+  chrome, newsletter and the email promo cut out between `selfhost:` markers. The hosted
+  build deletes the marker lines only: `dist/` was byte-identical after that commit.
+- The tuner now works from a plain http page: a getRandomValues fallback for
+  `crypto.randomUUID` (missing on http, which broke the Plex client id), bare Jellyfin
+  hosts default to http:// when the page is http, and the mixed-content flag and copy
+  only apply on https. Tuner links are relative. On the hosted site these are guarded
+  by `location.protocol`; `dist/` differs only in those lines.
+- Enrichment stays on in the container (nine or more channels need it) and is the only
+  outside traffic besides plex.tv. `NOSTALGEX_ENRICHMENT=off` turns it off; the tuner
+  reads `config.json`, written at container start, and treats a missing file as off.
+  MusicBrainz and Deezer lookups are off in the self-host build.
+- The TMDB relay accepts `X-Nostalgex-Client: selfhost` from any http(s) origin, since a
+  LAN address can't be listed. Listed origins, the path allowlist and edge caching are
+  unchanged. The self-host build calls www, because the apex 308s and a CORS preflight
+  can't follow a redirect.
+- Dockerfile (nginx-unprivileged 1.30 alpine, uid 101, port 8080), nginx config (.cjs
+  as JavaScript, http-friendly CSP, no HSTS), compose example, a `tuner-v*` GHCR release
+  workflow and a PR docker smoke in ci.yml.
+
+Measured on a Mac (colima, arm64; amd64 built and run under Rosetta): image 26.8 MB
+compressed. In headless Chrome on a LAN http origin against a scratch Jellyfin 12.2,
+the connect form signed in over http and a channel played (H.264/AAC, 1080p). Hosts
+contacted: with enrichment off, only the container and the media server; with it on,
+also the Supabase cache and www.nostalgex.app. Plex PIN request and polling from the
+http origin worked (plex.tv CORS allows it); sign-in was not completed.
+
+**Half-done.** The relay change is not deployed, so today the live relay refuses
+self-host origins (verified: the preflight gets no allow-origin) and enrichment from
+the container only gets what is already in the shared cache. TV browsers untested
+(no Fire OS device yet). No GHCR image, no tag, no `/self-host` page.
+
+**Next.** Deploy the relay, set the `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+repo variables, tag `tuner-v1.0.0-rc1` for a private image, then the Phase 0 TV pass.
+
 ## 2026-10-12 (community PRs)
 
 **Changed.** Two fixes from @w6trp landed on main with their commits kept, thanks:

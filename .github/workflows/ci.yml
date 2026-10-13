@@ -20,6 +20,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       tvos: ${{ steps.filter.outputs.tvos }}
       config: ${{ steps.filter.outputs.config }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +49,8 @@ jobs:
               - 'logo/**'
               - 'public/**'
               - 'scripts/**'
+              - 'Dockerfile'
+              - 'docker/**'
             tvos:
               - '.github/workflows/ci.yml'
               - 'Nostalgex/**'
@@ -63,6 +66,16 @@ jobs:
               - 'scripts/nostalgex-daily-manifest.js'
               - 'scripts/nostalgex-filter-smoke.mjs'
               - 'scripts/nostalgex-schedule-order-smoke.mjs'
+            docker:
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/docker.yml'
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'docker/**'
+              - 'vite.config.*'
+              - 'scripts/selfhost-build.mjs'
+              - 'package.json'
+              - 'package-lock.json'
 
   channel-engine:
     name: Channel engine (rule parity, schedule order, docs)
@@ -107,6 +120,48 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      # The Docker web tuner's build: same pages, vendored scripts and fonts. It
+      # fails on unbalanced selfhost markers or a remote script left in the page.
+      - name: Self-host build
+        run: npm run build:selfhost
+
+  docker-smoke:
+    name: Docker image (build and run, no push)
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.docker == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: nostalgex:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run and probe
+        run: |
+          set -eu
+          docker run -d --name on -p 8080:8080 --read-only --tmpfs /tmp nostalgex:ci
+          docker run -d --name off -p 8081:8080 --read-only --tmpfs /tmp -e NOSTALGEX_ENRICHMENT=off nostalgex:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8080/ | grep -q 'name="nostalgex-build" content="selfhost"'
+          curl -fsS http://127.0.0.1:8080/plex-tuner.html | grep -q 'vendor/hls.min.js'
+          curl -fsS -o /dev/null -w '%{content_type}\n' http://127.0.0.1:8080/scripts/nostalgex-channel-filter.cjs | grep -q '^application/javascript'
+          curl -fsS http://127.0.0.1:8080/config.json | grep -q '"enrichment":true'
+          curl -fsS http://127.0.0.1:8081/config.json | grep -q '"enrichment":false'
+          test "$(docker exec on id -u)" = "101"
+          echo "docker smoke ok"
+
+      - name: Logs on failure
+        if: failure()
+        run: docker logs on || true
 
   tvos-unit-tests:
     name: tvOS unit tests (NostalgexTests)
