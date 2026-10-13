@@ -17,7 +17,8 @@ NostalgexTests 495 passed, 2 skipped, 0 failed; web tests green. Not tested on h
 
 **Half-done.** #21 (keep the chosen Plex media version and multipart offsets) is on
 `land-pr-21`, not main. It touches playback, so it waits for a hardware pass on a
-multi-version title and a three-part film.
+multi-version title and a three-part film. On landing we dropped its snapshot schema bump
+(2 to 3); `LibrarySnapshotCompatibilityTests` proves a pre-#21 snapshot still loads.
 
 ## 2026-10-11 (web tuner)
 
@@ -76,7 +77,7 @@ Caribbean films on MARVEL, fix in the generator.
 
 ## 2026-10-11 (selected Plex version and multipart position)
 
-**Changed.** Plex items retain the selected media index, complete part descriptors and exact duration. Decision/start/recovery requests use that media and part instead of always requesting index zero. Later parts keep the remaining stack and their own codec facts. A whole-film tune offset maps to the correct part and local offset when every part duration is available. Part changes keep one tracker and pause its clock during loading. Old library snapshots are invalidated because they cannot identify the previously selected version.
+**Changed.** Plex items retain the selected media index, complete part descriptors and exact duration. Decision/start/recovery requests use that media and part instead of always requesting index zero. Later parts keep the remaining stack and their own codec facts. A whole-film tune offset maps to the correct part and local offset when every part duration is available. Part changes keep one tracker and pause its clock during loading. Library snapshots keep schema 2 (changed on landing): an older snapshot decodes the new fields as version 0, part 0 and no part lengths, which is the previous behaviour, until the next full library scan fills them in. That avoids forcing every user to rescan.
 
 **Validation.** Regression coverage checks whole-film offsets, third-part continuity, per-part SDR/codec facts, persistence and transcode query identities. Xcode 27 / tvOS 27 native suite passed 440 tests, with 2 optional live tests skipped and no failures.
 

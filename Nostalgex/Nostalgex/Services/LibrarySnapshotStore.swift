@@ -63,6 +63,13 @@ enum LibrarySnapshotStore {
     /// Past this age a scan runs even if the library reports no change.
     static let forceRefreshAfterSeconds = 24 * 3600
 
+    /// Bump only when an older file can no longer decode or would decode into something
+    /// wrong. A bump clears every user's snapshot and forces a full rescan on next launch.
+    /// Fields added with `decodeIfPresent` and a safe default (mediaIndex, partIndex,
+    /// playbackParts, exactDurationSeconds) do not need one: an old row decodes to the
+    /// behaviour it had before, and the next full library scan fills them in.
+    static let schemaVersion = 2
+
     private static let fileName = "library_snapshot_v1.json"
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
@@ -119,7 +126,7 @@ enum LibrarySnapshotStore {
             )
         }
         let snapshot = LibrarySnapshotV1(
-            schemaVersion: 3,
+            schemaVersion: schemaVersion,
             credentialFingerprint: fp,
             lastLoadAtUnix: lastLoadAtUnix,
             serverName: serverName,
@@ -156,8 +163,8 @@ enum LibrarySnapshotStore {
             InstallDiagnostics.note("snapshot: decode failed (\(data.count) bytes): \(error)")
             throw error
         }
-        guard snap.schemaVersion == 3 else {
-            InstallDiagnostics.note("snapshot: schema mismatch (file=\(snap.schemaVersion), expected=3), clearing")
+        guard snap.schemaVersion == schemaVersion else {
+            InstallDiagnostics.note("snapshot: schema mismatch (file=\(snap.schemaVersion), expected=\(schemaVersion)), clearing")
             clear()
             return nil
         }
