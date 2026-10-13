@@ -323,6 +323,10 @@
     letter-spacing: 1px;
     white-space: nowrap;
   }
+  /* Transparent on a pointer screen: the children are the column's own items,
+     so nothing about the desktop or TV layout changes. The touch blocks below
+     switch it to flex and give it a border. */
+  .loading-library-panel { display: contents; }
   .loading-library-rail {
     display: flex;
     align-items: flex-start;
@@ -957,7 +961,18 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    width: 500px;
+    /* min() so the column is the same 500px on a desktop and never wider than
+       the screen on a phone, where it used to run off both edges and take the
+       row checkboxes with it. */
+    width: min(500px, 100%);
+    max-width: 100%;
+  }
+  .server-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
   }
   .server-picker.active { display: flex; }
   .server-picker-title {
@@ -1010,6 +1025,24 @@
   }
   .server-option-info { flex: 1; min-width: 0; }
   .server-option-name { color: #fff; }
+  /* Both of these are touch-only; a pointer screen keeps the inline "(shared)"
+     suffix and the always-visible address it has always had. */
+  .server-option-tags { display: none; }
+  .server-picker-addr { display: none; }
+  .server-tag {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    padding: 4px 6px;
+    border: 1px solid rgba(0,196,255,0.35);
+    color: rgba(0,196,255,0.9);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .server-tag--off {
+    border-color: rgba(255,120,120,0.5);
+    color: #ff8a8a;
+  }
   .server-option-url {
     font-size: 22px;
     color: rgba(255,255,255,0.35);
@@ -2313,6 +2346,223 @@
     .grid-time-slot { font-size: 15px; padding: 0 6px; white-space: nowrap; }
     .grid-footer { display: none; }
   }
+
+  /* ──────────────────────────────────────
+     Touch: the server picker and the first-run build screen. Same gating as the
+     shared touch block above, so a desktop or TV pointer never matches any of
+     it. Both screens are reached before a channel exists, which is why they sit
+     outside the .has-channel rules.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait),
+         (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px),
+         (orientation: landscape) and (max-height: 500px) {
+    /* The connect screen had no padding, so a 560px wordmark ran off both edges
+       of a 393px phone. Pad it, let it scroll when a long server list does not
+       fit, and keep the mark inside the gutters. */
+    .plex-connect {
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      justify-content: safe center;
+      overflow-y: auto;
+      gap: 16px;
+    }
+    .plex-logo { width: 100%; max-width: 360px; }
+    .plex-logo img { max-width: 100%; }
+    /* The waiting line wraps to two lines at this width and was ragged left. */
+    .plex-waiting-text, .plex-signin-label, .plex-hint { text-align: center; }
+    .server-picker-title {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 2px;
+    }
+    .server-picker, .server-picker-list { gap: 10px; }
+
+    /* A row is a name, a tick and two or three short badges. The address was
+       most of the row's height and none of its usefulness at this width. */
+    .server-option {
+      padding: 12px 14px;
+      min-height: 60px;
+      font-size: 22px;
+      border-radius: 4px;
+      gap: 12px !important;
+    }
+    .server-option-name {
+      font-size: 24px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+    .server-option-shared-inline { display: none; }
+    .server-option-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .server-option-check {
+      width: 26px;
+      height: 26px;
+      font-size: 17px;
+    }
+    /* Selected has to read at a glance on a small screen, so it gets a cyan
+       edge down the left as well as the tick. */
+    .server-option.selected {
+      border-color: var(--cyan);
+      background: rgba(0,255,255,0.1);
+      box-shadow: inset 3px 0 0 var(--cyan);
+    }
+    .server-option:active { background: rgba(255,255,255,0.1); }
+
+    /* Addresses are collapsed, and come back wrapped rather than cut off. */
+    .server-option-url { display: none; }
+    .server-picker.show-addresses .server-option-url {
+      display: block;
+      font-size: 17px;
+      line-height: 1.3;
+      margin-top: 8px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .server-picker-addr {
+      display: block;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.55);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      letter-spacing: 1px;
+      padding: 14px 16px;
+      min-height: 44px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .server-picker-addr:active { background: rgba(255,255,255,0.08); }
+    .server-picker-connect {
+      width: 100%;
+      min-height: 52px;
+      padding: 16px 24px;
+      font-size: 11px;
+    }
+    .server-picker-connect:active { background: rgba(0,255,255,0.25); }
+
+    /* ── First-run build screen ──
+       The panel is inset:0 inside .video-container, which the portrait rules
+       size to a 16:9 box. Measured at 393x852: a 221px tall box holding 510px
+       of content, so the coffee block fell off the bottom and the remaining
+       two thirds of the screen was empty black. While .building is set there is
+       no video and no guide, so give the container the whole screen.
+       position:fixed is not an option here: the retro flicker animation puts a
+       transform on .video-container, which makes it the containing block for
+       fixed descendants, so fixed resolved to the same 221px box. */
+    .player-screen.building.layout-side .video-area,
+    .player-screen.building .video-area {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .player-screen.building.layout-side .video-container,
+    .player-screen.building .video-container {
+      order: 0;
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      min-height: 0;
+    }
+    .player-screen.building .loading-library {
+      z-index: 120;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      /* One composed group rather than three things drifting apart: the mark,
+         the status card and the coffee ask sit together in the middle of the
+         screen, and the panel scrolls if a short window cannot hold them. */
+      justify-content: safe center;
+      gap: clamp(16px, 4vh, 40px);
+    }
+    /* Nothing else belongs on screen while the lineup builds. */
+    .player-screen.building .m-topbar,
+    .player-screen.building .guide-grid { display: none; }
+    /* Retro mode pins the empty video to 4:3 off its height. Once the container
+       is the full screen that is wider than the screen, which put a horizontal
+       scrollbar on the build screen (1137px of page at 393px of viewport).
+       Build state only: nothing is playing, and playback rules are untouched. */
+    body.retro-mode .player-screen.building #plex-video {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+    }
+    /* Three bands rather than one floating stack: mark at the top, the live
+       status card in the middle, the coffee ask at the foot. */
+    .loading-library-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 460px;
+      padding: 18px 16px;
+      border: 1px solid rgba(0,196,255,0.3);
+      border-radius: 6px;
+      background: rgba(0,196,255,0.05);
+    }
+    .loading-library-logo { margin-bottom: 0; max-height: 9vh; width: min(240px, 60%); }
+    .loading-library-first-hint {
+      white-space: normal;
+      font-size: 11px;
+      line-height: 1.5;
+      letter-spacing: 0.5px;
+      max-width: 34ch;
+    }
+    .loading-library-rail { margin-top: 0; max-width: 100%; }
+    /* The labels were ellipsised to CHANNE... at 10px. Smaller type and elastic
+       connectors fit all five steps, music included, at 360px. */
+    /* The step owns the width its label needs; the connectors take what is
+       left. Equal columns were what cut CHANNELS down to CHANNE... */
+    .load-rail-step { gap: 7px; flex: 0 1 auto; padding: 0 2px; }
+    .load-rail-dot { width: 22px; height: 22px; }
+    .load-rail-dot-active { width: 8px; height: 8px; }
+    .load-rail-label { font-size: 8px; letter-spacing: 0.5px; }
+    .load-rail-connector { width: auto; flex: 1 1 6px; min-width: 6px; margin-top: 10px; }
+    .loading-library-text {
+      font-size: 11px;
+      line-height: 1.8;
+      letter-spacing: 1.5px;
+    }
+    .loading-library-sub { font-size: 14px; letter-spacing: 1px; }
+    /* The rail was a thin line stranded in the middle of the screen. In the card
+       it is the width of the card, thicker, and reads with the count under it. */
+    .loading-library-progress-wrap { max-width: 100%; gap: 8px; }
+    .loading-library-progress-track { height: 10px; border-radius: 5px; }
+    .loading-library-progress { border-radius: 5px; }
+    .loading-library-progress-caption { font-size: 11px; }
+    .loading-library-coffee { margin-top: 0; }
+    .loading-library-coffee-lead { font-size: 11px; line-height: 1.5; }
+    .loading-library-coffee-btn { min-height: 48px; padding: 14px 20px; }
+  }
+
+  /* Landscape phones: height is the scarce dimension on both screens, so the
+     bands stack from the top and scroll rather than spreading apart. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .plex-logo { max-width: 240px; }
+    /* 393px of height has to hold the mark, the title, four rows and CONNECT.
+       The list still scrolls, but a row is half the height it is in portrait. */
+    .plex-connect { gap: 10px; }
+    .plex-logo img { max-height: 15vh; object-fit: contain; }
+    .server-picker, .server-picker-list { gap: 8px; }
+    .server-option { min-height: 48px; padding: 8px 12px; }
+    .server-option-name { font-size: 20px; }
+    .server-option-tags { margin-top: 4px; }
+    .server-tag { font-size: 6px; padding: 3px 5px; }
+    .server-picker-connect { min-height: 46px; padding: 12px 20px; }
+    .player-screen.building .loading-library {
+      justify-content: safe center;
+      gap: 10px;
+    }
+    .loading-library-logo { max-height: 14vh; width: min(180px, 40%); }
+    .loading-library-panel { padding: 12px 14px; gap: 10px; max-width: 520px; }
+    .loading-library-first-hint { max-width: 60ch; }
+    .loading-library-coffee { gap: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -2410,17 +2660,23 @@
       <!-- Loading library indicator -->
       <div class="loading-library" id="loading-library" style="display: none;">
         <img class="loading-library-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
-        <div class="loading-library-first-hint" id="loading-library-first-hint" style="display: none;">
-          First setup can take a few minutes to scan and build channels.
-        </div>
-        <div class="loading-library-rail" id="loading-library-rail" aria-hidden="true"></div>
-        <div class="loading-library-text" id="loading-library-headline">SCANNING YOUR LIBRARY</div>
-        <div class="loading-library-sub" id="loading-library-sub">Discovering your content</div>
-        <div class="loading-library-progress-wrap" id="loading-library-progress-wrap">
-          <div class="loading-library-progress-track">
-            <div class="loading-library-progress" id="loading-library-progress"></div>
+        <!-- display:contents on a pointer screen, so the desktop and TV column is
+             exactly the flat stack it always was. Touch sizes turn it into one
+             card, which is what stops the steps, the status line and the rail
+             reading as three stranded things on a phone. -->
+        <div class="loading-library-panel">
+          <div class="loading-library-first-hint" id="loading-library-first-hint" style="display: none;">
+            First setup can take a few minutes to scan and build channels.
           </div>
-          <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
+          <div class="loading-library-rail" id="loading-library-rail" aria-hidden="true"></div>
+          <div class="loading-library-text" id="loading-library-headline">SCANNING YOUR LIBRARY</div>
+          <div class="loading-library-sub" id="loading-library-sub">Discovering your content</div>
+          <div class="loading-library-progress-wrap" id="loading-library-progress-wrap">
+            <div class="loading-library-progress-track">
+              <div class="loading-library-progress" id="loading-library-progress"></div>
+            </div>
+            <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
+          </div>
         </div>
         <div class="loading-library-coffee">
           <div class="loading-library-coffee-lead">Channels are building. Grab a coffee while you wait.</div>
@@ -5634,6 +5890,7 @@
   let pollInterval = null;
   let discoveredServers = [];
   let serverFocusIndex = 0;
+  let serverAddressesShown = false; // touch picker: addresses are collapsed until asked for
   let selectedServerIndices = new Set(); // indices into discoveredServers (multi-select)
   let selectedServers = []; // [{name, url, token, connections}] — all connected servers
 
@@ -5787,6 +6044,10 @@
           connections: r.connections || [],
           accessToken: r.accessToken,
           owned: r.owned,
+          // plex.tv already knows whether it can see the server. Carrying the
+          // flag through is what lets the picker say so before the user picks
+          // a server that is never going to answer.
+          presence: r.presence,
           machineIdentifier: r.clientIdentifier || '',
         }));
 
@@ -5833,22 +6094,53 @@
     picker.innerHTML = '';
     picker.appendChild(title);
 
+    const list = document.createElement('div');
+    list.className = 'server-picker-list';
+    picker.appendChild(list);
+
     discoveredServers.forEach((server, i) => {
       const selected = selectedServerIndices.has(i);
       const opt = document.createElement('div');
       opt.className = `server-option${selected ? ' selected' : ''}`;
+      opt.setAttribute('role', 'checkbox');
+      opt.setAttribute('tabindex', '0');
+      opt.setAttribute('aria-checked', selected ? 'true' : 'false');
       opt.style.cssText = 'display:flex;align-items:center;gap:14px;cursor:pointer;';
       const bestConn = server.connections.find(c => c.local) || server.connections[0];
+      // What a phone actually needs from a row: the name, whether it is someone
+      // else's, and whether it can be reached. The address is 80 characters of
+      // plex.direct hash that never fits, so it moves behind SHOW ADDRESSES.
+      const tags = [];
+      if (!server.owned) tags.push('<span class="server-tag">SHARED</span>');
+      if (server.presence === false) tags.push('<span class="server-tag server-tag--off">OFFLINE</span>');
+      else if (bestConn && bestConn.relay) tags.push('<span class="server-tag">RELAY</span>');
+      else if (bestConn && bestConn.local) tags.push('<span class="server-tag">LOCAL</span>');
+      else if (bestConn) tags.push('<span class="server-tag">REMOTE</span>');
       opt.innerHTML = `
         <div class="server-option-check">${selected ? '✓' : ''}</div>
         <div class="server-option-info">
-          <div class="server-option-name">${escapeHtml(server.name)}${server.owned ? '' : ' (shared)'}</div>
+          <div class="server-option-name">${escapeHtml(server.name)}${server.owned ? '' : '<span class="server-option-shared-inline"> (shared)</span>'}</div>
+          ${tags.length ? `<div class="server-option-tags">${tags.join('')}</div>` : ''}
           <div class="server-option-url">${bestConn ? escapeHtml(bestConn.uri) : 'Unknown address'}</div>
         </div>
       `;
       opt.addEventListener('click', () => toggleServerOption(i));
-      picker.appendChild(opt);
+      list.appendChild(opt);
     });
+
+    // Touch only (hidden by the pointer rules in CSS): the addresses are still
+    // one tap away for anyone working out why a server will not connect.
+    const addrToggle = document.createElement('button');
+    addrToggle.className = 'server-picker-addr';
+    addrToggle.type = 'button';
+    addrToggle.textContent = serverAddressesShown ? 'HIDE ADDRESSES' : 'SHOW ADDRESSES';
+    addrToggle.setAttribute('aria-expanded', serverAddressesShown ? 'true' : 'false');
+    addrToggle.addEventListener('click', () => {
+      serverAddressesShown = !serverAddressesShown;
+      renderServerOptions();
+    });
+    picker.appendChild(addrToggle);
+    picker.classList.toggle('show-addresses', serverAddressesShown);
 
     const connectBtn = document.createElement('button');
     connectBtn.className = 'server-picker-connect';
