@@ -33,7 +33,6 @@ enum AnalyticsTuneMethod: String, Sendable {
     case miniStrip
     case next
     case previous
-    case voice
 
     var wireValue: String {
         switch self {

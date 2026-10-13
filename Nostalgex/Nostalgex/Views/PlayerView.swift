@@ -173,7 +173,6 @@ struct PlayerView: View {
         .animation(.easeInOut(duration: 0.35), value: showStatic)
         .animation(.easeInOut(duration: 0.25), value: showNowPlaying)
         .animation(.easeInOut(duration: 0.2), value: appState.sleepGracePromptActive)
-        .overlay { VoiceNoticeBanner() }
         .focusSection()
         .onAppear {
             flashOSD()
