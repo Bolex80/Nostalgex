@@ -3,6 +3,69 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (membership generator keeps the cleanup)
+
+**Shipped.** Nothing. Branch `membership-generator-rules`, not merged.
+`channels-memberships.json` on main is untouched.
+
+**Changed.**
+
+- The 2026-10-12 memberships cleanup (5,154 to 4,898 entries) was applied to
+  the shipped file by hand, and the keyword tuner only knew the first of its
+  three rules. The next regeneration would have put 22 horror-only titles back
+  on SCI-FI and dropped 20 real musicals. The tuner now carries all three:
+  - Genre gate (cherry-picked from `membership-genre-gate`): recommendation,
+    similar and collection claims must match the channel's `genres.include`.
+  - `genres.requireAll` from channels.json gates the same claims. SCI-FI's
+    Science Fiction is the one that bites. ROM COMS and GIRLS NIGHT opt out
+    with `gateRequireAll: false` in exemplars.json, as decided on 2026-10-12;
+    applying it there would take 83 and 19 titles off. DATE NIGHT and TRUE
+    CRIME also carry requireAll and lose nothing extra to it today.
+  - MUSICALS `genreRescueKeywords`: musical, song and dance, broadway. Not
+    "based on play or musical", which would add 10 plays (Roxanne, Cyrano de
+    Bergerac, On Golden Pond), and not "singing".
+- The rule data lives in exemplars.json, the generator's input. channels.json,
+  the Swift app and the web filter are unchanged: a manifest claim bypasses
+  include and requireAll at runtime, so gating is the generator's job alone.
+- `--cache <file>` keeps every TMDB response on disk and `--out <dir>` writes
+  somewhere other than the shipped files. A rerun from the cache with no
+  network gave the same file apart from the timestamp.
+- `npm run test:tuner-gate` (24 checks, in `npm test`) runs the rule function
+  against the real rule data. Removing the rescue list, adding the plays
+  keyword, dropping the ROM COMS opt-out or ignoring requireAll each fail it.
+
+How it was checked:
+
+- Replaying the cleanup over the pre-cleanup file with the generator's rule
+  function gives the shipped content exactly: 4,898 items, 5,593 title and
+  channel pairs, every field equal. Not byte-identical, because 5 items list
+  their channels in another order and the rescued musicals sit at the end of
+  the file, both left by the two-step hand edit. TMDB genres had not changed
+  on any of 2,830 titles between 10-12 and today.
+- A full live regeneration today gives 3,737 items: 2,146 pairs only in it,
+  3,057 only in the shipped file. A control run with the gate off, on the same
+  cached TMDB data, accounts for all but one pair:
+  - 1,320 STAND-UP claims come from `discover-standup.mjs`, not from the
+    tuner, so a full regeneration has to rerun it afterwards.
+  - The rest is the candidate set moving: TMDB recommendations, similar lists
+    and search matches, and exemplar lists edited since a channel was last
+    generated (MIDNIGHT, CULT CLASSICS and BIOPICS each gain 110 to 150). The
+    gate-off control differs from the pre-cleanup file by 2,542 and 3,598
+    pairs on its own.
+  - The one rule difference is Heat on MYSTERY. The hand cleanup gated by each
+    entry's single source label, and Heat's says exemplar (it is one on
+    another channel), so its MYSTERY claim was never checked. The tuner gates
+    per claim, and Heat (Crime, Drama, Action) misses MYSTERY's Mystery rule.
+  - No pair the cleanup removed comes back.
+
+**Half-done.** The regenerated file is not committed: it would change about
+5,200 title and channel pairs for reasons that have nothing to do with these
+rules. Swift tests were not run, since nothing the app reads changed.
+
+**Next.** Chad reviews and merges `membership-generator-rules`; it supersedes
+`membership-genre-gate`. Whether to regenerate the shipped memberships at all
+is a separate call, and if so, `discover-standup.mjs` runs after the tuner.
+
 ## 2026-10-13 (channel guide pages)
 
 **Shipped.** Nothing. Branch `seo/bundle-pages`, draft PR, waiting on Chad's
