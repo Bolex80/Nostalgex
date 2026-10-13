@@ -52,3 +52,8 @@ from their filter script is how they want parity checked.
 
 They plan to try it on a Roku and give feedback in the discussion, and invited
 the repo owner to the project Discord.
+
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18908210)
+the same day: a separate repo is fine, the builder is ported and passes
+`franchise-golden.json`, and should the Roku guide show franchise channels
+now, following the Apple TV app, or wait for the web tuner?
