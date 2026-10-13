@@ -2078,6 +2078,49 @@ a { color: inherit; }
   box-shadow: 5px 5px 0 var(--ink);
 }
 
+/* Inline images in a post or a guide page. Same frame as the cover, one step
+   quieter, and the caption only appears when the markdown gives the image a
+   title. */
+.page-figure {
+  margin: 36px 0;
+}
+.page-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--cyan);
+}
+.page-figure figcaption,
+.page-clip figcaption {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.page-clip {
+  margin: 36px 0;
+}
+.page-clip-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--cyan);
+  background: var(--paper-deep);
+}
+@media (max-width: 640px) {
+  .page-figure img,
+  .page-clip-video {
+    box-shadow: 3px 3px 0 var(--cyan);
+  }
+  .page-figure,
+  .page-clip {
+    margin: 26px 0;
+  }
+}
+
 .blog-post-body {
   font-size: 18px;
   line-height: 1.72;

@@ -35,7 +35,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { marked } from "marked";
+import { Marked } from "marked";
 import matter from "gray-matter";
 import {
   SITE_ORIGIN,
@@ -50,6 +50,16 @@ import {
   resolveViteAssetHrefs,
 } from "./site-chrome.mjs";
 import { bundleStyle } from "./bundle-style.mjs";
+import {
+  resolveImage,
+  resolveClip,
+  renderCover,
+  renderClip,
+  markedImageRenderer,
+  unwrapFigures,
+  mediaText,
+  isRemote,
+} from "./site-media.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPTS_DIR = path.join(ROOT, "scripts");
@@ -106,41 +116,11 @@ const BANNED_PHRASES = [
   "nostalgia tv",
 ];
 
-// Brand and near brand names from handoff section 11. None of these may appear
-// in the visible copy, meta or JSON-LD of a page that search engines index.
-// "Apple TV" the device is fine and is why Apple TV+ is matched with its plus.
-const BRAND_TERMS = [
-  "Disney",
-  "Diz",
-  "Dizney",
-  "Nickelodeon",
-  "Nick",
-  "Pixar",
-  "Minion",
-  "DreamWorks",
-  "Netflix",
-  "Cartoon Network",
-  "Criterion",
-  "Hallmark",
-  "Oscar",
-  "HBO",
-  "Apple TV+",
-  "Paramount",
-  "Amazon",
-  "Hulu",
-  "Sony",
-  "Warner",
-  "Universal",
-  "20th Century",
-  "Miramax",
-  "Star Wars",
-  "Marvel",
-  "Harry Potter",
-  "Jurassic Park",
-  "Lord of the Rings",
-  "Mission Impossible",
-  "Bourne",
-];
+// Brand and near brand names live in scripts/legal-hold.json, not here, so one
+// file decides what is held: the bundles, the channels and the words. None of
+// the held words may appear in the visible copy, meta or JSON-LD of a page that
+// search engines index. "Apple TV" the device is fine, which is why Apple TV+
+// is matched with its plus.
 
 // Channel names that need a hand written display form. The generic rule below
 // already turns any hyphen into a space, so this map is for the cases where
@@ -236,12 +216,14 @@ function readJson(file) {
 
 export function loadLegalHold() {
   if (!existsSync(LEGAL_HOLD_PATH)) {
-    return { heldBundles: new Set(), heldChannels: new Set() };
+    return { heldBundles: new Set(), heldChannels: new Set(), heldBrands: [] };
   }
   const raw = readJson(LEGAL_HOLD_PATH);
   return {
     heldBundles: new Set(raw.heldBundles || []),
     heldChannels: new Set((raw.heldChannels || []).map(Number)),
+    // Empty means nothing is enforced: the names are cleared for publication.
+    heldBrands: raw.heldBrands || [],
   };
 }
 
@@ -352,11 +334,32 @@ export async function loadBundleContent(bundles) {
       file: rel,
       raw,
       titleOverride: fm.title ? String(fm.title) : null,
+      // The on page H1. Defaults to the <title> without the brand suffix: the
+      // bundle name alone ("Marquee") is internal vocabulary, and a visitor
+      // arriving from a search needs the heading to confirm they are in the
+      // right place. The name and the count move to the line underneath.
+      heading: fm.heading ? String(fm.heading) : null,
       description,
       // The hub shows a short line per bundle. The meta description is written
       // for a search result and reads as boilerplate when 14 of them sit in a
       // column, so `blurb` carries the human version. Falls back to the meta.
       blurb: fm.blurb ? String(fm.blurb) : description,
+      // Optional media. `image` is the hero under the H1; `og_image` is the
+      // 1200x630 social card, falling back to the hero and then to the shared
+      // default. Both are validated now so a bad path fails the build rather
+      // than shipping a broken page.
+      image: resolveImage(fm, { file: rel, rootDir: ROOT }),
+      ogImage: resolveImage(fm, {
+        file: rel,
+        rootDir: ROOT,
+        keys: {
+          src: "og_image",
+          alt: "og_image_alt",
+          width: "og_image_width",
+          height: "og_image_height",
+        },
+      }),
+      clip: resolveClip(fm, { file: rel }),
       faq,
       markdown: parsed.content.replace(/<!--[\s\S]*?-->/g, "").trim(),
       words: countWords(parsed.content),
@@ -379,6 +382,13 @@ export function bundleTitle(bundle, titleOverride) {
     `${bundle.name}: ${bundle.count} Retro TV Channels | Nostalgex`,
   ];
   return candidates.find((t) => t.length <= TITLE_MAX) || candidates.at(-1);
+}
+
+// The H1. A `heading` in the content file wins; otherwise the page title minus
+// the brand suffix, which is already written to say what the page is about.
+export function bundleHeading(bundle, copy) {
+  if (copy && copy.heading) return copy.heading;
+  return bundleTitle(bundle, copy ? copy.titleOverride : null).replace(/\s*\|\s*Nostalgex$/, "");
 }
 
 // ---------------------------------------------------------------------------
@@ -460,12 +470,12 @@ function escapeRegex(s) {
 // One matcher per held term. Word boundaries keep ordinary words out of it, so
 // "Nick" does not fire on "nickname". Apple TV+ is matched with its plus,
 // which is what separates it from "Apple TV" the device.
-function buildHeldMatchers(heldChannelNames) {
+function buildHeldMatchers(heldChannelNames, heldBrands = []) {
   // Case insensitive dedupe: a held channel's raw name (HARRY POTTER) and its
   // display name (Harry Potter) and the brand term (Harry Potter) are one
   // rule, and one rule should report once.
   const seen = new Map();
-  for (const term of [...BRAND_TERMS, ...heldChannelNames]) {
+  for (const term of [...heldBrands, ...heldChannelNames]) {
     const key = term.toLowerCase();
     if (!seen.has(key)) seen.set(key, term);
   }
@@ -551,6 +561,18 @@ export function hubMeta() {
   };
 }
 
+// The hub has no content file, so its hero is named here. It uses the lineup
+// screenshot the home page already ships, which is app UI rather than a frame
+// from somebody's film.
+const HUB_IMAGE = resolveImage(
+  {
+    image: "/screens/lineup-1280.webp",
+    image_alt:
+      "The Nostalgex channel guide on Apple TV, showing bundles of live channels built from a Plex library",
+  },
+  { file: "scripts/build-bundles.mjs (hub)", rootDir: ROOT },
+);
+
 function renderHubPage(model, assetHrefs) {
   const { bundles, totalChannels, bundleCount, content } = model;
   const { title, description } = hubMeta(model);
@@ -631,7 +653,10 @@ ${cells}${moreCell}
     title,
     description,
     canonical: HUB_CANONICAL,
-    ogImage: DEFAULT_OG_IMAGE,
+    ogImage: `${SITE_ORIGIN}${HUB_IMAGE.src}`,
+    ogImageAlt: HUB_IMAGE.alt,
+    ogImageWidth: HUB_IMAGE.width,
+    ogImageHeight: HUB_IMAGE.height,
     ogType: "website",
     jsonLd,
     extraMeta: `<link rel="stylesheet" href="/channels.css">`,
@@ -648,6 +673,7 @@ ${renderBreadcrumb(crumbs)}
         <h1>Channel Guide: ${escapeHtml(totalChannels)} Channels in ${escapeHtml(bundleCount)} Bundles</h1>
         <p class="channels-dek">Every channel here is a rule, not a playlist. Point the app at your own Plex or Jellyfin server and the channels with enough matching titles switch themselves on, grouped into the ${escapeHtml(bundleCount)} bundles below. This is the whole lineup, so you can see what the guide would look like before you install anything.</p>
       </header>
+      ${renderCover(HUB_IMAGE, { className: "channels-cover" })}
 
       <div class="channels-guide">
 ${rows}
@@ -750,19 +776,35 @@ function renderBundlePage(bundle, model, assetHrefs) {
     )
     .join("\n");
 
-  const disclaimer = bundle.held
-    ? `
-        <p class="bundle-disclaimer">${escapeHtml(AFFILIATION_DISCLAIMER)}</p>`
-    : "";
+  // On every bundle page, not just the held ones. A page that prints a studio
+  // or franchise channel name is exactly the page that needs to say nobody is
+  // endorsing anybody, and now that the holds are lifted that is most of them.
+  const disclaimer = `
+        <p class="bundle-disclaimer">${escapeHtml(AFFILIATION_DISCLAIMER)}</p>`;
 
-  const introHtml = marked.parse(copy.markdown);
+  // A fresh Marked instance per page. The image renderer closes over the file
+  // name so a missing alt names the content file that caused it, and
+  // marked.use() on the shared instance would stack one closure per page.
+  const introHtml = new Marked({
+    renderer: markedImageRenderer({ file: copy.file, rootDir: ROOT }),
+  }).parse(copy.markdown);
+  const introHtmlFinal = unwrapFigures(introHtml);
   const appScript = assetHrefs.appScriptHref || "/app.js";
+
+  // The social card prefers its own 1200x630 file, then the hero, then the
+  // shared default. A site relative file has to become absolute: a scraper
+  // reads og:image without a page to resolve it against.
+  const card = copy.ogImage || copy.image;
+  const cardUrl = card ? (isRemote(card.src) ? card.src : `${SITE_ORIGIN}${card.src}`) : null;
 
   return `${renderHead({
     title,
     description,
     canonical,
-    ogImage: DEFAULT_OG_IMAGE,
+    ogImage: cardUrl || DEFAULT_OG_IMAGE,
+    ogImageAlt: card ? card.alt : undefined,
+    ogImageWidth: card ? card.width : null,
+    ogImageHeight: card ? card.height : null,
     ogType: "website",
     jsonLd,
     robots,
@@ -777,12 +819,13 @@ ${renderNav()}
     <div class="container container-narrow">
 ${renderBreadcrumb(crumbs)}
       <header class="channels-head">
-        <h1>${escapeHtml(bundle.name)}: ${escapeHtml(bundle.count)} Channels</h1>
+        <h1>${escapeHtml(bundleHeading(bundle, copy))}</h1>
+        <p class="channels-dek channels-dek--bundle">The ${escapeHtml(bundle.name)} bundle. ${escapeHtml(bundle.count)} channels, built from your own library.</p>
       </header>
-
+${copy.image ? `      ${renderCover(copy.image, { className: "channels-cover" })}\n` : ""}
       <div class="bundle-intro">
-${introHtml}
-      </div>
+${introHtmlFinal}
+      </div>${copy.clip ? renderClip(copy.clip) : ""}
 
       <section class="bundle-channels" aria-labelledby="bundle-channels-heading">
         <h2 id="bundle-channels-heading">Channels in ${escapeHtml(bundle.name)}</h2>
@@ -1102,7 +1145,7 @@ export async function renderBundles(assetHrefs = {}, options = {}) {
       if (channel.held) heldChannelNames.push(channel.rawName, channel.name);
     }
   }
-  const matchers = buildHeldMatchers(heldChannelNames);
+  const matchers = buildHeldMatchers(heldChannelNames, loadLegalHold().heldBrands);
 
   const assets = new Map();
   const pages = [];
@@ -1141,7 +1184,14 @@ export async function renderBundles(assetHrefs = {}, options = {}) {
 
   for (const page of pages) {
     const where = page.source ? `${page.file} (${page.source})` : page.file;
-    const visible = visibleText(page.html);
+    // Alt text and the aria-label on a clip are read by screen readers and by
+    // Google, so the dash, held brand and banned phrase rules apply to them the
+    // same as to body copy. visibleText() drops attributes, so add them back.
+    const altText = [...page.html.matchAll(/(?:alt|aria-label)="([^"]*)"/g)]
+      .map((m) => m[1])
+      .filter(Boolean)
+      .join(" ");
+    const visible = `${visibleText(page.html)} ${decodeEntities(altText)}`.trim();
 
     // 1. No dash of any kind in visible copy, the title or the meta.
     checkDashes(log, where, "visible copy", visible);

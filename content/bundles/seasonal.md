@@ -1,5 +1,6 @@
 ---
 title: "Halloween Horror Channels for Plex and Jellyfin | Nostalgex"
+heading: "Halloween Horror Channels"
 description: "Kid safe spooky movies, 80s slashers and late night horror on live channels from your own Plex or Jellyfin library. Free on Apple TV for October."
 blurb: "October. Kid safe spooky, 80s slashers and the late night stuff."
 faq:

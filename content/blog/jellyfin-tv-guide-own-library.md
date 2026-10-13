@@ -2,6 +2,8 @@
 title: "Jellyfin TV Guide for Your Own Library: Live Channels Without a Tuner"
 seo_title: "Jellyfin TV Guide for Your Own Library"
 description: "Jellyfin's TV guide stays empty without a tuner. Here are 3 ways to get a channel guide built from your own movies and shows, including a free Apple TV app."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/jellyfin-tv-guide-own-library/cover.jpg"
+cover_alt: "Nostalgex TV guide on Apple TV airing a teen comedy on the Teen Movies channel from a home media library"
 excerpt: "Jellyfin's Live TV section won't show your own movies, which surprises a lot of people. Here's what it's actually for and three ways to get a real channel guide."
 author: "Chad Mueller"
 slug: jellyfin-tv-guide-own-library
@@ -44,11 +46,15 @@ Tools like [Tunarr](https://tunarr.com/), [jellyfin virtual tv](https://github.c
 
 Instead of changing your server, the app on your TV reads your library, makes the schedule, and asks Jellyfin for the file when it's time to play. Nothing to install on the server, nothing to configure in the dashboard. That's what Nostalgex does.
 
+![Nostalgex guide grid with VHS Vault, Classic Fam Jams, Girls Night, Teen Movies and Retro Toons channels filled automatically](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/jellyfin-tv-guide-own-library/girls-night-guide-grid.webp)
+
 XDA Developers [set this up with a Jellyfin server](https://www.xda-developers.com/this-jellyfin-plugin-made-my-media-library-feel-like-old-school-cable-tv/) in October and found it much easier than configuring Tunarr or ErsatzTV channel by channel, with less control in exchange.
 
 ## How do I set up Nostalgex with Jellyfin on Apple TV?
 
 The [Nostalgex for Jellyfin](/jellyfin) page has a look at the guide and the short version. Here are the steps. You need an Apple TV on tvOS 18 or later and a Jellyfin server the Apple TV can reach.
+
+![Nostalgex on Apple TV after setup, tuned to the Buddies channel with the program info and guide below](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/jellyfin-tv-guide-own-library/buddies-channel-eurotrip.webp)
 
 1. **Install Nostalgex** free from the [App Store](https://apps.apple.com/app/nostalgex/id6762563534) on your Apple TV.
 2. **Choose Jellyfin** when it asks which server you use.

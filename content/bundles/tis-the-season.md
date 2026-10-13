@@ -1,5 +1,6 @@
 ---
 title: "Christmas Movie Channels for Plex and Jellyfin | Nostalgex"
+heading: "Christmas Movie Channels"
 description: "Christmas movies, holiday specials and kids Christmas TV on live channels from your own Plex or Jellyfin library. Free and open source on Apple TV."
 blurb: "December, on all day. The classics, the specials and the rude ones."
 faq:

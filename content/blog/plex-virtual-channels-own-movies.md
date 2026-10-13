@@ -2,6 +2,8 @@
 title: "Does Plex Live TV Play Your Own Movies? How to Get Pluto Style Virtual Channels From Your Library"
 seo_title: "Plex Virtual Channels From Your Own Movies"
 description: "Plex Live TV won't play your own movies. Here's what it does, what needs Plex Pass, and how to get free Pluto style channels from your own Plex library."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/plex-virtual-channels-own-movies/cover.jpg"
+cover_alt: "Pluto style live channel from a Plex library: a romantic comedy airing on Nostalgex LOL in the Nostalgex guide"
 excerpt: "Plex has a Live TV tab and a server full of your movies, but the two never meet. Here's why, and the ways to get Pluto style channels out of your own library."
 author: "Chad Mueller"
 slug: plex-virtual-channels-own-movies
@@ -69,6 +71,8 @@ The web tuner and the Apple TV app don't show identical lineups, by the way. The
 ## What kinds of channels do you get?
 
 The 131 channels come in 14 bundles, and the ones you see depend on what's in your library. There are decades, genres, studios and franchises, plus the comfort stuff like SAT MORNING CARTOONS, 90S SITCOMS and VHS VAULT. You can switch whole bundles on and off in settings, but you never have to program a channel.
+
+![Nostalgex guide showing Classic Fam Jams, Girls Night, Teen Movies, Retro Toons and Action Adventure channels from one movie library](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/plex-virtual-channels-own-movies/teen-movies-channel-guide.webp)
 
 This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR. SCREAM KIDS is for the little ones, and NOSTALGEX HORROR sticks to 1975 through 1999. If you want a preview of what a night on those feels like, I wrote up [a 90s slasher marathon](/blog/90s-slasher-movies-halloween-marathon).
 

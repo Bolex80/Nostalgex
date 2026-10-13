@@ -28,12 +28,16 @@ Nostalgex is made by Chad Mueller (Muell Haus Inc.). It is not affiliated with P
 ### Bundles
 
 - [Nostalgex](https://www.nostalgex.app/channels/nostalgex): The 80s and 90s. All retro, all the time (19 channels)
+- [Kidz Zone](https://www.nostalgex.app/channels/kids): Disney, Nickelodeon, Pixar, and more (15 channels)
 - [Prime Time](https://www.nostalgex.app/channels/essentials): Everyday favorites and feel good viewing (15 channels)
 - [Marquee](https://www.nostalgex.app/channels/premium): Premium channels (11 channels)
 - [Adventureland](https://www.nostalgex.app/channels/adventureland): Epic quests, disasters, and adrenaline (9 channels)
 - [Overtime](https://www.nostalgex.app/channels/sports): Movies, shows, and docs (3 channels)
 - [Case Files](https://www.nostalgex.app/channels/truecrime): True crime, thrillers & mystery (5 channels)
 - [Decades](https://www.nostalgex.app/channels/decades): Movies and shows sorted by decade (7 channels)
+- [Franchises](https://www.nostalgex.app/channels/franchises): Movie franchise marathons (7 channels)
+- [Arthouse](https://www.nostalgex.app/channels/arthouse): Criterion, foreign films, midnight movies, and cult classics (4 channels)
+- [Networks](https://www.nostalgex.app/channels/streamers): Channels by streaming service and studio (11 channels)
 - [Tis the Season](https://www.nostalgex.app/channels/tis-the-season): Christmas and holiday channels (7 channels)
 - [Scream](https://www.nostalgex.app/channels/seasonal): Horror, all year's worth, front and centre every October (4 channels)
 - [High Rotation](https://www.nostalgex.app/channels/high-rotation): Music videos by genre (14 channels)

@@ -201,6 +201,10 @@ export function renderHead({
   ogImage,
   ogType,
   ogImageAlt = DEFAULT_OG_ALT,
+  // Facebook, LinkedIn and Slack lay the card out before the image arrives, so
+  // every og:image states its size, not just the shared default.
+  ogImageWidth = null,
+  ogImageHeight = null,
   jsonLd,
   // Pages held back from search pass "noindex, follow": the channel guide
   // builds bundle pages that are waiting on a legal answer, and they should
@@ -249,6 +253,8 @@ export function renderHead({
 <meta property="og:image" content="${escapeAttr(ogImage)}">
 ${ogImage === DEFAULT_OG_IMAGE ? `<meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+` : ogImageWidth && ogImageHeight ? `<meta property="og:image:width" content="${ogImageWidth}">
+<meta property="og:image:height" content="${ogImageHeight}">
 ` : ""}<meta property="og:image:alt" content="${escapeAttr(ogImageAlt)}">
 
 <meta name="twitter:card" content="summary_large_image">

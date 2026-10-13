@@ -17,7 +17,7 @@ import { readFile, writeFile, readdir, mkdir, copyFile, stat } from "node:fs/pro
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { marked } from "marked";
+import { Marked } from "marked";
 import matter from "gray-matter";
 // Head, nav and footer live in scripts/site-chrome.mjs so the blog and the
 // channel guide render the same chrome. They used to be private copies in
@@ -39,6 +39,14 @@ import {
   renderHead,
   resolveViteAssetHrefs,
 } from "./site-chrome.mjs";
+import {
+  resolveImage,
+  resolveClip,
+  renderClip,
+  markedImageRenderer,
+  unwrapFigures,
+  isRemote,
+} from "./site-media.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTENT_DIR = path.join(ROOT, "content", "blog");
@@ -200,8 +208,9 @@ function renderPostCta() {
 
 function renderPostPage(post, assetHrefs = {}) {
   const canonical = `${SITE_ORIGIN}/blog/${post.slug}`;
-  const ogImage = post.coverUrl
-    ? (post.coverUrl.startsWith("http") ? post.coverUrl : `${SITE_ORIGIN}${post.coverUrl}`)
+  const card = post.ogImageFm || post.cover;
+  const ogImage = card
+    ? (isRemote(card.src) ? card.src : `${SITE_ORIGIN}${card.src}`)
     : DEFAULT_OG_IMAGE;
 
   const seoTitle = post.seoTitle || post.title;
@@ -269,10 +278,16 @@ function renderPostPage(post, assetHrefs = {}) {
 
   const coverBlock = post.coverUrl
     ? `
-        <img class="blog-post-cover" src="${escapeAttr(post.coverUrl)}" alt="${escapeAttr(post.coverAlt)}" loading="eager" decoding="async">`
+        <img class="blog-post-cover" src="${escapeAttr(post.cover.src)}" alt="${escapeAttr(post.cover.alt)}" width="${post.cover.width}" height="${post.cover.height}" loading="eager" decoding="async" fetchpriority="high">`
     : "";
 
-  const bodyHtml = wrapTables(marked.parse(stripLeadingH1(post.markdown, post.title)));
+  // A Marked instance per post: the image renderer closes over the file name,
+  // so a missing alt names the post that caused it, and marked.use() on the
+  // shared instance would stack one closure per post.
+  const md = new Marked({ renderer: markedImageRenderer({ file: post.rel, rootDir: ROOT }) });
+  const bodyHtml =
+    unwrapFigures(wrapTables(md.parse(stripLeadingH1(post.markdown, post.title)))) +
+    (post.clip ? renderClip(post.clip) : "");
 
   const appScript = assetHrefs.appScriptHref || "/app.js";
 
@@ -282,7 +297,9 @@ function renderPostPage(post, assetHrefs = {}) {
     canonical,
     ogImage,
     ogType: "article",
-    ogImageAlt: post.coverUrl ? post.coverAlt || DEFAULT_OG_ALT : DEFAULT_OG_ALT,
+    ogImageAlt: card ? card.alt || DEFAULT_OG_ALT : DEFAULT_OG_ALT,
+    ogImageWidth: card ? card.width : null,
+    ogImageHeight: card ? card.height : null,
     jsonLd,
     extraMeta,
     stylesHref: assetHrefs.stylesHref,
@@ -354,7 +371,7 @@ function renderIndexPage(posts, assetHrefs = {}) {
     .map((post) => {
       const href = `/blog/${post.slug}`;
       const cover = post.coverUrl
-        ? `<img class="blog-card-cover" src="${escapeAttr(post.coverUrl)}" alt="" loading="lazy" decoding="async">`
+        ? `<img class="blog-card-cover" src="${escapeAttr(post.cover.src)}" alt="" width="${post.cover.width}" height="${post.cover.height}" loading="lazy" decoding="async">`
         : "";
       return `          <li class="blog-card">
             <a class="blog-card-link" href="${escapeAttr(href)}">
@@ -434,12 +451,32 @@ export async function loadPosts() {
     const slug = sanitizeSlug(String(requireField(fm, "slug", file)), file);
     const dateIso = formatIsoDate(requireField(fm, "date", file));
     const dateHuman = formatHumanDate(dateIso);
-    const coverUrl = fm.cover ? String(fm.cover) : null;
+    const rel = path.relative(ROOT, file);
+    // cover is the post's lead image; og_image is the social card when it needs
+    // to differ (1200x630 crops differently from a 16 by 9 hero). Both resolve
+    // their real dimensions now so the page never shifts as they load.
+    const cover = resolveImage(fm, {
+      file: rel,
+      rootDir: ROOT,
+      keys: { src: "cover", alt: "cover_alt", width: "cover_width", height: "cover_height" },
+    });
+    const ogImageFm = resolveImage(fm, {
+      file: rel,
+      rootDir: ROOT,
+      keys: {
+        src: "og_image",
+        alt: "og_image_alt",
+        width: "og_image_width",
+        height: "og_image_height",
+      },
+    });
+    const clip = resolveClip(fm, { file: rel });
+    const coverUrl = cover ? cover.src : null;
     const seoTitle = fm.seo_title ? String(fm.seo_title) : null;
     const draft = fm.draft === true;
     const author = fm.author ? String(fm.author) : null;
     const updatedIso = fm.updated ? formatIsoDate(fm.updated) : null;
-    const coverAlt = fm.cover_alt ? String(fm.cover_alt) : "";
+    const coverAlt = cover ? cover.alt : "";
 
     // Optional extra JSON-LD: a `schema` list in frontmatter. Each entry is
     // emitted verbatim as its own <script type="application/ld+json"> next to
@@ -471,6 +508,10 @@ export async function loadPosts() {
       author,
       updatedIso,
       coverAlt,
+      cover,
+      ogImageFm,
+      clip,
+      rel,
       extraSchema,
       faq,
       markdown,
