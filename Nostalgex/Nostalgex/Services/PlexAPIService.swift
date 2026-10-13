@@ -448,7 +448,7 @@ struct PlexAPIService: MediaBackend {
         }
     }
 
-    private func parseMovieItem(_ item: PlexRawItem, isMusicSection: Bool) -> PlexMediaItem? {
+    func parseMovieItem(_ item: PlexRawItem, isMusicSection: Bool) -> PlexMediaItem? {
         let durationMin = (item.duration ?? 0) / 60000
         guard durationMin > 0 else { return nil }
         var genres = (item.Genre ?? []).map(\.tag)
@@ -463,11 +463,19 @@ struct PlexAPIService: MediaBackend {
         let isMusicVideo = isMusicSection
             || (durationMin <= 10 && genres.contains { $0.lowercased().contains("music") })
         let media = item.bestMedia
-        let parsed = MusicTitleParser.parse(item.title)
-        let artist = [item.parentTitle, item.grandparentTitle]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first(where: { !$0.isEmpty })
-            ?? parsed.artist
+        // "Artist - Song" parsing is for music videos only. Run on films it turned
+        // "Star Wars: Episode I - The Phantom Menace" into "The Phantom Menace",
+        // "Breaking Dawn - Part 1" into "Part 1" and "Spider-Man" into "Man", which
+        // also hid those titles from title-matched channels and collection checks.
+        let parsed: (artist: String?, song: String) = isMusicVideo
+            ? MusicTitleParser.parse(item.title)
+            : (nil, item.title)
+        let artist = isMusicVideo
+            ? ([item.parentTitle, item.grandparentTitle]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first(where: { !$0.isEmpty })
+                ?? parsed.artist)
+            : nil
         let displayTitle = parsed.song
         return PlexMediaItem(
             id: Self.compositeID(serverID: serverID, ratingKey: item.ratingKey),
