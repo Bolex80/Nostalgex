@@ -20,6 +20,8 @@ and already pinned to the Apple TV.
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
+| `scripts/nostalgex-enrichment.js`: TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | — | not ported; it calls upstream's own hosted services |
+| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text until the maintainer says the artwork may be used |
 
@@ -48,9 +50,10 @@ affect results:
   (`NxFilterChannel`), and item fields once per item (`NxFilterItem`).
   Upstream redoes both on every call.
 
-The filter runs with no TMDB/OMDb enrichment, as the web tuner does. Rules
-that need it behave as on an Apple TV with no enrichment record: keyword and
-network matches don't fire, production companies match on Plex's studio alone,
+The filter runs with no TMDB/OMDb enrichment. The web tuner did the same until
+upstream 43f6ee7, which added enrichment through upstream's hosted cache and
+relay. Rules that need it behave as on an Apple TV with no enrichment
+record: keyword and network matches don't fire, production companies match on Plex's studio alone,
 and the IMDb gates leave FOREIGN FILMS and CULT CLASSICS empty.
 
 **Cost on device:** about 0.16 ms per item-channel check (186,144 in 29.7 s on
@@ -75,8 +78,9 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   from upstream's filter smoke test, over a library built from the channels'
   own rules (a match, a near miss and real manifest claims for each), under
   two pinned clocks. It reaches every reachable line of upstream's filter.
-- `tests/run.sh` runs them in the off-device interpreter and fails if the
-  vectors are stale against the clone.
+- `tests/run.sh` runs them in the off-device interpreter. It fails if
+  `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
+  and notes when the clone's `origin/main` has moved past it.
 - `scripts/deploy.sh --test` runs the same suite on each TV in `ROKU_HOSTS`.
   **The TV run is the one that counts**, for the reason below.
 - A divergence is a bug here, never a fix to the vectors. Regenerating is only
@@ -99,10 +103,14 @@ web tuner does, so `tests/live/` checks that against a real server:
 
 The loader differs from upstream only where no result depends on it. Items
 carry a server index, not the server's token. The display string `meta` is
-built by the guide. Requests run one at a time, in upstream's order. Like
-upstream, it never asks Plex for `includeGuids=1`, so most items have no
-TMDB id and the membership manifest seldom applies. That is worth raising
-upstream, not fixing here.
+built by the guide. Requests run one at a time, in upstream's order.
+
+One difference does change results. The loader never asks Plex for
+`includeGuids=1`, so most items have no TMDB id and the membership manifest
+seldom applies. Upstream behaved the same way until 43f6ee7. It now asks for
+the ids and gives episodes their show's TMDB id. So until this loader follows,
+`compare.mjs` run against a clone at 43f6ee7 or later will report a
+divergence.
 
 ## BrightScript notes
 

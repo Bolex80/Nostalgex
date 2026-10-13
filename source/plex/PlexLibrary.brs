@@ -19,8 +19,9 @@
 '   - Requests run one at a time; upstream fetches five shows' episodes at
 '     once. Its Promise.all keeps their order, so the result is the same.
 '   - MusicBrainz/Deezer enrichment of music videos is not ported yet.
-' Upstream reads tmdbID from a `Guid` list it never asks Plex for
-' (no includeGuids=1), so most items have none. Mirrored on purpose.
+'   - No includeGuids=1, so most items have no tmdbID. This matches upstream
+'     before 43f6ee7. Upstream now asks for it and gives episodes their
+'     show's tmdbID, and this loader doesn't follow that yet.
 
 ' One GET against a server: its home-network address when there is one,
 ' else HTTPS, with up to three tries, since a home network can drop a
