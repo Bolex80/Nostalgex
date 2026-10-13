@@ -30,8 +30,8 @@ pools. `npm test` green. Not tried with a real server or on a TV browser.
 Settings → Help said Up/Down change channel; Left/Right is what does, so Help now says so.
 
 **Next.** Found while measuring, left alone. In fullscreen (F), Up/Down move the hidden
-guide cursor and the channel does not change. The guide footer advertises [V] HIDE GUIDE,
-and no key handles V.
+guide cursor and the channel does not change. The guide footer's [V] HIDE GUIDE hint is
+gone; no key ever handled V, and the guide has no reason to hide.
 
 ## 2026-10-13 (Report Playback rebuilt on PR #18)
 
