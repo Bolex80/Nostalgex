@@ -19,6 +19,42 @@ NostalgexTests 495 passed, 2 skipped, 0 failed; web tests green. Not tested on h
 `land-pr-21`, not main. It touches playback, so it waits for a hardware pass on a
 multi-version title and a three-part film.
 
+## 2026-10-13 (app, build 47)
+
+**Shipped.** 1.0.26 (47) uploaded to TestFlight for beta review. 1.0.25 (46) is still in
+Apple's beta review since Oct 9; 47 is reviewed on its own.
+
+**Changed.**
+
+- Tip jar: three StoreKit 2 consumables (Popcorn, TV Dinner, Pizza Night), quantity 1 to
+  5, unlocking nothing. Settings shows them as four pixel-art tiles with RATE.
+- Rating banner after the third 10+ minute watch, once per version. On hardware the first
+  version never received focus; it now uses default focus plus retries after the slide-in
+  and lands on RATE. A RATE press stops it for good. tvOS offers no in-app review API.
+- Large libraries: the library snapshot was JSON-encoded in one piece on the main thread,
+  peaking at 2.6 GB for 400k items, so tvOS killed the app right after the guide appeared
+  and the atomic write left no snapshot. It is now saved in 10k-item chunks off the main
+  thread with a manifest swapped in last. Measured on an Apple TV 4K (3rd gen): killed at
+  400k before, survives after (+26 MB over steady while saving).
+- Plex film titles: `parseMovieItem` ran the music-video "Artist - Song" parser on every
+  film, so titles with " - " lost their first half and "Spider-Man" became "Man". It now
+  runs only for music videos, as the Jellyfin and Emby paths already did.
+- Jellyfin direct play requests `stream.mp4`: Jellyfin labels `/stream` by the file name,
+  so an MP4 saved as `.mkv` came back as Matroska and the player refused it. The fallback
+  HLS URLs also carry `ApiKey`, which Jellyfin 12.2 requires when legacy authorization is
+  off. Reproduced and verified on a local Jellyfin 12.2.
+- Collection classifier: a collection whose name appears in 2+ of its film titles is a
+  franchise.
+- Community PRs #19 and #20 by @w6trp merged with their commits.
+- Siri channel tuning was built and tested on hardware: tvOS 26 Siri does not hand App
+  Shortcut phrases to the app. Removed from this build; parked on `siri-intents`.
+
+**Half-done.** PR #21 waits on a hardware test. The 1.0.27 line (franchise bundle,
+iCloud opt-in, enrichment in the app, Report Playback rebuilt on PR #18) is on branches.
+Emby's fallback HLS still fails on an empty `PlaySessionId`.
+
+**Next.** Watch 47 through beta review; hardware-test PR #21; start 1.0.27.
+
 ## 2026-10-11 (web tuner)
 
 **Shipped.** nostalgex.app: the web tuner now reads the shared metadata cache, fills
