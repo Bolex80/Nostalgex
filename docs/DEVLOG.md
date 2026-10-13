@@ -3,6 +3,19 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (web tuner: Instagram in the toolbar)
+
+**Shipped.** Nothing yet. On main, goes out with the next deploy.
+
+**Changed.** The player toolbar has an Instagram link under Buy Me a Coffee
+(`instagram.com/nostalgex_`). It wears the toolbar's own shape rather than the
+coffee box's, so the yellow one stays the only button that asks for something.
+Checked in a headless browser: the link opens in a new tab with
+`rel="noopener noreferrer"`, and nothing else in the toolbar moved.
+
+**Next.** The loading screen's coffee call to action has no Instagram link. Leave
+it or match it, owner's call.
+
 ## 2026-10-13 (collections that hold shows, on a branch)
 
 **Shipped.** Nothing yet. Branch `collections-with-shows`, merged into main for the next build.
