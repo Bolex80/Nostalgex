@@ -65,12 +65,17 @@ final class PlaybackTracker {
 
     // MARK: - Server reporting (nil = reporting off, or demo)
 
-    private let plexAPI: PlexAPIService?
-    private let watchReporter: (any WatchActivityReporting)?
+    private var plexAPI: PlexAPIService?
+    private var watchReporter: (any WatchActivityReporting)?
+
+    private var heartbeatReporter: PlexHeartbeatReporter?
+    private var heartbeatState: String?
+    private var heartbeatSessionID = UUID().uuidString
+    private var backgrounded = false
 
     // MARK: - Continue Watching guard
 
-    private let watchGuard: (any WatchStateGuarding)?
+    private var watchGuard: (any WatchStateGuarding)?
     private let queue: ReportQueue
     private let now: () -> Date
     /// Written by the capture operation on `queue`, read by the cleanup operation on it.
@@ -86,18 +91,16 @@ final class PlaybackTracker {
         seekOffset: Int,
         plexAPI: PlexAPIService?,
         watchReporter: (any WatchActivityReporting)? = nil,
+        heartbeatReporter: PlexHeartbeatReporter? = nil,
         queue: ReportQueue = .shared,
         now: @escaping () -> Date = Date.init
     ) {
         self.item = item
         self.seekOffset = seekOffset
-        self.plexAPI = plexAPI
-        self.watchReporter = watchReporter
-        if let plexAPI {
-            self.watchGuard = plexAPI.watchStateGuard
-        } else {
-            self.watchGuard = watchReporter?.watchStateGuard
-        }
+        self.plexAPI = heartbeatReporter == nil ? plexAPI : nil
+        self.watchReporter = heartbeatReporter == nil ? watchReporter : nil
+        self.heartbeatReporter = heartbeatReporter
+        self.watchGuard = Self.guardFor(plexAPI: self.plexAPI, watchReporter: self.watchReporter)
         self.queue = queue
         self.now = now
 
@@ -106,6 +109,11 @@ final class PlaybackTracker {
         self.eligibleEntry = entryFrac <= 0.15
 
         print("[Tracker] \(sessionID.prefix(8)) START \"\(item.title)\" offset=\(seekOffset)s eligible=\(eligibleEntry)")
+    }
+
+    private static func guardFor(plexAPI: PlexAPIService?, watchReporter: (any WatchActivityReporting)?) -> (any WatchStateGuarding)? {
+        if let plexAPI { return plexAPI.watchStateGuard }
+        return watchReporter?.watchStateGuard
     }
 
     deinit {
@@ -117,7 +125,7 @@ final class PlaybackTracker {
     /// Call when AVPlayer becomes .readyToPlay and begins playing.
     /// Idempotent — safe to call from retry / transcode-fallback paths for the same item.
     func onPlaybackReady() {
-        guard !stopped else { return }
+        guard !stopped, !backgrounded else { return }
         if watchStart == nil {
             watchStart = now()
         }
@@ -135,11 +143,34 @@ final class PlaybackTracker {
         timelineTimer = nil
     }
 
+    /// Applies the mutually exclusive reporting policies without stopping playback
+    /// or resetting analytics. The owner closes a disabled heartbeat queue first.
+    func setReporters(plexAPI: PlexAPIService?, watchReporter: (any WatchActivityReporting)?, heartbeatReporter: PlexHeartbeatReporter?) {
+        let heartbeatChanged = self.heartbeatReporter !== heartbeatReporter
+        self.plexAPI = heartbeatReporter == nil ? plexAPI : nil
+        self.watchReporter = heartbeatReporter == nil ? watchReporter : nil
+        self.heartbeatReporter = heartbeatReporter
+        watchGuard = Self.guardFor(plexAPI: self.plexAPI, watchReporter: self.watchReporter)
+        if heartbeatChanged { heartbeatSessionID = UUID().uuidString }
+        if heartbeatChanged, !stopped, !backgrounded, let heartbeatState {
+            heartbeatReporter?.report(ratingKey: item.ratingKey, state: heartbeatState, sessionID: heartbeatSessionID)
+        }
+    }
+
+    /// AVPlayer's state feeds heartbeat reporting without changing history accounting.
+    func onHeartbeatPlaybackState(_ state: String) {
+        guard !stopped, !backgrounded, state != heartbeatState else { return }
+        heartbeatState = state
+        heartbeatReporter?.report(ratingKey: item.ratingKey, state: state, sessionID: heartbeatSessionID)
+    }
+
     /// Call when the app enters the background. The app may never come back, so the
     /// item is put back the way it was now; returning to the foreground reports again
     /// and the next stop cleans up again.
     func onBackground() {
-        guard !stopped else { return }
+        guard !stopped, !backgrounded else { return }
+        backgrounded = true
+        heartbeatState = nil
         accumulateTime()
         sendTimeline(state: "stopped")
         didStartSession = false
@@ -151,6 +182,7 @@ final class PlaybackTracker {
     /// Call when the app returns to the foreground.
     func onForeground() {
         guard !stopped else { return }
+        backgrounded = false
         watchStart = now()
         scheduleTimeline()
         sendTimeline(state: "playing")
@@ -164,7 +196,7 @@ final class PlaybackTracker {
         timelineTimer?.invalidate()
         timelineTimer = nil
         accumulateTime()
-        sendTimeline(state: "stopped")
+        if !backgrounded { sendTimeline(state: "stopped") }
         evaluateAndScrobble()
         enqueueCleanup()
         print("[Tracker] \(sessionID.prefix(8)) STOP \"\(item.title)\" watched=\(Int(activeWatchSeconds))s scrobbled=\(scrobbled)")
@@ -227,8 +259,8 @@ final class PlaybackTracker {
         }
     }
 
-    private func onTimelineTick() {
-        guard !stopped else {
+    func onTimelineTick() {
+        guard !stopped, !backgrounded else {
             timelineTimer?.invalidate()
             return
         }
@@ -277,9 +309,11 @@ final class PlaybackTracker {
     }
 
     private func sendTimeline(state: String, timeMs: Int? = nil, durationMs: Int? = nil) {
-        // After a scrobble, Plex would store any nonzero position as a fresh resume point
-        // on the item it just marked watched, putting it straight back in Continue
-        // Watching. Position 0 keeps Now Playing alive without writing one (measured).
+        if let heartbeatReporter {
+            let reportedState = state == "playing" ? (heartbeatState ?? "buffering") : state
+            heartbeatReporter.report(ratingKey: item.ratingKey, state: reportedState, sessionID: heartbeatSessionID)
+            return
+        }
         let t = (scrobbled && plexAPI != nil) ? 0 : (timeMs ?? currentTimeMs())
         let d = durationMs ?? (item.duration * 60 * 1000)
         // A "stopped" for a session that never reported "playing" (tuned past before the
@@ -333,7 +367,7 @@ final class PlaybackTracker {
     }
 
     private func evaluateAndScrobble() {
-        guard eligibleEntry, !scrobbled else { return }
+        guard heartbeatReporter == nil, plexAPI != nil || watchReporter != nil, eligibleEntry, !scrobbled else { return }
         let totalSec = Double(item.duration * 60)
         guard totalSec > 0, activeWatchSeconds / totalSec >= 0.75 else { return }
         scrobbled = true
