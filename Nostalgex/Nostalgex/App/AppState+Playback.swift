@@ -945,7 +945,7 @@ extension AppState {
             let frames = probe.hasNewPixelBuffer(forItemTime: playerItem.currentTime())
             guard !PlaybackWatchdog.hasPicture(reachedReady: reachedReady, progressedSeconds: progressed, decodedFrame: frames) else { return }
             let access = playerItem.accessLog()?.events.last.map { "segments=\($0.numberOfMediaRequests) stalls=\($0.numberOfStalls) bytes=\($0.numberOfBytesTransferred) dropped=\($0.numberOfDroppedVideoFrames) watched=\(String(format: "%.1f", $0.durationWatched))s" } ?? "no access log"
-            let errors = playerItem.errorLog()?.events.suffix(3).map { "\($0.errorStatusCode) \($0.errorComment ?? "") \(($0.uri ?? "").suffix(48))" }.joined(separator: " | ") ?? ""
+            let errors = playerItem.errorLog()?.events.suffix(3).map { "\($0.errorStatusCode) \(PlaybackDiagnostics.redactSensitiveText($0.errorComment ?? ""))" }.joined(separator: " | ") ?? ""
             let detail = "ready=\(reachedReady), playhead moved \(String(format: "%.1f", progressed))s, frames=\(frames), declared \(Int(playerItem.presentationSize.width))x\(Int(playerItem.presentationSize.height)), rate=\(self.player?.rate ?? -1), status=\(playerItem.status.rawValue), \(access)\(errors.isEmpty ? "" : ", errors: " + errors)"
             if isDirectPlay, let item {
                 // Audio with a black picture is the signature of a file AVPlayer opened but

@@ -11,23 +11,27 @@ import Foundation
 /// network) and the last few are stored so Settings can show them. Logging only: nothing
 /// here changes what the player does.
 enum PlaybackDiagnostics {
-    private static let key = "nostalgex_playback_verdicts"
+    private static let key = "nostalgex_playback_verdicts_v2"
+    private static let legacyKey = "nostalgex_playback_verdicts"
     private static let keep = 5
 
     /// Record a watchdog or end-of-item decision. `outcome` is what the app did next.
     static func record(outcome: String, title: String, detail: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: legacyKey)
         let stamp = Self.clock.string(from: Date())
         let line = "\(stamp) \(outcome): \"\(title)\", \(detail)"
-        InstallDiagnostics.note("WATCHDOG VERDICT: \(line)")
+        let safeLine = redactSensitiveText(line)
+        InstallDiagnostics.note("WATCHDOG VERDICT: \(safeLine)")
         var rows = defaults.stringArray(forKey: key) ?? []
-        rows.insert(line, at: 0)
+        rows.insert(safeLine, at: 0)
         if rows.count > keep { rows = Array(rows.prefix(keep)) }
         defaults.set(rows, forKey: key)
     }
 
     /// Newest first. Empty when playback has never been given up on.
     static func recent(defaults: UserDefaults = .standard) -> [String] {
-        defaults.stringArray(forKey: key) ?? []
+        defaults.removeObject(forKey: legacyKey)
+        return (defaults.stringArray(forKey: key) ?? []).map(redactSensitiveText)
     }
 
     /// The line Settings shows. Short enough to read from the couch, complete enough to
@@ -36,7 +40,28 @@ enum PlaybackDiagnostics {
         recent(defaults: defaults).first
     }
 
-    static func clear(defaults: UserDefaults = .standard) { defaults.removeObject(forKey: key) }
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: key)
+        defaults.removeObject(forKey: legacyKey)
+    }
+
+    /// Error comments can embed full URLs, userinfo, query credentials, or header dumps.
+    /// Strip those before either logging or persistence; never truncate a URL first.
+    static func redactSensitiveText(_ text: String) -> String {
+        var safe = text
+        // Handle encoded URLs/query names from server and AVFoundation error messages.
+        for _ in 0..<2 { safe = safe.removingPercentEncoding ?? safe }
+        let patterns = [
+            #"(?i)\b(?:https?|plex)://[^\s<>"']+"#,
+            #"(?i)authorization["']?\s*[:=]\s*[^\r\n,]+"#,
+            #"(?i)(?:x[-_]plex[-_]token|x[-_]emby[-_]token|access[-_]?token|api[-_]?key|token|password|secret)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s&,;]+)"#,
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            safe = regex.stringByReplacingMatches(in: safe, range: NSRange(safe.startIndex..., in: safe), withTemplate: "[redacted]")
+        }
+        return safe
+    }
 
     private static let clock: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM d HH:mm"; return f

@@ -31,6 +31,32 @@ final class PlaybackDiagnosticsTests: XCTestCase {
         XCTAssertTrue(rows[4].contains("\"T4\""))
     }
 
+    func testCredentialsAreRemovedBeforePersistenceAndLegacyRowsArePurged() {
+        let samples = [
+            "https://user:pass@example.invalid/file?X-Plex-Token=fixture-one#fragment",
+            "/segment.ts?x-plex-token=fixture-two&other=ok",
+            "X-Plex-Token: \"fixture-three\"",
+            "Authorization: Bearer fixture-four",
+            "https%3A%2F%2Fexample.invalid%2Ffile%3FX-Plex-Token%3Dfixture-five",
+            "api_key=fixture-six; Token='fixture-seven'",
+            #"{"X-Plex-Token": "fixture-eight", "Authorization": "Bearer fixture-nine"}"#,
+            "X%252DPlex%252DToken%253Dfixture-ten",
+
+        ]
+        for sample in samples {
+            PlaybackDiagnostics.record(outcome: "HTTP 403", title: "Synthetic", detail: sample, defaults: defaults)
+            let persisted = defaults.dictionaryRepresentation().description
+            XCTAssertFalse(persisted.contains("fixture-"), sample)
+            XCTAssertFalse(persisted.contains("user:pass"), sample)
+        }
+        let rows = PlaybackDiagnostics.recent(defaults: defaults).joined()
+        XCTAssertFalse(rows.contains("fixture-"))
+        XCTAssertTrue(rows.contains("HTTP 403"))
+        defaults.set(["legacy token tail"], forKey: "nostalgex_playback_verdicts")
+        _ = PlaybackDiagnostics.recent(defaults: defaults)
+        XCTAssertNil(defaults.object(forKey: "nostalgex_playback_verdicts"))
+    }
+
     func testClearEmptiesIt() {
         PlaybackDiagnostics.record(outcome: "x", title: "y", detail: "z", defaults: defaults)
         PlaybackDiagnostics.clear(defaults: defaults)
