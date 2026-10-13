@@ -1,5 +1,7 @@
 ---
-description: "The bundle the app is named after: 19 channels of 80s and 90s cartoons, sitcoms, VHS era movies and after school TV from your own library."
+title: "80s and 90s TV Channels for Plex and Jellyfin | Nostalgex"
+description: "Saturday morning cartoons, 90s sitcoms, VHS Vault and teen movies as live channels from your own Plex or Jellyfin library. Free on Apple TV and web."
+blurb: "The one the app is named after. Saturday mornings, the VHS shelf, after school TV."
 faq:
   - q: "Do I need my own movies and shows?"
     a: "Yes. Nostalgex builds every channel out of the Plex or Jellyfin library you already have. It never supplies titles of its own."

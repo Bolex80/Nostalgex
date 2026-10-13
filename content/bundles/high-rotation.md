@@ -1,5 +1,7 @@
 ---
-description: "Fourteen music video channels sorted by genre, built from the music videos in your own Plex or Jellyfin library. The 24 hour music channel is back."
+title: "Music Video Channels for Plex and Jellyfin | Nostalgex"
+description: "Pop, rock, country, rap, slow jams and Y2K music videos on live channels from your own Plex or Jellyfin library. Free and open source on Apple TV."
+blurb: "Music videos by genre, if your server has them tagged that way."
 faq:
   - q: "What does this bundle need in my library?"
     a: "Music videos, in a library your server identifies as music videos. HIGH ROTATION reads that library specifically, so a folder of concert films filed under Movies will not feed these channels."

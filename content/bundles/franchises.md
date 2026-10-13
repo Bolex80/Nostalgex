@@ -1,5 +1,7 @@
 ---
-description: "Seven marathon channels, one per film series, built from the sequels and trilogies already sitting in your own Plex or Jellyfin library."
+title: "Movie Franchise Marathon Channels for Plex | Nostalgex"
+description: "Back to back franchise marathons on live channels built from the movies in your own Plex or Jellyfin library. Free and open source on Apple TV."
+blurb: "Film series marathons, played in order, the way a long weekend used to work."
 faq:
   - q: "Do the films come with the app?"
     a: "No. Every channel here is built from the Plex or Jellyfin library you already own. Nostalgex supplies the channels and the schedule, nothing else."

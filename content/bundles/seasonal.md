@@ -1,5 +1,7 @@
 ---
-description: "Four horror channels for October: kid safe spooky, 80s slashers, the hard stuff and a mixed horror channel, all from your own library."
+title: "Halloween Horror Channels for Plex and Jellyfin | Nostalgex"
+description: "Kid safe spooky movies, 80s slashers and late night horror on live channels from your own Plex or Jellyfin library. Free on Apple TV for October."
+blurb: "October. Kid safe spooky, 80s slashers and the late night stuff."
 faq:
   - q: "Do I need my own horror movies?"
     a: "Yes. SCREAM is built from the horror already on your Plex or Jellyfin server. Nostalgex schedules what you own and plays it back."

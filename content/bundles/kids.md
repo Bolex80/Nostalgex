@@ -1,5 +1,7 @@
 ---
-description: "Fifteen family channels: cartoons, animated films, family TV and tween and teen shows, scheduled from the kids titles in your own library."
+title: "Kids and Family Channels for Plex and Jellyfin | Nostalgex"
+description: "Family hour, cartoons, tween TV and teen drama as live channels built from the kids titles in your own Plex or Jellyfin library. Free on Apple TV."
+blurb: "Cartoons, animated films and family TV for the hour before dinner."
 faq:
   - q: "Do I need my own kids movies and shows?"
     a: "Yes. Every channel is built from the Plex or Jellyfin library you already own. Nostalgex supplies the channels and the schedule, not the titles."

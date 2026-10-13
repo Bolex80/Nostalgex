@@ -1,5 +1,7 @@
 ---
-description: "Seven channels, one per decade from the 60s to the 20s, built from your own Plex or Jellyfin library. Pick a year and leave it there."
+title: "60s to 2020s TV by Decade for Plex and Jellyfin | Nostalgex"
+description: "One live channel per decade, from the 60s to the 2020s, built from the movies and shows in your own Plex or Jellyfin library. Free on Apple TV."
+blurb: "One channel per decade, the 60s through the 20s, sorted by the year on the film."
 faq:
   - q: "How does a title land on a decade channel?"
     a: "By release year, read from the metadata your server already has. A film from 1994 lands on THE 90S whether you added it last week or ten years ago."

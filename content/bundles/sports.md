@@ -1,5 +1,7 @@
 ---
-description: "Overtime is three channels of sports from your own library: sports movies, sports TV and documentaries, running on a real schedule."
+title: "Sports Movie and Docs Channels for Plex | Nostalgex"
+description: "Sports movies, sports TV and sports docs on live channels from your own Plex or Jellyfin library. Free, open source and plug and play on Apple TV."
+blurb: "The sports section of your shelf: movies, shows and documentaries."
 faq:
   - q: "Does this show live games?"
     a: "No. There is no live sport in Nostalgex. These three channels play the sports movies, shows and documentaries already sitting in your Plex or Jellyfin library."

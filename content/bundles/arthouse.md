@@ -1,5 +1,7 @@
 ---
-description: "Four channels for the serious end of the shelf: world cinema, cult classics and midnight movies, scheduled from your own library."
+title: "Cult and Foreign Film Channels for Plex | Nostalgex"
+description: "Foreign films, cult classics and midnight movies on live channels from your own Plex or Jellyfin library. Free, open source and plug and play."
+blurb: "World cinema, cult classics and the late slot."
 faq:
   - q: "Do I need my own films?"
     a: "Yes. These channels are built from the Plex or Jellyfin library you already own. Nostalgex schedules what is on your server and plays it back."

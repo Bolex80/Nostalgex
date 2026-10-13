@@ -1,5 +1,7 @@
 ---
-description: "Case Files is five channels for a true crime night: documentaries, crime films, thrillers, mysteries and crime series from your own library."
+title: "True Crime and Thriller Channels for Plex | Nostalgex"
+description: "True crime, thrillers, mysteries and crime TV as live channels from your own Plex or Jellyfin library. Free and open source on Apple TV and the web."
+blurb: "Documentaries, crime films, thrillers and the procedural nobody watches in order."
 faq:
   - q: "Do I need my own true crime library?"
     a: "Yes. These channels are assembled from the Plex or Jellyfin library you already have. Nostalgex schedules your files, it does not supply any titles."

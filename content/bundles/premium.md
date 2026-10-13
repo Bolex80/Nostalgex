@@ -1,5 +1,7 @@
 ---
-description: "Marquee is the good shelf: 11 channels for anime, musicals, biopics, comedy specials and the films you keep because they are great."
+title: "Anime, Stand Up and Date Night Channels for Plex | Nostalgex"
+description: "Anime, musicals, stand up, biopics and date night movies as live channels from your own Plex or Jellyfin library. Free and open source on Apple TV."
+blurb: "The good shelf. Anime, musicals, comedy specials and the films you keep."
 faq:
   - q: "What makes a title land on ALL TIME GREATS or CERTIFIED GOLD?"
     a: "Ratings data on the titles you already own. The channels read the quality signals attached to your library, so the best of your own shelf rises to the top rather than somebody else's list."

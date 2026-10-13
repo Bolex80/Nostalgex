@@ -353,6 +353,10 @@ export async function loadBundleContent(bundles) {
       raw,
       titleOverride: fm.title ? String(fm.title) : null,
       description,
+      // The hub shows a short line per bundle. The meta description is written
+      // for a search result and reads as boilerplate when 14 of them sit in a
+      // column, so `blurb` carries the human version. Falls back to the meta.
+      blurb: fm.blurb ? String(fm.blurb) : description,
       faq,
       markdown: parsed.content.replace(/<!--[\s\S]*?-->/g, "").trim(),
       words: countWords(parsed.content),
@@ -535,12 +539,15 @@ function breadcrumbJsonLd(canonical, items) {
   };
 }
 
-// The hub's own title and meta, computed from the data. Exported so the copy
-// checks test the same strings the page carries rather than a second copy.
-export function hubMeta({ totalChannels, bundleCount }) {
+// The hub's own title and meta. Hand written rather than built from the counts,
+// so the search result leads with what the page is instead of a number. The
+// counts still carry the H1 and the body. Exported so the copy checks test the
+// same strings the page carries rather than a second copy.
+export function hubMeta() {
   return {
-    title: `Nostalgex Channel Guide: ${totalChannels} Channels in ${bundleCount} Bundles`,
-    description: `Every Nostalgex bundle and channel: ${totalChannels} free channels in ${bundleCount} bundles that turn your Plex or Jellyfin library into live TV on Apple TV.`,
+    title: "Retro TV Channel Guide for Plex and Jellyfin | Nostalgex",
+    description:
+      "Browse every Nostalgex channel and bundle. Free, open source live TV from your own Plex or Jellyfin library on Apple TV, with no manual scheduling.",
   };
 }
 
@@ -602,7 +609,7 @@ function renderHubPage(model, assetHrefs) {
       const moreCell = hidden
         ? `\n            <li class="guide-cell guide-cell--more">${escapeHtml(moreChannelsLine(hidden))}</li>`
         : "";
-      const blurb = content.get(bundle.id)?.description;
+      const blurb = content.get(bundle.id)?.blurb;
       const blurbHtml = blurb
         ? `\n            <p class="guide-row-blurb">${escapeHtml(blurb)}</p>`
         : "";
@@ -1154,6 +1161,18 @@ export async function renderBundles(assetHrefs = {}, options = {}) {
         "title too long",
         `${page.title.length} chars (max ${TITLE_MAX}): "${page.title}"`,
       );
+    }
+    // Titles are hand written in the content files now, so the generated shape
+    // no longer guarantees any of this: every one has to carry the brand, and
+    // none should fall back to the old "Bundle: 19 Channels" pattern.
+    if (!page.title.endsWith(" | Nostalgex")) {
+      log.fail(where, "title missing the brand suffix", `"${page.title}" should end with " | Nostalgex"`);
+    }
+    if (/:\s*\d+\s+Channels/i.test(page.title)) {
+      log.fail(where, "title still carries the channel count", `"${page.title}"`);
+    }
+    if (/Nostalgia TV/i.test(page.title)) {
+      log.fail(where, "title says Nostalgia TV", `"${page.title}"`);
     }
     if (seenTitles.has(page.title)) {
       log.fail(

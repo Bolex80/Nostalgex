@@ -1,5 +1,7 @@
 ---
-description: "Nine channels of popcorn: epics, disaster movies, sci fi, fantasy, westerns, war films, superheroes and spy thrillers from your own library."
+title: "Action, Sci Fi and Western Channels for Plex | Nostalgex"
+description: "Epic adventures, disaster movies, sci fi, fantasy, westerns and spy movies on live channels from your own Plex or Jellyfin library. Free on Apple TV."
+blurb: "Big and loud. Epics, disasters, sci fi, fantasy, westerns and spies."
 faq:
   - q: "Do I need my own movies?"
     a: "Yes. Every channel here is built from the Plex or Jellyfin library you already own. Nostalgex schedules your files and plays them back."

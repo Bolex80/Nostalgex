@@ -1,5 +1,7 @@
 ---
-description: "Prime Time is the everyday bundle: 15 channels of sitcoms, movies, docs and feel good TV scheduled out of your own Plex or Jellyfin library."
+title: "Sitcom, Rom Com and Drama Channels for Plex | Nostalgex"
+description: "Sitcoms, rom coms, reality TV, docs and drama running all day from your own Plex or Jellyfin library. Free, open source and plug and play on Apple TV."
+blurb: "The everyday lineup: sitcoms, movie night, docs and drama."
 faq:
   - q: "Do I need my own movies and shows?"
     a: "Yes. Prime Time channels are built from the Plex or Jellyfin library you already have. Nostalgex schedules what you own and plays it back."

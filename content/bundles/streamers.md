@@ -1,5 +1,7 @@
 ---
-description: "Eleven channels that sort your own library by the studio or service a title came from, so the shelf splits the way the catalogues do."
+title: "Channels by Studio and Streamer for Plex | Nostalgex"
+description: "Your movies and shows sorted into channels by the studio or service that made them, built from your own Plex or Jellyfin library. Free on Apple TV."
+blurb: "Your library sorted by the studio or service that made it."
 faq:
   - q: "Does this stream from a subscription service?"
     a: "No. There is no outside catalogue anywhere in Nostalgex. These channels only play files that are already on your own Plex or Jellyfin server."
