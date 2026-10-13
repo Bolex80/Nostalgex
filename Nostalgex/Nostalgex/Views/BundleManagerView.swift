@@ -78,6 +78,21 @@ struct SettingsPageView: View {
                         VStack(alignment: .leading, spacing: 20) {
                             sectionHeader("DISPLAY", subtitle: "Visual effects and aspect ratio")
 
+                            // Off by default and per-TV. Turning it on pushes this TV's
+                            // lineup and settings to iCloud first, then listens.
+                            SettingsToggleRow(
+                                title: "SYNC WITH MY OTHER APPLE TVS",
+                                subtitle: appState.iCloudSyncEnabled
+                                    ? "On. This Apple TV's lineup is shared through iCloud."
+                                    : "Off. Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
+                                isOn: appState.iCloudSyncEnabled,
+                                isFocused: focusedItem == "icloud_sync"
+                            ) {
+                                appState.iCloudSyncEnabled.toggle()
+                            }
+                            .focused($focusedItem, equals: "icloud_sync")
+                            .id("icloud_sync")
+
                             SettingsToggleRow(
                                 title: "RETRO MODE",
                                 subtitle: "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio",
@@ -194,6 +209,13 @@ struct SettingsPageView: View {
                                     .focused($focusedItem, equals: "bundle_\(bundle.id)")
                                     .id("bundle_\(bundle.id)")
                                     .opacity(available == 0 ? 0.5 : 1.0)
+
+                                    // The classics above are the stock half of FRANCHISES.
+                                    // Everything the library itself turned out to hold
+                                    // sits right under them, one switch each.
+                                    if bundle.id == AppState.franchisesBundleID && bundle.enabled {
+                                        foundFranchisesBlock
+                                    }
                                 }
                             }
                         }
@@ -202,7 +224,7 @@ struct SettingsPageView: View {
 
                         // My Collections — scan once, then browse by category accordion (no bundle toggles)
                         VStack(alignment: .leading, spacing: 20) {
-                            sectionHeader("MY COLLECTIONS", subtitle: "Scan Plex collections, then turn individual collections into channels")
+                            sectionHeader("MY COLLECTIONS", subtitle: "Scan your server's collections, then turn the ones you want into channels")
 
                             VStack(spacing: 14) {
                                 scanCollectionsHeroButton(
@@ -215,6 +237,15 @@ struct SettingsPageView: View {
                                         .fill(Color.white.opacity(0.06))
                                         .frame(height: 1)
                                         .padding(.vertical, 4)
+
+                                    if appState.visibleDiscoveredCollections.isEmpty {
+                                        // Every collection the scan found is a franchise the
+                                        // FRANCHISES package already carries.
+                                        Text(allCollectionsFoldedHint)
+                                            .font(.custom("DMMono-Regular", size: 20))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
 
                                     ForEach(Array(CollectionCategory.allCases), id: \.rawValue) { category in
                                         collectionsCategoryAccordion(category: category)
@@ -402,13 +433,123 @@ struct SettingsPageView: View {
         SubtitleLanguagePreset.displayLabel(for: code)
     }
 
+    // MARK: - Found franchises (under the FRANCHISES package row)
+
+    /// The indented block under FRANCHISES: a header with the count, ADD ALL / REMOVE
+    /// ALL, one switch per found franchise, then the ones a classic already covers,
+    /// greyed. Hidden entirely while the package is off (see the caller).
+    @ViewBuilder
+    private var foundFranchisesBlock: some View {
+        let listed = appState.listedFoundFranchises
+        let covered = appState.coveredFoundFranchises
+
+        VStack(alignment: .leading, spacing: 4) {
+            if listed.isEmpty && covered.isEmpty {
+                Text(foundFranchisesEmptyHint)
+                    .font(.custom("DMMono-Regular", size: 20))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+            } else {
+                HStack(spacing: 12) {
+                    Text("FOUND IN YOUR LIBRARY")
+                        .font(.custom("DMMono-Medium", size: 20))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text("\(listed.filter(\.enabled).count)/\(listed.count) ON AIR")
+                        .font(.custom("VT323-Regular", size: 22))
+                        .foregroundStyle(.white.opacity(0.4))
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
+
+                // Only when the range is actually full (CH 300-499); otherwise nothing.
+                let overCap = appState.dynamicChannelsOverCap[.franchises, default: 0]
+                if overCap > 0 {
+                    Text("Up to \(CollectionCategory.franchises.displayCapacity) franchise channels fit in the guide. \(overCap) more are switched on but not shown.")
+                        .font(.custom("DMMono-Regular", size: 18))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 6)
+                }
+
+                if !listed.isEmpty {
+                    let allOn = listed.allSatisfy(\.enabled)
+                    let allOff = !listed.contains(where: \.enabled)
+                    HStack(spacing: 12) {
+                        FranchiseActionButton(
+                            title: "ADD ALL",
+                            subtitle: allOn ? "Every found franchise is on" : "Turn on all \(listed.count)",
+                            isEnabled: !allOn,
+                            isFocused: focusedItem == "franchise_add_all"
+                        ) {
+                            appState.setAllFoundFranchises(enabled: true)
+                        }
+                        .focused($focusedItem, equals: "franchise_add_all")
+                        .id("franchise_add_all")
+
+                        FranchiseActionButton(
+                            title: "REMOVE ALL",
+                            subtitle: allOff ? "None are on" : "Take them all out of the guide",
+                            isEnabled: !allOff,
+                            isFocused: focusedItem == "franchise_remove_all"
+                        ) {
+                            appState.setAllFoundFranchises(enabled: false)
+                        }
+                        .focused($focusedItem, equals: "franchise_remove_all")
+                        .id("franchise_remove_all")
+                    }
+                }
+
+                ForEach(listed) { franchise in
+                    SettingsToggleRow(
+                        title: franchise.name,
+                        subtitle: franchise.countLabel,
+                        isOn: franchise.enabled,
+                        isFocused: focusedItem == "franchise_\(franchise.id)"
+                    ) {
+                        appState.toggleFranchise(franchise)
+                    }
+                    .focused($focusedItem, equals: "franchise_\(franchise.id)")
+                    .id("franchise_\(franchise.id)")
+                }
+
+                // Already on with the package through its classic: no switch, just the fact.
+                ForEach(covered) { franchise in
+                    FranchiseCoveredRow(
+                        title: franchise.name,
+                        subtitle: franchise.coveredLabel,
+                        detail: "ON AIR"
+                    )
+                }
+            }
+        }
+        .padding(.leading, 24)
+    }
+
+    private var foundFranchisesEmptyHint: String {
+        if appState.isDemoMode {
+            return "Demo mode has no library to search. Connect a server to find your franchises."
+        }
+        return "Franchises you own show up here once your library has been enriched."
+    }
+
     // MARK: - My Collections (scan hero + accordion)
 
     private var collectionEmptyHint: String {
         if appState.allItems.isEmpty {
             return "Wait for your library to finish loading, then scan here."
         }
-        return "Finds Plex movie collections with 3+ films. Categories appear after the first scan."
+        return "Finds server movie collections with 3+ films. Franchises go under CHANNEL PACKAGES; the rest appear here after the first scan."
+    }
+
+    private var allCollectionsFoldedHint: String {
+        let count = appState.discoveredCollections.count
+        let noun = count == 1 ? "collection is" : "collections are"
+        return "All \(count) of your \(noun) already covered by the FRANCHISES package."
     }
 
     private func collectionsScanSubtitle() -> String? {
@@ -419,7 +560,11 @@ struct SettingsPageView: View {
         if appState.discoveredCollections.isEmpty {
             return "Turns your server's collections into optional channels"
         }
-        return "\(appState.discoveredCollections.count) COLLECTIONS CACHED · TAP TO RESCAN"
+        let visible = appState.visibleDiscoveredCollections.count
+        let folded = appState.discoveredCollections.count - visible
+        let foldedNote = folded > 0 ? " · \(folded) UNDER FRANCHISES" : ""
+        let noun = visible == 1 ? "COLLECTION" : "COLLECTIONS"
+        return "\(visible) \(noun) CACHED\(foldedNote) · TAP TO RESCAN"
     }
 
     @ViewBuilder
@@ -489,7 +634,8 @@ struct SettingsPageView: View {
 
     @ViewBuilder
     private func collectionsCategoryAccordion(category: CollectionCategory) -> some View {
-        let rows = appState.discoveredCollections.filter { $0.category == category }
+        // A collection the fold credited to a franchise is not offered here again.
+        let rows = appState.visibleDiscoveredCollections.filter { $0.category == category }
         if rows.isEmpty {
             EmptyView()
         } else {
@@ -750,6 +896,86 @@ private struct CollectionAccordionHeaderRow: View {
         .buttonStyle(SettingsButtonStyle(isFocused: isFocused, accentColor: Color("BrandCyan")))
         .animation(.easeInOut(duration: 0.18), value: isExpanded)
         .animation(.easeInOut(duration: 0.12), value: isFocused)
+    }
+}
+
+// MARK: - Found franchises: ADD ALL / REMOVE ALL and the covered row
+
+/// Half-width action row for the found-franchise block. Same chrome as
+/// SettingsToggleRow (DMMono, cyan focus stroke), no switch, dims when it has nothing
+/// left to do so the pair reads as a state as much as a control.
+private struct FranchiseActionButton: View {
+    let title: String
+    let subtitle: String
+    let isEnabled: Bool
+    let isFocused: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.custom("DMMono-Medium", size: 22))
+                    .foregroundStyle(isEnabled ? .white : .white.opacity(0.35))
+                Text(subtitle)
+                    .font(.custom("DMMono-Regular", size: 20))
+                    .foregroundStyle(.white.opacity(isEnabled ? 0.8 : 0.5))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isFocused ? .white.opacity(0.07) : .white.opacity(0.02))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isFocused ? Color("BrandCyan").opacity(0.5) : .clear, lineWidth: 1.5)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(SettingsButtonStyle(isFocused: isFocused))
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityHint(subtitle)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
+    }
+}
+
+/// A found franchise that a classic (CH100-106) already carries. Not focusable: there
+/// is nothing to decide, the package switch above already covers it.
+private struct FranchiseCoveredRow: View {
+    let title: String
+    let subtitle: String
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.custom("DMMono-Medium", size: 22))
+                    .foregroundStyle(.white)
+                Text(subtitle)
+                    .font(.custom("DMMono-Regular", size: 20))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(2)
+            }
+            Spacer()
+            Text(detail)
+                .font(.custom("VT323-Regular", size: 22))
+                .foregroundStyle(Color("BrandCyan").opacity(0.75))
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.white.opacity(0.02))
+        )
+        .opacity(0.5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(subtitle), already \(detail)")
     }
 }
 

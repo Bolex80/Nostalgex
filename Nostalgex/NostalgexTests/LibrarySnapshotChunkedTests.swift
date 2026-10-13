@@ -143,6 +143,54 @@ final class LibrarySnapshotChunkedTests: XCTestCase {
         assertMatches(loaded.snapshot, f)
     }
 
+    /// Found franchises and the collection fold label ride in meta.json as item indexes,
+    /// and come back as the same rating keys.
+    func testFoundFranchisesAndFoldRoundTripThroughChunks() throws {
+        let all = items(LibrarySnapshotStore.chunkSize + 40)
+        let movies = Array(all.prefix(3))
+        let tv = Array(all.suffix(4))
+        let franchises = [
+            FoundFranchise(id: "dict:JOHN WICK", name: "JOHN WICK", movies: movies, tvItems: tv,
+                           coveredByChannelID: nil, fromDictionary: true, enabled: true),
+            FoundFranchise(id: "tmdb:10", name: "STAR WARS", movies: [all[5]], tvItems: [],
+                           coveredByChannelID: 100, fromDictionary: true, enabled: false),
+        ]
+        var collection = DiscoveredCollection(id: "col-wick", title: "JOHN WICK", movieCount: 3,
+                                              items: movies, enabled: false, matchedChannel: nil)
+        collection.foldedIntoFranchise = "JOHN WICK"
+        try LibrarySnapshotStore.save(
+            identity: Self.identity, serverName: "Vault", librarySignature: "sig", lastLoadAtUnix: Int(Date().timeIntervalSince1970),
+            allItems: all, channelConfigChannels: [], allChannels: [], bundles: [],
+            enabledBundleIDs: [], exclusiveRules: [], discoveredCollections: [collection],
+            foundFranchises: franchises)
+
+        let snap = try XCTUnwrap(LibrarySnapshotStore.loadSnapshot(identity: Self.identity)).snapshot
+        let rows = try XCTUnwrap(snap.foundFranchiseRows)
+        XCTAssertEqual(rows.map(\.id), ["dict:JOHN WICK", "tmdb:10"])
+        XCTAssertEqual(rows[0].movieRatingKeys, movies.map(\.id))
+        XCTAssertEqual(rows[0].tvRatingKeys, tv.map(\.id))
+        XCTAssertEqual(rows[1].movieRatingKeys, [all[5].id])
+        XCTAssertEqual(rows[1].coveredByChannelID, 100)
+        XCTAssertEqual(snap.discoveredCollectionRows.first?.foldedIntoFranchise, "JOHN WICK")
+    }
+
+    /// A 1.0.26 meta.json has no franchise fields; it restores as "nothing found yet".
+    func testSnapshotWithoutFranchisesRestoresAsNoneFound() throws {
+        let f = fixture(20)
+        try save(f)
+        let metaURL = LibrarySnapshotStore.snapshotDirectoryURL!
+            .appendingPathComponent(generationDirectories()[0]).appendingPathComponent("meta.json")
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: metaURL)) as? [String: Any])
+        XCTAssertNotNil(json["foundFranchiseRows"])
+        for key in ["foundFranchiseRows", "foundFranchiseMovieItems", "foundFranchiseTVItems"] { json[key] = nil }
+        try JSONSerialization.data(withJSONObject: json).write(to: metaURL)
+
+        let snap = try XCTUnwrap(LibrarySnapshotStore.loadSnapshot(identity: Self.identity)).snapshot
+        XCTAssertNil(snap.foundFranchiseRows)
+        XCTAssertNil(snap.discoveredCollectionRows.first?.foldedIntoFranchise)
+        assertMatches(snap, f)
+    }
+
     func testEmptyLibraryRoundTrips() throws {
         let f = Fixture(items: [], channels: [], collections: [], bundles: [])
         try save(f)

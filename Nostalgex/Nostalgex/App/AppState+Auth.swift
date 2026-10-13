@@ -359,6 +359,12 @@ extension AppState {
         if currentChannel == nil, let first = channels.first {
             selectChannel(first)
         }
+
+        // Test-only: layer an enriched sample library over the demo so the FRANCHISES
+        // package has something to find. See DemoData.franchiseFixture.
+        if DemoData.franchiseFixtureRequested {
+            Task { await installFranchiseFixture() }
+        }
     }
 
     // MARK: - Connection

@@ -141,7 +141,8 @@ enum DemoData {
         )
     }
 
-    private static func episode(id: String, show: String, se: String, year: Int, duration: Int) -> PlexMediaItem {
+    private static func episode(id: String, show: String, se: String, year: Int, duration: Int,
+                                tmdbID: String? = nil) -> PlexMediaItem {
         PlexMediaItem(
             id: id, title: show, artist: nil, episodeTitle: "Demo Episode", seTag: se,
             summary: "Sample episode for demo mode.",
@@ -153,8 +154,123 @@ enum DemoData {
             thumb: nil, art: nil,
             viewCount: 0, addedAt: Int(Date().timeIntervalSince1970),
             studio: "Nostalgex Demo",
-            tmdbID: nil, imdbID: nil,
+            tmdbID: tmdbID, imdbID: nil,
             librarySource: .tv
         )
+    }
+
+    // MARK: - Franchise fixture (test only)
+
+    /// `-uiTestFranchiseFixture`: demo mode plus a small enriched library, so the FOUND IN
+    /// YOUR LIBRARY block and a found-franchise channel can be seen on a simulator with no
+    /// server and before the shared enrichment table carries the franchise columns.
+    /// Never set in a shipping run.
+    static var franchiseFixtureRequested: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestFranchiseFixture")
+    }
+
+    struct FranchiseFixture {
+        let items: [PlexMediaItem]
+        let enrichment: [MediaEnrichment]
+        let collections: [DiscoveredCollection]
+    }
+
+    /// Real TMDB collection ids (the same ones FranchiseDictionary lists) over invented
+    /// item ids. Covers every row kind Settings can show:
+    ///   - STAR WARS: titled so CH100's own `titleContains` rule builds the stock channel,
+    ///     so the found franchise folds into it and lists greyed as "N movies on CH 100".
+    ///   - JOHN WICK, THE HUNGER GAMES, BACK TO THE FUTURE, STAR TREK: dictionary
+    ///     franchises with no stock channel, listed with a switch. STAR TREK carries a show.
+    ///   - SPY KIDS: no dictionary entry, found purely from `belongs_to_collection`.
+    ///   - Two server collections: one that IS John Wick (folds away), one actor set that
+    ///     stays under OTHER COLLECTIONS.
+    static func franchiseFixture() -> FranchiseFixture {
+        func film(_ id: String, _ title: String, _ year: Int, tmdb: String) -> PlexMediaItem {
+            PlexMediaItem(
+                id: id, title: title, artist: nil, episodeTitle: nil, seTag: nil,
+                summary: "Sample content for demo mode.",
+                year: year, originallyAvailableAt: nil, contentRating: "PG-13", duration: 120,
+                ratingKey: id, partKey: nil,
+                container: nil, videoCodec: nil, audioCodec: nil, videoProfile: nil, bitrate: nil,
+                genres: ["Action"], rating: 7.5, userRating: 0,
+                type: .movie,
+                thumb: nil, art: nil,
+                viewCount: 0, addedAt: Int(Date().timeIntervalSince1970),
+                studio: "Nostalgex Demo",
+                tmdbID: tmdb, imdbID: nil,
+                librarySource: .movie
+            )
+        }
+        func row(tmdb: String, mediaType: String = "movie", franchiseID: Int?, franchiseName: String?) -> MediaEnrichment {
+            MediaEnrichment(
+                tmdbID: tmdb, imdbID: nil, mediaType: mediaType,
+                keywords: [], networks: [], productionCompanies: [], tmdbGenres: [],
+                imdbRating: nil, imdbVotes: nil, rottenTomatoesScore: nil, metacriticScore: nil,
+                awards: nil, franchiseID: franchiseID, franchiseName: franchiseName, fetchedAt: Date()
+            )
+        }
+
+        var items: [PlexMediaItem] = []
+        var rows: [MediaEnrichment] = []
+        func add(_ titles: [(String, Int)], prefix: String, tmdbBase: Int, franchiseID: Int, franchiseName: String) {
+            for (i, entry) in titles.enumerated() {
+                let tmdb = "\(tmdbBase + i)"
+                items.append(film("fx-\(prefix)-\(i + 1)", entry.0, entry.1, tmdb: tmdb))
+                rows.append(row(tmdb: tmdb, franchiseID: franchiseID, franchiseName: franchiseName))
+            }
+        }
+
+        add([("Star Wars: Episode IV - A New Hope", 1977),
+             ("Star Wars: Episode V - The Empire Strikes Back", 1980),
+             ("Star Wars: Episode VI - Return of the Jedi", 1983)],
+            prefix: "sw", tmdbBase: 900_010, franchiseID: 10, franchiseName: "Star Wars Collection")
+        add([("John Wick", 2014), ("John Wick: Chapter 2", 2017),
+             ("John Wick: Chapter 3 - Parabellum", 2019), ("John Wick: Chapter 4", 2023)],
+            prefix: "jw", tmdbBase: 900_020, franchiseID: 404609, franchiseName: "John Wick Collection")
+        add([("The Hunger Games", 2012), ("The Hunger Games: Catching Fire", 2013),
+             ("The Hunger Games: Mockingjay - Part 1", 2014), ("The Hunger Games: Mockingjay - Part 2", 2015)],
+            prefix: "hg", tmdbBase: 900_030, franchiseID: 131635, franchiseName: "The Hunger Games Collection")
+        add([("Back to the Future", 1985), ("Back to the Future Part II", 1989), ("Back to the Future Part III", 1990)],
+            prefix: "bttf", tmdbBase: 900_040, franchiseID: 264, franchiseName: "Back to the Future Collection")
+        add([("Star Trek", 2009), ("Star Trek Into Darkness", 2013), ("Star Trek Beyond", 2016)],
+            prefix: "st", tmdbBase: 900_050, franchiseID: 115575, franchiseName: "Star Trek: Alternate Reality Collection")
+        add([("Spy Kids", 2001), ("Spy Kids 2: The Island of Lost Dreams", 2002), ("Spy Kids 3-D: Game Over", 2003)],
+            prefix: "sk", tmdbBase: 900_060, franchiseID: 86027, franchiseName: "Spy Kids Collection")
+
+        // Shows join by dictionary title (The Mandalorian -> STAR WARS) or by token
+        // (Star Trek: The Next Generation -> STAR TREK). TV rows carry no franchise.
+        for se in ["S01E01", "S01E02"] {
+            items.append(episode(id: "fx-mando-\(se)", show: "The Mandalorian", se: se, year: 2019, duration: 40, tmdbID: "900_070"))
+        }
+        for se in ["S03E15", "S03E16"] {
+            items.append(episode(id: "fx-tng-\(se)", show: "Star Trek: The Next Generation", se: se, year: 1990, duration: 45, tmdbID: "900_071"))
+        }
+        rows.append(row(tmdb: "900_070", mediaType: "tv", franchiseID: nil, franchiseName: nil))
+        rows.append(row(tmdb: "900_071", mediaType: "tv", franchiseID: nil, franchiseName: nil))
+
+        // An actor set: three unrelated films, no franchise ids. Stays under OTHER COLLECTIONS.
+        let hanks = [
+            film("fx-hanks-1", "Big", 1988, tmdb: "900_080"),
+            film("fx-hanks-2", "Cast Away", 2000, tmdb: "900_081"),
+            film("fx-hanks-3", "Forrest Gump", 1994, tmdb: "900_082")
+        ]
+        items.append(contentsOf: hanks)
+        for h in hanks { rows.append(row(tmdb: h.tmdbID ?? "", franchiseID: nil, franchiseName: nil)) }
+
+        let wick = items.filter { $0.id.hasPrefix("fx-jw-") }
+        let collections = [
+            DiscoveredCollection(
+                id: "fx-col-wick", title: "JOHN WICK COLLECTION", movieCount: wick.count,
+                items: wick, enabled: false, matchedChannel: nil, contentOverlap: nil,
+                category: .franchises
+            ),
+            DiscoveredCollection(
+                id: "fx-col-hanks", title: "TOM HANKS", movieCount: hanks.count,
+                items: hanks, enabled: false, matchedChannel: nil, contentOverlap: nil,
+                category: .custom
+            )
+        ]
+
+        return FranchiseFixture(items: items, enrichment: rows, collections: collections)
     }
 }

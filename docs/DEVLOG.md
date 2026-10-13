@@ -3,6 +3,29 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (franchise line merged for the next build)
+
+**Changed.** `shared-franchises` merged into `ship-franchises` off main 1.0.26 (47).
+Conflicts and how they went:
+
+- `LibrarySnapshotStore`: main's chunked v3 format kept. Found franchises ride in
+  `meta.json` as rows plus item indexes (`foundFranchiseRows`, `foundFranchiseMovieItems`,
+  `foundFranchiseTVItems`), all optional so a 1.0.26 snapshot restores as nothing found
+  yet with no rescan. `foldedIntoFranchise` travels on the collection row. Two new
+  `LibrarySnapshotChunkedTests` cover both.
+- `AppState+Library`: main's background save and index lookup kept, franchises passed
+  through. `BundleManagerView` merged clean (RATE "thanks" copy kept).
+- Web: main's `api/tmdb.js` (TMDB + OMDb relay, CORS) and smoke test kept; main already
+  had the franchise builder, golden file and `franchises.json`.
+- Siri stays removed.
+
+NostalgexTests 616: 611 passed, 5 skipped, 0 failed. `npm test`, `npm run build` green.
+Simulator smoke with `-uiTestFranchiseFixture`: FRANCHISES and FOUND IN YOUR LIBRARY
+render, no NOTABLE STARS. Not tested on hardware.
+
+**Watch.** The iCloud KVS entitlement comes in with this merge (sync is off by default).
+The 10-10 entry showed a Release archive signs with it; still no two-TV hardware pass.
+
 ## 2026-10-12 (community PRs)
 
 **Changed.** Two fixes from @w6trp landed on main with their commits kept, thanks:
@@ -109,6 +132,262 @@ Caribbean films on MARVEL, fix in the generator.
 **Half-done.** This branch covers native music enrichment and pool identity. It does not include unrelated guide, metadata-provider or playback recovery changes.
 
 **Next.** Upstream review on `fix/server-qualified-music-cache`. No merge or deployment is included.
+
+## 2026-10-11 (shared franchise dictionary, web port, branch only)
+
+**Shipped.** Nothing. Branch `shared-franchises`, cut from `franchise-polish`
+at `188d60d`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `shared-franchises`:
+
+- The 18 franchise definitions moved out of `FranchiseDictionary.swift` into
+  `franchises.json` at the repo root, next to `channels.json`, so the web tuner
+  can use the same editorial list instead of a copy that drifts. It is bundled
+  the way `channels.json` is: a symlink in `Nostalgex/Nostalgex/` excluded from
+  the synced group, copied by the "Sync channel config" build phase, and
+  `public/franchises.json` for the Vite build. A Swift harness compared the
+  decoded file with the old hard-coded table field by field: identical. The
+  ids carry a `verified: 2026-10-11` header and a per-entry `note`.
+  `FranchiseDictionary` keeps its API (`all`, `byCollectionID`,
+  `defaultOnIDs`, `isOn`, `cleanFranchiseName`); a missing or broken file logs
+  a CONFIG line and leaves the dictionary empty rather than crashing.
+- `scripts/nostalgex-franchise-builder.js` is a port of
+  `FranchiseChannelBuilder` (same module style as the daily manifest, works as a
+  plain browser script and in node). It is standalone: `plex-tuner.html` does
+  not load it yet, because that file was being changed on another branch.
+- `scripts/franchise-golden.json` holds 13 library cases plus title-key,
+  film-match and server-collection vectors (36 checks). The Swift
+  `FranchiseGoldenTests` and the node `npm run test:franchises` both read it,
+  so a rule changed in one engine fails the other's test.
+- Three spots in the Swift builder depended on dictionary iteration order, which
+  Swift does not keep stable, so the web port could not match them: which found
+  franchise a TV show joins when two names match (now the lower collection id),
+  the order of two dynamic channels with the same name (now by stable id), and
+  which stock channel a server collection maps to when two qualify (now the
+  lower channel). None changes a library where only one answer was possible.
+
+7 new Swift tests; full `NostalgexTests` 598 passed, 0 failed, 2 skipped (the
+two live harnesses). `npm test` and `npm run build` pass, and
+`dist/franchises.json` and the built `Nostalgex.app/franchises.json` are both
+present. Not run on a device or against a real library.
+
+**Next.** Wire the builder into `plex-tuner.html` once the enrichment work there
+lands: fetch `/franchises.json`, call `NostalgexFranchiseBuilder.build` with
+items carrying `enrichment.franchiseID` and `franchiseName`. Then merge
+`franchise-polish` and this branch together.
+
+## 2026-10-11 (franchise numbers, Marvel TV, default-on franchises, branch only)
+
+**Shipped.** Nothing. Branch `franchise-polish`, cut from `stock-fold` at
+`be67d61`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** Three changes on `franchise-polish`:
+
+- Runtime channel numbers collided. Found franchises numbered from 220 and
+  OTHER COLLECTIONS from 260, so a library with 86 three-film franchises under
+  ADD ALL ran franchise numbers to 305 and two rows shared a number,
+  interleaved in the guide (it sorts by number). Ids were never the problem
+  (they live at 1,000,000+). Franchises now take CH 300-499 and collections
+  CH 500-699, each a hard cap of 200: enabled items past the end are not built,
+  the log says how many, and Settings shows one quiet line under FOUND IN YOUR
+  LIBRARY only when the franchise range is full. Saved choices are ids, never
+  numbers, so nothing a viewer switched on is lost; a stale row from an old
+  snapshot is rebuilt on the new number. channels.json is untouched (1-140,
+  music videos 200-213). The web tuner builds no collection or franchise
+  channels at all, so it needed nothing.
+- MARVEL (CH101) now carries TV. Its films stay with the `studios` rule; shows
+  join by exact title only (case and punctuation ignored, so "What If...?",
+  "What If…?" and "S.H.I.E.L.D" without the last dot all match, and "Echo"
+  cannot take "Echo Park"). The list covers the Disney+ MCU shows, the Netflix
+  era and the ABC era, plus the "Marvel's ..." spellings older agents use. It
+  is editorial and can be trimmed in `FranchiseDictionary.swift`.
+- STAR TREK and FAST & FURIOUS start switched on (`defaultOn`). An explicit
+  off is kept in `nostalgex_disabled_franchises`, which iCloud sync carries
+  next to the enabled list, so a viewer who removed one does not get it back
+  on the next rescan, relaunch or other Apple TV. No films, no channel, same
+  three-film gate as before.
+
+16 new tests; full `NostalgexTests` 591 passed, 0 failed, 2 skipped (the two
+live harnesses). Not run on a device or against a real library.
+
+## 2026-10-11 (stock franchise channels mix movies and shows, branch only)
+
+**Shipped.** Nothing. Branch `stock-fold`, cut from `enrichment-proxy` at
+`3c1a2ed`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** CH100-106 built their pools from the channels.json rule alone,
+and six of the seven rules say `type: movie`. The franchise builder already
+placed The Mandalorian and Andor under STAR WARS and Rings of Power under LORD
+OF THE RINGS, but Settings only showed that as a greyed "ON CH 100" label; the
+episodes never aired. On `stock-fold` a stock channel's pool is its rule's pool
+plus the covered franchise's movies and shows, deduped by item id, while the
+FRANCHISES package is on. Manifest locks and exclusive rules still win, so an
+item another channel owns is not taken. The covered row now reads "3 movies,
+2 shows on CH 100". Swift only: the web tuner has no franchise dictionary and
+keeps the rule-only pool. 4 new tests, full `NostalgexTests` 575 passed,
+0 failed. Not run on a device or against a real library.
+
+Known limit: a classic whose rule matches fewer than `minItems` (3) films is
+never built, so two Star Wars films plus The Mandalorian still give no CH100.
+
+## 2026-10-11 (TMDB proxy and Supabase key plumbing, branch only)
+
+**Shipped.** Nothing. Branch `enrichment-proxy`, cut from `icloud-opt-in` at
+`42320a5`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** No build has ever carried the TMDB, Supabase or OMDb values, so
+every install logs `[Enrichment] Skipping: API keys not configured` and the
+channels that lean on enrichment stay empty. `enrichment-proxy` turns the layer
+on without shipping the TMDB key:
+
+- `api/tmdb.js`, a Vercel function next to `subscribe.js`. GET with `?path=`
+  restricted to `movie/{id}`, `tv/{id}`, `collection/{id}` and
+  `search/collection` (numeric ids only, anything else is a 400). It adds the
+  key from the `TMDB_API_KEY` env var, adds `append_to_response=keywords` for
+  movie and tv, and returns TMDB's JSON and status. A 200 carries
+  `Cache-Control: public, s-maxage=86400, stale-while-revalidate=604800` so
+  Vercel's edge cache absorbs repeats; anything else is `no-store`. It requires
+  `X-Nostalgex-Client: tvos` (403 without it), a cheap filter, not security, and
+  logs nothing. `npm run test:tmdb` covers the allowlist and the handler with a
+  stubbed fetch (48 checks) and is part of `npm test`.
+- `TMDBService` gains a proxy mode. With an empty key it calls
+  `https://www.nostalgex.app/api/tmdb?path=movie/{id}` with the client header
+  and no key in the URL; with a key it keeps calling TMDB directly, for dev
+  builds. `TMDBConfig.tmdbProxyURL` holds the base. The document is the same
+  either way, so `parseResponse`, franchise fields included, is untouched.
+- `EnrichmentService` proceeds when a key or the proxy is available but still
+  requires the Supabase URL and anon key, since the shared cache is the point.
+  The skip log names what is missing:
+  `[Enrichment] Skipping: missing supabase url, anon key`.
+- Supabase values arrive through an xcconfig. `Nostalgex/Config.xcconfig`
+  (committed) is the app target's base configuration for Debug and Release; it
+  defaults both values to empty and does `#include? "Secrets.xcconfig"`.
+  `Nostalgex/Secrets.example.xcconfig` is the template, `Secrets.xcconfig` is
+  gitignored, and `Info.plist` maps `SUPABASE_URL` and `SUPABASE_ANON_KEY` to
+  `SupabaseURL` and `SupabaseAnonKey`. A missing base configuration file is a
+  hard xcodebuild error (measured: exit 65, "Unable to open base configuration
+  reference file"), which is why the committed file sits in between.
+
+Verified: `NostalgexTests` passes with no `Secrets.xcconfig` on disk (573 tests,
+571 passed, 2 skipped live harnesses, 13 new in `TMDBProxyTests`) and the built
+Info.plist carries empty Supabase strings. With a dummy `Secrets.xcconfig` using
+`https:/$()/host`, the built plist reads `https://host` with both slashes. The
+function called locally against real TMDB returns `movie/603` with
+`belongs_to_collection` and 18 keywords, `tv/1399` with keywords and networks,
+and rejects `person/1` with 400 and a missing header with 403. `npm run build`
+passes. Not run on a device or simulator against the live function: nothing is
+deployed yet.
+
+**Next.** Set `TMDB_API_KEY` on the Vercel project and deploy so `/api/tmdb`
+exists. Put the real Supabase URL and anon key in a local `Secrets.xcconfig`
+before the next archive. Then rescan on a device and watch for
+`[Enrichment] TMDB via site proxy` followed by the cache and save counts. The
+README's "What leaves your network" now names the proxy hop; the privacy page
+covers TMDB lookups in general terms but does not name nostalgex.app as a hop,
+worth a line before that build ships.
+
+## 2026-10-10 (iCloud sync, now opt-in, branch only)
+
+**Shipped.** Nothing. Branch `icloud-opt-in`, stacked on `franchise-ui`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** `icloud-sync` mirrored lineup and display preferences through
+iCloud key-value storage from the first launch, and whichever Apple TV launched
+first seeded the household. That is the wrong default for a household where one
+TV has a curated lineup and another is a fresh install, so `icloud-opt-in`
+carries the same two commits on top of the franchise work and adds a switch:
+
+- SYNC WITH MY OTHER APPLE TVS, under DISPLAY in Settings. Off by default. The
+  flag (`nostalgex_icloud_sync_enabled`) is per TV and is never itself synced.
+- While off, nothing reads or writes the ubiquitous store: launch neither pulls
+  nor seeds, Settings changes stay local, and incoming change notifications are
+  ignored. A fake store in the tests counts reads, writes and synchronize calls
+  and asserts all three stay at zero.
+- Turning it on pushes this TV's current preferences first (this TV wins),
+  adopts cloud values only for keys this TV has never set, then starts
+  listening. Turning it off stops listening and leaves iCloud and the local
+  values as they are. A TV that turns it on later follows the same rule.
+- The found-franchise switches (`nostalgex_enabled_franchises`) join the synced
+  set. The never-sync list in the tests now also names the switch itself, the
+  rating nudge counters and the tip ledger, next to credentials, server
+  address, stream quality and playback reporting.
+
+Cherry-picking onto `franchise-ui` conflicted only in `AppState+Channels.swift`
+(the franchise branch had renamed `materializeCollectionChannels` to
+`materializeDynamicChannels`); the sync code now calls the new name.
+
+Verified: the full `NostalgexTests` run passes (557 tests, 37 of them for the
+sync service and its merge rules). A Release archive signed through the App
+Store Connect key carries `com.apple.developer.ubiquity-kvstore-identifier`,
+and a local App Store export with automatic signing produces an IPA whose
+distribution profile includes it; nothing was uploaded. Not yet tried on
+hardware: two real Apple TVs on one Apple ID flipping the switch.
+
+**Next.** Hardware round trip with two TVs: switch on with different lineups,
+confirm the first TV to switch on wins, then flip one off and confirm nothing
+moves. Then merge order: `franchise-data`, `franchise-channels`, `franchise-ui`,
+`icloud-opt-in`.
+
+## 2026-10-10 (franchise bundle, branch only)
+
+**Shipped.** Nothing. Everything below is on branches off `main`, not merged.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** The FRANCHISES package is being rebuilt in three phases, each on
+its own branch stacked on the last:
+
+- `franchise-data` (Phase 0): enrichment rows gain `franchise_id` and
+  `franchise_name`, parsed from TMDB `belongs_to_collection` with no extra
+  request. The two columns are added by `Nostalgex/docs/franchise-migration.sql`,
+  which has NOT been applied to the shared table yet, so live enrichment still
+  carries no franchise fields. Rows without the columns decode fine.
+- `franchise-channels` (Phase 1): `FranchiseChannelBuilder` turns a library plus
+  its enrichment into a franchise list. Three or more owned films sharing a
+  TMDB collection make a channel; `FranchiseDictionary` merges split
+  collections (Star Trek is three on TMDB), folds known franchises into the
+  stock classics CH100-106, and adds TV by title (The Mandalorian under STAR
+  WARS). Films TMDB leaves outside any collection (Rogue One, Solo, Bumblebee,
+  Rise of the Beasts, all checked against the live API) join dictionary
+  franchises by title. Marvel stays studio-ruled, never grouped by collection.
+  Every dictionary id was verified live on 2026-10-10.
+- `franchise-ui` (Phase 2, this entry): the Settings half. Under the FRANCHISES
+  package row, when it is on, FOUND IN YOUR LIBRARY lists each found franchise
+  with a switch, ADD ALL and REMOVE ALL, and the ones a classic already covers
+  greyed as "ON CH 100". Found franchises default off so a big library does not
+  flood the guide. Switches persist as a plain string array under
+  `nostalgex_enabled_franchises`, keyed by dictionary name or TMDB collection
+  id, so a later iCloud sync can carry it unchanged. A switched-on franchise is
+  a dynamic channel (`rules == nil`) in the collection range (numbers from
+  220), shown while the package is on; the schedule engine and playback are
+  untouched. A server collection that is really one of these franchises is
+  folded: credited under the franchise, hidden from MY COLLECTIONS, never
+  materialised twice (`FranchiseCollectionFold`, reusing the scan's name and
+  manifest signals plus a 60% item overlap). NOTABLE STARS is gone; actor and
+  director sets classify as OTHER COLLECTIONS, a persisted `collections-actors`
+  id migrates, and older snapshot rows resolve. Full `NostalgexTests`: 521
+  passed, 2 skipped (pre-existing), 0 failed.
+
+  Verified on the tvOS 26.1 simulator through a test-only launch argument,
+  `-uiTestFranchiseFixture`, which layers an enriched sample library over demo
+  mode (six franchises, two sample collections) because the shared table has
+  no franchise columns yet. Not verified: the real enrichment path end to end,
+  which needs the migration applied; a relaunch from a snapshot that carries
+  found franchises; the fold against a real server's collections.
+
+**Next.** Apply the migration, then load a real library and compare the found
+list against what the library actually holds before merging. Decide whether
+STAR TREK and FAST & FURIOUS become stock classics or stay found-only. Merge
+order: `franchise-data`, `franchise-channels`, `franchise-ui`.
 
 ## 2026-10-09 (app)
 

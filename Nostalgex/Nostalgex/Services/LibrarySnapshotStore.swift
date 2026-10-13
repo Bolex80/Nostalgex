@@ -30,6 +30,20 @@ struct StoredDiscoveredCollection: Codable {
     let enabled: Bool
     let matchedChannel: String?
     let categoryRaw: String
+    /// Optional so snapshots written before the franchise fold existed still decode.
+    var foldedIntoFranchise: String? = nil
+}
+
+/// One found franchise (see `FoundFranchise`). Enabled state is NOT stored here: it
+/// lives in UserDefaults under `nostalgex_enabled_franchises` and
+/// `nostalgex_disabled_franchises` and is applied on restore.
+struct StoredFoundFranchise: Codable {
+    let id: String
+    let name: String
+    let movieRatingKeys: [String]
+    let tvRatingKeys: [String]
+    let coveredByChannelID: Int?
+    let fromDictionary: Bool
 }
 
 /// What a restore hands AppState. It is also, byte for byte, the legacy on-disk format
@@ -52,6 +66,9 @@ struct LibrarySnapshotV1: Codable {
     /// Library change signature at the time of the scan (see LibraryChangeSignature).
     /// Optional so snapshots written before it existed still decode.
     var librarySignature: String? = nil
+    /// Franchises found in the library at scan time. Optional so older snapshots decode;
+    /// absent reads as "nothing found yet".
+    var foundFranchiseRows: [StoredFoundFranchise]? = nil
 }
 
 // MARK: - On-disk format v3 (chunked)
@@ -93,6 +110,12 @@ struct LibrarySnapshotMetaV3: Codable {
     /// Rows with empty `itemRatingKeys`; the members are `discoveredCollectionItems`.
     var discoveredCollectionRows: [StoredDiscoveredCollection]
     var discoveredCollectionItems: [[Int32]]
+    /// Rows with empty rating key lists; the members are `foundFranchiseMovieItems` and
+    /// `foundFranchiseTVItems` (same order). All three are optional so a v3 meta.json
+    /// written before franchises existed still decodes, as "nothing found yet".
+    var foundFranchiseRows: [StoredFoundFranchise]? = nil
+    var foundFranchiseMovieItems: [[Int32]]? = nil
+    var foundFranchiseTVItems: [[Int32]]? = nil
 }
 
 /// current.json. Small, written last, replaced atomically.
@@ -206,6 +229,9 @@ enum LibrarySnapshotStore {
         let exclusiveRuleJSON: [ExclusiveRuleJSON]
         let collectionRows: [StoredDiscoveredCollection]
         let collectionItems: [[PlexMediaItem]]
+        let franchiseRows: [StoredFoundFranchise]
+        let franchiseMovies: [[PlexMediaItem]]
+        let franchiseTV: [[PlexMediaItem]]
     }
 
     static func makePayload(
@@ -219,7 +245,8 @@ enum LibrarySnapshotStore {
         bundles: [ChannelBundle],
         enabledBundleIDs: Set<String>,
         exclusiveRules: [ExclusiveRule],
-        discoveredCollections: [DiscoveredCollection]
+        discoveredCollections: [DiscoveredCollection],
+        foundFranchises: [FoundFranchise] = []
     ) -> Payload {
         Payload(
             fingerprint: fingerprint(identity: identity),
@@ -237,7 +264,10 @@ enum LibrarySnapshotStore {
             enabledBundleIDList: Array(enabledBundleIDs).sorted(),
             exclusiveRuleJSON: exclusiveRules.map { $0.toExclusiveRuleJSON() },
             collectionRows: discoveredCollections.map { StoredDiscoveredCollection.from($0, includeItemKeys: false) },
-            collectionItems: discoveredCollections.map(\.items)
+            collectionItems: discoveredCollections.map(\.items),
+            franchiseRows: foundFranchises.map { StoredFoundFranchise.from($0, includeItemKeys: false) },
+            franchiseMovies: foundFranchises.map(\.movies),
+            franchiseTV: foundFranchises.map(\.tvItems)
         )
     }
 
@@ -268,13 +298,15 @@ enum LibrarySnapshotStore {
         bundles: [ChannelBundle],
         enabledBundleIDs: Set<String>,
         exclusiveRules: [ExclusiveRule],
-        discoveredCollections: [DiscoveredCollection]
+        discoveredCollections: [DiscoveredCollection],
+        foundFranchises: [FoundFranchise] = []
     ) throws {
         let payload = makePayload(
             identity: identity, serverName: serverName, librarySignature: librarySignature,
             lastLoadAtUnix: lastLoadAtUnix, allItems: allItems, channelConfigChannels: channelConfigChannels,
             allChannels: allChannels, bundles: bundles, enabledBundleIDs: enabledBundleIDs,
-            exclusiveRules: exclusiveRules, discoveredCollections: discoveredCollections)
+            exclusiveRules: exclusiveRules, discoveredCollections: discoveredCollections,
+            foundFranchises: foundFranchises)
         let e = nextEpoch()
         try writeQueue.sync { try write(payload, epoch: e) }
     }
@@ -337,7 +369,10 @@ enum LibrarySnapshotStore {
             enabledBundleIDList: p.enabledBundleIDList,
             exclusiveRuleJSON: p.exclusiveRuleJSON,
             discoveredCollectionRows: p.collectionRows,
-            discoveredCollectionItems: p.collectionItems.map(indexes)
+            discoveredCollectionItems: p.collectionItems.map(indexes),
+            foundFranchiseRows: p.franchiseRows,
+            foundFranchiseMovieItems: p.franchiseMovies.map(indexes),
+            foundFranchiseTVItems: p.franchiseTV.map(indexes)
         )
         indexByID = [:]
         try autoreleasepool {
@@ -488,6 +523,15 @@ enum LibrarySnapshotStore {
         let collectionRows = zip(meta.discoveredCollectionRows, meta.discoveredCollectionItems).map { row, members in
             row.withItemRatingKeys(keys(members))
         }
+        // Absent (a v3 snapshot from before franchises) stays nil: nothing found yet.
+        let franchiseRows: [StoredFoundFranchise]? = meta.foundFranchiseRows.map { rows in
+            let movies = meta.foundFranchiseMovieItems ?? []
+            let tv = meta.foundFranchiseTVItems ?? []
+            return rows.enumerated().map { i, row in
+                row.withRatingKeys(movies: i < movies.count ? keys(movies[i]) : [],
+                                   tv: i < tv.count ? keys(tv[i]) : [])
+            }
+        }
         return LibrarySnapshotV1(
             schemaVersion: meta.schemaVersion,
             credentialFingerprint: meta.credentialFingerprint,
@@ -500,7 +544,8 @@ enum LibrarySnapshotStore {
             enabledBundleIDList: meta.enabledBundleIDList,
             exclusiveRuleJSON: meta.exclusiveRuleJSON,
             discoveredCollectionRows: collectionRows,
-            librarySignature: meta.librarySignature
+            librarySignature: meta.librarySignature,
+            foundFranchiseRows: franchiseRows
         )
     }
 
@@ -598,15 +643,19 @@ extension StoredDiscoveredCollection {
             itemRatingKeys: includeItemKeys ? collection.items.map(\.id) : [],
             enabled: collection.enabled,
             matchedChannel: collection.matchedChannel,
-            categoryRaw: collection.category.rawValue
+            categoryRaw: collection.category.rawValue,
+            foldedIntoFranchise: collection.foldedIntoFranchise
         )
     }
 
     func withItemRatingKeys(_ keys: [String]) -> StoredDiscoveredCollection {
         StoredDiscoveredCollection(id: id, title: title, movieCount: movieCount, itemRatingKeys: keys,
-                                   enabled: enabled, matchedChannel: matchedChannel, categoryRaw: categoryRaw)
+                                   enabled: enabled, matchedChannel: matchedChannel, categoryRaw: categoryRaw,
+                                   foldedIntoFranchise: foldedIntoFranchise)
     }
 
+    /// A row whose category reads "actors" (the retired NOTABLE STARS) resolves to
+    /// `.custom`, which is where those collections classify now.
     func resolve(itemLookup: (String) -> PlexMediaItem?) -> DiscoveredCollection {
         let items = itemRatingKeys.compactMap(itemLookup)
         let category = CollectionCategory(rawValue: categoryRaw) ?? .custom
@@ -617,7 +666,49 @@ extension StoredDiscoveredCollection {
             items: items,
             enabled: enabled,
             matchedChannel: matchedChannel,
-            category: category
+            category: category,
+            foldedIntoFranchise: foldedIntoFranchise
         )
+    }
+
+    func resolve(itemLookup: [String: PlexMediaItem]) -> DiscoveredCollection {
+        resolve(itemLookup: { itemLookup[$0] })
+    }
+}
+
+extension StoredFoundFranchise {
+    static func from(_ franchise: FoundFranchise, includeItemKeys: Bool = true) -> StoredFoundFranchise {
+        StoredFoundFranchise(
+            id: franchise.id,
+            name: franchise.name,
+            movieRatingKeys: includeItemKeys ? franchise.movies.map(\.id) : [],
+            tvRatingKeys: includeItemKeys ? franchise.tvItems.map(\.id) : [],
+            coveredByChannelID: franchise.coveredByChannelID,
+            fromDictionary: franchise.fromDictionary
+        )
+    }
+
+    func withRatingKeys(movies: [String], tv: [String]) -> StoredFoundFranchise {
+        StoredFoundFranchise(id: id, name: name, movieRatingKeys: movies, tvRatingKeys: tv,
+                             coveredByChannelID: coveredByChannelID, fromDictionary: fromDictionary)
+    }
+
+    func resolve(itemLookup: (String) -> PlexMediaItem?, enabledIDs: Set<String>,
+                 disabledIDs: Set<String> = []) -> FoundFranchise {
+        FoundFranchise(
+            id: id,
+            name: name,
+            movies: movieRatingKeys.compactMap(itemLookup),
+            tvItems: tvRatingKeys.compactMap(itemLookup),
+            coveredByChannelID: coveredByChannelID,
+            fromDictionary: fromDictionary,
+            enabled: coveredByChannelID == nil
+                && FranchiseDictionary.isOn(id, enabledIDs: enabledIDs, disabledIDs: disabledIDs)
+        )
+    }
+
+    func resolve(itemLookup: [String: PlexMediaItem], enabledIDs: Set<String>,
+                 disabledIDs: Set<String> = []) -> FoundFranchise {
+        resolve(itemLookup: { itemLookup[$0] }, enabledIDs: enabledIDs, disabledIDs: disabledIDs)
     }
 }

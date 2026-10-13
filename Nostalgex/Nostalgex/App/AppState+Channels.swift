@@ -73,6 +73,13 @@ extension AppState {
         // …); safe to include as-is. Nothing here reveals library or user identity.
         Analytics.track(.settingChanged(key: "bundle:\(bundle.id)", value: nowEnabled ? "true" : "false"))
 
+        rebuildLineupAfterBundleChange(newlyEnabled: nowEnabled ? [bundle] : [])
+    }
+
+    /// Rebuilds the lineup after `enabledBundleIDs` changed. A toggle in Settings and a
+    /// lineup arriving from another Apple TV through iCloud both come through here, so
+    /// the guide is rebuilt the same way either way.
+    func rebuildLineupAfterBundleChange(newlyEnabled: [ChannelBundle]) {
         // Update runtime bundle state
         for i in bundles.indices {
             bundles[i].enabled = enabledBundleIDs.contains(bundles[i].id)
@@ -81,20 +88,26 @@ extension AppState {
         saveBundlePreferences()
 
         // Collection category bundles: scan if enabling and no collections discovered yet
-        if bundle.id.hasPrefix("collections-") && enabledBundleIDs.contains(bundle.id) && discoveredCollections.isEmpty {
-            collectionScanTask?.cancel()
-            collectionScanTask = Task { await scanCollections() }
-            return
-        }
+        let needsCollectionScan = discoveredCollections.isEmpty
+            && newlyEnabled.contains { $0.id.hasPrefix("collections-") }
+        let staticBundles = newlyEnabled.filter { !$0.id.hasPrefix("collections-") }
 
-        if enabledBundleIDs.contains(bundle.id), !bundle.id.hasPrefix("collections-") {
+        if needsCollectionScan || !staticBundles.isEmpty {
             collectionScanTask?.cancel()
-            collectionScanTask = Task { await self.rebuildPoolsForBundle(bundle) }
+            collectionScanTask = Task {
+                for b in staticBundles { await self.rebuildPoolsForBundle(b) }
+                if needsCollectionScan { await self.scanCollections() }
+            }
         }
+        // The scan applies the bundle filter itself when it finishes.
+        if needsCollectionScan && staticBundles.isEmpty { return }
 
         applyBundleFilter()
+        reselectIfCurrentChannelFilteredOut()
+    }
 
-        // If current channel got filtered out, select first available
+    /// If the current channel got filtered out, select the first available.
+    func reselectIfCurrentChannelFilteredOut() {
         if let current = currentChannel, !channels.contains(where: { $0.id == current.id }) {
             if let first = channels.first {
                 selectChannel(first)
@@ -164,6 +177,8 @@ extension AppState {
 
         let dynamicChannels = allChannels.filter { $0.rules == nil }
         allChannels = (validStatic + dynamicChannels).sorted { $0.number < $1.number }
+        // The stock pools were just rebuilt from their rules alone.
+        foldCoveredFranchisesIntoStockPools()
         applyBundleFilter()
 
         let newCount = validStatic.count
@@ -203,11 +218,18 @@ extension AppState {
             return
         }
 
-        let enabledChannelIDs: Set<Int> = bundles
+        var enabledChannelIDs: Set<Int> = bundles
             .filter { enabledBundleIDs.contains($0.id) }
             .reduce(into: Set<Int>()) { result, bundle in
                 bundle.channelIDs.forEach { result.insert($0) }
             }
+        // Found franchise channels are runtime channels that belong to the stock
+        // FRANCHISES package: they show when it is on and go with it when it is off. The
+        // bundle's own channelIDs stay the static list from channels.json so the Settings
+        // row keeps reading "7/7 CH" and naming the classics only.
+        if isFranchisesBundleOn {
+            enabledChannelIDs.formUnion(foundFranchiseChannelIDs)
+        }
 
         // A seasonal package leads the guide while it runs — see GuideChannelOrder.
         let seasonalLead = GuideChannelOrder.seasonalLeadIDs(
@@ -221,7 +243,12 @@ extension AppState {
         bundleJumpTargets = bundles
             .filter { enabledBundleIDs.contains($0.id) }
             .compactMap { bundle in
-                guard let firstID = bundle.channelIDs.first(where: { channelSet.contains($0) }),
+                // A FRANCHISES package whose classics have no content can still hold
+                // found franchises; jump to the first of those instead of vanishing.
+                let candidates = bundle.id == Self.franchisesBundleID
+                    ? bundle.channelIDs + foundFranchiseChannelIDs
+                    : bundle.channelIDs
+                guard let firstID = candidates.first(where: { channelSet.contains($0) }),
                       let channel = channels.first(where: { $0.id == firstID }) else { return nil }
                 return (bundleID: bundle.id, bundleName: bundle.name, firstChannelID: firstID, channelColor: channel.color)
             }
@@ -229,6 +256,7 @@ extension AppState {
 
     func saveBundlePreferences() {
         UserDefaults.standard.set(Array(enabledBundleIDs), forKey: "nostalgex_enabled_bundles")
+        preferenceSync.record(PreferenceSync.enabledBundlesKey, value: Array(enabledBundleIDs))
     }
 
     // MARK: - Collection discovery and management
@@ -371,7 +399,16 @@ extension AppState {
                 }
 
                 let collectionID = PlexAPIService.compositeID(serverID: server.machineIdentifier, ratingKey: collection.ratingKey)
-                let category = CollectionClassifier.classify(title: collection.title, items: matchedItems)
+                // Resolve enrichment eagerly into a plain map so the classifier can use
+                // franchiseID truth (shared TMDB collection = franchise) without the
+                // closure having to touch MainActor-isolated state.
+                var enrichmentByID: [String: MediaEnrichment] = [:]
+                for mi in matchedItems {
+                    if let e = enrichmentService.enrichment(for: mi) { enrichmentByID[mi.id] = e }
+                }
+                let category = CollectionClassifier.classify(
+                    title: collection.title, items: matchedItems,
+                    enrichmentFor: { enrichmentByID[$0.id] })
                 let overlap = computeContentOverlap(items: matchedItems)
                 collections4Plus.append(DiscoveredCollection(
                     id: collectionID,
@@ -406,8 +443,12 @@ extension AppState {
         discoveredCollections = collections4Plus
         print("[Plex90] COLLECTIONS: \(discoveredCollections.count) discoverable channels (\(discoveredCollections.filter(\.enabled).count) enabled)")
 
+        // A collection that is really a franchise the package already carries is credited
+        // there and hidden here, so the same films are never offered twice.
+        applyFranchiseFolds()
+
         // Materialize enabled ones into actual channels
-        materializeCollectionChannels()
+        materializeDynamicChannels()
         applyBundleFilter()
 
         isScanning = false
@@ -435,15 +476,16 @@ extension AppState {
             enabledCollectionKeys.remove(collection.id)
         }
         saveCollectionPreferences()
-        materializeCollectionChannels()
+        materializeDynamicChannels()
         applyBundleFilter()
     }
 
     /// Create Channel objects from enabled discovered collections, grouped by category
     /// Enables `collections-{category}` in the bundle filter whenever that category has at least one discovered collection.
     func syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: Bool = true) {
+        let visible = visibleDiscoveredCollections
         for category in CollectionCategory.allCases {
-            let hasDiscoveries = discoveredCollections.contains(where: { $0.category == category })
+            let hasDiscoveries = visible.contains(where: { $0.category == category })
             if hasDiscoveries {
                 enabledBundleIDs.insert(category.bundleID)
             }
@@ -453,7 +495,11 @@ extension AppState {
         }
     }
 
-    private func materializeCollectionChannels() {
+    /// Rebuilds every runtime channel: the found franchises that are switched on, then
+    /// the enabled server collections per category. Both share the collection numbering
+    /// convention (`idBase + slot`, `displayNumberBase + slot`); found franchises take the
+    /// first slots of the FRANCHISES range and the category's own collections follow.
+    func materializeDynamicChannels() {
         // Clear runtime-created channels only. This used to be "id >= 220", which also
         // deleted everything channels.json defined from 220 up — see ChannelIDSpace.
         allChannels.removeAll { ChannelIDSpace.isDynamic($0.id) }
@@ -463,19 +509,65 @@ extension AppState {
 
         syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: false)
 
+        // Each category hands out at most `displayCapacity` numbers. Anything enabled past
+        // that is not built, so a big library can never reach the next category's numbers.
+        var overCap: [CollectionCategory: Int] = [:]
+
+        // Found franchises first. They are not a bundle of their own: applyBundleFilter
+        // shows them whenever the stock FRANCHISES package is on.
+        var franchiseSlot = 0
+        var franchiseIDs: [Int] = []
+        let franchiseRange = CollectionCategory.franchises
+        for franchise in foundFranchises where franchise.enabled && !franchise.isCoveredByStock {
+            guard franchiseSlot < franchiseRange.displayCapacity else {
+                overCap[franchiseRange, default: 0] += 1
+                continue
+            }
+            let channelID = franchiseRange.idBase + franchiseSlot
+            let displayNumber = franchiseRange.displayNumberBase + franchiseSlot
+            let colorHex = Self.collectionColors[franchiseSlot % Self.collectionColors.count]
+            var channel = Channel(
+                id: channelID,
+                number: displayNumber,
+                name: franchise.name,
+                color: Color(hex: colorHex),
+                category: franchiseRange.rawValue,
+                rules: nil,
+                timeRestrictions: nil,
+                minItems: 3
+            )
+            channel.itemPool = franchise.items
+            allChannels.append(channel)
+            franchiseIDs.append(channelID)
+            franchiseSlot += 1
+        }
+        foundFranchiseChannelIDs = franchiseIDs
+        if !franchiseIDs.isEmpty {
+            print("[Plex90] FRANCHISES: \(franchiseIDs.count) found-franchise channel(s) from CH \(franchiseRange.displayNumberBase)")
+        }
+
+        // A folded collection is credited to a franchise and never materialised, even if
+        // it was switched on before the fold existed.
+        let visible = visibleDiscoveredCollections
         for category in CollectionCategory.allCases {
-            let categoryCollections = discoveredCollections.filter { $0.category == category }
+            let categoryCollections = visible.filter { $0.category == category }
             let enabledInCategory = categoryCollections.filter(\.enabled)
 
             // Only create bundle if this category has discovered collections
             guard !categoryCollections.isEmpty else { continue }
 
             var channelIDs: [Int] = []
+            var slot = category == .franchises ? franchiseSlot : 0
 
-            for (index, dc) in enabledInCategory.enumerated() {
-                let channelID = category.idBase + index
-                let displayNumber = category.displayNumberBase + index
-                let colorHex = Self.collectionColors[index % Self.collectionColors.count]
+            for dc in enabledInCategory {
+                guard slot < category.displayCapacity else {
+                    overCap[category, default: 0] += 1
+                    continue
+                }
+                let channelID = category.idBase + slot
+                let displayNumber = category.displayNumberBase + slot
+                let colorHex = Self.collectionColors[slot % Self.collectionColors.count]
+                slot += 1
 
                 var channel = Channel(
                     id: channelID,
@@ -504,6 +596,11 @@ extension AppState {
             print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(enabledInCategory.count)/\(categoryCollections.count) enabled -> \(channelIDs.count) channels")
         }
 
+        for (category, skipped) in overCap.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(skipped) enabled channel(s) skipped, CH \(category.displayNumberBase)-\(category.displayNumberEnd) is full (\(category.displayCapacity) max)")
+        }
+        if overCap != dynamicChannelsOverCap { dynamicChannelsOverCap = overCap }
+
         allChannels.sort { $0.number < $1.number }
         saveBundlePreferences()
     }
@@ -514,8 +611,9 @@ extension AppState {
         collectionScanTask = Task {
             await scanCollections()
             // Auto-enable category bundles that have content
+            let visible = visibleDiscoveredCollections
             for category in CollectionCategory.allCases {
-                let hasContent = discoveredCollections.contains { $0.category == category }
+                let hasContent = visible.contains { $0.category == category }
                 if hasContent && !enabledBundleIDs.contains(category.bundleID) {
                     enabledBundleIDs.insert(category.bundleID)
                 }
@@ -538,10 +636,22 @@ extension AppState {
             saveBundlePreferences()
             print("[Plex90] MIGRATION: Migrated 'collections' -> per-category bundle IDs")
         }
+        // NOTABLE STARS was retired; its collections now classify as OTHER COLLECTIONS, so
+        // a viewer who had that category on keeps those collections under the new one.
+        if enabledBundleIDs.contains(Self.retiredActorsBundleID) {
+            enabledBundleIDs.remove(Self.retiredActorsBundleID)
+            enabledBundleIDs.insert(CollectionCategory.custom.bundleID)
+            saveBundlePreferences()
+            print("[Plex90] MIGRATION: Migrated '\(Self.retiredActorsBundleID)' -> '\(CollectionCategory.custom.bundleID)'")
+        }
     }
 
-    private func saveCollectionPreferences() {
+    /// The bundle id of the removed NOTABLE STARS category, kept only for migration.
+    static let retiredActorsBundleID = "collections-actors"
+
+    func saveCollectionPreferences() {
         UserDefaults.standard.set(Array(enabledCollectionKeys), forKey: "nostalgex_enabled_collections")
+        preferenceSync.record(PreferenceSync.enabledCollectionsKey, value: Array(enabledCollectionKeys))
     }
 
     // MARK: - Channel audit log
@@ -669,7 +779,7 @@ extension AppState {
     }
 
     /// Build pools for one bundle after the user turns it on (library already in memory).
-    private func rebuildPoolsForBundle(_ bundle: ChannelBundle) async {
+    func rebuildPoolsForBundle(_ bundle: ChannelBundle) async {
         guard !channelConfigChannels.isEmpty, !allItems.isEmpty else { return }
         let ids = Set(bundle.channelIDs)
         guard !ids.isEmpty else { return }
@@ -705,6 +815,13 @@ extension AppState {
 
         let dynamic = allChannels.filter { $0.rules == nil }
         allChannels = (builtStatic + dynamic).sorted { $0.number < $1.number }
+        if bundle.id == Self.franchisesBundleID {
+            // The classics were not in the lineup while the package was off, so nothing
+            // could fold into them. Now that CH100-106 exist, re-decide which found
+            // franchises are covered and which collections fold.
+            rebuildFoundFranchises()
+            materializeDynamicChannels()
+        }
         applyBundleFilter()
         saveLibrarySnapshotIfNeeded()
         print("[Plex90] BUNDLE BUILD: '\(bundle.id)' -> \(builtStatic.filter { ids.contains($0.id) }.count) channels with pools")
