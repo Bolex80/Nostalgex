@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-13 (Jellyfin and Emby: the stall retry replayed the file that stalled)
 
-**Shipped.** Nothing. Branch `jellyfin-stall-transcode`, not merged.
+**Shipped.** Nothing yet. Branch `jellyfin-stall-transcode`, merged into main for the next build.
 
 **Changed.**
 
