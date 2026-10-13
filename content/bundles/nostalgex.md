@@ -1,5 +1,6 @@
 ---
 title: "80s and 90s TV Channels for Plex and Jellyfin | Nostalgex"
+heading: "The 80s and 90s Channels"
 description: "Saturday morning cartoons, 90s sitcoms, VHS Vault and teen movies as live channels from your own Plex or Jellyfin library. Free on Apple TV and web."
 blurb: "The one the app is named after. Saturday mornings, the VHS shelf, after school TV."
 faq:

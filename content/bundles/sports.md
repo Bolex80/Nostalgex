@@ -1,5 +1,6 @@
 ---
 title: "Sports Movie and Docs Channels for Plex | Nostalgex"
+heading: "Sports Movie and Documentary Channels"
 description: "Sports movies, sports TV and sports docs on live channels from your own Plex or Jellyfin library. Free, open source and plug and play on Apple TV."
 blurb: "The sports section of your shelf: movies, shows and documentaries."
 faq:

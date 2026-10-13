@@ -2,6 +2,8 @@
 title: "Partners Night: A Friday on the 90s Buddy Cop Channel"
 seo_title: "Best 90s Buddy Cop Movies for a Friday Night"
 description: "The best 90s buddy cop movies, from Tango & Cash to Bad Boys, and what a Friday on the Nostalgex BUDDIES channel looks like with them in your library."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/best-90s-buddy-cop-movies-channel/cover.jpg"
+cover_alt: "Nostalgex guide on Apple TV tuned to channel 14 Buddies, airing EuroTrip with Ladder 49 up next"
 slug: best-90s-buddy-cop-movies-channel
 date: 2026-10-09
 ---
@@ -59,6 +61,8 @@ Nostalgex is a free, open source Apple TV app, plus a free [web tuner](/web-tune
 ### BUDDIES is on channel 14
 
 BUDDIES (channel 14, in the NOSTALGEX bundle) fills itself from action and comedy movies, 1980 through 2004. Keywords like "buddy cop" and "mismatched pair" pull more titles in. They do not limit the channel to buddy cop movies. Its neighbor LAST ACTION HEROES (channel 13) handles straighter action. Every channel runs a real schedule all day, so you tune in to a car chase already in progress like it's 1995.
+
+![Nostalgex channel guide with Last Action Heroes on channel 13 and Buddies on channel 14 directly below it](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/best-90s-buddy-cop-movies-channel/last-action-heroes-and-buddies-guide.webp)
 
 ### Flip like it's 1996
 

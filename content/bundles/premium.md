@@ -1,5 +1,6 @@
 ---
 title: "Anime, Stand Up and Date Night Channels for Plex | Nostalgex"
+heading: "Anime, Stand Up and Date Night Channels"
 description: "Anime, musicals, stand up, biopics and date night movies as live channels from your own Plex or Jellyfin library. Free and open source on Apple TV."
 blurb: "The good shelf. Anime, musicals, comedy specials and the films you keep."
 faq:

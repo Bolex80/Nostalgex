@@ -1,5 +1,6 @@
 ---
 title: "Action, Sci Fi and Western Channels for Plex | Nostalgex"
+heading: "Action, Sci Fi and Western Channels"
 description: "Epic adventures, disaster movies, sci fi, fantasy, westerns and spy movies on live channels from your own Plex or Jellyfin library. Free on Apple TV."
 blurb: "Big and loud. Epics, disasters, sci fi, fantasy, westerns and spies."
 faq:

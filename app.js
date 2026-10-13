@@ -173,6 +173,32 @@
     else window.addEventListener("load", startHeroVideos, { once: true });
   }
 
+  /* ---------- Inline clips: start when they scroll into view ----------
+     Same deal as the hero (preload="none", no autoplay attribute), but these
+     sit well down the page, so loading them at window.load would pull video
+     nobody has scrolled to. Start on intersection, pause on the way out. */
+  var clips = document.querySelectorAll("video[data-clip]");
+  if (clips.length && !reduceMotion && !saveData && "IntersectionObserver" in window) {
+    var clipObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          var v = entry.target;
+          if (entry.isIntersecting) {
+            v.preload = "auto";
+            var played = v.play();
+            if (played && played.catch) played.catch(function () {});
+          } else if (!v.paused) {
+            v.pause();
+          }
+        });
+      },
+      { rootMargin: "200px 0px" },
+    );
+    clips.forEach(function (v) {
+      clipObserver.observe(v);
+    });
+  }
+
   /* ---------- FAQ: close others when one opens ---------- */
   var faqs = document.querySelectorAll(".faq-list details");
   faqs.forEach(function (d) {

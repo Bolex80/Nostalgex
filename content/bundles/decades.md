@@ -1,5 +1,6 @@
 ---
 title: "60s to 2020s TV by Decade for Plex and Jellyfin | Nostalgex"
+heading: "A Channel for Every Decade"
 description: "One live channel per decade, from the 60s to the 2020s, built from the movies and shows in your own Plex or Jellyfin library. Free on Apple TV."
 blurb: "One channel per decade, the 60s through the 20s, sorted by the year on the film."
 faq:

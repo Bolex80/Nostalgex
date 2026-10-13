@@ -29,7 +29,8 @@
     "changelog:check": "node scripts/changelog-check.mjs",
     "test:franchises": "node scripts/nostalgex-franchise-smoke.mjs",
     "test:watch-state": "node scripts/nostalgex-watch-state-smoke.mjs",
-    "test:jellyfin-urls": "node scripts/nostalgex-jellyfin-urls-smoke.mjs"
+    "test:jellyfin-urls": "node scripts/nostalgex-jellyfin-urls-smoke.mjs",
+    "media:measure": "node scripts/measure-media.mjs"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3",
