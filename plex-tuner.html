@@ -2240,7 +2240,7 @@
     /* The closed drawer is parked off the right edge, which widens the document
        and leaves the page scrollable sideways. body already clips; html does
        not. */
-    html { overflow-x: hidden; }
+    html { overflow-x: hidden; overflow-x: clip; }
 
     /* Compact info panel type. The desktop sizes are built for a 35% column on
        a large screen and simply do not fit here. */
@@ -2479,7 +2479,7 @@
     .m-menu-btn { display: flex; height: 44px; background: rgba(0, 0, 0, 0.85); }
     .m-drawer { display: flex; }
     .m-drawer-scrim { display: block; }
-    html { overflow-x: hidden; }
+    html { overflow-x: hidden; overflow-x: clip; }
 
     /* 393px of drawer for seven boxes: tighter rows, same tap target. */
     .m-drawer { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
