@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-12 (community PRs)
+
+**Changed.** Two fixes from @w6trp landed on main with their commits kept, thanks:
+
+- #19: watchdog verdicts strip URLs and credentials before they reach the system log or
+  Settings, so a support screenshot can no longer carry a server token. Kept main's
+  verdict line format (no em dashes) with the redaction applied to it.
+- #20: music enrichment and channel pools key on the server-qualified item id, so two
+  servers that reuse a rating key no longer swap each other's music metadata.
+
+NostalgexTests 495 passed, 2 skipped, 0 failed; web tests green. Not tested on hardware.
+
+**Half-done.** #21 (keep the chosen Plex media version and multipart offsets) is on
+`land-pr-21`, not main. It touches playback, so it waits for a hardware pass on a
+multi-version title and a three-part film.
+
 ## 2026-10-11 (web tuner)
 
 **Shipped.** nostalgex.app: the web tuner now reads the shared metadata cache, fills
@@ -37,6 +53,26 @@ franchise Found list is not wired into the web tuner's settings yet.
 
 **Next.** OMDb through the relay; a generated membership file places the Pirates of the
 Caribbean films on MARVEL, fix in the generator.
+
+## 2026-10-11 (playback diagnostic credential redaction)
+
+**Changed.** Watchdog verdicts now remove complete URLs and credential assignments before unified logging or UserDefaults persistence. Error-log URL tails are no longer copied because truncation can remove a token's identifying key while leaving its secret value. Legacy verdict rows are discarded instead of migrated. Diagnostic status codes and playback measurements remain readable.
+
+**Validation.** Regression fixtures cover URL userinfo/query credentials, relative URLs, quoted headers and JSON keys, bearer authorization, percent-encoded forms, direct persistence inspection, and legacy row cleanup. Xcode 27 / tvOS 27 native suite passed 437 tests, with 2 optional live tests skipped and no failures.
+
+**Half-done.** This is scoped to playback verdicts; it does not claim that every unrelated log producer has been audited. No server, account or credential settings changed.
+
+**Next.** Upstream review. The change is isolated on `fix/redact-playback-diagnostics`; no merge or deployment is included.
+
+## 2026-10-11 (server-qualified music cache identity)
+
+**Changed.** Music enrichment and channel-pool refresh now use the existing server-qualified item identity instead of a server-local rating key. A new disk-cache filename avoids assigning ambiguous legacy rows to a server. Music display copies preserve server routing and playback compatibility fields, and non-music items do not receive cached music metadata.
+
+**Validation.** Regression fixtures exercise two servers with the same rating key in both orders, disk reload, legacy cache isolation, non-music collision, and routing/codec fields through both music-copy paths. Xcode 27 / tvOS 27 native suite passed 441 tests, with 2 optional live tests skipped and no failures.
+
+**Half-done.** This branch covers native music enrichment and pool identity. It does not include unrelated guide, metadata-provider or playback recovery changes.
+
+**Next.** Upstream review on `fix/server-qualified-music-cache`. No merge or deployment is included.
 
 ## 2026-10-09 (app)
 

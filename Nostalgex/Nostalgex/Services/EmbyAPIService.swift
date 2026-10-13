@@ -389,13 +389,11 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
         if let audioCodec = item.audioCodec?.lowercased(), !Self.supportedAudioCodecs.contains(audioCodec) {
             return nil
         }
-        guard var components = URLComponents(string: "\(serverURL)/Videos/\(item.ratingKey)/stream") else { return nil }
-        components.queryItems = [
-            .init(name: "Static", value: "true"),
-            .init(name: "MediaSourceId", value: item.partKey ?? item.ratingKey),
-            .init(name: "api_key", value: accessToken),
-        ]
-        return components.url
+        // `stream.mp4`, not `stream`: see JellyfinPlaybackResolver.staticStreamURL.
+        return JellyfinPlaybackResolver.staticStreamURL(
+            serverURL: serverURL, itemId: item.ratingKey,
+            mediaSourceId: item.partKey ?? item.ratingKey, apiKey: accessToken
+        )
     }
 
     func buildTranscodeURL(for item: PlexMediaItem) -> URL? {
