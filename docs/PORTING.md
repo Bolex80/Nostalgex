@@ -21,9 +21,10 @@ and already pinned to the Apple TV.
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js`: TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | — | not ported; it calls upstream's own hosted services |
+| `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series; golden file `scripts/franchise-golden.json` (since 43f6ee7) | — | not yet |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
-| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text until the maintainer says the artwork may be used |
+| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text; the maintainer holds the artwork until it is settled where the port lives ([UPSTREAM.md](UPSTREAM.md)) |
 
 Start-up follows upstream's cached-library path. The last build's guide is
 saved on the TV and shown at once when a fresh build would give the same

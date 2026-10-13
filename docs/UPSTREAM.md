@@ -10,8 +10,7 @@ is the maintainer's call. The Fire TV fork (Discussion #2) is the precedent.
 ## Reply posted to Discussion #8
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18901675)
-on 2026-10-13. The maintainer's answers to the three questions decide the next
-steps here.
+on 2026-10-13.
 
 > Hi! Since Roku isn't on the roadmap, I built a port:
 > https://github.com/tydude001/nostalgex-roku
@@ -33,3 +32,23 @@ steps here.
 > 2. I measured parity against the JS (`plex-tuner.html` and the `scripts/`
 >    modules). Is that the reference you want, or the Swift?
 > 3. May it use the Nostalgex logo? For now the logo, icon and splash are text.
+
+## The maintainer's answer
+
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18907140) on
+2026-10-13. They read the code, and said checking the filter against vectors
+from their filter script is how they want parity checked.
+
+1. **Where it lives:** undecided, so it stays a separate repo for now. Longer
+   term they could see it in their repo as `roku/`, reading the same
+   `channels.json`, memberships and franchise files directly. If so, the repo
+   owner is credited and invited to co-maintain.
+2. **Reference:** the JS — `scripts/nostalgex-channel-filter.cjs` and the
+   shared JSON files. They pointed at FRANCHISES (`franchises.json`,
+   `scripts/nostalgex-franchise-builder.js`, golden file
+   `scripts/franchise-golden.json`) as new. It is already in the pinned commit
+   43f6ee7, just not ported ([PORTING.md](PORTING.md)).
+3. **Logo:** held until where the port lives is settled.
+
+They plan to try it on a Roku and give feedback in the discussion, and invited
+the repo owner to the project Discord.
