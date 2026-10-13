@@ -697,7 +697,7 @@
     justify-content: space-between;
     gap: 12px;
     flex-shrink: 0;
-    height: calc(44px + env(safe-area-inset-top));
+    height: calc(48px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
     background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
     border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -709,6 +709,167 @@
     height: auto;
     opacity: 0.85;
     flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════
+     TOUCH CONTROLS: MENU BUTTON AND DRAWER
+
+     On a phone or tablet the guide and the video are the product, so the
+     controls are not on screen at all. They live behind one button in the top
+     right and open as a sheet from the right edge. Desktop and TV never show
+     either: both are display:none until a touch media query turns them on.
+  ══════════════════════════════════════ */
+  .m-menu-btn {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    height: 44px;
+    padding: 0 12px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .m-menu-btn-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  /* Three stacked bars, drawn as blocks so they keep the pixel edge the rest
+     of the interface has. */
+  .m-menu-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .m-menu-bars span {
+    display: block;
+    width: 15px;
+    height: 3px;
+    background: var(--cyan);
+  }
+  .m-menu-btn:active { background: rgba(0, 196, 255, 0.2); }
+
+  .m-drawer-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.66);
+    z-index: 399;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  body.drawer-open .m-drawer-scrim { opacity: 1; pointer-events: auto; }
+
+  .m-drawer {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(300px, 84vw);
+    z-index: 400;
+    flex-direction: column;
+    gap: 8px;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) 12px;
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
+    border-left: 2px solid var(--cyan);
+    overflow-y: auto;
+    scrollbar-width: none;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+  }
+  .m-drawer::-webkit-scrollbar { display: none; }
+  body.drawer-open .m-drawer { transform: translateX(0); }
+
+  .m-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+  .m-drawer-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .m-drawer-close {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    line-height: 1;
+  }
+  .m-drawer-close:active { background: rgba(0, 196, 255, 0.2); }
+
+  .m-drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+  }
+  .m-drawer-item:active { background: rgba(0, 196, 255, 0.2); }
+  .m-drawer-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1.5;
+    flex: 1 1 auto;
+  }
+  .m-drawer-value {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1.5;
+    flex-shrink: 0;
+  }
+  .m-drawer-value.off { color: var(--orange); }
+  .m-drawer-item svg { display: block; flex-shrink: 0; }
+
+  /* The coffee box is the only control asking for anything, so it is the only
+     warm one in here. */
+  .m-drawer-item--coffee {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    margin-top: 4px;
+    animation: coffee-glow 2.4s ease-in-out infinite;
+  }
+  .m-drawer-item--coffee .m-drawer-label { color: #000; }
+  .m-drawer-item--coffee svg .steam { animation: coffee-steam 1.8s ease-in-out infinite; }
+  .m-drawer-item--coffee:active { background: #fff; border-color: #fff; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .m-drawer, .m-drawer-scrim { transition: none; }
+    .m-drawer-item--coffee { animation: none; }
+    .m-drawer-item--coffee svg .steam { animation: none; }
   }
 
   /* Buy Me a Coffee box — the one button meant to stand out */
@@ -2021,9 +2182,10 @@
   }
 
   /* ──────────────────────────────────────
-     Shared touch pieces: a bottom-anchored toolbar and the top bar.
-     Used by the portrait and tablet-landscape blocks below. Desktop and TV
-     never match either, so nothing here can reach them.
+     Shared touch pieces: the top bar with its menu button, the drawer that
+     holds every control, and no on-screen toolbar at all. Used by the portrait
+     and tablet-landscape blocks below. Desktop and TV never match either, so
+     nothing here can reach them.
   ────────────────────────────────────── */
   @media (max-width: 1024px) and (orientation: portrait),
          (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px) {
@@ -2032,92 +2194,20 @@
        went full width. The top bar carries the logo instead. */
     .player-screen.has-channel .player-logo { display: none; }
 
-    /* Room at the foot of the screen for the fixed toolbar. */
+    /* The rail and the bottom bar are both gone here. Six controls were worth
+       a row of the guide on a phone and they are not: they are in the drawer,
+       one tap behind MENU, and the screen they held goes to the guide. */
+    .player-screen.layout-side.has-channel .v-toolbar { display: none; }
     .player-screen.layout-side.has-channel {
-      padding-bottom: calc(56px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
     }
-
-    /* The vertical rail becomes a full-width bar pinned to the bottom edge,
-       one control per equal column, divided by thin borders. */
-    .player-screen.layout-side.has-channel .v-toolbar {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: auto;
-      height: calc(56px + env(safe-area-inset-bottom));
-      padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-      flex-direction: row;
-      gap: 0;
-      z-index: 70;
-      border-right: 0;
-      border-top: 1px solid rgba(255,255,255,0.14);
-    }
-
-    /* Apple TV moved to the top bar; six controls is what a phone fits. */
-    .v-btn--appletv { display: none; }
-
-    .v-toolbar .v-btn,
-    .v-toolbar .v-coffee,
-    .v-toolbar .v-social {
-      flex: 1 1 0;
-      width: auto;
-      min-width: 0;
-      height: 100%;
-      margin-top: 0;
-      border: 0;
-      border-right: 1px solid rgba(255,255,255,0.14);
-      border-radius: 0;
-      padding: 6px 2px;
-      gap: 3px;
-      justify-content: center;
-    }
-    .v-toolbar > *:last-child { border-right: 0; }
-
-    /* Hint-free labels on touch. */
-    .v-toolbar .v-btn-label,
-    .v-toolbar .v-key { display: none; }
-    .v-toolbar .v-btn-short {
-      display: block;
-      font-size: 6px;
-      letter-spacing: 0.5px;
-      color: rgba(0, 196, 255, 0.75);
-    }
-    .v-toolbar .v-btn-value {
-      font-size: 7px;
-      letter-spacing: 0.5px;
-    }
-
-    /* Instagram sits before the coffee box, so the one button that asks for
-       something is the last thing the thumb passes. */
-    .v-toolbar .v-social { order: 1; flex-direction: column; gap: 4px; }
-    .v-toolbar .v-coffee { order: 2; }
-
-    /* Warmer than the rest without the desktop glow, which is far too much at
-       this size: a yellow wash and yellow type rather than a solid slab. */
-    .v-toolbar .v-coffee {
-      animation: none;
-      background: rgba(255, 221, 0, 0.14);
-      border-right: 0;
-    }
-    .v-toolbar .v-coffee svg path { stroke: var(--yellow); }
-    .v-toolbar .v-coffee-label { color: var(--yellow); font-size: 6px; letter-spacing: 0.5px; line-height: 1.35; }
-    .v-toolbar .v-coffee svg { width: 17px; height: 17px; }
-    .v-toolbar .v-social svg { width: 14px; height: 14px; }
-    .v-toolbar .v-social-label { font-size: 6px; letter-spacing: 0.5px; }
-
-    /* Tap feedback, since there is no hover on a touch screen. */
-    .v-toolbar .v-btn:active,
-    .v-toolbar .v-social:active { background: rgba(255,255,255,0.14); }
-    .v-toolbar .v-coffee:active { background: rgba(255, 221, 0, 0.3); }
-    /* :hover fires as a sticky state after a tap on iOS and left buttons
-       looking pressed. Keep the hover swap for pointers that can hover. */
-    @media (hover: none) {
-      .v-toolbar .v-btn:hover { background: rgba(0, 0, 0, 0.8); }
-      .v-toolbar .v-btn:hover .v-btn-short { color: rgba(0, 196, 255, 0.75); }
-      .v-toolbar .v-btn:hover .v-btn-value { color: var(--cyan); }
-      .v-toolbar .v-coffee:hover { background: rgba(255, 221, 0, 0.14); border-color: transparent; }
-    }
+    .m-menu-btn { display: flex; }
+    .m-drawer { display: flex; }
+    .m-drawer-scrim { display: block; }
+    /* The closed drawer is parked off the right edge, which widens the document
+       and leaves the page scrollable sideways. body already clips; html does
+       not. */
+    html { overflow-x: hidden; }
 
     /* Compact info panel type. The desktop sizes are built for a 35% column on
        a large screen and simply do not fit here. */
@@ -2200,6 +2290,9 @@
     .info-episode-title { font-size: 15px; }
     .info-upnext { display: none; }
     .m-topbar-logo { width: 84px; }
+    /* A phone screen is all guide now, so the rows can afford to be a little
+       tighter: one more channel on screen at 393x852. */
+    .grid-row { height: 32px; }
     /* Four time columns in 256px once the channel column is paid for. */
     .grid-time-slot { font-size: 15px; padding: 0 5px; }
   }
@@ -2223,7 +2316,10 @@
       -webkit-line-clamp: 3;
       margin-bottom: 12px;
     }
-    .guide-grid { flex: 0 0 auto; max-height: 44%; }
+    /* The bottom bar used to take 56px off the foot of the screen. Raised from
+       44% so the guide gets that back rather than the video row, which is
+       already as tall as the panel beside it allows. */
+    .guide-grid { flex: 0 0 auto; max-height: 50%; }
   }
 
   /* ──────────────────────────────────────
@@ -2313,6 +2409,52 @@
     .grid-time-slot { font-size: 15px; padding: 0 6px; white-space: nowrap; }
     .grid-footer { display: none; }
   }
+
+  /* ──────────────────────────────────────
+     Landscape phones, touch only: no rail either. The block above still runs
+     for a short desktop window, which keeps its rail and its key hints; this
+     one only overrides it where the pointer is a finger.
+
+     A top bar would cost 48px of the 393 available, so the menu button floats
+     in the top right corner instead, over the letterboxed black beside the
+     video, taking no layout height at all. The 84px the rail held goes back to
+     the guide's width, and the video row gives up a few percent of its height,
+     which is the only place extra guide rows can come from in landscape.
+  ────────────────────────────────────── */
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    .player-screen.layout-side.has-channel {
+      padding-left: env(safe-area-inset-left);
+    }
+    .player-screen.layout-side.has-channel .v-toolbar { display: none; }
+
+    /* The bar itself becomes the floating button's holder: no background, no
+       height in the flow, pinned to the top right corner. */
+    .player-screen.has-channel .m-topbar {
+      display: flex;
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: auto;
+      width: auto;
+      height: auto;
+      padding: 6px max(6px, env(safe-area-inset-right)) 0 0;
+      background: none;
+      border-bottom: 0;
+      z-index: 80;
+    }
+    .m-topbar-logo { display: none; }
+    .m-menu-btn { display: flex; height: 44px; background: rgba(0, 0, 0, 0.85); }
+    .m-drawer { display: flex; }
+    .m-drawer-scrim { display: block; }
+    html { overflow-x: hidden; }
+
+    /* 393px of drawer for seven boxes: tighter rows, same tap target. */
+    .m-drawer { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+    .m-drawer-item { min-height: 44px; padding: 8px 12px; }
+
+
+    .player-screen.layout-side .video-area { flex: 0 0 55%; }
+  }
 </style>
 </head>
 <body>
@@ -2326,11 +2468,59 @@
   </div>
 
   <!-- TOUCH TOP BAR (phones and tablets only; the corner logo is fixed and
-       overlaps the channel tag once the info panel goes full width). The right
-       hand slot is empty on purpose: the App Store link that sat here was for a
-       tvOS app, which nobody installs from a phone. -->
+       overlaps the channel tag once the info panel goes full width). The
+       wordmark on the left, and on the right the one control a phone shows:
+       everything else is behind it in the drawer. -->
   <div class="m-topbar" id="m-topbar">
     <img class="m-topbar-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
+    <button class="m-menu-btn" id="m-menu-btn" type="button" aria-label="Open controls"
+            aria-haspopup="dialog" aria-expanded="false" aria-controls="m-drawer">
+      <span class="m-menu-btn-label">MENU</span>
+      <span class="m-menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+  </div>
+
+  <!-- TOUCH CONTROLS DRAWER. A phone shows the guide and the video; the
+       controls live in here until asked for. Duplicated rather than moved out
+       of the vertical rail so the desktop rail is untouched. -->
+  <div class="m-drawer-scrim" id="m-drawer-scrim"></div>
+  <div class="m-drawer" id="m-drawer" role="dialog" aria-modal="true" aria-label="Controls" aria-hidden="true">
+    <div class="m-drawer-head">
+      <span class="m-drawer-title">CONTROLS</span>
+      <button class="m-drawer-close" id="m-drawer-close" type="button" aria-label="Close controls">X</button>
+    </div>
+    <button class="m-drawer-item" type="button" onclick="toggleMute()">
+      <span class="m-drawer-label">SOUND</span>
+      <!-- Playback starts muted, so this starts in its off colour. -->
+      <span class="m-drawer-value off" id="dw-sound-val">OFF</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); toggleFullscreen();">
+      <span class="m-drawer-label">FULL SCREEN</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="toggleRetroMode()">
+      <span class="m-drawer-label">RETRO</span>
+      <span class="m-drawer-value" id="dw-retro-val">ON</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); showConfig();">
+      <span class="m-drawer-label">SETTINGS</span>
+    </button>
+    <a class="m-drawer-item" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
+        <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
+        <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
+      </svg>
+      <span class="m-drawer-label">INSTAGRAM</span>
+    </a>
+    <a class="m-drawer-item m-drawer-item--coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+      <span class="m-drawer-label">BUY ME A COFFEE</span>
+    </a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -3248,6 +3438,46 @@
     // Reflect the saved retro state across all controls on load
     updateRetroControls();
     updateSyncActivityControls();
+
+    // Touch controls drawer: the button, the close box, and the scrim.
+    const menuBtn = document.getElementById('m-menu-btn');
+    if (menuBtn) menuBtn.addEventListener('click', toggleDrawer);
+    const drawerClose = document.getElementById('m-drawer-close');
+    if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+    const drawerScrim = document.getElementById('m-drawer-scrim');
+    if (drawerScrim) drawerScrim.addEventListener('click', closeDrawer);
+    // A tap outside the sheet closes it even where the scrim does not reach,
+    // for instance the floating menu button's own corner in landscape.
+    document.addEventListener('pointerdown', (e) => {
+      if (!document.body.classList.contains('drawer-open')) return;
+      const drawer = document.getElementById('m-drawer');
+      if (drawer && drawer.contains(e.target)) return;
+      if (menuBtn && menuBtn.contains(e.target)) return;
+      closeDrawer();
+    });
+    // Escape closes and Tab stays inside. Everything else falls through, so
+    // M, F, B and H keep working while it is open.
+    document.addEventListener('keydown', (e) => {
+      if (!document.body.classList.contains('drawer-open')) return;
+      if (e.key === 'Escape') {
+        closeDrawer();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = drawerFocusables();
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !items.includes(active))) {
+        last.focus();
+        e.preventDefault();
+      } else if (!e.shiftKey && (active === last || !items.includes(active))) {
+        first.focus();
+        e.preventDefault();
+      }
+    }, true);
 
     // Wire up grid row clicks
     document.getElementById('grid-body').addEventListener('click', (e) => {
@@ -5017,10 +5247,59 @@
   }
 
   function updateToolbarSound() {
-    const el = document.getElementById('tb-sound-val');
-    if (!el) return;
-    el.textContent = videoMuted ? 'OFF' : 'ON';
-    el.classList.toggle('off', videoMuted);
+    // The rail and the touch drawer each carry their own copy of the value.
+    for (const id of ['tb-sound-val', 'dw-sound-val']) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = videoMuted ? 'OFF' : 'ON';
+      el.classList.toggle('off', videoMuted);
+    }
+  }
+
+  /* ══════════════════════════════════════
+     TOUCH CONTROLS DRAWER
+
+     Opening it only moves a panel: it never touches the video element, so
+     playback carries on behind the scrim. Dismissed by the close box, by a tap
+     outside, or by Escape. While it is open Tab cycles inside it, and every
+     other key falls through to the normal shortcuts.
+  ══════════════════════════════════════ */
+  let drawerReturnFocus = null;
+
+  function drawerFocusables() {
+    const drawer = document.getElementById('m-drawer');
+    if (!drawer) return [];
+    return [...drawer.querySelectorAll('button, a[href]')]
+      .filter(el => !el.disabled && el.getBoundingClientRect().width > 0);
+  }
+
+  function openDrawer() {
+    const drawer = document.getElementById('m-drawer');
+    const btn = document.getElementById('m-menu-btn');
+    if (!drawer) return;
+    drawerReturnFocus = document.activeElement;
+    document.body.classList.add('drawer-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    const first = drawerFocusables()[0];
+    if (first) first.focus();
+  }
+
+  function closeDrawer() {
+    const drawer = document.getElementById('m-drawer');
+    const btn = document.getElementById('m-menu-btn');
+    if (!drawer || !document.body.classList.contains('drawer-open')) return;
+    document.body.classList.remove('drawer-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    const back = drawerReturnFocus && document.contains(drawerReturnFocus) ? drawerReturnFocus : btn;
+    if (back && typeof back.focus === 'function') back.focus();
+    drawerReturnFocus = null;
+  }
+
+  function toggleDrawer() {
+    if (document.body.classList.contains('drawer-open')) closeDrawer();
+    else openDrawer();
   }
 
   function tbRefresh() {
@@ -5061,8 +5340,10 @@
   // Reflect retro state across every control (side toolbar value, floating button,
   // settings toggle) so the on/off state is always clear, not hidden behind the B key.
   function updateRetroControls() {
-    const tb = document.getElementById('tb-retro-val');
-    if (tb) { tb.textContent = retroMode ? 'ON' : 'OFF'; tb.classList.toggle('off', !retroMode); }
+    for (const id of ['tb-retro-val', 'dw-retro-val']) {
+      const tb = document.getElementById(id);
+      if (tb) { tb.textContent = retroMode ? 'ON' : 'OFF'; tb.classList.toggle('off', !retroMode); }
+    }
     const cfg = document.getElementById('cfg-retro-toggle');
     if (cfg) { cfg.textContent = retroMode ? 'ON' : 'OFF'; cfg.classList.toggle('on', retroMode); }
   }
