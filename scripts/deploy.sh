@@ -30,7 +30,7 @@ mkdir -p "$stage"
 cp -r manifest source components "$stage"/
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" "$stage"/; done
 if [ "$mode" = test ]; then
-    cp tests/main.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs "$stage"/source/
+    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs "$stage"/source/
     mkdir -p "$stage"/tests && cp -r tests/vectors "$stage"/tests/
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs

@@ -19,9 +19,8 @@
 '   - Requests run one at a time; upstream fetches five shows' episodes at
 '     once. Its Promise.all keeps their order, so the result is the same.
 '   - MusicBrainz/Deezer enrichment of music videos is not ported yet.
-'   - No includeGuids=1, so most items have no tmdbID. This matches upstream
-'     before 43f6ee7. Upstream now asks for it and gives episodes their
-'     show's tmdbID, and this loader doesn't follow that yet.
+'   - Items don't carry upstream's `serverID`. Only its server collections
+'     read it, and they aren't ported.
 
 ' One GET against a server: its home-network address when there is one,
 ' else HTTPS, with up to three tries, since a home network can drop a
@@ -47,13 +46,15 @@ function NxPlexGetContainer(server as Object, path as String, err = invalid as D
 end function
 
 ' Every item in a section, 300 at a time, as fetchPlexSectionPaged. invalid
-' if a page fails (upstream throws and skips the section).
+' if a page fails (upstream throws and skips the section). includeGuids=1 puts
+' the `Guid` list (`tmdb://603`, ...) on each item; without it, a library on
+' Plex's current agents has only `plex://` guids and no TMDB ids.
 function NxPlexSectionItems(server as Object, key as String) as Dynamic
     pageSize = 300
     all = []
     start = 0
     while true
-        mc = NxPlexGetContainer(server, "/library/sections/" + key + "/all?X-Plex-Container-Start=" + start.ToStr() + "&X-Plex-Container-Size=" + pageSize.ToStr(), invalid, 30000)
+        mc = NxPlexGetContainer(server, "/library/sections/" + key + "/all?includeGuids=1&X-Plex-Container-Start=" + start.ToStr() + "&X-Plex-Container-Size=" + pageSize.ToStr(), invalid, 30000)
         if mc = invalid then return invalid
         page = NxList(mc.Metadata)
         all.Append(page)
@@ -92,10 +93,13 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
                 shown = 0
                 for each show in items
                     showGenres = NxTags(show.Genre)
+                    ' Episodes take the show's TMDB id, as on tvOS: allLeaves
+                    ' carries no show Guid list.
+                    showTmdb = NxParseTmdbIdFromPlex(show, false)
                     leaves = NxPlexGetContainer(server, "/library/metadata/" + NxToStr(show.ratingKey) + "/allLeaves")
                     if leaves <> invalid then
                         for each ep in NxList(leaves.Metadata)
-                            it = NxPlexEpisodeItem(ep, show, showGenres, isMusicVideoSection)
+                            it = NxPlexEpisodeItem(ep, show, showGenres, showTmdb, isMusicVideoSection)
                             if it <> invalid then
                                 it.serverIndex = serverIndex
                                 out.Push(it)
@@ -120,7 +124,9 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
     return out
 end function
 
-function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, isMusicVideoSection as Boolean) as Dynamic
+function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, showTmdb as Dynamic, isMusicVideoSection as Boolean) as Dynamic
+    tmdbID = showTmdb
+    if tmdbID = invalid then tmdbID = NxParseTmdbIdFromPlex(ep, true)
     durationMin = NxPlexMinutes(ep.duration)
     if durationMin <= 0 then return invalid
     media = NxPickBestVersion(ep.Media)
@@ -157,7 +163,7 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, i
         addedAt: NxOr(ep.addedAt, 0),
         studio: NxOr(show.studio, ""),
         librarySource: librarySource,
-        tmdbID: NxParseTmdbIdFromPlex(ep, true),
+        tmdbID: tmdbID,
         artist: invalid,
         seasonNumber: ep.parentIndex,
         episodeNumber: ep.index,

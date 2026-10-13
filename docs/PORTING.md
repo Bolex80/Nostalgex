@@ -103,15 +103,14 @@ web tuner does, so `tests/live/` checks that against a real server:
   schedule at the TV's clock, and diffs the two.
 
 The loader differs from upstream only where no result depends on it. Items
-carry a server index, not the server's token. The display string `meta` is
-built by the guide. Requests run one at a time, in upstream's order.
+carry a server index, not the server's token, and no `serverID`, which only
+upstream's server collections read. The display string `meta` is built by the
+guide. Requests run one at a time, in upstream's order. Like upstream, it asks
+Plex for `includeGuids=1`, which is what gives items a TMDB id for the
+membership manifest, and episodes take their show's id.
 
-One difference does change results. The loader never asks Plex for
-`includeGuids=1`, so most items have no TMDB id and the membership manifest
-seldom applies. Upstream behaved the same way until 43f6ee7. It now asks for
-the ids and gives episodes their show's TMDB id. So until this loader follows,
-`compare.mjs` run against a clone at 43f6ee7 or later will report a
-divergence.
+`compare.mjs` runs upstream at the commit pinned in `data/UPSTREAM`, from a
+throwaway checkout, whatever the clone has checked out.
 
 ## BrightScript notes
 
@@ -127,6 +126,10 @@ divergence.
   is an AA, not what was assigned to it. `pos` is a reserved word.
 - Regex patterns must mean the same in PCRE (device) and JS (interpreter):
   no `\z`, so "absolute end" is `(?![\s\S])`.
+- `ParseJson` keeps key case on the TV, so Plex's `guid` (a string) and
+  `Guid` (a list) stay two keys; read them by exact key (`raw["Guid"]`). The
+  off-device interpreter folds them into one, so its run skips the vectors
+  that hold both, and the TV run checks them.
 - AAs ignore key case unless `SetModeCaseSensitive()` is called. Swift groups
   shows case-sensitively ("The Wire" and "the wire" are two groups), so every
   AA keyed on titles or ratingKeys sets it.

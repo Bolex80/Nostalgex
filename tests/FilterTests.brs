@@ -37,13 +37,20 @@ function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Inte
     ms = timer.TotalMilliseconds()
     print "  filter: "; evaluations; " item-channel evaluations took "; ms; " ms"
 
+    ' The interpreter's ParseJson folds key case, so `guid` and `Guid` become one
+    ' key there. A TV keeps them apart, and a TV that didn't would fail here.
+    folds = ParseJson("{""k"": 1, ""K"": 2}").Count() = 1
     for each c in v.parseTmdbIdFromPlex
-        got = NxParseTmdbIdFromPlex(c.raw, c.isEpisode)
-        want = "null"
-        if c.out <> invalid then want = c.out.ToStr()
-        gotStr = "null"
-        if got <> invalid then gotStr = got.ToStr()
-        NxCheck(r, "parseTmdbIdFromPlex " + FormatJson(c.raw), gotStr, want)
+        if NxTruthy(c.bothCases) and folds and NxTestRuntime() = "interpreter" then
+            print "  skip parseTmdbIdFromPlex with guid and Guid: this interpreter folds JSON key case"
+        else
+            got = NxParseTmdbIdFromPlex(c.raw, c.isEpisode)
+            want = "null"
+            if c.out <> invalid then want = c.out.ToStr()
+            gotStr = "null"
+            if got <> invalid then gotStr = got.ToStr()
+            NxCheck(r, "parseTmdbIdFromPlex " + FormatJson(c.raw), gotStr, want)
+        end if
     end for
 
     print "filter vectors (upstream "; Left(v.upstream.commit, 7); "): "; r.pass; " passed,"; r.fail; " failed"

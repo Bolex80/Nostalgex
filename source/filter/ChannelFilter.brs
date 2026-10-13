@@ -634,14 +634,18 @@ end function
 
 ' Plex GUIDs: `tmdb://456`, or agent URLs containing `tmdb://456`. Takes the
 ' Plex metadata AA; returns the TMDB id as an Integer, or invalid.
+'
+' Plex sends both `guid` (a string) and `Guid` (a list), so each is read by
+' its exact key. tests/vectors/filter.json has both key orders, which fail on a
+' device where the two collide.
 function NxParseTmdbIdFromPlex(raw as Object, isEpisode = false as Boolean) as Dynamic
     candidates = []
-    if type(raw.Guid) = "roArray" then
-        for each g in raw.Guid
+    if type(raw["Guid"]) = "roArray" then
+        for each g in raw["Guid"]
             if type(g) = "roAssociativeArray" then candidates.Push(g.id) else candidates.Push(invalid)
         end for
     end if
-    if NxTruthy(raw.guid) then candidates.Push(raw.guid)
+    if NxTruthy(raw["guid"]) then candidates.Push(raw["guid"])
     if isEpisode and NxTruthy(raw.grandparentGuid) then candidates.Push(raw.grandparentGuid)
     if isEpisode and NxTruthy(raw.parentGuid) then candidates.Push(raw.parentGuid)
     rx = NxRx("tmdbGuid", "tmdb://(\d+)")

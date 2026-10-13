@@ -296,7 +296,12 @@ export function filterVectors(upstream) {
     [{ guid: "plex://episode/1", grandparentGuid: "tmdb://1396" }, false],
     [{ Guid: [], guid: "tmdb://00042" }, false],
     [{}, false],
-  ].map(([raw, isEpisode]) => ({ raw, isEpisode, out: CF.parseTmdbIdFromPlex(raw, isEpisode) }));
+    // What includeGuids=1 returns, in both key orders: `guid` and `Guid` must
+    // stay two keys on the device, or one hides the other. `bothCases` marks
+    // them for the interpreter, whose ParseJson folds key case.
+    [{ guid: "plex://movie/5d776825880197001ec967c5", Guid: [{ id: "imdb://tt0133093" }, { id: "tmdb://603" }] }, false, true],
+    [{ Guid: [{ id: "imdb://tt0133093" }, { id: "tmdb://603" }], guid: "plex://movie/5d776825880197001ec967c5" }, false, true],
+  ].map(([raw, isEpisode, bothCases]) => ({ raw, isEpisode, ...(bothCases && { bothCases }), out: CF.parseTmdbIdFromPlex(raw, isEpisode) }));
 
   return {
     clocks: CLOCKS.map((c) => ({ ...c, ...contexts[c.name] })),
