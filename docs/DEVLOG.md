@@ -3,6 +3,66 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (page media, blog images, legal holds lifted)
+
+**Shipped.** The channel guide went live: `/channels` plus 14 bundle pages, the
+new hand written titles, and every bundle name in the home page lineup linking
+to its page. Sitemap resubmitted to Search Console. The Tunarr and ErsatzTV post
+is live, a day later than scheduled.
+
+**Changed.**
+
+- `scripts/site-media.mjs`, shared by the blog and the guide. Every image
+  carries width and height so nothing shifts while it loads: a file in this repo
+  is measured at build time (png, jpeg and webp headers, no new dependency), and
+  a remote file is measured once by `npm run media:measure` into
+  `scripts/media-sizes.json`. The build reads that file and never touches the
+  network, so a deploy does not depend on the bucket answering, and a new remote
+  image fails the build until it has been measured.
+- Every image needs real alt text or the build fails. Alt text and a clip's
+  aria-label now feed the guide's copy checks, so a dash or a held name in alt
+  fails the same way it does in body copy.
+- Blog posts take `cover`, `og_image` and inline markdown images, which render
+  as lazy loaded figures with the markdown title as the caption. Bundle pages
+  take the same fields plus an optional `clip`. Clips are muted, looping and
+  poster backed, started by app.js when they scroll into view, left paused under
+  reduced motion or Save Data. `og:image:width` and `og:image:height` are now
+  emitted for any card, not only the shared default.
+- Seventeen images across all seven posts, three live and four drafts, served
+  from the media bucket rather than committed: this repo is public and the
+  captures are frames from films. Measured sizes matched what the retrofit
+  documented (covers 1200x630, grid crops 1280x412, guide crops 1280x565).
+- Fixed the markup a standalone image produced. marked wraps it in a paragraph,
+  and a figure inside a paragraph makes the browser close the `<p>` early and
+  leave an empty one behind.
+- **The legal holds are lifted.** Chad cleared the brand and franchise channel
+  names for publication, for now. All 14 bundles are indexed, all 131 channel
+  names are printed, the sitemap went from 11 URLs to 15, and llms.txt lists
+  every bundle. The brand word list moved out of `build-bundles.mjs` into
+  `scripts/legal-hold.json`, so that one file decides what is held: bundles,
+  channels and words. The former lists are kept in the same file under
+  `releasedBundles`, `releasedChannels` and `releasedBrands`, so putting a hold
+  back is a copy from one list to another and a rebuild.
+- The affiliation disclaimer now renders on every bundle page rather than only
+  the held ones. A page that prints a studio or franchise channel name is the
+  page that needs it.
+
+**Half-done.** The four bundles that were held (Kidz Zone, Franchises, Networks,
+Arthouse) still carry the deliberately generic intros written while they were
+noindex: they never name their own channels. They are accurate and they are safe
+if the holds go back on, but they read vaguely for pages that are now indexed
+and could name what is on them. Rewriting them is the obvious next copy job.
+Bundle pages have no images yet beyond the hub, which reuses the home page
+lineup screenshot; six bundles have no usable capture at all (sports, true
+crime, arthouse, Christmas, music videos) and Christmas wants a November capture
+with holiday titles in the guide.
+
+**Next.** Decide whether the four generic intros get rewritten now that the
+names are published. Request indexing for `/channels` once Google has refetched
+the sitemap: the Indexing API submission failed with "Insufficient Permission",
+so that is a service account and API enablement job in Google Cloud before it
+can be scripted.
+
 ## 2026-10-13 (channel guide pages)
 
 **Shipped.** Nothing. Branch `seo/bundle-pages`, draft PR, waiting on Chad's

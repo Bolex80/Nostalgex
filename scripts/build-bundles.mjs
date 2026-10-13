@@ -116,41 +116,11 @@ const BANNED_PHRASES = [
   "nostalgia tv",
 ];
 
-// Brand and near brand names from handoff section 11. None of these may appear
-// in the visible copy, meta or JSON-LD of a page that search engines index.
-// "Apple TV" the device is fine and is why Apple TV+ is matched with its plus.
-const BRAND_TERMS = [
-  "Disney",
-  "Diz",
-  "Dizney",
-  "Nickelodeon",
-  "Nick",
-  "Pixar",
-  "Minion",
-  "DreamWorks",
-  "Netflix",
-  "Cartoon Network",
-  "Criterion",
-  "Hallmark",
-  "Oscar",
-  "HBO",
-  "Apple TV+",
-  "Paramount",
-  "Amazon",
-  "Hulu",
-  "Sony",
-  "Warner",
-  "Universal",
-  "20th Century",
-  "Miramax",
-  "Star Wars",
-  "Marvel",
-  "Harry Potter",
-  "Jurassic Park",
-  "Lord of the Rings",
-  "Mission Impossible",
-  "Bourne",
-];
+// Brand and near brand names live in scripts/legal-hold.json, not here, so one
+// file decides what is held: the bundles, the channels and the words. None of
+// the held words may appear in the visible copy, meta or JSON-LD of a page that
+// search engines index. "Apple TV" the device is fine, which is why Apple TV+
+// is matched with its plus.
 
 // Channel names that need a hand written display form. The generic rule below
 // already turns any hyphen into a space, so this map is for the cases where
@@ -246,12 +216,14 @@ function readJson(file) {
 
 export function loadLegalHold() {
   if (!existsSync(LEGAL_HOLD_PATH)) {
-    return { heldBundles: new Set(), heldChannels: new Set() };
+    return { heldBundles: new Set(), heldChannels: new Set(), heldBrands: [] };
   }
   const raw = readJson(LEGAL_HOLD_PATH);
   return {
     heldBundles: new Set(raw.heldBundles || []),
     heldChannels: new Set((raw.heldChannels || []).map(Number)),
+    // Empty means nothing is enforced: the names are cleared for publication.
+    heldBrands: raw.heldBrands || [],
   };
 }
 
@@ -486,12 +458,12 @@ function escapeRegex(s) {
 // One matcher per held term. Word boundaries keep ordinary words out of it, so
 // "Nick" does not fire on "nickname". Apple TV+ is matched with its plus,
 // which is what separates it from "Apple TV" the device.
-function buildHeldMatchers(heldChannelNames) {
+function buildHeldMatchers(heldChannelNames, heldBrands = []) {
   // Case insensitive dedupe: a held channel's raw name (HARRY POTTER) and its
   // display name (Harry Potter) and the brand term (Harry Potter) are one
   // rule, and one rule should report once.
   const seen = new Map();
-  for (const term of [...BRAND_TERMS, ...heldChannelNames]) {
+  for (const term of [...heldBrands, ...heldChannelNames]) {
     const key = term.toLowerCase();
     if (!seen.has(key)) seen.set(key, term);
   }
@@ -792,10 +764,11 @@ function renderBundlePage(bundle, model, assetHrefs) {
     )
     .join("\n");
 
-  const disclaimer = bundle.held
-    ? `
-        <p class="bundle-disclaimer">${escapeHtml(AFFILIATION_DISCLAIMER)}</p>`
-    : "";
+  // On every bundle page, not just the held ones. A page that prints a studio
+  // or franchise channel name is exactly the page that needs to say nobody is
+  // endorsing anybody, and now that the holds are lifted that is most of them.
+  const disclaimer = `
+        <p class="bundle-disclaimer">${escapeHtml(AFFILIATION_DISCLAIMER)}</p>`;
 
   // A fresh Marked instance per page. The image renderer closes over the file
   // name so a missing alt names the content file that caused it, and
@@ -1159,7 +1132,7 @@ export async function renderBundles(assetHrefs = {}, options = {}) {
       if (channel.held) heldChannelNames.push(channel.rawName, channel.name);
     }
   }
-  const matchers = buildHeldMatchers(heldChannelNames);
+  const matchers = buildHeldMatchers(heldChannelNames, loadLegalHold().heldBrands);
 
   const assets = new Map();
   const pages = [];
