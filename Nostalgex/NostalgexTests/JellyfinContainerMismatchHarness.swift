@@ -28,7 +28,10 @@ final class JellyfinContainerMismatchHarness: XCTestCase {
             if let p = env["NOSTALGEX_JF_OUT"] { try? out.joined(separator: "\n").write(toFile: p, atomically: true, encoding: .utf8) }
         }
 
-        let api = JellyfinAPIService(serverURL: url, accessToken: token, userId: user)
+        // NOSTALGEX_JF_BACKEND=emby points the same run at an Emby server.
+        let api: any MediaBackend = env["NOSTALGEX_JF_BACKEND"] == "emby"
+            ? EmbyAPIService(serverURL: url, accessToken: token, userId: user)
+            : JellyfinAPIService(serverURL: url, accessToken: token, userId: user)
         let items = try await api.loadLibrary()
         let picked = items.filter { item in fragments.isEmpty || fragments.contains { item.title.contains($0) } }
         XCTAssertFalse(picked.isEmpty, "no library item matched \(fragments)")
@@ -42,13 +45,13 @@ final class JellyfinContainerMismatchHarness: XCTestCase {
             if let r = resolved {
                 candidates.append(("resolveTranscodePlayback (PlaybackInfo) isDirectPlay=\(r.isDirectPlay)", r.url, r.isDirectPlay))
             }
-            // The same static file, asked for with an extension so the server labels it by
-            // the container it probed rather than by the file name.
-            if var c = URLComponents(string: "\(url)/Videos/\(item.ratingKey)/stream.mp4") {
+            // The direct-play URL as it was before 2026-10-12: no extension, so the server
+            // labels the response by the file's name.
+            if var c = URLComponents(string: "\(url)/Videos/\(item.ratingKey)/stream") {
                 c.queryItems = [.init(name: "Static", value: "true"),
                                 .init(name: "MediaSourceId", value: item.partKey ?? item.ratingKey),
                                 .init(name: "api_key", value: token)]
-                if let u = c.url { candidates.append(("static stream.mp4 (experiment)", u, true)) }
+                if let u = c.url { candidates.append(("static stream, no extension (old URL)", u, true)) }
             }
 
             for cand in candidates {
