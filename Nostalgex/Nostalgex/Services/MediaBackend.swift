@@ -141,6 +141,7 @@ enum MediaServerPlaybackReport {
         return URLSession(configuration: config)
     }()
 
+    @discardableResult
     static func post(
         serverURL: String,
         authorization: String,
@@ -149,8 +150,8 @@ enum MediaServerPlaybackReport {
         mediaSourceId: String,
         playSessionId: String,
         positionTicks: Int
-    ) async {
-        guard let url = URL(string: "\(serverURL)\(event.path)") else { return }
+    ) async -> Bool {
+        guard let url = URL(string: "\(serverURL)\(event.path)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -163,7 +164,9 @@ enum MediaServerPlaybackReport {
             PositionTicks: positionTicks,
             IsPaused: false
         ))
-        _ = try? await session.data(for: req)
+        guard let (_, response) = try? await session.data(for: req),
+              let http = response as? HTTPURLResponse else { return false }
+        return (200..<300).contains(http.statusCode)
     }
 
     /// One increment, matching a Plex scrobble. Used when the watch cleared the
@@ -181,13 +184,15 @@ enum MediaServerPlaybackReport {
 }
 
 protocol WatchActivityReporting: Sendable {
+    /// True when the server answered 2xx. Only feeds `PulseBackoff`.
+    @discardableResult
     func reportWatchActivity(
         itemId: String,
         mediaSourceId: String,
         playSessionId: String,
         positionTicks: Int,
         event: MediaServerPlaybackReport.Event
-    ) async
+    ) async -> Bool
 
     func markWatched(itemId: String) async
 

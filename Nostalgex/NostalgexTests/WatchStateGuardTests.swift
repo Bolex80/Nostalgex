@@ -4,8 +4,9 @@ import XCTest
 /// Report Playback must never leave a program in Continue Watching. These drive the real
 /// `PlaybackTracker` and `PlexAPIService` request builders through a recording transport
 /// and a fake clock, so the exact calls a two-minute surf makes are checked in
-/// milliseconds. The live-server version of the same checks is in
-/// docs/plex-session-reporting.md.
+/// milliseconds. The live-server version is `LiveContinueWatchingTests`; numbers in
+/// docs/plex-session-reporting.md. Request-shape, background and pulse tests are ported
+/// from PR #18 (w6trp).
 @MainActor
 final class WatchStateGuardTests: XCTestCase {
 
@@ -17,6 +18,7 @@ final class WatchStateGuardTests: XCTestCase {
             let path: String
             let query: [String: String]
             let body: [String: Any]?
+            let sessionHeader: String?
         }
 
         private let lock = NSLock()
@@ -42,7 +44,8 @@ final class WatchStateGuardTests: XCTestCase {
             let body = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             let method = request.httpMethod ?? "GET"
             lock.lock(); defer { lock.unlock() }
-            recorded.append(Call(method: method, path: comps.path, query: query, body: body))
+            recorded.append(Call(method: method, path: comps.path, query: query, body: body,
+                                 sessionHeader: request.value(forHTTPHeaderField: "X-Plex-Session-Identifier")))
             let route = "\(method) \(comps.path)"
             guard var queue = scripted[route], !queue.isEmpty else { return (200, Data()) }
             let next = queue.count > 1 ? queue.removeFirst() : queue[0]
@@ -95,15 +98,28 @@ final class WatchStateGuardTests: XCTestCase {
         }
     }
 
-    private func cleanupCalls(_ calls: [RecordingTransport.Call]) -> [RecordingTransport.Call] {
-        calls.filter { ["/:/unscrobble", "/:/progress", "/actions/removeFromContinueWatching"].contains($0.path) }
+    private func timelines(_ calls: [RecordingTransport.Call]) -> [RecordingTransport.Call] {
+        calls.filter { $0.path == "/:/timeline" }
+    }
+
+    private func removals(_ calls: [RecordingTransport.Call]) -> [RecordingTransport.Call] {
+        calls.filter { $0.path == "/actions/removeFromContinueWatching" }
+    }
+
+    /// Every Plex timeline report: PUT, no position, this tracker's session.
+    private func assertPositionFree(_ calls: [RecordingTransport.Call], session: String,
+                                    file: StaticString = #filePath, line: UInt = #line) {
+        for c in timelines(calls) {
+            XCTAssertEqual(c.method, "PUT", file: file, line: line)
+            XCTAssertEqual(Set(c.query.keys), ["ratingKey", "key", "state"], "no time or duration", file: file, line: line)
+            XCTAssertEqual(c.sessionHeader, session, file: file, line: line)
+        }
     }
 
     // MARK: - Plex, through the tracker
 
-    func testSurfTwoMinutesOnUnwatchedFilm_reportsTimelineThenUnscrobblesOnce() async {
+    func testSurfTwoMinutesOnUnwatchedFilm_isPositionFreeAndNeedsNoCleanup() async {
         let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/41418", 200, metadata(rk: "41418", type: "movie"))
         let queue = ReportQueue()
         let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
 
@@ -112,52 +128,12 @@ final class WatchStateGuardTests: XCTestCase {
         await queue.drain()
 
         let calls = transport.calls
-        XCTAssertEqual(calls.first?.path, "/library/metadata/41418", "prior state is read before the first report")
-        let timelines = calls.filter { $0.path == "/:/timeline" }
-        XCTAssertEqual(timelines.count, 14, "ready + 12 pulses + stopped")
-        XCTAssertEqual(timelines.last?.query["state"], "stopped")
-        XCTAssertEqual(timelines.last?.query["time"], "120000", "Now Playing sees the real position")
-        XCTAssertFalse(calls.contains { $0.path == "/:/scrobble" })
-        let cleanup = cleanupCalls(calls)
-        XCTAssertEqual(cleanup.map(\.path), ["/:/unscrobble"])
-        XCTAssertEqual(cleanup.first?.query["key"], "41418")
-        XCTAssertEqual(cleanup.first?.query["identifier"], "com.plexapp.plugins.library")
-        XCTAssertEqual(calls.last?.path, "/:/unscrobble", "cleanup lands after the last report")
-    }
-
-    func testSurfFilmWithPriorResumePoint_restoresThatResumePoint() async {
-        let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/500", 200, metadata(rk: "500", type: "movie", viewOffset: 600_000))
-        let queue = ReportQueue()
-        let t = tracker(item(rk: "500", minutes: 100, type: .movie), transport, queue)
-
-        play(t, seconds: 120)
-        t.stop()
-        await queue.drain()
-
-        let cleanup = cleanupCalls(transport.calls)
-        XCTAssertEqual(cleanup.count, 1)
-        XCTAssertEqual(cleanup.first?.method, "PUT")
-        XCTAssertEqual(cleanup.first?.path, "/:/progress")
-        XCTAssertEqual(cleanup.first?.query["time"], "600000")
-        XCTAssertEqual(cleanup.first?.query["state"], "stopped")
-        XCTAssertEqual(cleanup.first?.query["key"], "500")
-    }
-
-    func testSurfWatchedFilm_onlyRemovesFromContinueWatching() async {
-        let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/600", 200, metadata(rk: "600", type: "movie", viewCount: 2))
-        let queue = ReportQueue()
-        let t = tracker(item(rk: "600", minutes: 100, type: .movie), transport, queue)
-
-        play(t, seconds: 120)
-        t.stop()
-        await queue.drain()
-
-        let cleanup = cleanupCalls(transport.calls)
-        XCTAssertEqual(cleanup.map(\.path), ["/actions/removeFromContinueWatching"], "never unscrobble a watched film")
-        XCTAssertEqual(cleanup.first?.method, "PUT")
-        XCTAssertEqual(cleanup.first?.query["ratingKey"], "600")
+        XCTAssertEqual(Set(calls.map(\.path)), ["/:/timeline"], "a film is never read, scrobbled or cleaned up")
+        XCTAssertEqual(calls.count, 14, "ready + 12 pulses + stopped")
+        XCTAssertEqual(calls.first?.query["state"], "playing")
+        XCTAssertEqual(calls.last?.query["state"], "stopped")
+        XCTAssertEqual(calls.first?.query["key"], "/library/metadata/41418")
+        assertPositionFree(calls, session: t.sessionID)
     }
 
     func testQualifyingEpisodeWatch_scrobblesAndRemovesNextUpWhenShowWasNotInContinueWatching() async {
@@ -175,16 +151,14 @@ final class WatchStateGuardTests: XCTestCase {
         await queue.drain()
 
         let calls = transport.calls
+        XCTAssertEqual(calls.first?.path, "/library/metadata/48281", "the show is looked up before the first report")
         let scrobbles = calls.filter { $0.path == "/:/scrobble" }
         XCTAssertEqual(scrobbles.count, 1)
         XCTAssertEqual(scrobbles.first?.query["key"], "48281", "bare rating key; /library/metadata/{rk} is a 404")
-        let scrobbleIndex = calls.firstIndex { $0.path == "/:/scrobble" }!
-        let laterTimelines = calls[scrobbleIndex...].filter { $0.path == "/:/timeline" }
-        XCTAssertFalse(laterTimelines.isEmpty)
-        XCTAssertTrue(laterTimelines.allSatisfy { $0.query["time"] == "0" }, "no fresh resume point on a watched item")
-        let cleanup = cleanupCalls(calls)
-        XCTAssertEqual(cleanup.map(\.path), ["/actions/removeFromContinueWatching"])
-        XCTAssertEqual(cleanup.first?.query["ratingKey"], "48283", "only the next-up entry the scrobble created")
+        assertPositionFree(calls, session: t.sessionID)
+        XCTAssertEqual(removals(calls).map { $0.query["ratingKey"] }, ["48283"], "only the next-up entry the scrobble created")
+        XCTAssertEqual(calls.last?.path, "/actions/removeFromContinueWatching", "cleanup lands after the last report")
+        XCTAssertFalse(calls.contains { $0.path == "/:/unscrobble" || $0.path == "/:/progress" })
     }
 
     func testQualifyingEpisodeWatch_leavesNextUpWhenShowWasAlreadyInContinueWatching() async {
@@ -198,22 +172,38 @@ final class WatchStateGuardTests: XCTestCase {
         t.stop()
         await queue.drain()
 
-        XCTAssertTrue(cleanupCalls(transport.calls).isEmpty)
+        XCTAssertTrue(t.scrobbled)
+        XCTAssertTrue(removals(transport.calls).isEmpty)
     }
 
-    func testMetadataFetchFailure_onlyRemovesFromContinueWatching() async {
+    func testNextUpThatLandsJustAfterTheScrobble_isStillRemoved() async {
         let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/700", 500, "")
+        transport.respond("GET /library/metadata/48281", 200, metadata(rk: "48281", type: "episode", show: "48279"))
+        transport.respond("GET /hubs/continueWatching/items", 200, continueWatching([]))   // before tune-in
+        transport.respond("GET /hubs/continueWatching/items", 200, continueWatching([]))   // cleanup, too early
+        transport.respond("GET /hubs/continueWatching/items", 200, continueWatching([("48283", "48279")]))
         let queue = ReportQueue()
-        let t = tracker(item(rk: "700", minutes: 100, type: .movie), transport, queue)
+        let t = tracker(item(rk: "48281", minutes: 11, type: .episode), transport, queue)
 
-        play(t, seconds: 120)
+        play(t, seconds: 600)
         t.stop()
         await queue.drain()
 
-        let cleanup = cleanupCalls(transport.calls)
-        XCTAssertEqual(cleanup.map(\.path), ["/actions/removeFromContinueWatching"], "never unscrobble on a guess")
-        XCTAssertEqual(cleanup.first?.query["ratingKey"], "700")
+        XCTAssertEqual(removals(transport.calls).map { $0.query["ratingKey"] }, ["48283"])
+    }
+
+    func testEpisodeUnreadableBeforeTuneIn_countsButRemovesNothing() async {
+        let transport = RecordingTransport()
+        transport.respond("GET /library/metadata/700", 500, "")
+        let queue = ReportQueue()
+        let t = tracker(item(rk: "700", minutes: 11, type: .episode), transport, queue)
+
+        play(t, seconds: 600)
+        t.stop()
+        await queue.drain()
+
+        XCTAssertEqual(transport.calls.filter { $0.path == "/:/scrobble" }.count, 1)
+        XCTAssertTrue(removals(transport.calls).isEmpty, "never remove a row on a guess")
     }
 
     func testTunedPastBeforePlaybackStarted_sendsNothing() async {
@@ -227,31 +217,133 @@ final class WatchStateGuardTests: XCTestCase {
         XCTAssertTrue(transport.calls.isEmpty)
     }
 
-    func testTurningReportingOffMidProgram_stillRestoresTheItem() async {
+    func testTurningReportingOffMidProgram_clearsNowPlayingAndWritesNothing() async {
         let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/41418", 200, metadata(rk: "41418", type: "movie"))
         let queue = ReportQueue()
         let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
 
         play(t, seconds: 30)
         t.abandon()
+        t.timelineTickForTesting()
         await queue.drain()
 
-        XCTAssertEqual(cleanupCalls(transport.calls).map(\.path), ["/:/unscrobble"])
-        XCTAssertFalse(transport.calls.contains { $0.path == "/:/timeline" && $0.query["state"] == "stopped" })
+        XCTAssertEqual(timelines(transport.calls).map { $0.query["state"] }, ["playing", "playing", "playing", "playing", "stopped"])
+        XCTAssertEqual(Set(transport.calls.map(\.path)), ["/:/timeline"])
     }
 
-    func testBackgrounding_restoresImmediately() async {
+    func testBackgroundSendsOneStopAndForegroundResumesTheSameSession() async {
         let transport = RecordingTransport()
-        transport.respond("GET /library/metadata/41418", 200, metadata(rk: "41418", type: "movie"))
         let queue = ReportQueue()
         let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
 
         play(t, seconds: 30)
         t.onBackground()
-        await queue.drain()
-        XCTAssertEqual(transport.calls.last?.path, "/:/unscrobble")
+        t.onBackground()
+        t.timelineTickForTesting()
+        t.onPlaybackReady()
+        t.onForeground()
         t.stop()
+        await queue.drain()
+
+        XCTAssertEqual(timelines(transport.calls).map { $0.query["state"] },
+                       ["playing", "playing", "playing", "playing", "stopped", "playing", "stopped"])
+        assertPositionFree(transport.calls, session: t.sessionID)
+    }
+
+    func testBackgroundThenStop_doesNotRepeatTheStop() async {
+        let transport = RecordingTransport()
+        let queue = ReportQueue()
+        let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
+
+        play(t, seconds: 10)
+        t.onBackground()
+        t.stop()
+        await queue.drain()
+
+        XCTAssertEqual(timelines(transport.calls).map { $0.query["state"] }, ["playing", "playing", "stopped"])
+    }
+
+    func testPlayerStateShowsInNowPlaying() async {
+        let transport = RecordingTransport()
+        let queue = ReportQueue()
+        let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
+
+        t.onHeartbeatPlaybackState("buffering")   // before the picture: nothing to report yet
+        t.onPlaybackReady()
+        t.onHeartbeatPlaybackState("paused")
+        t.onHeartbeatPlaybackState("paused")      // no change, no report
+        clock += 10
+        t.timelineTickForTesting()                // the pulse keeps saying paused
+        t.onHeartbeatPlaybackState("playing")
+        t.stop()
+        await queue.drain()
+
+        XCTAssertEqual(timelines(transport.calls).map { $0.query["state"] },
+                       ["buffering", "paused", "paused", "playing", "stopped"])
+    }
+
+    func testOneHundredPulsesHaveNoCutoff() async {
+        let transport = RecordingTransport()
+        let queue = ReportQueue()
+        let t = tracker(item(rk: "41418", minutes: 200, type: .movie), transport, queue)
+
+        play(t, seconds: 1000)
+        await queue.drain()
+
+        XCTAssertEqual(timelines(transport.calls).count, 101)
+        t.stop()
+        await queue.drain()
+        XCTAssertEqual(timelines(transport.calls).last?.query["state"], "stopped")
+    }
+
+    func testFailingServerGetsFewerPulsesThenRecovers() async {
+        let transport = RecordingTransport()
+        for status in [500, 500, 500, 200] { transport.respond("PUT /:/timeline", status, "") }
+        let queue = ReportQueue()
+        let t = tracker(item(rk: "41418", minutes: 99, type: .movie), transport, queue)
+
+        t.onPlaybackReady()                       // fails: skip 1 pulse
+        await queue.drain()
+        for _ in 0..<11 {
+            clock += 10
+            t.timelineTickForTesting()
+            await queue.drain()
+        }
+        // Sent: ready, pulse 2 (fails: skip 2), pulse 5 (fails: skip 4), pulse 10 (answers), pulse 11.
+        XCTAssertEqual(timelines(transport.calls).count, 5)
+        t.stop()
+        await queue.drain()
+        XCTAssertEqual(timelines(transport.calls).last?.query["state"], "stopped", "a stop is never skipped")
+    }
+
+    func testPulseBackoffGrowsAndCaps() {
+        let backoff = PulseBackoff()
+        var skipped: [Int] = []
+        for _ in 0..<8 {
+            backoff.record(success: false)
+            var n = 0
+            while !backoff.allowPulse() { n += 1 }
+            skipped.append(n)
+        }
+        XCTAssertEqual(skipped, [1, 2, 4, 8, 16, 30, 30, 30])
+        backoff.record(success: true)
+        XCTAssertTrue(backoff.allowPulse())
+    }
+
+    func testHeartbeatRequestCarriesNoPosition() throws {
+        let api = PlexAPIService(serverURL: "https://synthetic.invalid", token: "synthetic-token")
+        for state in ["playing", "paused", "buffering", "stopped"] {
+            let request = try XCTUnwrap(api.heartbeatRequest(ratingKey: "42", state: state, sessionID: "exact-session"))
+            let parts = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
+            XCTAssertEqual(request.httpMethod, "PUT")
+            XCTAssertEqual(parts.path, "/:/timeline")
+            XCTAssertEqual(Set(parts.queryItems!.map(\.name)), ["ratingKey", "key", "state"])
+            XCTAssertEqual(parts.queryItems?.first(where: { $0.name == "key" })?.value, "/library/metadata/42")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Plex-Session-Identifier"), "exact-session")
+            XCTAssertFalse(request.url!.absoluteString.contains("synthetic-token"))
+        }
+        XCTAssertNil(api.heartbeatRequest(ratingKey: "../other", state: "playing", sessionID: "x"))
+        XCTAssertNil(api.heartbeatRequest(ratingKey: "42", state: "watched", sessionID: "x"))
     }
 
     // MARK: - Jellyfin / Emby guard

@@ -2,10 +2,16 @@ import Foundation
 
 // Report Playback keeps Now Playing and real watches flowing to the user's server, but a
 // program Nostalgex tuned past must never be left in Continue Watching (Plex), Resume
-// (Jellyfin, Emby) or On Deck. The tracker captures what the server held for the item
-// before the first report, and when the session ends it puts that state back. Measured
-// against Plex, Emby 4.10 and Jellyfin 12.2 on 2026-10-11; the numbers are in
-// docs/plex-session-reporting.md.
+// (Jellyfin, Emby) or On Deck.
+//
+// Plex: reports carry no position (PR #18), so a surf writes nothing and needs no
+// cleanup. The one thing left to undo is the next episode Plex adds to Continue Watching
+// after a counted episode, when the show was not there before tune-in.
+//
+// Jellyfin and Emby count a play on the start report and mark an item played on a stop
+// without a position (measured on Emby 4.10.1, 2026-10-13), so position-free does not
+// work there. The tracker captures UserData before the first report and writes it back
+// when the session ends. Numbers in docs/plex-session-reporting.md.
 //
 // The decision table (`WatchCleanupPlan`) is shared with the web tuner through
 // scripts/watch-cleanup-golden.json, which both test suites read.
@@ -60,12 +66,45 @@ final class ReportQueue: @unchecked Sendable {
         }
     }
 
-    /// Waits for everything queued so far. Tests use it; the app never blocks on it.
+    /// Waits for everything queued so far. Tests use it, and the app's background task
+    /// waits on it so the final stop goes out before the app is suspended.
     func drain() async {
         lock.lock()
         let last = tail
         lock.unlock()
         await last?.value
+    }
+}
+
+// MARK: - Backoff
+
+/// A server that stops answering gets fewer pulses, never a changed setting. Each
+/// failure skips more of the 10 second pulses (1, 2, 4 ... up to 30, about five
+/// minutes); any answered report resets it. Starts, stops, scrobbles and cleanup are
+/// always sent. Results arrive from the report queue, so it locks.
+final class PulseBackoff: @unchecked Sendable {
+    static let maxSkip = 30
+
+    private let lock = NSLock()
+    private var failures = 0
+    private var skipRemaining = 0
+
+    /// True when the next pulse should go out. Consumes one skip when it says no.
+    func allowPulse() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard skipRemaining == 0 else { skipRemaining -= 1; return false }
+        return true
+    }
+
+    func record(success: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        if success {
+            failures = 0
+            skipRemaining = 0
+        } else {
+            failures += 1
+            skipRemaining = min(Self.maxSkip, 1 << min(failures - 1, 5))
+        }
     }
 }
 
@@ -79,19 +118,14 @@ struct PriorWatchState: Equatable, Sendable {
     var played: Bool
     /// Jellyfin/Emby `LastPlayedDate`, sent back verbatim on restore. Nil on Plex.
     var lastPlayedDate: String? = nil
-    /// Plex episodes: the show's rating key (`grandparentRatingKey`).
+    /// Plex episodes: the show's rating key (`grandparentRatingKey`). The only Plex field
+    /// the cleanup reads, with `showInContinueWatching`.
     var showKey: String? = nil
     /// Plex episodes: the show already had an entry in Continue Watching.
     var showInContinueWatching: Bool = false
 }
 
 enum WatchCleanupStep: Equatable, Sendable {
-    /// Plex `/:/unscrobble`: back to never-watched. Only when it was never watched before.
-    case unscrobble
-    /// Plex `/:/progress`: put the user's own resume point back.
-    case restoreResumePoint(Int)
-    /// Plex `/actions/removeFromContinueWatching` for this item.
-    case removeFromContinueWatching
     /// Plex: remove whatever Continue Watching entry the scrobble created for this show.
     case removeShowFromContinueWatching(String)
     /// Jellyfin/Emby `DELETE /Users/{id}/PlayedItems/{item}`: back to never-played.
@@ -102,9 +136,6 @@ enum WatchCleanupStep: Equatable, Sendable {
     /// Compact form used by scripts/watch-cleanup-golden.json.
     var goldenDescription: String {
         switch self {
-        case .unscrobble: return "unscrobble"
-        case .restoreResumePoint(let ms): return "progress \(ms)"
-        case .removeFromContinueWatching: return "removeFromContinueWatching"
         case .removeShowFromContinueWatching(let show): return "removeShowFromContinueWatching \(show)"
         case .markUnplayed: return "markUnplayed"
         case let .setUserData(position, playCount, played, lastPlayedDate):
@@ -119,19 +150,13 @@ enum WatchCleanupStep: Equatable, Sendable {
 
 enum WatchCleanupPlan {
     /// Plex. `countedWatch` means this session scrobbled (the 15% / 75% gate passed).
+    /// Reports carry no position, so a surf leaves nothing to undo and the item's own
+    /// resume point, play count and Continue Watching entry are never touched. An episode
+    /// scrobble puts the NEXT episode in Continue Watching; take that out unless the show
+    /// was already there. Unknown prior: leave it, rather than remove a row the user had.
     static func plex(prior: PriorWatchState?, countedWatch: Bool) -> [WatchCleanupStep] {
-        if countedWatch {
-            // The scrobble cleared the item's own resume point, and the tracker reports
-            // position 0 after it. An episode scrobble also puts the NEXT episode in
-            // Continue Watching; take that out unless the show was already there.
-            // Unknown prior: leave it, rather than remove a row the user had.
-            guard let prior, let show = prior.showKey, !prior.showInContinueWatching else { return [] }
-            return [.removeShowFromContinueWatching(show)]
-        }
-        guard let prior else { return [.removeFromContinueWatching] }
-        if prior.resumePosition > 0 { return [.restoreResumePoint(prior.resumePosition)] }
-        if prior.playCount == 0 && !prior.played { return [.unscrobble] }
-        return [.removeFromContinueWatching]
+        guard countedWatch, let prior, let show = prior.showKey, !prior.showInContinueWatching else { return [] }
+        return [.removeShowFromContinueWatching(show)]
     }
 
     /// Jellyfin and Emby. Both bump PlayCount on the start report and store the stop
@@ -185,27 +210,6 @@ struct PlexWatchStateGuard: WatchStateGuarding {
         ])
     }
 
-    func request(for step: WatchCleanupStep, ratingKey: String) -> URLRequest? {
-        switch step {
-        case .unscrobble:
-            return request(method: "GET", path: "/:/unscrobble", query: [
-                .init(name: "key", value: ratingKey),
-                .init(name: "identifier", value: Self.libraryIdentifier),
-            ])
-        case .restoreResumePoint(let ms):
-            return request(method: "PUT", path: "/:/progress", query: [
-                .init(name: "key", value: ratingKey),
-                .init(name: "identifier", value: Self.libraryIdentifier),
-                .init(name: "time", value: "\(ms)"),
-                .init(name: "state", value: "stopped"),
-            ])
-        case .removeFromContinueWatching:
-            return removeFromContinueWatchingRequest(ratingKey: ratingKey)
-        case .removeShowFromContinueWatching, .markUnplayed, .setUserData:
-            return nil
-        }
-    }
-
     func removeFromContinueWatchingRequest(ratingKey: String) -> URLRequest? {
         request(method: "PUT", path: "/actions/removeFromContinueWatching", query: [
             .init(name: "ratingKey", value: ratingKey),
@@ -217,8 +221,6 @@ struct PlexWatchStateGuard: WatchStateGuarding {
         struct Entry: Decodable {
             let ratingKey: String?
             let type: String?
-            let viewOffset: Int?
-            let viewCount: Int?
             let grandparentRatingKey: String?
         }
         let MediaContainer: Inner
@@ -236,44 +238,36 @@ struct PlexWatchStateGuard: WatchStateGuarding {
         ]))
     }
 
+    /// Episodes only: is the show already in Continue Watching before tune-in? Films
+    /// need nothing, so they cost no request.
     func captureWatchState(for item: PlexMediaItem) async -> PriorWatchState? {
-        guard let meta = await entries(request(method: "GET", path: "/library/metadata/\(item.ratingKey)"))?.first else {
-            return nil
-        }
-        var prior = PriorWatchState(
-            resumePosition: meta.viewOffset ?? 0,
-            playCount: meta.viewCount ?? 0,
-            played: (meta.viewCount ?? 0) > 0
-        )
-        if meta.type == "episode", let show = meta.grandparentRatingKey {
-            prior.showKey = show
-            // Unreadable row: assume the show was there, so we never remove a real entry.
-            if let row = await continueWatching() {
-                prior.showInContinueWatching = row.contains { $0.grandparentRatingKey == show || $0.ratingKey == show }
-            } else {
-                prior.showInContinueWatching = true
-            }
-        }
-        return prior
+        guard item.type == .episode,
+              let meta = await entries(request(method: "GET", path: "/library/metadata/\(item.ratingKey)"))?.first,
+              meta.type == "episode", let show = meta.grandparentRatingKey else { return nil }
+        // Unreadable row: assume the show was there, so we never remove a real entry.
+        let inRow = await continueWatching().map { row in
+            row.contains { $0.grandparentRatingKey == show || $0.ratingKey == show }
+        } ?? true
+        return PriorWatchState(resumePosition: 0, playCount: 0, played: false,
+                               showKey: show, showInContinueWatching: inRow)
     }
 
     func restoreWatchState(for item: PlexMediaItem, prior: PriorWatchState?, countedWatch: Bool) async {
-        let rk = item.ratingKey
-        for step in WatchCleanupPlan.plex(prior: prior, countedWatch: countedWatch) {
-            if case .removeShowFromContinueWatching(let show) = step {
+        for case .removeShowFromContinueWatching(let show) in WatchCleanupPlan.plex(prior: prior, countedWatch: countedWatch) {
+            // Plex adds the next episode about a second after the scrobble, which can be
+            // the moment before this runs. Look up to three times.
+            for attempt in 0..<3 {
                 let added = (await continueWatching() ?? [])
                     .filter { $0.grandparentRatingKey == show }
                     .compactMap(\.ratingKey)
                 for key in added {
                     guard let req = removeFromContinueWatchingRequest(ratingKey: key) else { continue }
                     let status = await transport.send(req)?.status
-                    print("[Tracker] cleanup rk=\(rk) removeFromContinueWatching next-up rk=\(key) HTTP \(status.map(String.init) ?? "failed")")
+                    print("[Tracker] cleanup rk=\(item.ratingKey) removeFromContinueWatching next-up rk=\(key) HTTP \(status.map(String.init) ?? "failed")")
                 }
-                continue
+                if !added.isEmpty || attempt == 2 { break }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
-            guard let req = request(for: step, ratingKey: rk) else { continue }
-            let status = await transport.send(req)?.status
-            print("[Tracker] cleanup rk=\(rk) \(step.goldenDescription) HTTP \(status.map(String.init) ?? "failed")")
         }
     }
 }
@@ -320,7 +314,7 @@ struct MediaServerWatchStateGuard: WatchStateGuarding {
             if let lastPlayedDate { body["LastPlayedDate"] = lastPlayedDate }
             let data = try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
             return request(method: "POST", url: path("/Items/\(item)/UserData"), body: data)
-        case .unscrobble, .restoreResumePoint, .removeFromContinueWatching, .removeShowFromContinueWatching:
+        case .removeShowFromContinueWatching:
             return nil
         }
     }

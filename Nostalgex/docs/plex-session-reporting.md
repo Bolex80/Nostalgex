@@ -13,29 +13,33 @@ Timeline reporting and scrobbling ship in the tvOS app, implemented in `Services
 
 ## Continue Watching guard
 
-Code: `Services/WatchStateGuard.swift` + `Services/PlaybackTracker.swift` (tvOS), `scripts/nostalgex-watch-state.js` + the tracker in `plex-tuner.html` (web). The decision table is shared through `scripts/watch-cleanup-golden.json`; `WatchStateGuardTests` and `npm run test:watch-state` both read it.
+Code: `Services/PlaybackTracker.swift` + `Services/WatchStateGuard.swift` (tvOS), the tracker in `plex-tuner.html` + `scripts/nostalgex-watch-state.js` (web). The decision table is shared through `scripts/watch-cleanup-golden.json`; `WatchStateGuardTests` and `npm run test:watch-state` both read it. One switch, REPORT PLAYBACK TO <SERVER>, off by default, on both surfaces.
 
-1. **Before the first report** the tracker reads what the server holds for the item (Plex `GET /library/metadata/{rk}`, plus `GET /hubs/continueWatching/items` for an episode to learn whether its show already had an entry; Jellyfin/Emby `GET /Users/{uid}/Items/{id}` UserData).
-2. **Reports go out as before** (timeline / `Sessions/Playing`), so Now Playing and Tautulli still see the session. Every report and cleanup call runs through one serial queue: Plex writes a resume point on *every* timeline report, so a cleanup that lands before the last report is undone by it.
-3. **When the session ends** (channel change, advance, disconnect, app backgrounded, reporting turned off) the tracker puts the item back:
+**Plex: position-free reports (2026-10-13, from community PR #18 by w6trp).**
+
+1. Every timeline report is `PUT /:/timeline?ratingKey={rk}&key=/library/metadata/{rk}&state={playing|paused|buffering|stopped}` with the session in `X-Plex-Session-Identifier` and **no `time` or `duration`**. Plex lists the session in Now Playing at offset 0 and stores nothing, so a surf never reaches Continue Watching and needs no cleanup. `stopped` takes it out of Now Playing. The state follows the player (tvOS `timeControlStatus`, web video pause/play), so a pause shows as a pause.
+2. A qualifying watch (entry in the first 15%, at least 75% active) is scrobbled with the bare rating key. Plex then adds the show's **next episode** to Continue Watching; the tracker removes it (`PUT /actions/removeFromContinueWatching?ratingKey={next}`) unless the show already had an entry before tune-in. For an episode the tracker reads `GET /library/metadata/{rk}` and `GET /hubs/continueWatching/items` before the first report to learn that; films are never read. The removal looks up to three times, a second apart, because Plex adds the entry about a second after the scrobble.
+3. Nothing else is undone or restored on Plex: no unscrobble, no `/:/progress`, no prior-state capture for films.
+
+**Jellyfin/Emby: restore.** Position-free does not work there (measured below), so reports keep the position and the tracker puts UserData back:
 
 | Server | Before | Session | Cleanup |
 |---|---|---|---|
-| Plex | unwatched, no resume point | surfed | `GET /:/unscrobble?key={rk}&identifier=com.plexapp.plugins.library` |
-| Plex | resume point R | surfed | `PUT /:/progress?key={rk}&identifier=...&time=R&state=stopped` |
-| Plex | watched, no resume point | surfed | `PUT /actions/removeFromContinueWatching?ratingKey={rk}` |
-| Plex | unreadable | surfed | `removeFromContinueWatching` only, never unscrobble |
-| Plex | episode, show not in CW | counted | `removeFromContinueWatching` on the next-up entry the scrobble created |
 | Jellyfin/Emby | never played | surfed | `DELETE /Users/{uid}/PlayedItems/{id}` |
 | Jellyfin/Emby | anything else | surfed | `POST /Users/{uid}/Items/{id}/UserData` with the prior position, PlayCount, Played, LastPlayedDate |
 | Jellyfin/Emby | known | counted | `UserData` position 0, Played, PlayCount = prior + 1 |
 | Jellyfin/Emby | unreadable | either | `UserData` position 0 only |
 
-4. **After a Plex scrobble** the tracker keeps reporting with `time=0`. Any nonzero position re-creates a resume point on the item Plex just marked watched, which puts it straight back in Continue Watching.
+The capture runs before the first report and the cleanup when the session ends (channel change, advance, disconnect, app backgrounded, reporting turned off), all through one serial queue so the cleanup lands after the last report. Transcode lifecycle calls (`Sessions/Playing/Stopped` with only a `PlaySessionId`) are separate and unchanged.
 
-All cleanup calls are best effort: one attempt each, off the main actor, one log line each (`[Tracker] cleanup ...`). They never block playback.
+**Failures never change the setting.** A report that fails or times out makes the tracker skip more of its 10 second pulses (1, 2, 4 ... up to 30, about five minutes); any answered report resets that. Starts, stops, scrobbles and cleanup always go out. Only the user turns reporting off. Turning it off mid-program sends Plex one position-free stop (Now Playing clears) and restores Jellyfin/Emby UserData. On tvOS, backgrounding asks the OS for a few seconds so the final stop and cleanup reach the server (PR #18); a force quit or network loss can still drop them.
 
-### Measured 2026-10-11
+### Measured 2026-10-13
+
+- Plex (real server): `PUT /:/timeline` with `state=playing` and no `time`/`duration` puts the item in `/status/sessions` with `viewOffset` 0, writes no resume point and adds nothing to Continue Watching; `state=stopped` with no time removes it from Now Playing. `GET /:/scrobble?key=/library/metadata/{rk}` is still a 404; the bare key works. An episode scrobble still adds the next episode; `removeFromContinueWatching` on it removes it.
+- **Emby 4.10.1, position-free:** `/Sessions/Playing` without `PositionTicks` shows the item in Now Playing (Emby extrapolates the position itself) and writes no resume point, but the start report alone takes PlayCount 0 -> 1 and sets LastPlayedDate, and `/Sessions/Playing/Stopped` without `PositionTicks` marks the item **Played with PlayCount 2**. So Emby keeps the restore approach. Jellyfin shares the session code it was forked from and was not re-measured; it keeps the same approach. The item was put back with `DELETE PlayedItems` + `UserData` and read back identical.
+
+### Measured 2026-10-11 (the restore design Plex used before position-free reports)
 
 A real Plex Media Server, Emby 4.10.1.0, Jellyfin 12.2.0 (local, test library):
 

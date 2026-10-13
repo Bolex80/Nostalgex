@@ -1,47 +1,47 @@
 {
-  "about": "What Report Playback does to an item when a session ends, so a program Nostalgex tuned past is never left in Continue Watching, Resume or On Deck. Read by Nostalgex/NostalgexTests/WatchStateGuardTests.swift (WatchCleanupPlan) and scripts/nostalgex-watch-state-smoke.mjs (scripts/nostalgex-watch-state.js). Both must produce these steps. resumePosition is in the server's unit: Plex milliseconds, Jellyfin/Emby 100ns ticks. counted = the 15% entry / 75% watched gate passed this session.",
+  "about": "What Report Playback does to an item when a session ends, so a program Nostalgex tuned past is never left in Continue Watching, Resume or On Deck. Read by Nostalgex/NostalgexTests/WatchStateGuardTests.swift (WatchCleanupPlan) and scripts/nostalgex-watch-state-smoke.mjs (scripts/nostalgex-watch-state.js). Both must produce these steps. Plex reports carry no position, so a surf needs no step whatever the item held; only a counted episode whose show was not in Continue Watching before tune-in needs its next-up entry removed. resumePosition is in the server's unit: Plex milliseconds, Jellyfin/Emby 100ns ticks. counted = the 15% entry / 75% watched gate passed this session.",
   "cases": [
     {
       "name": "Plex: surf past a film never watched",
       "backend": "plex",
       "counted": false,
       "prior": { "resumePosition": 0, "playCount": 0, "played": false, "lastPlayedDate": null, "showKey": null, "showInContinueWatching": false },
-      "steps": ["unscrobble"]
+      "steps": []
     },
     {
       "name": "Plex: surf past a film the user had paused at 10 minutes",
       "backend": "plex",
       "counted": false,
       "prior": { "resumePosition": 600000, "playCount": 0, "played": false, "lastPlayedDate": null, "showKey": null, "showInContinueWatching": false },
-      "steps": ["progress 600000"]
+      "steps": []
     },
     {
       "name": "Plex: surf past a film already watched twice",
       "backend": "plex",
       "counted": false,
       "prior": { "resumePosition": 0, "playCount": 2, "played": true, "lastPlayedDate": null, "showKey": null, "showInContinueWatching": false },
-      "steps": ["removeFromContinueWatching"]
+      "steps": []
     },
     {
       "name": "Plex: watched and part way through a rewatch",
       "backend": "plex",
       "counted": false,
       "prior": { "resumePosition": 1200000, "playCount": 1, "played": true, "lastPlayedDate": null, "showKey": null, "showInContinueWatching": false },
-      "steps": ["progress 1200000"]
+      "steps": []
     },
     {
       "name": "Plex: surf past an episode never watched",
       "backend": "plex",
       "counted": false,
       "prior": { "resumePosition": 0, "playCount": 0, "played": false, "lastPlayedDate": null, "showKey": "48279", "showInContinueWatching": false },
-      "steps": ["unscrobble"]
+      "steps": []
     },
     {
       "name": "Plex: could not read the item before the first report",
       "backend": "plex",
       "counted": false,
       "prior": null,
-      "steps": ["removeFromContinueWatching"]
+      "steps": []
     },
     {
       "name": "Plex: film watched through the gate",

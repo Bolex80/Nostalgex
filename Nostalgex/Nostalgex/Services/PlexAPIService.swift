@@ -1154,8 +1154,19 @@ struct PlexAPIService: MediaBackend {
         ]
     }
 
-    /// Position-free Now Playing report. Keep this separate from history/resume
-    /// reporting so no default value can accidentally add progress to the request.
+    // MARK: - Session reporting (Now Playing + Scrobble)
+
+    /// Builds the Continue Watching cleanup and scrobble requests. Shares this service's
+    /// server, token and transport.
+    var watchStateGuard: PlexWatchStateGuard {
+        PlexWatchStateGuard(serverURL: serverURL, headers: baseHeaders, transport: reportTransport)
+    }
+
+    /// Position-free Now Playing report (from PR #18, w6trp). No `time` or `duration`, so
+    /// Plex lists the session in Now Playing at offset 0 and writes no resume point: the
+    /// item never reaches Continue Watching. `stopped` takes it out of Now Playing. Both
+    /// measured on a real server 2026-10-13. Kept separate from the scrobble so no default
+    /// can add a position to it.
     func heartbeatRequest(ratingKey: String, state: String, sessionID: String) -> URLRequest? {
         guard ["playing", "paused", "buffering", "stopped"].contains(state),
               !ratingKey.isEmpty, ratingKey.allSatisfy(\.isNumber), !sessionID.isEmpty,
@@ -1167,43 +1178,19 @@ struct PlexAPIService: MediaBackend {
         ]
         guard let url = components.url else { return nil }
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "PUT"
         request.timeoutInterval = 10
         baseHeaders.forEach { request.setValue($1, forHTTPHeaderField: $0) }
         request.setValue(sessionID, forHTTPHeaderField: "X-Plex-Session-Identifier")
         return request
     }
 
+    /// True when Plex answered 2xx. A failure only slows the next pulses (`PulseBackoff`).
+    @discardableResult
     func reportHeartbeat(ratingKey: String, state: String, sessionID: String) async -> Bool {
-        guard let request = heartbeatRequest(ratingKey: ratingKey, state: state, sessionID: sessionID) else { return false }
-        do {
-            let (_, response) = try await Self.session.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return false }
-            return (200..<300).contains(http.statusCode)
-        } catch { return false }
-    }
-
-    // MARK: - Session reporting (Now Playing + Scrobble)
-
-    /// Restores Continue Watching after a session. Shares this service's server, token
-    /// and transport.
-    var watchStateGuard: PlexWatchStateGuard {
-        PlexWatchStateGuard(serverURL: serverURL, headers: baseHeaders, transport: reportTransport)
-    }
-
-    /// Report current playback position to Plex so Now Playing and Tautulli see the session.
-    /// Every report also writes the item's resume point; `PlaybackTracker` undoes that when
-    /// the session ends (see `WatchStateGuard.swift`).
-    func reportTimeline(ratingKey: String, key: String, state: String, timeMs: Int, durationMs: Int, sessionID: String) async {
-        guard let req = watchStateGuard.request(method: "PUT", path: "/:/timeline", query: [
-            .init(name: "ratingKey",                value: ratingKey),
-            .init(name: "key",                      value: key),
-            .init(name: "state",                    value: state),
-            .init(name: "time",                     value: "\(timeMs)"),
-            .init(name: "duration",                 value: "\(durationMs)"),
-            .init(name: "X-Plex-Session-Identifier", value: sessionID),
-        ]) else { return }
-        _ = await reportTransport.send(req)
+        guard let request = heartbeatRequest(ratingKey: ratingKey, state: state, sessionID: sessionID),
+              let status = await reportTransport.send(request)?.status else { return false }
+        return (200..<300).contains(status)
     }
 
     /// Mark an item as watched in Plex (scrobble). Fires once per session when the hybrid
@@ -1429,4 +1416,3 @@ struct PlexRawItem: Decodable {
     }
 }
 
-extension PlexAPIService: PlexHeartbeatTransport {}

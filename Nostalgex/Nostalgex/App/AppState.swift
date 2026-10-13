@@ -64,29 +64,33 @@ class AppState {
     /// Used only by analytics — no UI depends on it.
     private var analyticsSessionStartedAt: Date = Date()
 
-    private var heartbeatBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var reportingBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
-    private func finishHeartbeatBackgroundTask() {
-        guard heartbeatBackgroundTask != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(heartbeatBackgroundTask)
-        heartbeatBackgroundTask = .invalid
+    private func finishReportingBackgroundTask() {
+        guard reportingBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(reportingBackgroundTask)
+        reportingBackgroundTask = .invalid
     }
 
+    /// Ends the tracker's session for the background and asks tvOS for a few seconds so
+    /// the stop and the Continue Watching cleanup reach the server before suspension
+    /// (PR #18's grace period). Nothing to wait for when reporting is off. Best effort:
+    /// a force quit, network loss or the OS expiring the task can still drop it.
     private func reportPlaybackBackgrounded() {
-        finishHeartbeatBackgroundTask()
-        let reporters = Array(heartbeatReporters.values)
-        let cleanup = heartbeatCleanupTask
-        let identifier = reporters.isEmpty && cleanup == nil ? UIBackgroundTaskIdentifier.invalid
-            : UIApplication.shared.beginBackgroundTask(withName: "Finish Plex heartbeat") { [weak self] in
-                self?.finishHeartbeatBackgroundTask()
+        finishReportingBackgroundTask()
+        guard let tracker = playbackTracker else { return }
+        let identifier = syncPlexActivity && !isDemoMode
+            ? UIApplication.shared.beginBackgroundTask(withName: "Finish playback report") { [weak self] in
+                self?.finishReportingBackgroundTask()
             }
-        heartbeatBackgroundTask = identifier
-        playbackTracker?.onBackground()
+            : .invalid
+        reportingBackgroundTask = identifier
+        tracker.onBackground()
+        guard identifier != .invalid else { return }
         Task { @MainActor [weak self] in
-            for reporter in reporters { await reporter.waitForPendingReports() }
-            await cleanup?.value
-            guard let self, self.heartbeatBackgroundTask == identifier else { return }
-            self.finishHeartbeatBackgroundTask()
+            await ReportQueue.shared.drain()
+            guard let self, self.reportingBackgroundTask == identifier else { return }
+            self.finishReportingBackgroundTask()
         }
     }
 
@@ -445,82 +449,28 @@ class AppState {
 
     static let syncPlexActivityDefaultsKey = "nostalgex_sync_plex_activity"
 
-    /// When true, playback is reported to the connected server so play counts grow
-    /// and items can surface in Continue Watching. Off = watch privately.
+    /// When true, playback is reported to the connected server: Now Playing shows what's
+    /// on and a qualifying watch counts. Off = watch privately.
     /// Same switch for Plex, Jellyfin, and Emby. Demo never reports.
     ///
-    /// Defaults OFF. Opt in, don't opt out. When on, `PlaybackTracker` restores each
-    /// program's prior state when the session ends, so channel surfing never leaves
-    /// half-watched items in the household's "Continue Watching" row.
+    /// Defaults OFF. Opt in, don't opt out. When on, channel surfing never leaves items in
+    /// the household's Continue Watching row: Plex reports carry no position, and Jellyfin
+    /// and Emby get each program's prior state back (`PlaybackTracker`).
     /// Rewatch channels still fill from plays the server already recorded.
     var syncPlexActivity: Bool = AppState.resolveSyncPlexActivity(
         stored: UserDefaults.standard.object(forKey: AppState.syncPlexActivityDefaultsKey)
     ) {
         didSet {
             UserDefaults.standard.set(syncPlexActivity, forKey: Self.syncPlexActivityDefaultsKey)
-            // Apply policy changes to the current tracker without stopping playback.
-            // Turning history sync off sends no final position-bearing report.
-            // Heartbeat has its own position-free session cleanup.
-            if oldValue != syncPlexActivity {
-                if syncPlexActivity { plexHeartbeatOnly = false }
-                applyPlaybackReportingPolicy()
-            }
+            // Turning off mid-program: abandon the live tracker so the current item stops
+            // reporting immediately; it clears Now Playing (Plex) or restores UserData
+            // (Jellyfin, Emby). Turning on takes effect on the next item. Only the user
+            // changes this: a failed report backs off (`PulseBackoff`), never switches it off.
+            if !syncPlexActivity { playbackTracker?.abandon() }
             if oldValue != syncPlexActivity {
                 Analytics.track(.settingChanged(key: "sync_plex_activity", value: syncPlexActivity ? "true" : "false"))
             }
         }
-    }
-
-    static let plexHeartbeatOnlyDefaultsKey = "nostalgex_plex_heartbeat_only_v1"
-    var heartbeatReportingNotice: String?
-    private var heartbeatReporters: [String: PlexHeartbeatReporter] = [:]
-    private var heartbeatCleanupTask: Task<Void, Never>?
-    private var heartbeatGeneration = UUID()
-
-    var plexHeartbeatOnly: Bool = UserDefaults.standard.bool(forKey: AppState.plexHeartbeatOnlyDefaultsKey) {
-        didSet {
-            UserDefaults.standard.set(plexHeartbeatOnly, forKey: Self.plexHeartbeatOnlyDefaultsKey)
-            guard oldValue != plexHeartbeatOnly else { return }
-            if plexHeartbeatOnly { heartbeatReportingNotice = nil; syncPlexActivity = false }
-            applyPlaybackReportingPolicy()
-        }
-    }
-    var heartbeatReportingActive: Bool { !isDemoMode && backendKind == .plex && plexHeartbeatOnly }
-
-    func heartbeatReporter(for api: PlexAPIService?) -> PlexHeartbeatReporter? {
-        guard heartbeatReportingActive, let api else { return nil }
-        // Memory only; never log or persist this credential-bound routing key.
-        let identity = api.serverURL + "\u{0}" + api.token
-        if let existing = heartbeatReporters[identity] { return existing }
-        let generation = heartbeatGeneration
-        let reporter = PlexHeartbeatReporter(transport: api, predecessor: heartbeatCleanupTask) { [weak self] message in
-            guard let self, self.heartbeatGeneration == generation else { return }
-            self.heartbeatReportingNotice = message
-            self.plexHeartbeatOnly = false
-        }
-        heartbeatReporters[identity] = reporter
-        return reporter
-    }
-
-    func closeHeartbeatReporters() {
-        guard !heartbeatReporters.isEmpty else { return }
-        let tasks = heartbeatReporters.values.map { $0.disable() }
-        heartbeatReporters.removeAll()
-        heartbeatGeneration = UUID()
-        let previous = heartbeatCleanupTask
-        heartbeatCleanupTask = Task {
-            await previous?.value
-            for task in tasks { await task.value }
-        }
-    }
-
-    func applyPlaybackReportingPolicy() {
-        if !heartbeatReportingActive { closeHeartbeatReporters() }
-        let backend = api(for: playbackTracker?.item.serverID)
-        playbackTracker?.setReporters(
-            plexAPI: !isDemoMode && syncPlexActivity ? backend as? PlexAPIService : nil,
-            watchReporter: !isDemoMode && syncPlexActivity ? backend as? any WatchActivityReporting : nil,
-            heartbeatReporter: heartbeatReporter(for: backend as? PlexAPIService))
     }
 
     /// Resolves the stored `syncPlexActivity` preference. The key is only written once the

@@ -547,14 +547,13 @@ extension AppState {
         // turned it on: Plex gets timeline + scrobble, Jellyfin and Emby get the same
         // watch counted on their server. Either way the tracker still accumulates time.
         if !preservingTracker {
-            let reportingOn = !isDemoMode && (syncPlexActivity || heartbeatReportingActive)
+            let reportingOn = !isDemoMode && syncPlexActivity
             let reportingBackend: (any MediaBackend)? = reportingOn ? api(for: item.serverID) : nil
             playbackTracker = PlaybackTracker(
                 item: item,
                 seekOffset: Int(currentPartBaseSeconds) + seekOffset,
-                plexAPI: syncPlexActivity ? reportingBackend as? PlexAPIService : nil,
-                watchReporter: syncPlexActivity ? reportingBackend as? any WatchActivityReporting : nil,
-                heartbeatReporter: heartbeatReporter(for: reportingBackend as? PlexAPIService)
+                plexAPI: reportingBackend as? PlexAPIService,
+                watchReporter: reportingBackend as? any WatchActivityReporting
             )
             if let tracker = playbackTracker { attachRatingNudgeCounter(to: tracker) }
         }
@@ -1026,8 +1025,9 @@ extension AppState {
     /// So the ladder resumes the *same* item from the current position one rung down,
     /// and only skips when the capped stream starves too.
     private func installStarvationMonitor(for playerItem: AVPlayerItem, item: PlexMediaItem?, isDirectPlay: Bool, generation: Int, allowCappedRetry: Bool) {
-        // Observe the current player only; old channel callbacks cannot update
-        // the next tracker's heartbeat. History accounting remains separate.
+        // AVPlayer's playing / paused / buffering feeds Plex Now Playing (PR #18). Only the
+        // current player and item count, so an old channel's callback cannot reach the
+        // next tracker. The watch clock is separate.
         if let observedPlayer = player {
             observedPlayer.publisher(for: \.timeControlStatus)
                 .receive(on: DispatchQueue.main)

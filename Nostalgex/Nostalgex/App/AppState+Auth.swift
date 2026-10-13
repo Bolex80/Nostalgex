@@ -661,7 +661,6 @@ extension AppState {
     }
 
     func disconnect() {
-        closeHeartbeatReporters()
         Analytics.track(.settingChanged(key: "disconnect", value: "tapped"))
         // Fold accumulated watch time into one final playback.stopped before the
         // tracker is torn down. Otherwise every disconnect drops the last session's

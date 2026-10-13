@@ -3,6 +3,32 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Report Playback rebuilt on PR #18)
+
+**Changed.** w6trp's #18 merged with their commit kept, then folded into the one REPORT
+PLAYBACK switch. The owner's rule: report watching, never fill Continue Watching.
+
+- Plex sends position-free timeline reports (#18's idea, PUT, no `time`/`duration`): Now
+  Playing shows the title and its playing/paused/buffering state, Plex stores nothing.
+  A qualifying watch scrobbles with the bare key; a counted episode's next-up entry is
+  removed unless its show was already in Continue Watching. The Plex unscrobble and
+  `/:/progress` restore and the film prior-state read are gone.
+- Jellyfin/Emby keep the restore. Measured on Emby 4.10.1: position-free start bumps
+  PlayCount, and a stop without `PositionTicks` marks the item played.
+- From #18 also kept: AVPlayer state feed, background grace for the final stop, the
+  `backgrounded` guard, the request-shape and pulse tests. Dropped: the second toggle
+  and the reporter that switched the setting off after one failed request. Failures now
+  skip pulses (1, 2, 4 ... 30) and never touch the setting.
+- Same on the web tuner. Settings copy unchanged on both surfaces.
+
+**Verified.** Live Plex, real tracker code: a 2 minute real-time surf on an unwatched film
+showed in Now Playing at offset 0 throughout, cleared on stop, metadata and Continue
+Watching (17) unchanged. A counted episode: viewCount 1, no resume point, no next-up
+(checked again 5 s on; a control scrobble shows Plex adds one), then unscrobbled back.
+Emby surf + counted watch: UserData and Resume back exact. NostalgexTests 662: 654
+passed, 8 skipped (live harnesses), 0 failed. `npm test`, `npm run build` green. Not
+tested on hardware.
+
 ## 2026-10-13 (PR #21 merged for the next build)
 
 **Changed.** `land-pr-21` merged into `ship-franchises` with w6trp's commit kept: the

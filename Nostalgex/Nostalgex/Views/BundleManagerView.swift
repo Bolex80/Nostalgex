@@ -818,18 +818,6 @@ struct SettingsPageView: View {
                 .focused($focusedItem, equals: "plex_sync")
                 .id("plex_sync")
                 .accessibilityHint("Shows what's playing and updates play counts in \(appState.backendDisplayName). Continue Watching is left as it was")
-                if appState.backendKind == .plex {
-                    SettingsToggleRow(
-                        title: "PLEX HEARTBEAT ONLY",
-                        subtitle: "Show the current title and playback state in Plex without sending progress or marking it watched.",
-                        warning: appState.heartbeatReportingNotice,
-                        isOn: appState.plexHeartbeatOnly,
-                        isFocused: focusedItem == "plex_heartbeat"
-                    ) { appState.plexHeartbeatOnly.toggle() }
-                    .focused($focusedItem, equals: "plex_heartbeat")
-                    .id("plex_heartbeat")
-                    .accessibilityHint("Reports activity without position, duration or watched calls. Disables History & Resume sync.")
-                }
             }
 
             SettingsToggleRow(

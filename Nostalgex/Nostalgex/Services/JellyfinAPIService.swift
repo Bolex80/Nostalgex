@@ -560,7 +560,7 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         playSessionId: String,
         positionTicks: Int,
         event: MediaServerPlaybackReport.Event
-    ) async {
+    ) async -> Bool {
         await MediaServerPlaybackReport.post(
             serverURL: serverURL,
             authorization: Self.authorizationHeader(deviceID: deviceID, token: accessToken),

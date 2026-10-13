@@ -10,9 +10,10 @@ import XCTest
 ///   TEST_RUNNER_NOSTALGEX_LIVE_FILM        rating key of an unwatched film with no resume point
 ///   TEST_RUNNER_NOSTALGEX_LIVE_EPISODE     rating key of an unwatched episode whose show is not in Continue Watching
 ///
-/// It writes to that server. The film is surfed (restored by the tracker itself); the
-/// episode is watched through the gate, so the test unscrobbles it afterwards to put
-/// the server back the way it found it.
+/// It writes to that server. The film is surfed for two real minutes: reports carry no
+/// position, so Plex lists it in Now Playing and stores nothing. The episode is watched
+/// through the gate on a fake clock, so the test unscrobbles it afterwards to put the
+/// server back the way it found it.
 @MainActor
 final class LiveContinueWatchingTests: XCTestCase {
 
@@ -59,6 +60,12 @@ final class LiveContinueWatchingTests: XCTestCase {
         return try JSONDecoder().decode(Container.self, from: body).MediaContainer.Metadata ?? []
     }
 
+    /// Rating key -> viewOffset for every session in Now Playing.
+    private func nowPlaying(_ api: PlexAPIService) async throws -> [String: Int] {
+        let sessions = try await get(api, "/status/sessions")
+        return Dictionary(sessions.map { ($0.ratingKey, $0.viewOffset ?? 0) }, uniquingKeysWith: { a, _ in a })
+    }
+
     private func continueWatching(_ api: PlexAPIService) async throws -> [String] {
         try await get(api, "/hubs/continueWatching/items", [.init(name: "count", value: "200")]).map(\.ratingKey)
     }
@@ -85,13 +92,14 @@ final class LiveContinueWatchingTests: XCTestCase {
     /// each pulse a real request.
     private func watch(
         _ api: PlexAPIService, _ item: PlexMediaItem, seconds: Int, seekOffset: Int = 0,
-        beforeStop: () async throws -> Void = {}
+        realTime: Bool = false, beforeStop: () async throws -> Void = {}
     ) async rethrows -> Bool {
         var clock = Date()
         let queue = ReportQueue()
         let tracker = PlaybackTracker(item: item, seekOffset: seekOffset, plexAPI: api, queue: queue, now: { clock })
         tracker.onPlaybackReady()
         for _ in 0..<(seconds / 10) {
+            if realTime { try? await Task.sleep(nanoseconds: 10_000_000_000) }
             clock += 10
             tracker.timelineTickForTesting()
         }
@@ -110,22 +118,26 @@ final class LiveContinueWatchingTests: XCTestCase {
         XCTAssertNil(before.viewOffset, "pick a film with no resume point")
         XCTAssertNil(before.viewCount, "pick an unwatched film")
 
-        // Tune in 25 minutes in and surf for two minutes.
-        let counted = try await watch(live.api, item(entry, type: .movie), seconds: 120, seekOffset: 1500) {
-            // Proves the reports really land: mid-surf, Plex holds a resume point and lists it.
+        // Tune in 25 minutes in and surf for two real minutes.
+        let counted = try await watch(live.api, item(entry, type: .movie), seconds: 120, seekOffset: 1500, realTime: true) {
+            // The reports land: Plex lists the film in Now Playing, and stores nothing.
             let (during, _) = try await snapshot(live.api, rk)
             let rowDuring = try await continueWatching(live.api)
-            print("[Live] film \(rk) during=\(during) inCW=\(rowDuring.contains(rk))")
-            XCTAssertNotNil(during.viewOffset)
-            XCTAssertTrue(rowDuring.contains(rk))
+            let playing = try await nowPlaying(live.api)
+            print("[Live] film \(rk) during=\(during) nowPlaying=\(playing[rk].map { "offset \($0)" } ?? "absent") inCW=\(rowDuring.contains(rk))")
+            XCTAssertNotNil(playing[rk], "Now Playing shows the film")
+            XCTAssertEqual(during, before, "no resume point mid-surf")
+            XCTAssertFalse(rowDuring.contains(rk))
         }
         XCTAssertFalse(counted)
 
         let (after, _) = try await snapshot(live.api, rk)
         let rowAfter = try await continueWatching(live.api)
-        print("[Live] film \(rk) before=\(before) after=\(after) CW \(rowBefore.count) -> \(rowAfter.count)")
+        let playingAfter = try await nowPlaying(live.api)
+        print("[Live] film \(rk) before=\(before) after=\(after) CW \(rowBefore.count) -> \(rowAfter.count) nowPlayingAfterStop=\(playingAfter[rk] != nil)")
         XCTAssertEqual(after, before)
         XCTAssertEqual(rowAfter, rowBefore)
+        XCTAssertNil(playingAfter[rk], "stopped clears Now Playing")
     }
 
     func testWatchingAnEpisodeCountsItButLeavesContinueWatchingAlone() async throws {
@@ -145,9 +157,16 @@ final class LiveContinueWatchingTests: XCTestCase {
         XCTAssertEqual(watched.viewCount, 1, "the watch counted")
         XCTAssertNil(watched.viewOffset, "no resume point on a watched episode")
         XCTAssertEqual(rowAfter, rowBefore, "neither the episode nor the next one is in Continue Watching")
+        // Plex adds the next episode about a second after the scrobble. Look again later so a
+        // next-up that lands after the cleanup cannot pass unseen.
+        try await Task.sleep(nanoseconds: 5_000_000_000)
+        let rowLater = try await continueWatching(live.api)
+        XCTAssertEqual(rowLater, rowBefore, "no next-up entry five seconds on")
 
         // Put the server back: this episode was unwatched before the test.
-        let unscrobble = try XCTUnwrap(live.api.watchStateGuard.request(for: .unscrobble, ratingKey: rk))
+        let unscrobble = try XCTUnwrap(live.api.watchStateGuard.request(method: "GET", path: "/:/unscrobble", query: [
+            .init(name: "key", value: rk), .init(name: "identifier", value: PlexWatchStateGuard.libraryIdentifier),
+        ]))
         _ = await live.api.reportTransport.send(unscrobble)
         let (restored, _) = try await snapshot(live.api, rk)
         let rowRestored = try await continueWatching(live.api)
