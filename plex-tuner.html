@@ -3472,9 +3472,16 @@
     // (see JellyfinPlaybackResolver.offsetPlayback). StartTimeTicks still goes in the
     // PlaybackInfo body, where it only informs the decision and never reaches a segment URL.
     // withApiKey adds ApiKey: Jellyfin 12.2 with legacy auth off answers 401 to api_key alone.
-    const fallback = NostalgexJellyfinUrls.withApiKey(`${plexServerUrl}/Videos/${item.ratingKey}/master.m3u8`
-      + `?MediaSourceId=${encodeURIComponent(msid)}&api_key=${plexToken}`
-      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=3840&SegmentContainer=ts&DeviceId=${getClientId()}`, plexToken);
+    // The fallback also carries its own PlaySessionId, or Emby refuses every segment with a
+    // 400. A direct play that failed lands here, because PlaybackInfo offers no
+    // TranscodingUrl for a file it thinks the browser can already play.
+    const fallback = NostalgexJellyfinUrls.fallbackHlsUrl({
+      serverUrl: plexServerUrl,
+      itemId: item.ratingKey,
+      mediaSourceId: msid,
+      token: plexToken,
+      deviceId: getClientId(),
+    });
     const deviceProfile = {
       MaxStreamingBitrate: 120000000,
       DirectPlayProfiles: [

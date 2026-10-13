@@ -397,6 +397,23 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
     }
 
     func buildTranscodeURL(for item: PlexMediaItem) -> URL? {
+        buildTranscodeURL(for: item, sessionID: UUID().uuidString)
+    }
+
+    /// The hand-built HLS stream: the runtime fallback after a failed direct play, and the
+    /// fallback when PlaybackInfo hands back no TranscodingUrl.
+    ///
+    /// `PlaySessionId` is load-bearing on Emby. Emby does not copy the master's query string
+    /// onto segment URLs the way Jellyfin does; it writes `hls1/main/0.mp4?PlaySessionId=<id>`
+    /// and nothing else, so a master without one gets segments asking for `PlaySessionId=`
+    /// with no value, and every one of them comes back HTTP 400 "Value cannot be null.
+    /// (Parameter 'key')". Master and variant playlists still answer 200, which is why it
+    /// looked like a stream that would not start rather than a refused request. Measured
+    /// against Emby 4.10.1.0 on 2026-10-13 on 8-bit H.264 MKV and MP4 sources: without the
+    /// id, init and segments 0 to 2 all 400; with a client-made UUID, all 200. Emby takes an
+    /// id the client mints, as the capped rung has always done, and the id lets
+    /// `stopTranscode` end this encode on the next channel change.
+    func buildTranscodeURL(for item: PlexMediaItem, sessionID: String) -> URL? {
         guard var components = URLComponents(string: "\(serverURL)/Videos/\(item.ratingKey)/master.m3u8") else { return nil }
         let videoCodecs = Self.deviceSupportsHEVC ? "h264,hevc" : "h264"
         let audioCodecs = "aac,ac3,eac3,mp3"
@@ -404,6 +421,7 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
             .init(name: "MediaSourceId", value: item.partKey ?? item.ratingKey),
             .init(name: "api_key", value: accessToken),
             .init(name: "DeviceId", value: deviceID),
+            .init(name: "PlaySessionId", value: sessionID),
             .init(name: "VideoCodec", value: videoCodecs),
             .init(name: "AudioCodec", value: audioCodecs),
             .init(name: "VideoBitrate", value: "\(StreamQuality.current.maxBitrateBps)"),
@@ -471,9 +489,12 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
     /// and the caller seeks. Same as the first attempt.
     var cappedStreamStartsAtOffset: Bool { false }
 
+    /// Hand the session id back so the transcode it starts is stopped on the next channel
+    /// change, the same as a PlaybackInfo session.
     private func fallbackResolution(for item: PlexMediaItem) -> PlaybackResolution? {
-        guard let url = buildTranscodeURL(for: item) else { return nil }
-        return PlaybackResolution(url: url, playSessionId: nil, isDirectPlay: false)
+        let sessionID = UUID().uuidString
+        guard let url = buildTranscodeURL(for: item, sessionID: sessionID) else { return nil }
+        return PlaybackResolution(url: url, playSessionId: sessionID, isDirectPlay: false)
     }
 
     func reportWatchActivity(

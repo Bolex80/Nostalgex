@@ -3,6 +3,54 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Emby fallback stream: every segment refused for want of a PlaySessionId)
+
+**Shipped.** Nothing. Branch `emby-playsessionid`, not merged.
+
+**Changed.**
+
+- On Emby, the HLS stream Nostalgex builds by hand after a failed direct play never
+  played, on Apple TV or in the web tuner. Measured against a test Emby 4.10.1 server on
+  8-bit H.264 MKV and MP4 files: master and variant playlists 200, then the init segment
+  and segments 0 to 2 all HTTP 400 "Value cannot be null. (Parameter 'key')". Emby writes
+  each segment URL as `hls1/main/0.mp4?PlaySessionId=<id>` and nothing else, taking the
+  id from the master request. The hand-built master had none, so every segment asked for
+  `PlaySessionId=` with no value. Jellyfin copies the whole query string onto segments,
+  which is why the same URL plays there.
+- Where it bites: a direct play that fails. The web tuner's retry asks PlaybackInfo,
+  which returns no TranscodingUrl for a file Emby thinks the browser can play (measured),
+  so it falls back to the hand-built URL. Apple TV's `.failed` fallback uses the
+  hand-built URL directly, as does any PlaybackInfo request that errors. PlaybackInfo's
+  own TranscodingUrl and the 1080p capped rung already carried an id and played.
+- Fix: the hand-built URL carries a client-made `PlaySessionId`. Apple TV:
+  `EmbyAPIService.buildTranscodeURL(for:sessionID:)`, and the id is tracked so a channel
+  change stops that encode, as it does a PlaybackInfo session. Web:
+  `NostalgexJellyfinUrls.fallbackHlsUrl`, a UUID where the browser has
+  `crypto.randomUUID`, else 32 hex characters (a self-hosted tuner over plain http has
+  no secure context). Leaving the parameter off is not an option: it already was off,
+  and Emby writes the empty one itself.
+- After: master, variant, init and segments 0 to 2 all 200 on the same Emby server, for
+  the URLs the Apple TV code builds (both fallback paths, both files) and the URLs the
+  built web tuner builds (both id shapes).
+- Jellyfin: the Apple TV Jellyfin code is unchanged. The web tuner signs in to Emby as
+  Jellyfin and shares one fallback, so that change reaches Jellyfin too. On a local
+  Jellyfin 12.2.0 the hand-built URL was all 200 before and is all 200 with the id.
+- Tests: `EmbyPlaySessionTests` (4) and 8 new checks in `test:jellyfin-urls`.
+
+NostalgexTests: 672 passed (668 on main plus the 4 new), 0 failed, 8 live harnesses
+skipped. `npm test` and `npm run build` green.
+
+**Half-done.** Proven at the HTTP level (playlist and segment statuses), not watched on
+an Apple TV or in a browser. The web tuner still never stops a Jellyfin or Emby encode
+on channel change (`stopActiveTranscode` returns early for them), so the web id is not
+yet used for cleanup.
+
+**Next.** Watch one forced direct-play failure on an Apple TV against Emby. Worth a
+measured look: when direct play gives no picture or starves, Apple TV asks PlaybackInfo
+for the server stream, and for a file the server calls direct-playable
+`JellyfinPlaybackResolver.resolve` returns the same static file rather than an HLS
+stream. Seen in the PlaybackInfo responses above, not yet on a device.
+
 ## 2026-10-13 (1.0.26 (48) cut)
 
 **Shipped.** main pushed, which deploys the site and web tuner. Build 1.0.26 (48) archived
