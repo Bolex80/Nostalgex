@@ -23,6 +23,7 @@
 <script src="scripts/nostalgex-enrichment.js"></script>
 <script src="scripts/nostalgex-collections.js"></script>
 <script src="scripts/nostalgex-watch-state.js"></script>
+<script src="scripts/nostalgex-jellyfin-urls.js"></script>
 <style>
   :root {
     --bg: #080810;
@@ -3527,9 +3528,10 @@
     // `startPosition` below, so the offset is the client's job here, exactly as on tvOS
     // (see JellyfinPlaybackResolver.offsetPlayback). StartTimeTicks still goes in the
     // PlaybackInfo body, where it only informs the decision and never reaches a segment URL.
-    const fallback = `${plexServerUrl}/Videos/${item.ratingKey}/master.m3u8`
+    // withApiKey adds ApiKey: Jellyfin 12.2 with legacy auth off answers 401 to api_key alone.
+    const fallback = NostalgexJellyfinUrls.withApiKey(`${plexServerUrl}/Videos/${item.ratingKey}/master.m3u8`
       + `?MediaSourceId=${encodeURIComponent(msid)}&api_key=${plexToken}`
-      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=3840&SegmentContainer=ts&DeviceId=${getClientId()}`;
+      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=3840&SegmentContainer=ts&DeviceId=${getClientId()}`, plexToken);
     const deviceProfile = {
       MaxStreamingBitrate: 120000000,
       DirectPlayProfiles: [
@@ -3563,9 +3565,7 @@
       const sources = data.MediaSources || [];
       const source = sources.find(s => s.Id === msid) || sources[0];
       if (source && source.TranscodingUrl) {
-        let url = `${plexServerUrl}${source.TranscodingUrl}`;
-        if (!/[?&]api_key=/.test(url)) url += (url.includes('?') ? '&' : '?') + `api_key=${plexToken}`;
-        return url;
+        return NostalgexJellyfinUrls.withApiKey(`${plexServerUrl}${source.TranscodingUrl}`, plexToken);
       }
       return fallback;
     } catch (e) {
@@ -3801,10 +3801,17 @@
       // transcode (safer than a decode failure).
       canDirectPlay = !item._forceTranscode && containerOK && videoOK && audioOK;
       if (canDirectPlay) {
+        // stream.mp4 for the mp4/m4v/mov family: Jellyfin labels a static stream by file
+        // name, so an MP4 saved as .mkv would otherwise come back video/x-matroska.
         const pickedAudio = pickAudioStream(item.audioStreams || []);
-        streamUrl = `${plexServerUrl}/Videos/${item.ratingKey}/stream`
-          + `?Static=true&MediaSourceId=${encodeURIComponent(msid)}&api_key=${plexToken}`
-          + (pickedAudio ? `&AudioStreamIndex=${pickedAudio.index}` : '');
+        streamUrl = NostalgexJellyfinUrls.staticStreamUrl({
+          serverUrl: plexServerUrl,
+          itemId: item.ratingKey,
+          mediaSourceId: msid,
+          container,
+          token: plexToken,
+          audioStreamIndex: pickedAudio ? pickedAudio.index : null,
+        });
       } else {
         // Let Jellyfin build the transcode URL (valid PlaySessionId, forced h264/aac).
         streamUrl = await getJellyfinTranscodeUrl(item);

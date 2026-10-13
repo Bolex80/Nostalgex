@@ -16,7 +16,7 @@
     "test:tmdb": "node scripts/tmdb-proxy-smoke.mjs",
     "test:enrichment": "node scripts/nostalgex-enrichment-smoke.mjs",
     "test:collections": "node scripts/nostalgex-collections-smoke.mjs",
-    "test": "npm run test:filter && npm run test:schedule && npm run test:franchises && npm run test:watch-state && npm run test:subscribe && npm run test:tmdb && npm run test:enrichment && npm run test:collections && npm run channels:doc:check && npm run changelog:check",
+    "test": "npm run test:filter && npm run test:schedule && npm run test:franchises && npm run test:watch-state && npm run test:jellyfin-urls && npm run test:subscribe && npm run test:tmdb && npm run test:enrichment && npm run test:collections && npm run channels:doc:check && npm run changelog:check",
     "build": "npm run changelog:render && npm run blog:render && vite build",
     "preview": "vite preview",
     "snapshot": "node --env-file-if-exists=.env scripts/devtools/build-snapshot.mjs",
@@ -25,7 +25,8 @@
     "changelog:discord": "node scripts/post-changelog-discord.mjs",
     "changelog:check": "node scripts/changelog-check.mjs",
     "test:franchises": "node scripts/nostalgex-franchise-smoke.mjs",
-    "test:watch-state": "node scripts/nostalgex-watch-state-smoke.mjs"
+    "test:watch-state": "node scripts/nostalgex-watch-state-smoke.mjs",
+    "test:jellyfin-urls": "node scripts/nostalgex-jellyfin-urls-smoke.mjs"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3",
