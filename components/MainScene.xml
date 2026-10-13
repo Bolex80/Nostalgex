@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0E11FF" />
+    <Label id="title" text="NOSTALGEX" translation="[0,220]" width="1920" horizAlign="center" color="0xFFB000FF" font="font:LargeBoldSystemFont" />
+    <Label id="prompt" text="" translation="[160,400]" width="1600" horizAlign="center" wrap="true" color="0xFFFFFFFF" font="font:MediumSystemFont" />
+    <Label id="code" text="" translation="[0,520]" width="1920" horizAlign="center" color="0xFFB000FF" font="font:LargeBoldSystemFont" />
+    <Label id="hint" text="" translation="[160,880]" width="1600" horizAlign="center" wrap="true" color="0x8A9099FF" font="font:SmallSystemFont" />
+  </children>
+</component>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stops a Plex transcode when the channel moves on, as upstream's
+     stopActiveTranscode does; best effort. The token is read from the
+     registry here, never passed on a field. -->
+<component name="PlexStopTask" extends="Task">
+  <interface>
+    <field id="stopUrl" type="string" />
+    <field id="serverIndex" type="integer" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/components/PlexStopTask.brs" />
+</component>

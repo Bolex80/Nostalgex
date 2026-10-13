@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The guide, laid out after the Nostalgex Apple TV app (TunerView,
+     InfoPanelView, ChannelGuideView): the focused channel's airing top left,
+     the live preview top right, the two-hour grid below. Measurements are the
+     tvOS app's, which draws 1:1 on a 1920x1080 screen. -->
+<component name="GuideView" extends="Group">
+  <interface>
+    <field id="guide" type="assocarray" onChange="onGuide" />
+    <!-- For MainScene: "rebuild" after package changes, or "signOut". -->
+    <field id="action" type="string" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/components/GuideView.brs" />
+  <children>
+    <Rectangle id="screen" width="1920" height="1080" color="0x000000FF" />
+    <Group id="panel">
+      <Rectangle width="1180" height="555" color="0x0B0B1CFF" />
+      <Label id="logo" text="NOSTALGEX" translation="[40,52]" />
+      <Group id="info" translation="[40,204]">
+        <Label id="tag" width="1100" />
+        <Label id="title" translation="[0,48]" width="1100" wrap="true" maxLines="2" lineSpacing="2" />
+        <Label id="subtitle" translation="[0,0]" width="1100" />
+        <Rectangle id="rule" width="1100" height="1" />
+        <Label id="summary" width="1100" wrap="true" maxLines="2" lineSpacing="4" />
+        <Group id="meta">
+          <Rectangle id="chipBorder" height="34" color="0xFFFFFF26" />
+          <Rectangle id="chipFill" translation="[1,1]" height="32" color="0x0B0B1CFF" />
+          <Label id="chip" translation="[12,2]" />
+          <Rectangle id="progressTrack" height="4" color="0xFFFFFF14" />
+          <Rectangle id="progressFill" height="4" />
+          <Label id="clock" horizAlign="right" width="220" />
+        </Group>
+        <Label id="upNextLabel" text="UP NEXT" />
+        <Label id="upNext" width="900" />
+      </Group>
+    </Group>
+    <Rectangle id="videoBg" translation="[1180,0]" width="740" height="555" color="0x050513FF" />
+    <Video id="video" translation="[1180,0]" width="740" height="555" />
+    <Group id="haze" visible="false">
+      <Rectangle id="hazeBg" translation="[1180,0]" width="740" height="555" color="0x000000FF" />
+      <Label id="hazeText" translation="[1180,258]" width="740" horizAlign="center" />
+    </Group>
+    <Group id="grid" translation="[0,555]">
+      <Rectangle width="1920" height="525" color="0x0D0D1FFF" />
+      <Rectangle width="1920" height="60" color="0x0A0A14FF" />
+      <Label id="channelHead" text="CHANNEL" translation="[12,18]" />
+      <Group id="slots" />
+      <Rectangle translation="[0,60]" width="1920" height="1" color="0xFFFFFF40" />
+      <Group id="rows" translation="[0,61]" />
+      <Rectangle id="nowLine" width="2" height="525" color="0x00D4FFFF" />
+    </Group>
+    <Group id="sidebar" translation="[0,555]" visible="false" />
+    <Label id="bug" visible="false" translation="[60,980]" />
+    <Label id="notice" translation="[1200,500]" width="700" wrap="true" color="0xFF6B6BFF" />
+  </children>
+</component>

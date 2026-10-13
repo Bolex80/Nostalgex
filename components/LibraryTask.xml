@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Loads the signed-in Plex library, builds the switched-on channels and
+     schedules them, as upstream's library load does. Hands the render thread
+     the guide: channels in guide order with today's and tomorrow's blocks.
+     No field carries a token. -->
+<component name="LibraryTask" extends="Task">
+  <interface>
+    <!-- loading | ready | error. "ready" can come twice: saved guide, then fresh. -->
+    <field id="status" type="string" value="" />
+    <field id="progress" type="string" value="" />
+    <field id="message" type="string" value="" />
+    <field id="guide" type="assocarray" />
+    <!-- Show the saved guide first when it is still what a fresh build would
+         give, then rebuild in the background. -->
+    <field id="useCache" type="boolean" value="false" />
+    <!-- True while the guide on screen is the saved one. -->
+    <field id="fromCache" type="boolean" value="false" />
+    <!-- Set (any value) to re-check schedules against the clock. -->
+    <field id="reschedule" type="boolean" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexLibrary.brs" />
+  <script type="text/brightscript" uri="pkg:/source/filter/ChannelFilter.brs" />
+  <script type="text/brightscript" uri="pkg:/source/schedule/DailyManifest.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Lineup.brs" />
+  <script type="text/brightscript" uri="pkg:/components/LibraryTask.brs" />
+</component>

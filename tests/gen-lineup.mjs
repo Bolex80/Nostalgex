@@ -1,0 +1,95 @@
+// Lineup golden vectors: the parts of plex-tuner.html that turn filter pools
+// into what the guide airs. shuffleArray and getTimeFilteredPool are lifted
+// unchanged out of plex-tuner.html; getManifestBlocks and poolFingerprint run
+// from the daily-manifest module over a stand-in localStorage, two days in a
+// row, so yesterday's schedule feeds today's as it does in the browser.
+// Called by tests/gen-vectors.mjs, which owns the output, with TZ=UTC.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+export function liftFunction(html, name) {
+  const at = html.search(new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`));
+  if (at < 0) throw new Error(`plex-tuner.html has no function ${name}`);
+  let i = html.indexOf("(", at), depth = 0;
+  for (; ; i++) { if (html[i] === "(") depth++; else if (html[i] === ")" && --depth === 0) break; }
+  i = html.indexOf("{", i);
+  for (depth = 0; ; i++) { if (html[i] === "{") depth++; else if (html[i] === "}" && --depth === 0) break; }
+  return html.slice(at, i + 1);
+}
+
+function withClock(ms, fn) {
+  const RealDate = globalThis.Date;
+  globalThis.Date = class extends RealDate {
+    constructor(...a) { if (a.length) super(...a); else super(ms); }
+    static now() { return ms; }
+  };
+  try { return fn(); } finally { globalThis.Date = RealDate; }
+}
+
+export function lineupVectors(upstream, M, pool) {
+  const html = readFileSync(join(upstream, "plex-tuner.html"), "utf8");
+  const lifted = new Function(`${liftFunction(html, "shuffleArray")}\n${liftFunction(html, "getTimeFilteredPool")}\nreturn { shuffleArray, getTimeFilteredPool };`)();
+  const ids = (arr) => arr.map((i) => i.ratingKey).join(",");
+
+  // shuffleArray across UTC days, including the instant a UTC day turns.
+  const shuffle = [];
+  for (const iso of ["2026-10-12T04:59:59Z", "2026-10-12T05:00:00Z", "2026-10-12T23:59:59Z", "2026-10-13T00:00:00Z", "2030-01-01T12:00:00Z"]) {
+    for (const n of [0, 1, 2, 7, pool.length]) {
+      const ms = Date.parse(iso);
+      shuffle.push({ nowSec: Math.floor(ms / 1000), n, out: ids(withClock(ms, () => lifted.shuffleArray(pool.slice(0, n)))) });
+    }
+  }
+
+  // getTimeFilteredPool at each hour, for every kind of restriction.
+  const rated = pool.map((it, k) => ({ ...it, contentRating: ["R", "PG", "NC-17", "TV-MA"][k % 4] }));
+  const restrictions = [
+    { blockRatings: { ratings: ["R", "NC-17"], blockBefore: 21 } },
+    { blockRatings: { ratings: ["R", "PG", "NC-17", "TV-MA"], blockAfter: 22 } },
+    { tvOnlyBefore: 11 },
+    { onlyAfterHour: 20 },
+    { blockRatings: { ratings: ["TV-MA"], blockBefore: 6, blockAfter: 23 }, tvOnlyBefore: 9, onlyAfterHour: 2 },
+  ];
+  const timeFilter = [];
+  for (const tr of restrictions) {
+    for (const hour of [0, 1, 2, 5, 6, 8, 9, 10, 11, 19, 20, 21, 22, 23]) {
+      const ms = Date.UTC(2026, 9, 12, hour, 30);
+      timeFilter.push({ tr, hour, out: ids(withClock(ms, () => lifted.getTimeFilteredPool({ timeRestrictions: tr, itemPool: rated }))) });
+    }
+  }
+
+  // getManifestBlocks over consecutive days, through a stand-in localStorage.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    key: (i) => [...store.keys()][i] ?? null,
+    get length() { return store.size; },
+  };
+  const blocksOf = (arr) => arr.map((b) => `${b.item.ratingKey}@${b.startSec}-${b.endSec}`).join(",");
+  const manifests = [];
+  const small = pool.slice(0, 9);
+  const steps = [
+    { ch: { id: 7 }, pool: small, iso: "2026-10-12T15:30:00Z" },
+    { ch: { id: 7 }, pool: small, iso: "2026-10-12T22:00:00Z" },
+    { ch: { id: 7 }, pool: small.slice(0, 8), iso: "2026-10-12T22:05:00Z" },
+    { ch: { id: 7 }, pool: small, iso: "2026-10-13T00:00:00Z" },
+    { ch: { id: 7 }, pool: small, iso: "2026-10-14T09:00:00Z" },
+    { ch: { id: 409, isPremiereChannel: true }, pool, iso: "2026-10-13T08:00:00Z" },
+    { ch: { id: 409, isPremiereChannel: true }, pool, iso: "2026-10-14T08:00:00Z" },
+    { clear: true },
+    { ch: { id: 7 }, pool: small, iso: "2026-10-14T09:00:00Z" },
+  ];
+  for (const s of steps) {
+    if (s.clear) { M.clearManifests("roku"); manifests.push({ clear: true }); continue; }
+    const ms = Date.parse(s.iso);
+    manifests.push({
+      channel: s.ch, n: s.pool.length, atSec: Math.floor(ms / 1000),
+      out: blocksOf(M.getManifestBlocks(s.ch, s.pool, ms, "roku")),
+    });
+  }
+  delete globalThis.localStorage;
+
+  const fingerprint = [0, 1, 5, pool.length].map((n) => ({ n, out: globalThis.__nxRng.poolFingerprint(pool.slice(0, n)) }));
+  return { pool, shuffle, timeFilter, rated, manifests, fingerprint };
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings, after the Apple TV app's: channel packages on and off, and
+     signing out of Plex. Package choices are saved on the TV; the guide is
+     rebuilt when Settings closes with a change. -->
+<component name="SettingsView" extends="Group">
+  <interface>
+    <field id="bundles" type="array" />
+    <field id="enabledBundles" type="array" />
+    <!-- Set when Settings closes: "close", "rebuild" or "signOut". -->
+    <field id="result" type="string" alwaysNotify="true" />
+    <function name="open" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/components/SettingsView.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0B1CFF" />
+    <Group id="page" translation="[120,80]" />
+  </children>
+</component>
