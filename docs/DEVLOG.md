@@ -3,6 +3,84 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (web tuner: controls behind one menu on touch)
+
+**Shipped.** Nothing. The work is on the branch `web-tuner-drawer`, not merged.
+
+**Changed.** Testing the new touch layout on a phone, the owner's verdict was
+that the guide and the video are the two things that matter and the controls are
+not: in landscape the vertical rail ate a column of the screen and left about
+two guide rows visible, and in portrait the controls cost a row from the bottom.
+So on touch there is no control surface on screen at all. One MENU button sits
+in the top right, and every control lives behind it.
+
+- The drawer is a sheet from the right, `min(300px, 84vw)` wide, full height,
+  over a scrim. Right rather than bottom because the same sheet then works in
+  both orientations: at 393px wide it covers three quarters of the screen, and
+  at 393px tall all seven boxes still fit without scrolling. It holds SOUND,
+  FULL SCREEN, RETRO, SETTINGS, INSTAGRAM and BUY ME A COFFEE. SETTINGS opens
+  the config screen that already existed. The coffee box is the only warm one;
+  everything else is the toolbar's cyan.
+- It dismisses by the close box, by a tap anywhere outside it, and by Escape,
+  traps Tab inside while open, and returns focus to the MENU button on close.
+  Opening it only moves a panel: `pause()` and `load()` call counts and the
+  video's `currentSrc` are unchanged across an open, so playback carries on
+  behind it.
+- Every other key falls through, so M, F, B and H still work with the drawer
+  open as well as on desktop.
+- Landscape phones get no top bar either. A bar would cost 48px of the 393
+  available, so the MENU button floats in the top right corner over the
+  letterboxed black beside the video and takes no layout height. The video row
+  gives up 62% to 55% of the height, which is the only place extra guide rows
+  can come from in landscape: the 84px the rail held was horizontal, and the
+  video there is height-limited, so it could not use the width anyway.
+- Tablet landscape: the guide cap went from 44% to 50%, so the 56px the bottom
+  bar gave up goes to the guide rather than to the video row, which is already
+  as tall as the panel beside it allows.
+- Portrait phones under 560px: guide rows go 34px to 32px. The screen is all
+  guide now and one more channel fits.
+- The closed drawer is parked off the right edge, which widens the document and
+  leaves the page scrollable sideways. `body` already clips; `html` does not, so
+  it gets `overflow-x: hidden` in the touch blocks.
+
+**Measured.** Channel rows fully visible in the guide, before and after, driving
+the built `dist/` in headless Chromium against a fixture library:
+
+| Viewport | Before | After |
+|---|---|---|
+| iPhone portrait 393x852 | 10 | 11 |
+| iPhone landscape 852x393 | 2 | 3 |
+| Android portrait 360x800 | 9 | 10 |
+| iPad portrait 834x1194 | 11 | 12 |
+| iPad landscape 1194x834 | 8 | 10 |
+| Desktop 1440x900 | 8 | 8 |
+| Desktop 1280x720 | 6 | 6 |
+
+The guide's scrolling body grew 52px in portrait, 52px on iPad portrait, 28px on
+a landscape phone and 25px on iPad landscape. No horizontal scrolling at any
+size (300px of it before the `overflow-x` fix). Every control in the drawer is
+at least 44px in both dimensions.
+
+**Desktop is untouched**, and that was checked rather than assumed: a dump of
+every rendered element's box, display, colour and font size at 1440x900,
+1280x720 and 1100x900 is identical before and after, apart from the playback
+progress bar's width and the VHS tracking line's position, which both move with
+the clock. The new nodes are all `display: none` 0x0 boxes there. The rail, its
+keyboard hints and the short-window height tiers are unchanged; the new
+landscape rules are gated on `pointer: coarse`, so a short desktop window keeps
+the rail it had.
+
+**Half-done.** Branch `web-tuner-drawer`, one commit on top of
+`8f74c78`. Not merged, and `main` has moved since it was cut.
+
+**Unverified.** Headless Chromium only. Not tried on a real phone, in Safari, or
+with a real `env(safe-area-inset-*)`, so the home indicator clearance in
+portrait and the notch clearance for the floating button in landscape are
+reasoned from the CSS, not seen. VoiceOver was not run against the drawer.
+
+**Next.** Merge with the two other web tuner branches in flight, then look at it
+on a phone.
+
 ## 2026-10-13 (web tuner: iPhone had no inline playback)
 
 **Shipped.** Nothing. The work is on the branch `web-tuner-ios-playback`, not
@@ -69,7 +147,6 @@ shares no code with the web player.
 **Next.** The iPhone confirmation above. The branch touches only the player and
 fullscreen code, so it should merge cleanly alongside the touch chrome work on
 `web-tuner-screens` and `web-tuner-drawer`.
-
 ## 2026-10-13 (web tuner: phones and tablets)
 
 **Shipped.** Nothing. The work is on the branch `web-tuner-mobile`, not merged.
