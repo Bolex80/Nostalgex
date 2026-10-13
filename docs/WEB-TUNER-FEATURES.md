@@ -78,14 +78,15 @@ Saved auth shape:
 
 | Key | Action |
 |-----|--------|
-| Up / Down | Change channel |
+| Up / Down | Browse the guide. Down on the last channel wraps to channel one, Up on channel one wraps to the last |
+| Enter | Tune the highlighted channel |
 | M | Mute / unmute |
 | F | Fullscreen |
 | B | Toggle retro mode (4:3 + CRT scanlines) |
 | C | Toggle subtitles (Jellyfin, fullscreen only) |
 | G | Fullscreen + guide overlay |
 | H | Open settings |
-| Left / Right | Switch settings tabs |
+| Left / Right | Change channel (wraps at both ends). In Settings, switch tabs |
 
 ---
 

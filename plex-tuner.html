@@ -4157,7 +4157,7 @@
     }
   }
 
-  function updateGuideFocus() {
+  function updateGuideFocus(wrapped = false) {
     // `guideFocusIndex` indexes getEnabledChannels(), but the promo rows share the
     // .grid-row class, so walking the full NodeList by position drifted one row per
     // promo row above the cursor. The highlight then sat on the channel before the
@@ -4178,7 +4178,10 @@
     });
 
     if (focusedRow) {
-      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // A wrap lands at the far end of the list. Centering the row there runs the
+      // scroll all the way to that end, so wrapping to channel one shows the top of
+      // the guide again, seasonal invite included, the way Apple TV centers its rows.
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: wrapped ? 'center' : 'nearest' });
     }
   }
 
@@ -7115,20 +7118,21 @@
         return;
       }
 
-      // Navigation: Up/Down to browse channels
+      // Navigation: Up/Down to browse channels. Both ends wrap: Down on the
+      // last channel goes to channel one, Up on channel one goes to the last.
       const prevKey = 'ArrowUp';
       const nextKey = 'ArrowDown';
 
-      if (key === prevKey) {
-        guideFocusIndex = Math.max(guideFocusIndex - 1, 0);
-        updateGuideFocus();
-        e.preventDefault();
-        return;
-      }
-      if (key === nextKey) {
-        const enabled = getEnabledChannels();
-        guideFocusIndex = Math.min(guideFocusIndex + 1, enabled.length - 1);
-        updateGuideFocus();
+      if (key === prevKey || key === nextKey) {
+        const count = getEnabledChannels().length;
+        if (count > 0) {
+          // The index can sit past the end after channels were switched off.
+          const from = Math.min(Math.max(guideFocusIndex, 0), count - 1);
+          const step = key === nextKey ? 1 : -1;
+          const wrapped = step === 1 ? from === count - 1 : from === 0;
+          guideFocusIndex = (from + step + count) % count;
+          updateGuideFocus(wrapped);
+        }
         e.preventDefault();
         return;
       }
