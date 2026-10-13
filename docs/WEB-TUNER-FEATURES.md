@@ -105,12 +105,6 @@ Users can enable/disable individual channel bundles (and individual channels wit
 
 ---
 
-## Blacklist
-
-Items can be skipped permanently. Stored in `plex90_blacklist` (array of rating keys). Blacklisted items are filtered out of every channel's schedule at load time.
-
----
-
 ## Playback scrobbling
 
 Reports "Now Playing" to the server and marks an item watched when the user has:
