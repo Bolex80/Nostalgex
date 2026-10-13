@@ -277,6 +277,9 @@ class AppState {
     var libraryLoadVisibleSteps: [LibraryLoadPhase] = LibraryLoadPhase.visibleSteps(includesCollections: false, includesMusic: false)
     var channelBuildIndex: Int = 0
     var channelBuildTotal: Int = 0
+    /// Packages switched on whose channels are still being built. Settings shows a
+    /// spinner on these rows so a build in progress doesn't look like a frozen screen.
+    var buildingBundleIDs: Set<String> = []
     var errorMessage: String? = nil {
         // Any connect or sign-in failure this launch keeps the rating nudge away.
         didSet { if errorMessage != nil { ratingNudgeLaunch.hadConnectError = true } }

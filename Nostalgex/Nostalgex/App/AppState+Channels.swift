@@ -94,10 +94,24 @@ extension AppState {
         let staticBundles = newlyEnabled.filter { !$0.id.hasPrefix("collections-") }
 
         if needsCollectionScan || !staticBundles.isEmpty {
-            collectionScanTask?.cancel()
+            buildingBundleIDs.formUnion(staticBundles.map(\.id))
+            // One build at a time. Each build starts from the channels already built, so
+            // two running at once (two quick toggles) let the second overwrite the first
+            // package's channels with its stale copy.
+            let previous = collectionScanTask
             collectionScanTask = Task {
-                for b in staticBundles { await self.rebuildPoolsForBundle(b) }
-                if needsCollectionScan { await self.scanCollections() }
+                await previous?.value
+                for b in staticBundles {
+                    if !Task.isCancelled {
+                        let started = Date()
+                        await self.rebuildPoolsForBundle(b)
+                        // Keep the spinner up long enough to read as "working", not a flicker.
+                        let shown = Date().timeIntervalSince(started)
+                        if shown < 0.6 { try? await Task.sleep(nanoseconds: UInt64((0.6 - shown) * 1_000_000_000)) }
+                    }
+                    self.buildingBundleIDs.remove(b.id)
+                }
+                if needsCollectionScan && !Task.isCancelled { await self.scanCollections() }
             }
         }
         // The scan applies the bundle filter itself when it finishes.
@@ -793,6 +807,7 @@ extension AppState {
         let ids = Set(bundle.channelIDs)
         guard !ids.isEmpty else { return }
 
+        let buildStarted = Date()
         channelBuildTotal = ids.count
         channelBuildIndex = 0
         setLibraryPhase(.buildingChannels, detail: bundle.name)
@@ -833,7 +848,7 @@ extension AppState {
         }
         applyBundleFilter()
         saveLibrarySnapshotIfNeeded()
-        print("[Plex90] BUNDLE BUILD: '\(bundle.id)' -> \(builtStatic.filter { ids.contains($0.id) }.count) channels with pools")
+        print("[Plex90] BUNDLE BUILD: '\(bundle.id)' -> \(builtStatic.filter { ids.contains($0.id) }.count) channels with pools in \(String(format: "%.2f", Date().timeIntervalSince(buildStarted)))s")
     }
 
     // MARK: - Filtering (keep in sync with scripts/nostalgex-channel-filter.cjs + plex-tuner)

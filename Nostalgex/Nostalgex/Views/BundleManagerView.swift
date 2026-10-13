@@ -187,20 +187,25 @@ struct SettingsPageView: View {
                                         return "Needs more content: \(missingNames.joined(separator: ", "))"
                                     }()
                                     let detail: String? = bundle.enabled ? "\(available)/\(total) CH" : "\(total) CH"
+                                    // While its channels build, the row says so instead of
+                                    // briefly reading "Not enough content" and dimming.
+                                    let building = bundle.enabled && appState.buildingBundleIDs.contains(bundle.id)
 
                                     SettingsToggleRow(
                                         title: bundle.name,
-                                        subtitle: subtitle,
+                                        subtitle: building ? "Finding \(total) channel\(total == 1 ? "" : "s") in your library" : subtitle,
                                         detail: detail,
-                                        warning: warning,
+                                        warning: building ? nil : warning,
                                         isOn: bundle.enabled,
-                                        isFocused: focusedItem == "bundle_\(bundle.id)"
+                                        isFocused: focusedItem == "bundle_\(bundle.id)",
+                                        isLoading: building,
+                                        loadingMessage: "BUILDING"
                                     ) {
                                         appState.toggleBundle(bundle)
                                     }
                                     .focused($focusedItem, equals: "bundle_\(bundle.id)")
                                     .id("bundle_\(bundle.id)")
-                                    .opacity(bundle.enabled && available == 0 ? 0.5 : 1.0)
+                                    .opacity(bundle.enabled && available == 0 && !building ? 0.5 : 1.0)
 
                                     // The classics above are the stock half of FRANCHISES.
                                     // Everything the library itself turned out to hold
