@@ -470,6 +470,7 @@ class AppState {
             if oldValue != syncPlexActivity {
                 Analytics.track(.settingChanged(key: "sync_plex_activity", value: syncPlexActivity ? "true" : "false"))
             }
+            preferenceSync.record(PreferenceSync.reportPlaybackKey, value: syncPlexActivity)
         }
     }
 

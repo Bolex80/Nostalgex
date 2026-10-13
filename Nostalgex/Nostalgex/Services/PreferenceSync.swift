@@ -56,7 +56,8 @@ enum PreferenceSyncMerge {
         case external(changedKeys: [String])
         /// The iCloud account on this TV changed. Re-pull everything.
         case accountChange
-        /// The viewer switched sync on in Settings. This TV's own choices win.
+        /// The viewer switched sync on in Settings. Merges like launch: a TV joining a
+        /// household that already syncs takes the household's lineup.
         case turnOn
     }
 
@@ -70,8 +71,9 @@ enum PreferenceSyncMerge {
     /// - local-empty adopts cloud.
     /// - both present: cloud wins. The local copy of the store already holds this TV's
     ///   own last writes, so a cloud value that differs came from another TV later.
-    ///   Except on `turnOn`: the TV that just switched sync on pushes what it has, so
-    ///   the lineup the viewer is looking at is the one that lands in iCloud.
+    ///   On `turnOn` too: the second TV switched on used to push its own lineup and
+    ///   overwrite the first TV's (seen on hardware, 2026-10-13). The first TV to turn
+    ///   sync on finds iCloud empty and seeds it; every TV after that joins.
     /// - cloud-empty, local present: push local (launch, account change and turn-on
     ///   only; an external change that removes a key never clears this TV's choice).
     /// - Ids are taken verbatim. A collection or bundle id this TV's server does not
@@ -88,15 +90,6 @@ enum PreferenceSyncMerge {
         for key in considered {
             let l = local[key].flatMap { normalized($0, for: key) }
             let c = cloud[key].flatMap { normalized($0, for: key) }
-            if trigger == .turnOn {
-                if let l {
-                    if let c, isEqual(l, c) { continue }
-                    plan.pushToCloud[key] = l
-                } else if let c {
-                    plan.applyLocally[key] = c
-                }
-                continue
-            }
             if let c {
                 if let l, isEqual(l, c) { continue }
                 plan.applyLocally[key] = c
@@ -139,16 +132,17 @@ enum PreferenceSyncMerge {
     }
 }
 
-/// Mirrors a handful of display and lineup preferences to iCloud key-value storage so
-/// every Apple TV on the same Apple ID shows the same lineup.
+/// Mirrors every Settings choice (lineup, Retro Mode, stream quality, subtitles, audio,
+/// Report Playback) to iCloud key-value storage so every Apple TV on the same Apple ID
+/// is set up the same way.
 ///
 /// Sync is off until the viewer turns it on in Settings (`syncEnabledKey`, a per-TV
 /// flag that is never itself synced). While it is off nothing is read from or written
 /// to the ubiquitous store, and launch neither pulls nor seeds.
 ///
 /// Only the keys in `syncedKeys` ever reach iCloud. Server addresses, tokens, user ids
-/// and everything in the Keychain stay on the device, as do per-TV choices (stream
-/// quality, report playback) and caches (scan dates, snapshots, manifests).
+/// and everything in the Keychain stay on the device, as do the sync switch itself and
+/// caches (scan dates, snapshots, manifests).
 @MainActor
 final class PreferenceSync {
     enum ValueKind: Equatable {
@@ -171,6 +165,8 @@ final class PreferenceSync {
     nonisolated static let autoSubsForeignAudioKey = "nostalgex_auto_subs_foreign_audio"
     nonisolated static let subtitleLanguageKey = "nostalgex_subtitle_language"
     nonisolated static let audioLanguageKey = "nostalgex_audio_language"
+    nonisolated static let streamQualityKey = StreamQuality.storageKey
+    nonisolated static let reportPlaybackKey = "nostalgex_sync_plex_activity"
 
     nonisolated static let syncedKeys: [String] = [
         enabledBundlesKey,
@@ -182,14 +178,16 @@ final class PreferenceSync {
         autoSubsForeignAudioKey,
         subtitleLanguageKey,
         audioLanguageKey,
+        streamQualityKey,
+        reportPlaybackKey,
     ]
 
     nonisolated static func kind(of key: String) -> ValueKind? {
         switch key {
         case enabledBundlesKey: return .stringSet(allowEmpty: false)   // never an empty lineup
         case enabledCollectionsKey, enabledFranchisesKey, disabledFranchisesKey: return .stringSet(allowEmpty: true)
-        case retroModeKey, subtitlesFullscreenKey, autoSubsForeignAudioKey: return .bool
-        case subtitleLanguageKey, audioLanguageKey: return .string
+        case retroModeKey, subtitlesFullscreenKey, autoSubsForeignAudioKey, reportPlaybackKey: return .bool
+        case subtitleLanguageKey, audioLanguageKey, streamQualityKey: return .string
         default: return nil
         }
     }
@@ -259,8 +257,8 @@ final class PreferenceSync {
 
     // MARK: - On / off
 
-    /// Turning on pushes this TV's current preferences first (this TV wins), adopts
-    /// cloud values only for keys this TV has no value for, then starts listening.
+    /// Turning on adopts what iCloud already holds (another TV's lineup), pushes the
+    /// keys iCloud has no value for yet, then starts listening.
     /// Turning off stops listening and leaves both iCloud and the local values as they are.
     func setEnabled(_ on: Bool) {
         guard on != isEnabled else { return }

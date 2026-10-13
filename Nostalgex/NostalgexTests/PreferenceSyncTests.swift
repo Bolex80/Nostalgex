@@ -90,22 +90,34 @@ final class PreferenceSyncMergeTests: XCTestCase {
 
     func testKeysOutsideTheSyncedListAreNeverConsidered() {
         let plan = PreferenceSyncMerge.plan(
-            local: ["plex_token": "secret", "nostalgex_sync_plex_activity": true],
+            local: ["plex_token": "secret", "nostalgex_last_scan_date": "2026-10-13"],
             cloud: ["plex_server_url": "http://10.0.0.2:32400"],
             keys: keys, trigger: .launch)
         XCTAssertTrue(plan.applyLocally.isEmpty)
         XCTAssertTrue(plan.pushToCloud.isEmpty)
     }
 
-    func testTurnOnPushesLocalEvenWhenCloudDiffersAndAdoptsOnlyWhatLocalLacks() {
+    // A second TV switching sync on joins the household. On hardware (2026-10-13) the
+    // old "this TV wins" rule let the living room's 1-bundle default lineup overwrite
+    // the basement's 5 bundles.
+    func testTurnOnJoinsTheHouseholdAndPushesOnlyWhatTheCloudLacks() {
         let plan = PreferenceSyncMerge.plan(
-            local: [bundles: ["nostalgex", "kids"], retro: true],
-            cloud: [bundles: ["decades"], retro: true, subLang: "fr"],
+            local: [bundles: ["nostalgex"], retro: false, subLang: "de"],
+            cloud: [bundles: ["decades", "kids", "nostalgex"], retro: true],
             keys: keys, trigger: .turnOn)
-        XCTAssertEqual(plan.pushToCloud[bundles] as? [String], ["kids", "nostalgex"], "this TV wins where it has a value")
-        XCTAssertNil(plan.pushToCloud[retro], "equal values need no push")
-        XCTAssertEqual(plan.applyLocally[subLang] as? String, "fr", "a key this TV never set adopts the cloud")
-        XCTAssertNil(plan.applyLocally[bundles])
+        XCTAssertEqual(plan.applyLocally[bundles] as? [String], ["decades", "kids", "nostalgex"], "the household lineup wins")
+        XCTAssertEqual(plan.applyLocally[retro] as? Bool, true)
+        XCTAssertNil(plan.pushToCloud[bundles])
+        XCTAssertNil(plan.pushToCloud[retro])
+        XCTAssertEqual(plan.pushToCloud[subLang] as? String, "de", "a key iCloud has no value for is seeded")
+    }
+
+    func testFirstTVToTurnOnSeedsAnEmptyCloud() {
+        let plan = PreferenceSyncMerge.plan(
+            local: [bundles: ["nostalgex", "kids"], retro: true], cloud: [:], keys: keys, trigger: .turnOn)
+        XCTAssertEqual(plan.pushToCloud[bundles] as? [String], ["kids", "nostalgex"])
+        XCTAssertEqual(plan.pushToCloud[retro] as? Bool, true)
+        XCTAssertTrue(plan.applyLocally.isEmpty)
     }
 
     func testFranchisesKeyIsSyncedAsAStringSetThatMayBeEmpty() {
@@ -168,8 +180,7 @@ final class PreferenceSyncServiceTests: XCTestCase {
         // Credentials, server and account identity
         "plex_server_url", "plex_token", "plex_servers", "backend_kind", "jellyfin_user_id",
         "plex90_client_id",
-        // Per-TV choices
-        "nostalgex_sync_plex_activity", "nostalgex_stream_quality",
+        // The per-TV sync switch itself
         PreferenceSync.syncEnabledKey,
         // Caches and load state
         "nostalgex_last_scan_date", "nostalgex_last_load_at_unix", "nostalgex_completed_initial_load",
@@ -212,12 +223,13 @@ final class PreferenceSyncServiceTests: XCTestCase {
 
     // MARK: Turning on and off
 
-    func testTurnOnPushesThisTVFirstThenAdoptsOnlyWhatItLacks() {
-        defaults.set(["nostalgex", "kids"], forKey: PreferenceSync.enabledBundlesKey)
-        defaults.set(true, forKey: PreferenceSync.retroModeKey)
+    func testTurnOnAdoptsTheHouseholdLineupAndSeedsOnlyMissingKeys() {
+        defaults.set(["nostalgex"], forKey: PreferenceSync.enabledBundlesKey)
+        defaults.set(false, forKey: PreferenceSync.retroModeKey)
+        defaults.set("de", forKey: PreferenceSync.audioLanguageKey)
         let store = InMemoryKeyValueStore([
-            PreferenceSync.enabledBundlesKey: ["decades"],
-            PreferenceSync.retroModeKey: false,
+            PreferenceSync.enabledBundlesKey: ["decades", "kids", "nostalgex"],
+            PreferenceSync.retroModeKey: true,
             PreferenceSync.subtitleLanguageKey: "fr",
         ])
         let sync = PreferenceSync(cloud: store, defaults: defaults, observeNotifications: false, keys: PreferenceSync.syncedKeys)
@@ -226,11 +238,11 @@ final class PreferenceSyncServiceTests: XCTestCase {
 
         XCTAssertTrue(sync.isEnabled)
         XCTAssertEqual(defaults.bool(forKey: PreferenceSync.syncEnabledKey), true)
-        XCTAssertEqual(Set(store.values[PreferenceSync.enabledBundlesKey] as? [String] ?? []), ["nostalgex", "kids"], "this TV's lineup wins")
-        XCTAssertEqual(store.values[PreferenceSync.retroModeKey] as? Bool, true, "this TV's retro mode wins")
-        XCTAssertEqual(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "fr", "a key this TV never set adopts the cloud")
-        XCTAssertEqual(Set(defaults.stringArray(forKey: PreferenceSync.enabledBundlesKey) ?? []), ["nostalgex", "kids"], "local untouched")
-        XCTAssertEqual(store.writes.map(\.key).sorted(), [PreferenceSync.enabledBundlesKey, PreferenceSync.retroModeKey])
+        XCTAssertEqual(Set(defaults.stringArray(forKey: PreferenceSync.enabledBundlesKey) ?? []), ["decades", "kids", "nostalgex"], "the household lineup wins")
+        XCTAssertEqual(defaults.object(forKey: PreferenceSync.retroModeKey) as? Bool, true)
+        XCTAssertEqual(defaults.string(forKey: PreferenceSync.subtitleLanguageKey), "fr")
+        XCTAssertEqual(Set(store.values[PreferenceSync.enabledBundlesKey] as? [String] ?? []), ["decades", "kids", "nostalgex"], "iCloud untouched")
+        XCTAssertEqual(store.writes.map(\.key), [PreferenceSync.audioLanguageKey], "only the key iCloud lacked is pushed")
         XCTAssertGreaterThan(store.synchronizeCount, 0)
     }
 
@@ -425,7 +437,7 @@ final class PreferenceSyncAppStateTests: XCTestCase {
         XCTAssertEqual(offStore.synchronizeCount, 0)
     }
 
-    func testTurningTheRowOnPushesThisTVFirst() {
+    func testTurningTheRowOnJoinsTheHousehold() {
         UserDefaults.standard.removeObject(forKey: PreferenceSync.syncEnabledKey)
         let onStore = InMemoryKeyValueStore()
         let onSync = PreferenceSync(cloud: onStore, defaults: .standard, observeNotifications: false, keys: PreferenceSync.syncedKeys)
@@ -440,13 +452,13 @@ final class PreferenceSyncAppStateTests: XCTestCase {
 
         XCTAssertTrue(onSync.isEnabled)
         XCTAssertEqual(UserDefaults.standard.bool(forKey: PreferenceSync.syncEnabledKey), true)
-        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, retroBefore, "this TV's value went up, the cloud's did not come down")
-        XCTAssertEqual(onState.retroMode, retroBefore)
+        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, !retroBefore, "the household's value stays in iCloud")
+        XCTAssertEqual(onState.retroMode, !retroBefore, "and comes down to this TV")
 
         onState.iCloudSyncEnabled = false
         XCTAssertFalse(onSync.isEnabled)
-        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, retroBefore, "turning off leaves iCloud as it is")
-        XCTAssertEqual(onState.retroMode, retroBefore)
+        XCTAssertEqual(onStore.values[PreferenceSync.retroModeKey] as? Bool, !retroBefore, "turning off leaves iCloud as it is")
+        XCTAssertEqual(onState.retroMode, !retroBefore)
     }
 
     func testStateMirrorsAnAlreadyEnabledService() {
@@ -494,12 +506,28 @@ final class PreferenceSyncAppStateTests: XCTestCase {
     }
 
     func testNeverSyncedPreferencesStayLocal() {
-        state.syncPlexActivity.toggle()
         state.serverURL = "http://192.168.1.20:32400"
         state.token = "secret-token"
         let allowed = Set(PreferenceSync.syncedKeys)
         for write in store.writes { XCTAssertTrue(allowed.contains(write.key), write.key) }
-        XCTAssertNil(store.values["nostalgex_sync_plex_activity"])
+        XCTAssertNil(store.values["plex_server_url"])
+        XCTAssertNil(store.values["plex_token"])
+    }
+
+    // Every Settings choice syncs, Playback included (owner's call, 2026-10-13).
+    func testReportPlaybackSyncsBothWays() {
+        state.syncPlexActivity.toggle()
+        XCTAssertEqual(store.values[PreferenceSync.reportPlaybackKey] as? Bool, state.syncPlexActivity)
+        let target = !state.syncPlexActivity
+        store.values[PreferenceSync.reportPlaybackKey] = target
+        sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange, changedKeys: [PreferenceSync.reportPlaybackKey])
+        XCTAssertEqual(state.syncPlexActivity, target)
+    }
+
+    func testStreamQualityIsASyncedString() {
+        XCTAssertTrue(PreferenceSync.syncedKeys.contains(StreamQuality.storageKey))
+        XCTAssertEqual(PreferenceSync.kind(of: StreamQuality.storageKey), .string)
+        XCTAssertEqual(PreferenceSync.reportPlaybackKey, AppState.syncPlexActivityDefaultsKey)
     }
 
     func testIncomingChangeIsAppliedWithoutEcho() {

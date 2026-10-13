@@ -173,7 +173,7 @@ struct SettingsPageView: View {
                                     // ones that can't build yet for lack of content.
                                     let subtitle: String = {
                                         if !bundle.enabled {
-                                            let invite = "Off. Turn on to add up to \(total) channel\(total == 1 ? "" : "s") from your library."
+                                            let invite = "Turn on to add up to \(total) channel\(total == 1 ? "" : "s") from your library."
                                             guard bundle.activeMonths != nil, !inSeason else { return invite }
                                             return "\(seasonalLabel(for: bundle)) · \(invite)"
                                         }
@@ -300,6 +300,7 @@ struct SettingsPageView: View {
                 }
                 StreamQuality.current = picked
                 streamQuality = picked
+                appState.preferenceSync.record(PreferenceSync.streamQualityKey, value: picked.rawValue)
             }
         }
         .sheet(isPresented: $showSubtitleLanguagePicker) {
@@ -807,8 +808,8 @@ struct SettingsPageView: View {
             SettingsToggleRow(
                 title: "SYNC WITH MY OTHER APPLE TVS",
                 subtitle: appState.iCloudSyncEnabled
-                    ? "On. This Apple TV's lineup is shared through iCloud."
-                    : "Off. Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
+                    ? "This Apple TV's lineup is shared through iCloud."
+                    : "Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
                 isOn: appState.iCloudSyncEnabled,
                 isFocused: focusedItem == "icloud_sync"
             ) {
