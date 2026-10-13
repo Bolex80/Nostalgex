@@ -432,10 +432,17 @@ struct PlexAPIService: MediaBackend {
             imdbID: show.imdbID,
             librarySource: .tv,
             serverID: serverID.isEmpty ? nil : serverID,
+            additionalPartKeys: {
+                let extra = (media?.Part ?? []).dropFirst().compactMap { $0.key }
+                return extra.isEmpty ? nil : Array(extra)
+            }(),
             videoBitDepth: media?.videoStream?.bitDepth,
             doviProfile: media?.videoStream?.DOVIProfile,
             videoWidth: media?.width,
-            videoHeight: media?.height
+            videoHeight: media?.height,
+            mediaIndex: ep.bestMediaIndex ?? 0,
+            playbackParts: media?.playbackParts,
+            exactDurationSeconds: ep.duration.map { Double($0) / 1000 }
         )
     }
 
@@ -518,7 +525,10 @@ struct PlexAPIService: MediaBackend {
             videoBitDepth: media?.videoStream?.bitDepth,
             doviProfile: media?.videoStream?.DOVIProfile,
             videoWidth: media?.width,
-            videoHeight: media?.height
+            videoHeight: media?.height,
+            mediaIndex: item.bestMediaIndex ?? 0,
+            playbackParts: media?.playbackParts,
+            exactDurationSeconds: item.duration.map { Double($0) / 1000 }
         )
     }
 
@@ -708,8 +718,8 @@ struct PlexAPIService: MediaBackend {
         let offersHEVC = CodecSupport.offersHEVC(doviProfile: item.doviProfile, deviceCapable: hevcCapable)
         let items: [URLQueryItem] = [
             .init(name: "path",                      value: "/library/metadata/\(item.ratingKey)"),
-            .init(name: "mediaIndex",                value: "0"),
-            .init(name: "partIndex",                 value: "0"),
+            .init(name: "mediaIndex",                value: String(item.mediaIndex)),
+            .init(name: "partIndex",                 value: String(item.partIndex)),
             .init(name: "protocol",                  value: "hls"),
             .init(name: "session",                   value: sessionID),
             .init(name: "offset",                    value: String(offsetSeconds)),
@@ -1326,14 +1336,19 @@ struct PlexRawItem: Decodable {
     /// Highest-quality version: max bitrate, tie-broken on vertical resolution. Falls back to
     /// the first version when none report a bitrate, so libraries without that metadata behave
     /// exactly as before.
-    var bestMedia: PlexMedia? {
+    var bestMediaIndex: Int? {
         guard let medias = Media, !medias.isEmpty else { return nil }
-        guard medias.contains(where: { $0.bitrate != nil }) else { return medias.first }
-        return medias.max { a, b in
-            let ba = a.bitrate ?? Int.min, bb = b.bitrate ?? Int.min
+        guard medias.contains(where: { $0.bitrate != nil }) else { return 0 }
+        return medias.indices.max { a, b in
+            let ba = medias[a].bitrate ?? Int.min, bb = medias[b].bitrate ?? Int.min
             if ba != bb { return ba < bb }
-            return PlexRawItem.resolutionHeight(a.videoResolution) < PlexRawItem.resolutionHeight(b.videoResolution)
+            return PlexRawItem.resolutionHeight(medias[a].videoResolution) < PlexRawItem.resolutionHeight(medias[b].videoResolution)
         }
+    }
+
+    var bestMedia: PlexMedia? {
+        guard let index = bestMediaIndex else { return nil }
+        return Media?[index]
     }
 
     /// Vertical resolution from a "WIDTHxHEIGHT" string (or a label like "4k"); 0 if unknown.
@@ -1358,6 +1373,8 @@ struct PlexRawItem: Decodable {
         let Part: [PlexPart]?
         struct PlexPart: Decodable {
             let key: String?
+            let container: String?
+            let duration: Int?
             let Stream: [PlexStream]?
         }
         struct PlexStream: Decodable {
@@ -1365,6 +1382,17 @@ struct PlexRawItem: Decodable {
             let codec: String?
             let bitDepth: Int?
             let DOVIProfile: Int?
+        }
+        var playbackParts: [PlexPartPlaybackInfo] {
+            (Part ?? []).compactMap { part in
+                guard let key = part.key else { return nil }
+                let video = part.Stream?.first { $0.streamType == 1 }
+                let audio = part.Stream?.first { $0.streamType == 2 }
+                return PlexPartPlaybackInfo(key: key, container: part.container ?? container,
+                    videoCodec: video?.codec ?? videoCodec, audioCodec: audio?.codec ?? audioCodec,
+                    bitDepth: video?.bitDepth, doviProfile: video?.DOVIProfile,
+                    durationSeconds: part.duration.map { Double($0) / 1000 })
+            }
         }
         var videoStream: PlexStream? {
             Part?.first?.Stream?.first { $0.streamType == 1 }

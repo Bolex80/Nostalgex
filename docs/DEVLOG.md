@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (PR #21 merged for the next build)
+
+**Changed.** `land-pr-21` merged into `ship-franchises` with w6trp's commit kept: the
+selected Plex media version and multipart offsets survive into playback. On landing it
+kept the single-file snapshot at schema 2; main has since moved to the chunked format,
+so the same rule now reads "no bump of `formatVersion` 3" for the new item fields.
+`LibrarySnapshotCompatibilityTests` strips the #21 keys from a 1.0.26 chunk file and
+from a legacy v2 file and proves both still load; it fails with the format set to 4.
+`PlaybackTracker` keeps both `onPlaybackPreparing` (#21) and the background restore
+(Report Playback); the rating nudge counter still attaches once per tracker.
+
+NostalgexTests 657: 649 passed, 8 skipped (live harnesses), 0 failed. `npm test`,
+`npm run build` green. Multi-version and multi-file playback still needs hardware.
+
 ## 2026-10-13 (Report Playback restore and OMDb relay merged for the next build)
 
 **Changed.** `omdb-relay` (with `report-no-cw` and `web-enrichment` under it) merged
@@ -55,7 +69,8 @@ NostalgexTests 495 passed, 2 skipped, 0 failed; web tests green. Not tested on h
 
 **Half-done.** #21 (keep the chosen Plex media version and multipart offsets) is on
 `land-pr-21`, not main. It touches playback, so it waits for a hardware pass on a
-multi-version title and a three-part film.
+multi-version title and a three-part film. On landing we dropped its snapshot schema bump
+(2 to 3); `LibrarySnapshotCompatibilityTests` proves a pre-#21 snapshot still loads.
 
 ## 2026-10-13 (app, build 47)
 
@@ -537,6 +552,16 @@ its own branch stacked on the last:
 list against what the library actually holds before merging. Decide whether
 STAR TREK and FAST & FURIOUS become stock classics or stay found-only. Merge
 order: `franchise-data`, `franchise-channels`, `franchise-ui`.
+
+## 2026-10-11 (selected Plex version and multipart position)
+
+**Changed.** Plex items retain the selected media index, complete part descriptors and exact duration. Decision/start/recovery requests use that media and part instead of always requesting index zero. Later parts keep the remaining stack and their own codec facts. A whole-film tune offset maps to the correct part and local offset when every part duration is available. Part changes keep one tracker and pause its clock during loading. Library snapshots keep schema 2 (changed on landing): an older snapshot decodes the new fields as version 0, part 0 and no part lengths, which is the previous behaviour, until the next full library scan fills them in. That avoids forcing every user to rescan.
+
+**Validation.** Regression coverage checks whole-film offsets, third-part continuity, per-part SDR/codec facts, persistence and transcode query identities. Xcode 27 / tvOS 27 native suite passed 440 tests, with 2 optional live tests skipped and no failures.
+
+**Half-done.** Unknown part lengths retain the existing offset fallback; this does not infer missing server metadata. Real multi-version and multi-file direct/HLS playback still needs hardware acceptance. Codec policy, heartbeat reporting and unrelated recovery fixes are excluded.
+
+**Next.** Upstream review on `fix/preserve-plex-media-parts`; verify recognizable multi-version and three-part files on hardware before treating playback acceptance as complete.
 
 ## 2026-10-09 (app)
 

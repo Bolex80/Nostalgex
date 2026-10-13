@@ -565,6 +565,7 @@ class AppState {
         didSet { if currentItem?.ratingKey != oldValue?.ratingKey { refreshNowPlayingInfo() } }
     }
     var currentPartIndex: Int = 0
+    var currentPartBaseSeconds: Double = 0
 
     // MARK: - Rating nudge (see AppState+RatingNudge.swift)
 

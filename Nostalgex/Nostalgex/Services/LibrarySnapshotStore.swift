@@ -137,6 +137,12 @@ enum LibrarySnapshotStore {
     /// Past this age a scan runs even if the library reports no change.
     static let forceRefreshAfterSeconds = 24 * 3600
 
+    /// Bump only when an older file can no longer decode or would decode into something
+    /// wrong. A bump clears every user's snapshot and forces a full rescan on next launch.
+    /// Fields added with `decodeIfPresent` and a safe default (mediaIndex, partIndex,
+    /// playbackParts, exactDurationSeconds from #21; the found-franchise rows) do not need
+    /// one: an old file decodes to the behaviour it had before, and the next full library
+    /// scan fills them in. LibrarySnapshotCompatibilityTests holds this.
     static let formatVersion = 3
     /// Items per chunk file. ~10 MB of JSON at the sizes Plex hands back; encoding or
     /// decoding one costs tens of MB, not the whole library.
