@@ -2,7 +2,7 @@
  "generatedBy": "tests/gen-vectors.mjs (tests/gen-lineup.mjs)",
  "upstream": {
   "repo": "https://github.com/chadMueller/Nostalgex",
-  "commit": "c2f32e68f92f50173a4f685aae5c7fde1ad3c2e3",
+  "commit": "43f6ee71a5a1d192b05788a0b6bdb20b4a846f4a",
   "engine": "plex-tuner.html, scripts/nostalgex-daily-manifest.js"
  },
  "pool": [
