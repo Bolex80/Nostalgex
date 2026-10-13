@@ -53,7 +53,7 @@ stream. Seen in the PlaybackInfo responses above, not yet on a device.
 
 ## 2026-10-13 (membership generator keeps the cleanup)
 
-**Shipped.** Nothing. Branch `membership-generator-rules`, not merged.
+**Shipped.** Nothing. Branch `membership-generator-rules`, merged into main.
 `channels-memberships.json` on main is untouched.
 
 **Changed.**
