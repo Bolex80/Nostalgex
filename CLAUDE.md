@@ -12,12 +12,12 @@ with the Nostalgex maintainer.
   vendored unchanged. Schedule and filter behaviour must match upstream's
   golden vectors, and a mismatch is a bug here. Don't "improve" channel logic
   in this repo; propose it upstream.
-- **Written to be shared.** Expect this to go public and be offered upstream.
-  Nothing about one install enters the repo: TV addresses and the developer
-  password go in `.env` (git-ignored).
+- **Public.** Every push reaches GitHub within seconds through a push mirror,
+  every branch included. Nothing about one install enters the repo: TV
+  addresses and the developer password go in `.env` (git-ignored). A pre-push
+  denylist gate refuses personal and network details.
 - **Nothing personal, not even on a branch.** Additions for one person's setup
-  go in a separate repo that pulls this one in unchanged. This repo goes
-  public through a GitHub push mirror, and a push mirror pushes every branch.
+  go in a separate repo that pulls this one in unchanged.
 - **Keep the MIT notice.** `LICENSE` carries upstream's copyright line, and
   ported files keep it.
 - **Upstream clone is read-only.** The local Nostalgex clone's `origin` is the
