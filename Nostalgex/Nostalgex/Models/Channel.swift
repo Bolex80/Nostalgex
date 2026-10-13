@@ -96,7 +96,9 @@ enum CollectionCategory: String, CaseIterable {
 struct DiscoveredCollection: Identifiable {
     let id: String              // ratingKey or "trilogies"
     let title: String           // e.g. "BATMAN COLLECTION"
+    /// Films only. A collection of shows has 0 here and its episodes in `items`.
     let movieCount: Int
+    /// Films plus the episodes of every show in the collection (see CollectionMemberIndex).
     let items: [PlexMediaItem]
     var enabled: Bool
     var matchedChannel: String? // name-similarity match to a static channel
@@ -109,6 +111,24 @@ struct DiscoveredCollection: Identifiable {
     var foldedIntoFranchise: String? = nil
 
     var isFoldedIntoFranchise: Bool { foldedIntoFranchise != nil }
+
+    /// Distinct shows among the episodes. Derived rather than stored, so snapshot rows
+    /// keep their shape.
+    var showCount: Int { items.collectionShowCount }
+
+    /// The row's subtitle: "12 movies" exactly as before for a films-only collection,
+    /// "3 shows · 47 episodes" for shows, "2 movies · 1 show" for a mix.
+    var memberSummary: String {
+        Self.memberSummary(movies: movieCount, shows: showCount,
+                           episodes: items.count - items.collectionMovieCount)
+    }
+
+    static func memberSummary(movies: Int, shows: Int, episodes: Int) -> String {
+        func plural(_ n: Int, _ one: String, _ many: String) -> String { "\(n) \(n == 1 ? one : many)" }
+        guard shows > 0 else { return "\(movies) movies" }
+        if movies == 0 { return "\(plural(shows, "show", "shows")) · \(plural(episodes, "episode", "episodes"))" }
+        return "\(plural(movies, "movie", "movies")) · \(plural(shows, "show", "shows"))"
+    }
 }
 
 /// Content-aware duplicate signal: most of a discovered Plex collection's items

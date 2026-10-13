@@ -3,6 +3,68 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (collections that hold shows, on a branch)
+
+**Shipped.** Nothing. Branch `collections-with-shows`, not merged.
+
+**Changed (on the branch).**
+
+- A server collection of TV shows now becomes a channel, on the Apple TV and the web
+  tuner. A Plex collection, or a Jellyfin or Emby BoxSet, can hold shows, and the scan
+  threw them away in three places: it read collections from movie libraries only (a Plex
+  collection of shows lives in the TV library, so it was never listed), Jellyfin and
+  Emby asked the BoxSet for `Movie` only, and the children were matched against an index
+  of films only. A collection with fewer than 3 films was then skipped, so a collection
+  of shows always read as empty.
+- The fix leans on what the library load already holds: every episode of every show.
+  Episodes now carry their show's id (`showKey`: Plex `grandparentRatingKey`, Jellyfin and
+  Emby `SeriesId`), and a show in a collection expands to its episodes. No extra request.
+  A films-only collection is matched, classified, numbered and labelled exactly as before.
+- The three servers answer differently, measured: Plex lists the shows (a Plex
+  collection is all films or all shows; Plex refuses a film in a TV collection with a
+  400). Jellyfin 12.2 lists the series for `IncludeItemTypes=Movie,Series`. Emby 4.10
+  answers the same query with the series' episodes. The matcher takes a film id, an
+  episode id or a show id, so all three work, and Emby works even on items restored from
+  an older snapshot.
+- The channel is built and scheduled by the existing code. Episodes are shuffled within
+  each show and shows are interleaved two at a time, the same `interleaveByShow` the TV
+  channels use. A mixed collection airs its films and its shows' episodes together.
+- A collection of shows always lands in OTHER COLLECTIONS. Every episode carries its
+  show's title, so the repeated-word rule would have called one show with 30 episodes a
+  franchise. A mixed collection is classified on its films alone, which is what the
+  films-only scan did. A collection holding shows folds into a franchise only when that
+  franchise already airs an episode of each of its shows, so folding never hides episodes.
+- No snapshot format bump. `showKey` is an optional field; collection members were
+  already stored as indexes into the item list, episodes included. Items restored from a
+  snapshot written before this have no `showKey`, so a Plex or Jellyfin collection of shows
+  appears after the next library scan rather than at once.
+
+Measured on a real Plex server with a temporary three-show collection (since deleted):
+every episode came back with its show key, the old matcher found 0 films and skipped the
+collection, and the new scan built it at CH 500 with every episode of the three shows and
+a full 24 hour schedule, on the Apple TV code (`LiveCollectionShowsHarness`) and on the
+web tuner driven headless, in the same order on both. On the same server every films-only
+collection came out identical to the old scan: same members, same fold, same channel
+numbers, checked against the old matcher on the Apple TV side and against main's
+`nostalgex-collections.js` on the web side. Jellyfin 12.2 and Emby 4.10 lab servers with
+synthetic media: a shows-only BoxSet and a mixed one, both skipped before, both built
+after (web tuner on the Jellyfin lab only; it has no Emby path).
+
+NostalgexTests: 684 passed, 0 failed, 9 skipped (668 before, plus 16 in
+`CollectionShowsTests`; the new live harness skips without a server). `npm test` and
+`npm run build` green; collections smoke went from 38 to 55 checks.
+
+**Half-done.** Not on hardware. Not measured against a Jellyfin older than 12.2, which
+may answer the BoxSet query like Emby (episodes); the matcher accepts both. The web tuner
+has no Emby path, so Emby collections are Apple TV only, as before. A Plex or Jellyfin
+collection holding seasons or single episodes rather than whole shows is not handled:
+a season key matches nothing.
+
+**Next.** Chad to decide whether to merge. Before release, check one real collection of
+shows on an Apple TV, and decide whether a collection dominated by one long show should
+interleave differently: once the shorter shows run out, `interleaveByShow` plays the long
+one back to back, which is what a TV channel with the same pool does today.
+
 ## 2026-10-13 (1.0.26 (48) cut)
 
 **Shipped.** main pushed, which deploys the site and web tuner. Build 1.0.26 (48) archived
