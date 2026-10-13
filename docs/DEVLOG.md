@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-12 (community PRs)
+
+**Changed.** Two fixes from @w6trp landed on main with their commits kept, thanks:
+
+- #19: watchdog verdicts strip URLs and credentials before they reach the system log or
+  Settings, so a support screenshot can no longer carry a server token. Kept main's
+  verdict line format (no em dashes) with the redaction applied to it.
+- #20: music enrichment and channel pools key on the server-qualified item id, so two
+  servers that reuse a rating key no longer swap each other's music metadata.
+
+NostalgexTests 495 passed, 2 skipped, 0 failed; web tests green. Not tested on hardware.
+
+**Half-done.** #21 (keep the chosen Plex media version and multipart offsets) is on
+`land-pr-21`, not main. It touches playback, so it waits for a hardware pass on a
+multi-version title and a three-part film.
+
 ## 2026-10-11 (web tuner)
 
 **Shipped.** nostalgex.app: the web tuner now reads the shared metadata cache, fills
