@@ -641,6 +641,7 @@ extension AppState {
         // the same precomputed titleLower/genreSet/enrichment — avoids 425k+
         // redundant lowercase + regex calls across the channel loop.
         let cached = makeFilterCache(items)
+        LibraryLoadProbe.mark("filterCache")
         let memberships = channelMemberships
         let rules = exclusiveRules
         let targets = configChannels.filter { onlyChannelIDs.contains($0.id) }
@@ -663,6 +664,7 @@ extension AppState {
             }
             return out
         }.value
+        LibraryLoadProbe.mark("poolBuild")
         return built.sorted { $0.number < $1.number }
     }
 

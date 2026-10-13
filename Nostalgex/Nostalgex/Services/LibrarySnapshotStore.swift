@@ -133,8 +133,11 @@ enum LibrarySnapshotStore {
             librarySignature: librarySignature
         )
         guard let url = fileURL else { throw SnapshotError.noApplicationSupport }
+        LibraryLoadProbe.mark("snapshot.rows")
         let data = try encoder.encode(snapshot)
+        LibraryLoadProbe.mark("snapshot.encode")
         try data.write(to: url, options: .atomic)
+        LibraryLoadProbe.mark("snapshot.write")
         InstallDiagnostics.note("snapshot: saved \(allItems.count) items, \(allChannels.count) channels to disk")
     }
 

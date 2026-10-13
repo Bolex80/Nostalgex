@@ -282,6 +282,7 @@ extension AppState {
                 }
             }
             isLoadStalling = false
+            LibraryLoadProbe.mark("fetch")
 
             // Nothing below this line may run for a sign-in that has ended.
             if superseded() { return }
@@ -327,6 +328,7 @@ extension AppState {
             let withTMDB = merged.filter { $0.tmdbID != nil }.count
             let withIMDB = merged.filter { $0.imdbID != nil }.count
             print("[Plex90] Library: \(merged.count) items from \(successCount) server(s), \(withTMDB) with TMDB IDs, \(withIMDB) with IMDb IDs")
+            LibraryLoadProbe.mark("merge+dedupe")
 
             if hasAnyCollectionBundle {
                 await pulseLibraryPhase(.discoveringCollections)
@@ -334,16 +336,19 @@ extension AppState {
             } else {
                 print("[Plex90] COLLECTIONS: No collection bundles enabled, skipping scan")
             }
+            LibraryLoadProbe.mark("collections")
 
             let enrichableCount = allItems.filter { $0.tmdbID != nil || $0.imdbID != nil }.count
             await pulseLibraryPhase(.enrichingMetadata, detail: "\(enrichableCount) titles")
             await enrichmentService.enrichItems(allItems)
             await briefUILBeat()
+            LibraryLoadProbe.mark("enrichment")
 
             // Collections and enrichment both waited on the network.
             if superseded() { return }
 
             applyMusicCacheToLibrary()
+            LibraryLoadProbe.mark("musicCache")
             if isMusicBundleEnabled {
                 let musicVideoCount = allItems.filter { ($0.librarySource ?? .movie) == .musicVideo }.count
                 if musicVideoCount > 0 {
@@ -367,12 +372,14 @@ extension AppState {
 
             let dynamicChannels = allChannels.filter { $0.rules == nil }
             allChannels = (staticBuilt + dynamicChannels).sorted { $0.number < $1.number }
+            LibraryLoadProbe.mark("channelsMerged")
 
             setLibraryPhase(.finishing)
             print("[Plex90] BUNDLES: \(bundles.map { "\($0.name)(\($0.channelIDs.count)ch, \($0.enabled ? "ON" : "OFF"))" }.joined(separator: ", "))")
             print("[Plex90] allChannels: \(allChannels.count), enabledBundleIDs: \(enabledBundleIDs)")
 
             printChannelAudit()
+            LibraryLoadProbe.mark("channelAudit")
             applyBundleFilter()
             // New user whose enabled bundle didn't match their library: pull in any other
             // bundle that does have content so they land in a real guide, not the dead end.
@@ -388,6 +395,7 @@ extension AppState {
             isLoading = false
             isBackgroundRefreshing = false
             isLibraryStale = scanWasAbandoned
+            LibraryLoadProbe.mark("guideVisible")
 
             // Library refresh: only purge yesterday's (and older) manifests. Today's
             // schedule is already self-invalidating via pool fingerprint inside
@@ -405,6 +413,7 @@ extension AppState {
                 selectChannel(first)
             }
 
+            LibraryLoadProbe.mark("selectChannel")
             startDeferredMusicEnrichmentIfNeeded()
 
 
@@ -419,10 +428,12 @@ extension AppState {
             let signature = scanWasAbandoned ? nil : await currentLibrarySignature()
             // The signature request is one more await before the snapshot is written.
             if superseded() { return }
+            LibraryLoadProbe.mark("signature")
             lastLoadAtUnix = scanWasAbandoned ? completedAt - 86_400 : completedAt
             librarySignature = signature
             lastLibraryCheckAtUnix = completedAt
             saveLibrarySnapshotIfNeeded()
+            LibraryLoadProbe.mark("snapshotSaved")
 
             let durationMs = Int(Date().timeIntervalSince(loadStartedAt) * 1000)
             Analytics.track(.libraryLoadCompleted(
