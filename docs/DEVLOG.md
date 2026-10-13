@@ -147,6 +147,86 @@ shares no code with the web player.
 **Next.** The iPhone confirmation above. The branch touches only the player and
 fullscreen code, so it should merge cleanly alongside the touch chrome work on
 `web-tuner-screens` and `web-tuner-drawer`.
+
+## 2026-10-13 (web tuner: server picker and first-run build screen)
+
+**Shipped.** Nothing. The work is on the branch `web-tuner-screens`, not merged.
+
+**Changed.** The two screens a new phone user meets before the guide ever
+appears. Both were reported from a phone on the live site, and both reproduced
+in a headless browser at 393x852 against stubbed plex.tv resources and a fixture
+library, so the numbers below are measured rather than guessed.
+
+Server picker:
+
+- The column was a hard `width: 500px` inside an unpadded `.plex-connect`, so at
+  393px it was 447px wide starting at x -53. The row checkbox sat off the left
+  edge of the screen, which is why you could not tell what was selected, and the
+  page scrolled sideways. The column is `min(500px, 100%)` now and the connect
+  screen has gutters plus safe-area padding, scrolls when a long list does not
+  fit, and caps the wordmark, which used to render 560px wide on a 393px screen.
+- A row's address is around 80 characters of plex.direct hostname. It was
+  ellipsised mid-hash and took most of the row's height for no information. On
+  touch a row is now the name, a tick and short badges (SHARED, LOCAL, REMOTE,
+  RELAY, OFFLINE), with the addresses behind a SHOW ADDRESSES toggle that wraps
+  them in full for anyone diagnosing a connection. OFFLINE comes from the
+  `presence` flag plex.tv already returns, which is now carried through
+  discovery; before this the picker gave no hint that a server could not be
+  reached until after CONNECT.
+- Selection reads at a glance: a cyan border, a cyan inset edge down the left
+  and a 26px tick. Rows are at least 60px, CONNECT is full width and 52px.
+- Pointer screens are untouched. The badges and the toggle are display:none
+  outside the touch media queries, and the inline "(shared)" suffix and the
+  always-visible address stay exactly as they were on desktop and TV.
+
+First-run build screen:
+
+- The panel is `inset: 0` inside `.video-container`, which the portrait rules
+  size to a 16:9 box. Measured at 393x852: a 221px tall box holding 510px of
+  content. The coffee block fell off the bottom, the step rail and the progress
+  bar were stranded, and the remaining two thirds of the screen was empty black,
+  which read as broken rather than as working. While `.building` is set there is
+  no video and no guide, so the container now takes the whole screen on touch.
+  `position: fixed` was tried first and does not work here: the retro flicker
+  animation puts a transform on `.video-container`, which makes it the
+  containing block for fixed descendants, so fixed resolved to the same 221px.
+- The status content is one bordered card (hint, steps, headline, status line,
+  progress) between the wordmark and the coffee ask, rather than five things
+  floating in a column. The card wrapper is `display: contents` on pointer
+  screens, so the desktop and TV stack is unchanged.
+- Step labels no longer truncate. They were equal-width columns at 10px, which
+  cut CHANNELS to CHANNE... at 393px and LIBRARY as well at 360px. Each step now
+  takes the width its label needs and the connectors take the rest, at 8px.
+  Checked with the five-step rail (the music bundle adds a phase) at 360px.
+- The progress rail is the width of the card and 10px tall with the count under
+  it, so it has a job. The second line was printing the same "Section 2 of 4"
+  caption as the bar, and for the scanning phases the same detail as the
+  headline; it now shows what the phase is doing instead. That one is in
+  `scripts/nostalgex-library-load.js` and so applies on desktop too.
+- Retro mode pins the empty video element to 4:3 off its height. With the
+  container full screen that was wider than the screen (1137px of page at 393px
+  of viewport), so the video is constrained while `.building` is set. No
+  playback rule was touched.
+
+**Measured.** Headless Chromium at 393x852, 852x393, 360x800, 834x1194,
+1194x834 and 1440x900, on six states each (sign-in, PIN, picker, picker with
+addresses, scanning, music enrichment): no horizontal scroll, nothing outside
+the viewport on either edge, no truncated text, and every row, toggle and button
+at 44px or more. Desktop is byte-for-byte the same layout it was, bar the
+status line wording. `npm test` and `npm run build` pass.
+
+**Half-done.** Branch `web-tuner-screens`, not merged. Not tried on a real
+phone and not in Safari: Chromium only. The `safe` keyword in
+`justify-content: safe center` and `display: contents` both want a look on
+iOS Safari. Unrelated and untouched: the picker's Enter handler calls
+`selectServer()`, which does not exist in the file, so keyboard selection in the
+picker throws. Another branch, `web-tuner-ios-playback`, is editing the video
+element and fullscreen in the same file.
+
+**Next.** Look at both screens on a real iPhone before merging, in portrait and
+landscape, and in particular check that the build screen fills the screen under
+Safari's shrinking toolbar.
+
 ## 2026-10-13 (web tuner: phones and tablets)
 
 **Shipped.** Nothing. The work is on the branch `web-tuner-mobile`, not merged.
