@@ -3,9 +3,47 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (1.0.26 (48) cut)
+
+**Shipped.** main pushed, which deploys the site and web tuner. Build 1.0.26 (48) archived
+and uploaded to App Store Connect, not yet given to any tester group. Build 47 was uploaded
+earlier today and will not be distributed; 48 carries everything 47 had plus the franchise
+line, iCloud sync, Report Playback v2 and PRs #18 and #21. The 1.0.26 changelog entry stays
+`"released": false` until the App Store has it.
+
+**Changed.**
+
+- iCloud sync, tested on two Apple TVs (a 4K 3rd gen and a 4K 1st gen) on one Apple ID.
+  Two bugs found that way. Turning sync on used to push that TV's lineup up, so the second
+  TV to join overwrote the first; now the first TV seeds iCloud and later ones take what is
+  there. And each TV's launch wrote its own bundle list to iCloud (snapshot restore,
+  collection categories), so whichever loaded last won; now only a toggle the viewer makes
+  is sent. After both fixes: changes crossed in both directions in about a minute with no
+  echo back, and both TVs relaunched with identical values.
+- Every Settings choice syncs: Stream Quality and Report Playback joined the list. Server
+  addresses, sign-ins and the sync switch itself stay on each TV.
+- Settings: a package switched on shows BUILDING and "Finding N channels in your library"
+  until its channels are in. Before, it read "Not enough content" and dimmed for the
+  length of the build, which looked frozen.
+- Two quick package toggles ran two builds at once and the second overwrote the first
+  package's channels with its stale copy (`BundleBuildTests`: all 6 of the first package's
+  channels lost). Builds now queue.
+- Web tuner: guide footer drops the "[V] HIDE GUIDE" hint (no key ever handled it).
+
+NostalgexTests: 668 passed, 0 failed. `npm test` green.
+
+**Half-done.** Docker self-host stays on branch `docker-selfhost`, unpublished. It waits
+for the web tuner to work well on a phone, since the container serves the same page.
+
+**Next.** Decide TestFlight or straight to App Store review for 48. Attach the three tip
+in-app purchases to the 1.0.26 App Store submission. Update the App Store listing copy and
+screenshots for this version. Widen the privacy page's Continue Watching wording to cover
+the Apple TV app once 1.0.26 is live.
+
 ## 2026-10-13 (Web tuner: guide wraps, Blacklist tab gone)
 
-**Half-done.** Branch `web-tuner-guide-wrap`, not merged, not deployed.
+**Changed.** Branch `web-tuner-guide-wrap`, merged into main and live with the 1.0.26 (48)
+push below.
 
 - The web guide wraps at both ends. Down on the last channel goes to channel one, Up on
   channel one goes to the last. A wrap centers the landed row, which scrolls the guide to
