@@ -141,7 +141,8 @@ export function rewriteForSelfhost(html, file = 'page') {
       if (cdnVersion !== have) {
         throw new Error(`${file}: page loads ${v.pkg}@${cdnVersion} from the CDN but package.json pins ${have}. Bump one to match the other.`)
       }
-      return `<script src="${v.to}"></script>`
+      // The version query lets nginx cache vendor/ for a long time and still pick up a bump.
+      return `<script src="${v.to}?v=${have}"></script>`
     })
   }
   out = out.replace(PRECONNECT, '')
