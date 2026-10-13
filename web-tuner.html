@@ -130,7 +130,7 @@
         if (saved.userToken) sessionStorage.setItem('plex90_user_token', saved.userToken);
         if (saved.backend) sessionStorage.setItem('plex90_backend', saved.backend);
         if (saved.jellyfinUserId) sessionStorage.setItem('plex90_jellyfin_user_id', saved.jellyfinUserId);
-        window.location.replace('/plex-tuner.html');
+        window.location.replace('plex-tuner.html');
       }
     } catch (e) {}
   })();
@@ -342,10 +342,21 @@
     'X-Plex-Platform': 'Web',
   };
 
+  // crypto.randomUUID only exists on secure pages (https, localhost). A self-hosted
+  // tuner on plain http gets the same v4 shape from getRandomValues, which works anywhere.
+  function randomClientId() {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+
   function getClientId() {
     let id = localStorage.getItem('plex90_client_id');
     if (!id) {
-      id = crypto.randomUUID();
+      id = randomClientId();
       localStorage.setItem('plex90_client_id', id);
     }
     return id;
@@ -465,7 +476,7 @@
         sessionStorage.setItem('plex90_pick_server', '1');
         sessionStorage.removeItem('plex90_server_url');
         sessionStorage.removeItem('plex90_server_name');
-        window.location.href = '/plex-tuner.html';
+        window.location.href = 'plex-tuner.html';
         return;
       }
 
@@ -510,7 +521,7 @@
         }));
       } catch (e) {}
 
-      window.location.href = '/plex-tuner.html';
+      window.location.href = 'plex-tuner.html';
     } catch (err) {
       document.getElementById('connect-success').classList.remove('active');
       const errorEl = document.getElementById('connect-error');
@@ -541,15 +552,21 @@
   function normalizeJellyfinUrl(raw) {
     let s = (raw || '').trim();
     if (!s) return '';
-    // Default to https: this page is served over https, and browsers block http://
-    // requests from a secure page (mixed content). A bare host almost always needs https here.
-    if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+    // Default to https on the hosted page: it is served over https, and browsers block
+    // http:// requests from a secure page (mixed content). A self-hosted copy on plain
+    // http is usually next to a plain http server, so a bare host gets http there.
+    if (!/^https?:\/\//i.test(s)) s = (location.protocol === 'http:' ? 'http://' : 'https://') + s;
     return s.replace(/\/+$/, '');
   }
 
   // A thrown fetch from this https page to an http:// server is the browser blocking
   // mixed content, not a real network failure — say so, since "check the URL" misleads users.
   function jellyfinUnreachableMsg(url) {
+    // On a plain http page (self-hosted) nothing is blocked as mixed content, so the
+    // https advice below would be wrong. It is a plain network or address problem.
+    if (location.protocol === 'http:') {
+      return 'COULD NOT REACH THE JELLYFIN SERVER. CHECK THE ADDRESS AND THAT THE SERVER IS RUNNING';
+    }
     // A private address can never answer over https with a valid certificate, so the
     // generic "use an https URL" advice is a dead end. Name the real fix.
     if (/^https?:\/\/(?:10\.|127\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|\[?::1\]?|localhost)/i.test(url)) {
@@ -610,7 +627,7 @@
         jfUser: document.getElementById('jf-user')?.value?.trim() || '',
       }));
     } catch (e) {}
-    window.location.href = '/plex-tuner.html';
+    window.location.href = 'plex-tuner.html';
   }
 
   async function jellyfinSignIn() {
