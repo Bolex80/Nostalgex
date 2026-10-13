@@ -434,41 +434,58 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
 
     // MARK: - Playback negotiation (PlaybackInfo) + session lifecycle
 
-    private struct PlaybackInfoBody: Encodable {
-        let DeviceProfile: JellyfinDeviceProfile
-        let MediaSourceId: String
-        let MaxStreamingBitrate: Int
+    /// The PlaybackInfo POST. `serverStreamOnly` is the retry after a direct play failed;
+    /// see `JellyfinPlaybackResolver.playbackInfoBody`. Emby needs `EnableDirectStream`
+    /// off as well as direct play before it hands back a TranscodingUrl.
+    func playbackInfoRequest(for item: PlexMediaItem, serverStreamOnly: Bool) -> URLRequest? {
+        guard var components = URLComponents(string: "\(serverURL)/Items/\(item.ratingKey)/PlaybackInfo") else {
+            return nil
+        }
+        components.queryItems = [.init(name: "userId", value: userId)]
+        guard let url = components.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 12
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(Self.authorizationHeader(deviceID: deviceID, token: accessToken), forHTTPHeaderField: "Authorization")
+        let body = JellyfinPlaybackResolver.playbackInfoBody(
+            mediaSourceId: item.partKey ?? item.ratingKey,
+            supportsHEVC: Self.deviceSupportsHEVC,
+            serverStreamOnly: serverStreamOnly
+        )
+        guard let encoded = try? JSONEncoder().encode(body) else { return nil }
+        req.httpBody = encoded
+        return req
     }
 
     func resolveTranscodePlayback(for item: PlexMediaItem) async -> PlaybackResolution? {
+        await negotiatePlayback(for: item, serverStreamOnly: false)
+    }
+
+    private func negotiatePlayback(for item: PlexMediaItem, serverStreamOnly: Bool) async -> PlaybackResolution? {
         let msid = item.partKey ?? item.ratingKey
         do {
-            guard var components = URLComponents(string: "\(serverURL)/Items/\(item.ratingKey)/PlaybackInfo") else {
+            guard let req = playbackInfoRequest(for: item, serverStreamOnly: serverStreamOnly) else {
                 return fallbackResolution(for: item)
             }
-            components.queryItems = [.init(name: "userId", value: userId)]
-            guard let url = components.url else { return fallbackResolution(for: item) }
-            var req = URLRequest(url: url)
-            req.httpMethod = "POST"
-            req.timeoutInterval = 12
-            req.setValue("application/json", forHTTPHeaderField: "Accept")
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.setValue(Self.authorizationHeader(deviceID: deviceID, token: accessToken), forHTTPHeaderField: "Authorization")
-            let body = PlaybackInfoBody(
-                DeviceProfile: JellyfinPlaybackResolver.deviceProfile(supportsHEVC: Self.deviceSupportsHEVC),
-                MediaSourceId: msid,
-                MaxStreamingBitrate: StreamQuality.current.maxBitrateBps
-            )
-            req.httpBody = try JSONEncoder().encode(body)
             let (data, response) = try await Self.session.data(for: req)
             let info = try Self.decode(JellyfinPlaybackResolver.PlaybackInfoResponse.self, data: data, response: response)
             return JellyfinPlaybackResolver.resolve(
-                info, serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid
+                info, serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid,
+                serverStreamOnly: serverStreamOnly
             ) ?? fallbackResolution(for: item)
         } catch {
             print("[Emby] PlaybackInfo failed for \(item.ratingKey): \(error) — falling back to hand-built URL")
             return fallbackResolution(for: item)
         }
+    }
+
+    /// The server stream after a direct play gave no picture or starved; never the static
+    /// file. Same as Jellyfin's, and the client seeks.
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
+        guard let r = await negotiatePlayback(for: item, serverStreamOnly: true) else { return nil }
+        return JellyfinPlaybackResolver.offsetPlayback(r, offsetSeconds: offsetSeconds)
     }
 
     /// The client seeks to the offset itself, same as Jellyfin; see
