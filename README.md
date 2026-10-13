@@ -62,6 +62,9 @@ scripts/deploy.sh --test   # on every TV in ROKU_HOSTS; the one that counts
 node tests/gen-vectors.mjs # regenerate after following a new upstream commit
 ```
 
+`.gitea/workflows/ci.yml` runs `tests/run.sh` on every push, against a fresh
+clone of upstream.
+
 ## Layout
 
 | Path | What |

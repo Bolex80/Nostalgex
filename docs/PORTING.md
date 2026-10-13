@@ -53,8 +53,9 @@ affect results:
 The filter runs with no TMDB/OMDb enrichment. The web tuner did the same until
 upstream 43f6ee7, which added enrichment through upstream's hosted cache and
 relay. Rules that need it behave as on an Apple TV with no enrichment
-record: keyword and network matches don't fire, production companies match on Plex's studio alone,
-and the IMDb gates leave FOREIGN FILMS and CULT CLASSICS empty.
+record: keyword and network matches don't fire, production companies match
+on Plex's studio alone, and the IMDb gates leave FOREIGN FILMS and CULT
+CLASSICS empty.
 
 **Cost on device:** about 0.16 ms per item-channel check (186,144 in 29.7 s on
 a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
