@@ -3,6 +3,21 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (Report Playback restore and OMDb relay merged for the next build)
+
+**Changed.** `omdb-relay` (with `report-no-cw` and `web-enrichment` under it) merged
+into `ship-franchises`. App side only in effect: `WatchStateGuard` restores each
+program's prior state on leave, Plex scrobble uses the bare rating key, Emby and
+Jellyfin UserData restore, `OMDBService` goes through the relay with the IMDb budget
+and 429 day stop. Web conflicts (`plex-tuner.html`, `package.json`, `privacy.html`)
+took main's live copies; main already carried the web side.
+
+`privacy.html` still says only the web tuner keeps Continue Watching clean. Update it
+to cover the Apple TV app when this build is live, not before.
+
+NostalgexTests 650: 642 passed, 8 skipped (the 3 new `LiveContinueWatchingTests` need a
+real server), 0 failed. `npm test`, `npm run build` green. Not tested on hardware.
+
 ## 2026-10-13 (franchise line merged for the next build)
 
 **Changed.** `shared-franchises` merged into `ship-franchises` off main 1.0.26 (47).
@@ -133,6 +148,89 @@ Caribbean films on MARVEL, fix in the generator.
 
 **Next.** Upstream review on `fix/server-qualified-music-cache`. No merge or deployment is included.
 
+## 2026-10-11 (OMDb through the relay, branch only)
+
+**Shipped.** Nothing. Branch `omdb-relay`, cut from `report-no-cw` with
+`web-enrichment` merged in, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `omdb-relay`, both surfaces:
+
+- FOREIGN FILMS (imdbRatingMin 6.5, imdbVotesMin 5000) and CULT CLASSICS
+  (imdbVotesMin 30000) need IMDb values, and the shared Supabase cache had
+  `imdb_rating` / `imdb_votes` empty on every row: the App Store build carries
+  no OMDb key, so it never asked. `api/tmdb.js` now also answers
+  `path=omdb/{imdbID}` (`tt` plus 7 to 9 digits only) with `OMDB_API_KEY`, same
+  client header rule, CORS allowlist and Vary. Edge cache 7 days, stale for 30.
+  OMDb's daily-limit answer (HTTP 401 "Request limit reached!") becomes a clean
+  429; "Response: False" answers pass through uncached. No ids are logged.
+- `OMDBService` works like `TMDBService`: direct with a key, else the relay.
+  `EnrichmentService` now fetches TMDB first and decides OMDb afterwards.
+- Quota. OMDb free is 1,000 a day for every device together, so a title is only
+  looked up when it could land on an IMDb-gated channel: same media type plus a
+  keyword or genre from that channel's rules (gates derived from channels.json,
+  `OMDBGate`). At most 50 lookups per library load, random order, so repeat
+  loads walk through different titles. After a 429 the device stops asking until
+  the next UTC midnight (`OMDBBackoff`, UserDefaults; localStorage on the web).
+- Web (`scripts/nostalgex-enrichment.js`): same gates, cap and backoff, 4 in
+  flight, upsert back with the OMDb columns only. The IMDb id comes from the
+  shared row or the TMDB movie document (`imdb_id`), never the server, so IMDb
+  ids now leave the browser alongside TMDB ids.
+- Tests: `OMDBRelayTests` (17), relay smoke and enrichment smoke extended.
+  A local relay call for tt0133093 with the real key returned 200, rating 8.7.
+
+**Next.** Set `OMDB_API_KEY` on Vercel before deploying the relay. A one-off
+backfill of the gated candidates would fill the cache faster than 50 per load.
+
+## 2026-10-11 (Report Playback never fills Continue Watching, branch only)
+
+**Shipped.** Nothing. Branch `report-no-cw`, cut from `shared-franchises` at
+`db9b26b`, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `report-no-cw`, both surfaces, all three servers:
+
+- Turning on Report Playback is meant to mean "my server sees what's playing and
+  a real watch counts", not "every channel I surf past lands in Continue
+  Watching". The tracker now reads the item's state before its first report and
+  puts it back when the session ends: unscrobble for a never-watched item,
+  `/:/progress` back to the user's own resume point, `removeFromContinueWatching`
+  for a watched one; on Jellyfin/Emby a mark-unplayed or a `UserData` write of
+  the prior values. Details and the measured server behaviour are in
+  `Nostalgex/docs/plex-session-reporting.md`.
+- Every report and cleanup goes through one serial queue, because Plex writes a
+  resume point on every timeline report (measured: the first `playing` report
+  puts the item in Continue Watching), so ordering decides whether the cleanup
+  sticks.
+- Plex scrobbles never counted: `/:/scrobble?key=/library/metadata/{rk}` is a
+  404; only the bare rating key works. Fixed on both surfaces. After a scrobble
+  the tracker reports position 0, since any real position re-creates a resume
+  point on the item Plex just marked watched.
+- Jellyfin and Emby count a play on the *start* report, so a 30 second surf
+  used to add a play (and feed the rewatch channels). The restore puts the prior
+  PlayCount back; a counted watch ends as prior + 1.
+- Settings copy on both surfaces: "Off by default. When on, your server sees
+  what's playing and a film you watch most of counts as watched. Channel
+  surfing never fills your Continue Watching." The warning line is gone.
+  Privacy page wording updated, effective date moved to October 11.
+- The decision table is shared through `scripts/watch-cleanup-golden.json`
+  (16 cases), read by `WatchStateGuardTests` and `npm run test:watch-state`.
+- Verified against a real Plex server, an Emby 4.10.1 server and a local
+  Jellyfin 12.2 test server by running the real tracker on a fake clock
+  (`LiveContinueWatchingTests`, skipped unless `TEST_RUNNER_NOSTALGEX_LIVE_*`
+  is set): Continue Watching / Resume identical before and after, item state
+  restored exactly. The web module was run against the same three servers from
+  node. The web tuner itself was not driven in a browser.
+- Not verified: Jellyfin/Emby Next Up after a counted episode (no TV library on
+  either test server). Left alone on purpose: it is a separate row there, and a
+  counted episode is a real watch. Closing the web tab mid-program cleans up with
+  `keepalive` requests that are not ordered; best effort.
+
+**Next.** Review and merge `report-no-cw`. Then an on-device check with
+reporting on: surf ten channels, open Plex, Continue Watching unchanged.
+
 ## 2026-10-11 (shared franchise dictionary, web port, branch only)
 
 **Shipped.** Nothing. Branch `shared-franchises`, cut from `franchise-polish`
@@ -177,6 +275,57 @@ present. Not run on a device or against a real library.
 lands: fetch `/franchises.json`, call `NostalgexFranchiseBuilder.build` with
 items carrying `enrichment.franchiseID` and `franchiseName`. Then merge
 `franchise-polish` and this branch together.
+
+## 2026-10-11 (web tuner: TMDB enrichment and server collections, branch only)
+
+**Shipped.** Nothing. Branch `web-enrichment`, cut from `franchise-polish` at
+`188d60d`, not merged, not deployed.
+
+**Changed.** Nothing on `main`.
+
+**Half-done.** On `web-enrichment`:
+
+- The web tuner had no enrichment, so every keyword, network and production
+  company rule only matched through the membership manifest. It now does what
+  EnrichmentService.swift does: dedupe to TMDB ids, read the shared Supabase
+  cache in chunks of 200, fetch the misses through `api/tmdb.js` six at a time,
+  parse exactly as `TMDBService.parseResponse`, upsert back with
+  `resolution=merge-duplicates`. Only TMDB ids leave the browser; the upsert
+  names its TMDB columns so it never touches OMDb columns an Apple TV wrote. A
+  per-browser IndexedDB copy (7 days, TMDB 404s for 1 day) means a reload asks
+  nothing. The guide is built first and rebuilt when enrichment lands.
+- Plex items on the web carried no TMDB id for libraries on Plex's current
+  agents: the section scan never asked for `includeGuids=1`, and episodes read
+  their own guid instead of the show's. Both now match tvOS. The library cache
+  is versioned so an old id-less cache is refused once.
+- The relay accepts `X-Nostalgex-Client: web`, answers preflights, and echoes
+  `Access-Control-Allow-Origin` only for nostalgex.app, www.nostalgex.app and
+  localhost:5173.
+- Server collections become channels: Plex section collections, Jellyfin and
+  Emby BoxSets, 3+ movies, alphabetical, CH 500-699 capped at 200, switched on
+  under Settings, BUNDLES, MY COLLECTIONS. Stock-duplicate warnings match the
+  app. Collections that duplicate a stock franchise channel fold out using the
+  app's name, manifest and pool-overlap signals; the franchise-dictionary
+  signals and the FRANCHISES / OTHER COLLECTIONS split are not ported.
+- Measured on a test Plex library of 11,656 items (10,488 with a TMDB id,
+  1,926 unique): 1,926 Supabase hits on a warm cache, 132 relay fetches on a
+  colder one, 36 channel pools changed, about 10s after the guide was up. A
+  reload made no Supabase or relay requests. Pool sizes without and with
+  enrichment: TEEN MOVIES 14 to 21, MUSICALS 43 to 57, BIOPICS 13 to 18,
+  MIDNIGHT 1 to 6, TOON TOWN 0 to 44, SPY GAMES 0 to 59, TRUE CRIME 0 to 1,
+  FOREIGN FILMS 2 and CULT CLASSICS 4 unchanged. The last two need OMDb values
+  and the shared cache holds none (0 of about 2,100 rows), so they stay as thin
+  on Apple TV.
+- Not checked against Emby or Jellyfin servers with real credentials; the
+  BoxSet calls are unit-tested only. The 9-channel parity with the app is a
+  rule-by-rule read of `AppState+Channels.swift`, not a side-by-side run.
+
+**Next.** Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` on Vercel before
+merging, and deploy the relay with the tuner. `channels-memberships.json`
+claims all five Pirates of the Caribbean films for CH101 MARVEL and X-Men for
+CH65 BIOPICS; both surfaces read it, so the web folds a Pirates collection into
+MARVEL just as the app would. The privacy page does not yet say the web tuner
+talks to Supabase and the TMDB relay.
 
 ## 2026-10-11 (franchise numbers, Marvel TV, default-on franchises, branch only)
 

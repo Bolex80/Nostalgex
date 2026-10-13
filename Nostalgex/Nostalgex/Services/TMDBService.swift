@@ -86,9 +86,13 @@ struct TMDBService {
         let genres = extractGenres(from: json)
         let (franchiseID, franchiseName) = extractFranchise(from: json)
 
+        // A movie document carries `imdb_id`. It stands in when the server had no IMDb
+        // guid, so OMDb can still be asked about the title.
+        let docIMDbID = (json["imdb_id"] as? String).flatMap { OMDBService.isValidIMDbID($0) ? $0 : nil }
+
         return MediaEnrichment(
             tmdbID: tmdbID,
-            imdbID: imdbID,
+            imdbID: imdbID ?? docIMDbID,
             mediaType: mediaType,
             keywords: keywords,
             networks: networks,

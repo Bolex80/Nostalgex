@@ -581,6 +581,15 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         )
     }
 
+    var watchStateGuard: any WatchStateGuarding {
+        MediaServerWatchStateGuard(
+            serverURL: serverURL,
+            authorization: Self.authorizationHeader(deviceID: deviceID, token: accessToken),
+            userId: userId,
+            transport: URLSessionReportTransport.shared
+        )
+    }
+
     /// Frees a server-side transcode session immediately rather than waiting on Jellyfin's
     /// inactivity timeout. Fire-and-forget; failures are ignored.
     func stopTranscode(playSessionId: String?) async {

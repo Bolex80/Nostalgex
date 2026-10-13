@@ -7,6 +7,9 @@ struct PlexAPIService: MediaBackend {
     /// images, and lookups can be routed back to the correct server when multiple are
     /// connected. Empty for the demo/no-server case.
     var serverID: String = ""
+    /// Carries playback reports (timeline, scrobble, Continue Watching cleanup). Tests
+    /// replace it with a recorder.
+    var reportTransport: any ReportTransport = URLSessionReportTransport.shared
 
     /// URLSession with timeout configured for Plex API calls
     private static let session: URLSession = {
@@ -1143,41 +1146,34 @@ struct PlexAPIService: MediaBackend {
 
     // MARK: - Session reporting (Now Playing + Scrobble)
 
-    /// Report current playback position to Plex so Now Playing, On Deck, and watch history stay accurate.
+    /// Restores Continue Watching after a session. Shares this service's server, token
+    /// and transport.
+    var watchStateGuard: PlexWatchStateGuard {
+        PlexWatchStateGuard(serverURL: serverURL, headers: baseHeaders, transport: reportTransport)
+    }
+
+    /// Report current playback position to Plex so Now Playing and Tautulli see the session.
+    /// Every report also writes the item's resume point; `PlaybackTracker` undoes that when
+    /// the session ends (see `WatchStateGuard.swift`).
     func reportTimeline(ratingKey: String, key: String, state: String, timeMs: Int, durationMs: Int, sessionID: String) async {
-        guard var components = URLComponents(string: "\(serverURL)/:/timeline") else { return }
-        components.queryItems = [
+        guard let req = watchStateGuard.request(method: "PUT", path: "/:/timeline", query: [
             .init(name: "ratingKey",                value: ratingKey),
             .init(name: "key",                      value: key),
             .init(name: "state",                    value: state),
             .init(name: "time",                     value: "\(timeMs)"),
             .init(name: "duration",                 value: "\(durationMs)"),
             .init(name: "X-Plex-Session-Identifier", value: sessionID),
-        ]
-        guard let url = components.url else { return }
-        var req = URLRequest(url: url)
-        req.httpMethod = "PUT"
-        baseHeaders.forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        _ = try? await Self.session.data(for: req)
+        ]) else { return }
+        _ = await reportTransport.send(req)
     }
 
     /// Mark an item as watched in Plex (scrobble). Fires once per session when the hybrid
     /// watch rule passes (entry gate ≤ 15% + active time ≥ 75% of runtime).
     func scrobble(ratingKey: String) async {
-        guard var components = URLComponents(string: "\(serverURL)/:/scrobble") else { return }
-        components.queryItems = [
-            .init(name: "key",        value: "/library/metadata/\(ratingKey)"),
-            .init(name: "identifier", value: "com.plexapp.plugins.library"),
-        ]
-        guard let url = components.url else { return }
-        var req = URLRequest(url: url)
-        baseHeaders.forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        do {
-            let (_, response) = try await Self.session.data(for: req)
-            if let http = response as? HTTPURLResponse {
-                print("[Plex90] Scrobble \(ratingKey): HTTP \(http.statusCode)")
-            }
-        } catch {
+        guard let req = watchStateGuard.scrobbleRequest(ratingKey: ratingKey) else { return }
+        if let status = await reportTransport.send(req)?.status {
+            print("[Plex90] Scrobble \(ratingKey): HTTP \(status)")
+        } else {
             print("[Plex90] Scrobble \(ratingKey) failed silently")
         }
     }
