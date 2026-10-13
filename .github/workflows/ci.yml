@@ -3,6 +3,10 @@ name: CI
 on:
   push:
 
+# The job only reads the repo.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
