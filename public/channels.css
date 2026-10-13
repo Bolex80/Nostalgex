@@ -386,3 +386,55 @@
     scroll-behavior: auto;
   }
 }
+
+/* Page media
+   -------------------------------------------------------------------------
+   The hero sits under the H1 and is usually the LCP element, so it ships its
+   own width and height and loads eagerly. aspect-ratio keeps the box correct
+   while it decodes. */
+.page-channels .channels-cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin: 26px 0 8px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 5px 5px 0 var(--cyan);
+  background: var(--paper-deep);
+  object-fit: cover;
+}
+.page-channels .page-figure {
+  margin: 28px 0;
+}
+.page-channels .page-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+}
+.page-channels .page-figure figcaption,
+.page-channels .page-clip figcaption {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.page-channels .page-clip {
+  margin: 28px 0;
+}
+.page-channels .page-clip-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--paper-deep);
+}
+@media (max-width: 640px) {
+  .page-channels .channels-cover {
+    box-shadow: 3px 3px 0 var(--cyan);
+    margin-top: 18px;
+  }
+}

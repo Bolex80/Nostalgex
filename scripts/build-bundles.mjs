@@ -35,7 +35,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { marked } from "marked";
+import { Marked } from "marked";
 import matter from "gray-matter";
 import {
   SITE_ORIGIN,
@@ -50,6 +50,15 @@ import {
   resolveViteAssetHrefs,
 } from "./site-chrome.mjs";
 import { bundleStyle } from "./bundle-style.mjs";
+import {
+  resolveImage,
+  resolveClip,
+  renderCover,
+  renderClip,
+  markedImageRenderer,
+  mediaText,
+  isRemote,
+} from "./site-media.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPTS_DIR = path.join(ROOT, "scripts");
@@ -357,6 +366,22 @@ export async function loadBundleContent(bundles) {
       // for a search result and reads as boilerplate when 14 of them sit in a
       // column, so `blurb` carries the human version. Falls back to the meta.
       blurb: fm.blurb ? String(fm.blurb) : description,
+      // Optional media. `image` is the hero under the H1; `og_image` is the
+      // 1200x630 social card, falling back to the hero and then to the shared
+      // default. Both are validated now so a bad path fails the build rather
+      // than shipping a broken page.
+      image: resolveImage(fm, { file: rel, rootDir: ROOT }),
+      ogImage: resolveImage(fm, {
+        file: rel,
+        rootDir: ROOT,
+        keys: {
+          src: "og_image",
+          alt: "og_image_alt",
+          width: "og_image_width",
+          height: "og_image_height",
+        },
+      }),
+      clip: resolveClip(fm, { file: rel }),
       faq,
       markdown: parsed.content.replace(/<!--[\s\S]*?-->/g, "").trim(),
       words: countWords(parsed.content),
@@ -551,6 +576,18 @@ export function hubMeta() {
   };
 }
 
+// The hub has no content file, so its hero is named here. It uses the lineup
+// screenshot the home page already ships, which is app UI rather than a frame
+// from somebody's film.
+const HUB_IMAGE = resolveImage(
+  {
+    image: "/screens/lineup-1280.webp",
+    image_alt:
+      "The Nostalgex channel guide on Apple TV, showing bundles of live channels built from a Plex library",
+  },
+  { file: "scripts/build-bundles.mjs (hub)", rootDir: ROOT },
+);
+
 function renderHubPage(model, assetHrefs) {
   const { bundles, totalChannels, bundleCount, content } = model;
   const { title, description } = hubMeta(model);
@@ -631,7 +668,10 @@ ${cells}${moreCell}
     title,
     description,
     canonical: HUB_CANONICAL,
-    ogImage: DEFAULT_OG_IMAGE,
+    ogImage: `${SITE_ORIGIN}${HUB_IMAGE.src}`,
+    ogImageAlt: HUB_IMAGE.alt,
+    ogImageWidth: HUB_IMAGE.width,
+    ogImageHeight: HUB_IMAGE.height,
     ogType: "website",
     jsonLd,
     extraMeta: `<link rel="stylesheet" href="/channels.css">`,
@@ -648,6 +688,7 @@ ${renderBreadcrumb(crumbs)}
         <h1>Channel Guide: ${escapeHtml(totalChannels)} Channels in ${escapeHtml(bundleCount)} Bundles</h1>
         <p class="channels-dek">Every channel here is a rule, not a playlist. Point the app at your own Plex or Jellyfin server and the channels with enough matching titles switch themselves on, grouped into the ${escapeHtml(bundleCount)} bundles below. This is the whole lineup, so you can see what the guide would look like before you install anything.</p>
       </header>
+      ${renderCover(HUB_IMAGE, { className: "channels-cover" })}
 
       <div class="channels-guide">
 ${rows}
@@ -755,14 +796,28 @@ function renderBundlePage(bundle, model, assetHrefs) {
         <p class="bundle-disclaimer">${escapeHtml(AFFILIATION_DISCLAIMER)}</p>`
     : "";
 
-  const introHtml = marked.parse(copy.markdown);
+  // A fresh Marked instance per page. The image renderer closes over the file
+  // name so a missing alt names the content file that caused it, and
+  // marked.use() on the shared instance would stack one closure per page.
+  const introHtml = new Marked({
+    renderer: markedImageRenderer({ file: copy.file, rootDir: ROOT }),
+  }).parse(copy.markdown);
   const appScript = assetHrefs.appScriptHref || "/app.js";
+
+  // The social card prefers its own 1200x630 file, then the hero, then the
+  // shared default. A site relative file has to become absolute: a scraper
+  // reads og:image without a page to resolve it against.
+  const card = copy.ogImage || copy.image;
+  const cardUrl = card ? (isRemote(card.src) ? card.src : `${SITE_ORIGIN}${card.src}`) : null;
 
   return `${renderHead({
     title,
     description,
     canonical,
-    ogImage: DEFAULT_OG_IMAGE,
+    ogImage: cardUrl || DEFAULT_OG_IMAGE,
+    ogImageAlt: card ? card.alt : undefined,
+    ogImageWidth: card ? card.width : null,
+    ogImageHeight: card ? card.height : null,
     ogType: "website",
     jsonLd,
     robots,
@@ -779,10 +834,10 @@ ${renderBreadcrumb(crumbs)}
       <header class="channels-head">
         <h1>${escapeHtml(bundle.name)}: ${escapeHtml(bundle.count)} Channels</h1>
       </header>
-
+${copy.image ? `      ${renderCover(copy.image, { className: "channels-cover" })}\n` : ""}
       <div class="bundle-intro">
 ${introHtml}
-      </div>
+      </div>${copy.clip ? renderClip(copy.clip) : ""}
 
       <section class="bundle-channels" aria-labelledby="bundle-channels-heading">
         <h2 id="bundle-channels-heading">Channels in ${escapeHtml(bundle.name)}</h2>
@@ -1141,7 +1196,14 @@ export async function renderBundles(assetHrefs = {}, options = {}) {
 
   for (const page of pages) {
     const where = page.source ? `${page.file} (${page.source})` : page.file;
-    const visible = visibleText(page.html);
+    // Alt text and the aria-label on a clip are read by screen readers and by
+    // Google, so the dash, held brand and banned phrase rules apply to them the
+    // same as to body copy. visibleText() drops attributes, so add them back.
+    const altText = [...page.html.matchAll(/(?:alt|aria-label)="([^"]*)"/g)]
+      .map((m) => m[1])
+      .filter(Boolean)
+      .join(" ");
+    const visible = `${visibleText(page.html)} ${decodeEntities(altText)}`.trim();
 
     // 1. No dash of any kind in visible copy, the title or the meta.
     checkDashes(log, where, "visible copy", visible);
