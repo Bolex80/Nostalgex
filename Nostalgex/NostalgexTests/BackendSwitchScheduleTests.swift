@@ -182,7 +182,9 @@ final class BackendSwitchScheduleTests: XCTestCase {
         }
 
         // The snapshot written under the Emby identity is what the next launch restores.
-        // Plex items in there make the breakage permanent.
+        // Plex items in there make the breakage permanent. Saves run on a background
+        // queue, so let the last one land before reading it.
+        LibrarySnapshotStore.waitForPendingSaves()
         do {
             let loaded = try LibrarySnapshotStore.loadSnapshot(identity: state.snapshotIdentitySeed)
             let snapshotForeign = (loaded?.snapshot.allItems ?? []).filter { $0.serverID != Self.embyServerID }

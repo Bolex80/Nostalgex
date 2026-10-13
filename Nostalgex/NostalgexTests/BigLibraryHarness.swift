@@ -1,5 +1,7 @@
 import XCTest
 import Darwin
+import os
+import UIKit
 @testable import Nostalgex
 
 /// Discord report, 2026-10-12: a Plex user with a "~400k" library sees the loading screen
@@ -59,11 +61,33 @@ final class BigLibraryHarness: XCTestCase {
         private var running = true
         let t0 = CFAbsoluteTimeGetCurrent()
         private(set) var overallPeakFoot: UInt64 = 0
+        /// Appended live and flushed, so a run that is killed (jetsam, sleep) still leaves
+        /// the last stage and memory reading on disk. Pull it with devicectl from the app's
+        /// Caches/biglib-trail.txt on hardware.
+        private let trail: FileHandle?
+
+        static func availableMB() -> Int { Int(os_proc_available_memory()) / 1_048_576 }
+
+        func writeTrail(_ line: String) {
+            guard let trail else { return }
+            lock.lock(); defer { lock.unlock() }
+            trail.write(Data((String(format: "%.1f ", now()) + line + "\n").utf8))
+            try? trail.synchronize()
+        }
 
         init() {
             segStart = 0
+            let path = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("biglib-trail.txt").path
+            FileManager.default.createFile(atPath: path, contents: nil)
+            trail = FileHandle(forWritingAtPath: path)
             let sampler = Thread { [self] in
+                var lastTrail = 0.0
                 while true {
+                    if self.now() - lastTrail >= 2 {
+                        lastTrail = self.now()
+                        self.writeTrail("sample foot=\(BigLibraryHarness.footprintBytes() / 1_048_576)MB avail=\(Recorder.availableMB())MB")
+                    }
                     let f = BigLibraryHarness.footprintBytes()
                     let r = BigLibraryHarness.residentBytes()
                     self.lock.lock()
@@ -112,6 +136,7 @@ final class BigLibraryHarness: XCTestCase {
             segPeakFoot = f
             segPeakRes = r
             lock.unlock()
+            writeTrail("mark \(stage) foot=\(f / 1_048_576)MB avail=\(Recorder.availableMB())MB")
         }
 
         func stop() { lock.lock(); running = false; lock.unlock() }
@@ -346,8 +371,13 @@ final class BigLibraryHarness: XCTestCase {
             UserDefaults.standard.removeObject(forKey: AppState.initialLoadCompleteKey)
         }
 
+        // A run takes longer than the Apple TV's sleep timer; sleeping kills the runner.
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer { UIApplication.shared.isIdleTimerDisabled = false }
+
         var out: [String] = []
         let rec = Recorder()
+        rec.writeTrail("start N=\(n) avail=\(Recorder.availableMB())MB")
         rec.mark("baseline")
 
         var fixture: (items: [PlexMediaItem], mix: String)? = Self.makeLibrary(count: n, serverID: serverID)
@@ -370,6 +400,11 @@ final class BigLibraryHarness: XCTestCase {
         state!.completePlexSignIn(token: "plex-account-token", servers: [server])
         await state!.loadLibrary()
         rec.mark("loadLibrary.return")
+        // The snapshot is written on a background queue. Wait for it here, off the main
+        // actor, so its memory shows as its own stage and the main-thread pinger keeps
+        // measuring whether the write blocks the UI.
+        await Task.detached { LibrarySnapshotStore.waitForPendingSaves() }.value
+        rec.mark("snapshot.background.done")
 
         let itemCount = state!.allItems.count
         let channelCount = state!.allChannels.count
@@ -394,9 +429,24 @@ final class BigLibraryHarness: XCTestCase {
         }.value
         rec.mark("guide.buildAllSchedules")
 
-        let snapshotURL = LocalStore.rootDirectory?.appendingPathComponent("library_snapshot_v1.json")
-        let snapshotBytes = (snapshotURL.flatMap { try? FileManager.default.attributesOfItem(atPath: $0.path)[.size] as? UInt64 }) ?? 0
-        let manifestBytes = Self.directorySize(LocalStore.rootDirectory) - snapshotBytes
+        let snapshotBytes = Self.directorySize(LibrarySnapshotStore.snapshotDirectoryURL)
+        let manifestBytes = Self.directorySize(LocalStore.rootDirectory.map { $0.appendingPathComponent("daily_manifests") })
+
+        // Optional: replace the chunked snapshot with a legacy single file, to measure the
+        // one-time migration on the next launch. Encoding it here costs what the old save
+        // cost, so use it at sizes the host can afford.
+        let legacyMode = ProcessInfo.processInfo.environment["NOSTALGEX_BIGLIB_LEGACY"] == "1"
+        var legacyBytes: UInt64 = 0
+        if legacyMode, let loaded = try LibrarySnapshotStore.loadSnapshot(identity: state!.snapshotIdentitySeed) {
+            var legacy = loaded.snapshot
+            legacy.schemaVersion = 2
+            let data = try JSONEncoder().encode(legacy)
+            legacy.allItems = []
+            LibrarySnapshotStore.clear()
+            try data.write(to: LibrarySnapshotStore.legacySnapshotURL!, options: .atomic)
+            legacyBytes = UInt64(data.count)
+            rec.mark("legacy.fileWritten")
+        }
 
         // Next launch: drop this session, restore from the snapshot.
         state?.backendOverride = nil
@@ -410,6 +460,11 @@ final class BigLibraryHarness: XCTestCase {
         let restored = await relaunch.restoreLibraryFromSnapshotIfNeeded()
         rec.mark("relaunch.restoreSnapshot")
         let restoredItems = relaunch.allItems.count
+        // A legacy restore re-saves in the chunked format; let that land and measure it.
+        await Task.detached { LibrarySnapshotStore.waitForPendingSaves() }.value
+        rec.mark("relaunch.pendingSaves")
+        let legacyLeft = LibrarySnapshotStore.legacySnapshotURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        let chunkedAfter = Self.directorySize(LibrarySnapshotStore.snapshotDirectoryURL)
 
         LibraryLoadProbe.handler = nil
         fflush(stdout)
@@ -422,6 +477,9 @@ final class BigLibraryHarness: XCTestCase {
         out.append("MemoryLayout<PlexMediaItem>.stride=\(MemoryLayout<PlexMediaItem>.stride)B")
         out.append("items=\(itemCount) allChannels=\(channelCount) guideChannels=\(guideCount) poolEntries=\(poolEntries) biggest=\(biggestPools) schedules=\(built) error=\(errorMessage ?? "nil")")
         out.append("snapshot=\(Self.mb(snapshotBytes))MB (\(snapshotBytes) bytes) manifests=\(Self.mb(manifestBytes))MB restored=\(restored) restoredItems=\(restoredItems)")
+        if legacyMode {
+            out.append("legacy=\(Self.mb(legacyBytes))MB (\(legacyBytes) bytes, cap \(Self.mb(LibrarySnapshotStore.legacyMaxBytes))MB) legacyFileLeftAfterRestore=\(legacyLeft) chunkedAfterRestore=\(Self.mb(chunkedAfter))MB")
+        }
         func pad(_ s: String, _ w: Int) -> String { s.count >= w ? s : s + String(repeating: " ", count: w - s.count) }
         func lpad(_ s: String, _ w: Int) -> String { s.count >= w ? s : String(repeating: " ", count: w - s.count) + s }
         out.append(pad("stage", 28) + lpad("ms", 9) + lpad("peakFootMB", 12) + lpad("peakResMB", 11) + lpad("endFootMB", 11) + lpad("mainBlockMs", 13))
@@ -433,6 +491,7 @@ final class BigLibraryHarness: XCTestCase {
         let hang = rec.longestHang()
         out.append(String(format: "overallPeakFootprint=%@MB longestMainBlock=%.0fms at t=%.1fs", Self.mb(rec.overallPeakFoot), hang.seconds * 1000, hang.start))
         for line in out { print("[BIGLIB] \(line)") }
+        for line in out { rec.writeTrail("[BIGLIB] \(line)") }
         // Parallel test clones do not forward stdout; a host path survives (simulator only).
         if let path = ProcessInfo.processInfo.environment["NOSTALGEX_BIGLIB_OUT"] {
             try? out.map { "[BIGLIB] \($0)" }.joined(separator: "\n").appending("\n")
@@ -440,6 +499,6 @@ final class BigLibraryHarness: XCTestCase {
         }
 
         XCTAssertEqual(itemCount, n)
-        XCTAssertTrue(restored)
+        if !legacyMode { XCTAssertTrue(restored) }
     }
 }
