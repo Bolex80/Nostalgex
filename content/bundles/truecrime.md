@@ -1,5 +1,6 @@
 ---
 title: "True Crime and Thriller Channels for Plex | Nostalgex"
+heading: "True Crime and Thriller Channels"
 description: "True crime, thrillers, mysteries and crime TV as live channels from your own Plex or Jellyfin library. Free and open source on Apple TV and the web."
 blurb: "Documentaries, crime films, thrillers and the procedural nobody watches in order."
 faq:

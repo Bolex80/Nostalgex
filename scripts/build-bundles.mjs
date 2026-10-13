@@ -334,6 +334,11 @@ export async function loadBundleContent(bundles) {
       file: rel,
       raw,
       titleOverride: fm.title ? String(fm.title) : null,
+      // The on page H1. Defaults to the <title> without the brand suffix: the
+      // bundle name alone ("Marquee") is internal vocabulary, and a visitor
+      // arriving from a search needs the heading to confirm they are in the
+      // right place. The name and the count move to the line underneath.
+      heading: fm.heading ? String(fm.heading) : null,
       description,
       // The hub shows a short line per bundle. The meta description is written
       // for a search result and reads as boilerplate when 14 of them sit in a
@@ -377,6 +382,13 @@ export function bundleTitle(bundle, titleOverride) {
     `${bundle.name}: ${bundle.count} Retro TV Channels | Nostalgex`,
   ];
   return candidates.find((t) => t.length <= TITLE_MAX) || candidates.at(-1);
+}
+
+// The H1. A `heading` in the content file wins; otherwise the page title minus
+// the brand suffix, which is already written to say what the page is about.
+export function bundleHeading(bundle, copy) {
+  if (copy && copy.heading) return copy.heading;
+  return bundleTitle(bundle, copy ? copy.titleOverride : null).replace(/\s*\|\s*Nostalgex$/, "");
 }
 
 // ---------------------------------------------------------------------------
@@ -807,7 +819,8 @@ ${renderNav()}
     <div class="container container-narrow">
 ${renderBreadcrumb(crumbs)}
       <header class="channels-head">
-        <h1>${escapeHtml(bundle.name)}: ${escapeHtml(bundle.count)} Channels</h1>
+        <h1>${escapeHtml(bundleHeading(bundle, copy))}</h1>
+        <p class="channels-dek channels-dek--bundle">The ${escapeHtml(bundle.name)} bundle. ${escapeHtml(bundle.count)} channels, built from your own library.</p>
       </header>
 ${copy.image ? `      ${renderCover(copy.image, { className: "channels-cover" })}\n` : ""}
       <div class="bundle-intro">

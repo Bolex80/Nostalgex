@@ -1,5 +1,6 @@
 ---
 title: "Music Video Channels for Plex and Jellyfin | Nostalgex"
+heading: "Music Video Channels"
 description: "Pop, rock, country, rap, slow jams and Y2K music videos on live channels from your own Plex or Jellyfin library. Free and open source on Apple TV."
 blurb: "Music videos by genre, if your server has them tagged that way."
 faq:

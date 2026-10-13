@@ -438,3 +438,12 @@
     margin-top: 18px;
   }
 }
+
+/* The bundle name and channel count, under the H1. The heading itself says what
+   the page is about, so this line carries the app's own vocabulary. */
+.page-channels .channels-dek--bundle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
