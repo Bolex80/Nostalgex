@@ -570,6 +570,27 @@ final class PreferenceSyncAppStateTests: XCTestCase {
         XCTAssertEqual(store.writes.count, writesBefore)
     }
 
+    // On hardware (2026-10-13) each TV's launch rewrote the lineup in iCloud from its own
+    // snapshot restore and collection bookkeeping, so the last TV to load won. Only a
+    // toggle the viewer makes may reach iCloud.
+    func testOnlyTheViewersOwnToggleSendsTheLineupToICloud() {
+        state.bundles = [
+            ChannelBundle(id: "nostalgex", name: "A", description: "", channelIDs: [1], activeMonths: nil, enabled: true),
+            ChannelBundle(id: "kids", name: "B", description: "", channelIDs: [2], activeMonths: nil, enabled: false),
+        ]
+        state.enabledBundleIDs = ["nostalgex", "collections-franchises"]
+        state.saveBundlePreferences()
+        state.syncCollectionCategoryBundlesWithDiscoveries()
+        state.materializeDynamicChannels()
+        XCTAssertFalse(store.writes.contains { $0.key == PreferenceSync.enabledBundlesKey }, "load-time saves stay on this TV")
+        XCTAssertEqual(Set(UserDefaults.standard.stringArray(forKey: PreferenceSync.enabledBundlesKey) ?? []),
+                       ["nostalgex", "collections-franchises"], "but are still saved locally")
+
+        state.toggleBundle(state.bundles[1])
+        XCTAssertEqual(Set(store.values[PreferenceSync.enabledBundlesKey] as? [String] ?? []),
+                       ["nostalgex", "kids", "collections-franchises"])
+    }
+
     func testIncomingCollectionIdsFromAnotherServerAreKeptButMatchNothing() {
         store.values[PreferenceSync.enabledCollectionsKey] = ["otherServer:99"]
         sync.handleExternalChange(reason: NSUbiquitousKeyValueStoreServerChange,

@@ -73,19 +73,20 @@ extension AppState {
         // …); safe to include as-is. Nothing here reveals library or user identity.
         Analytics.track(.settingChanged(key: "bundle:\(bundle.id)", value: nowEnabled ? "true" : "false"))
 
-        rebuildLineupAfterBundleChange(newlyEnabled: nowEnabled ? [bundle] : [])
+        rebuildLineupAfterBundleChange(newlyEnabled: nowEnabled ? [bundle] : [], byViewer: true)
     }
 
     /// Rebuilds the lineup after `enabledBundleIDs` changed. A toggle in Settings and a
     /// lineup arriving from another Apple TV through iCloud both come through here, so
-    /// the guide is rebuilt the same way either way.
-    func rebuildLineupAfterBundleChange(newlyEnabled: [ChannelBundle]) {
+    /// the guide is rebuilt the same way either way. Only the viewer's own toggle goes
+    /// back out to iCloud.
+    func rebuildLineupAfterBundleChange(newlyEnabled: [ChannelBundle], byViewer: Bool) {
         // Update runtime bundle state
         for i in bundles.indices {
             bundles[i].enabled = enabledBundleIDs.contains(bundles[i].id)
         }
 
-        saveBundlePreferences()
+        saveBundlePreferences(byViewer: byViewer)
 
         // Collection category bundles: scan if enabling and no collections discovered yet
         let needsCollectionScan = discoveredCollections.isEmpty
@@ -256,9 +257,15 @@ extension AppState {
             }
     }
 
-    func saveBundlePreferences() {
+    /// Saves the lineup on this TV. Only a change the viewer made (`byViewer`) goes to
+    /// iCloud: the app also adjusts the set on its own while it loads (snapshot restore,
+    /// collection categories, auto-enable, migrations), and pushing those let each TV's
+    /// launch overwrite the other's lineup (seen on hardware, 2026-10-13).
+    func saveBundlePreferences(byViewer: Bool = false) {
         UserDefaults.standard.set(Array(enabledBundleIDs), forKey: "nostalgex_enabled_bundles")
-        preferenceSync.record(PreferenceSync.enabledBundlesKey, value: Array(enabledBundleIDs))
+        if byViewer {
+            preferenceSync.record(PreferenceSync.enabledBundlesKey, value: Array(enabledBundleIDs))
+        }
     }
 
     // MARK: - Collection discovery and management

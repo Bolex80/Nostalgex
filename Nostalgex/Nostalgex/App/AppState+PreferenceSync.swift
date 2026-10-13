@@ -42,12 +42,15 @@ extension AppState: PreferenceSyncApplying {
     }
 
     /// Replaces the enabled bundles and rebuilds the lineup the way a Settings toggle does.
-    /// Ids this TV's lineup does not have are kept and match nothing.
+    /// Ids this TV's lineup does not have are kept and match nothing. Collection category
+    /// bundles this TV has discoveries for stay on (they have no switch of their own), so
+    /// another TV's lineup never hides this TV's collection channels.
     func applyEnabledBundleIDs(_ ids: Set<String>) {
         guard !ids.isEmpty else { return }
+        let ids = ids.union(visibleDiscoveredCollections.map(\.category.bundleID))
         let added = ids.subtracting(enabledBundleIDs)
         enabledBundleIDs = ids
-        rebuildLineupAfterBundleChange(newlyEnabled: bundles.filter { added.contains($0.id) })
+        rebuildLineupAfterBundleChange(newlyEnabled: bundles.filter { added.contains($0.id) }, byViewer: false)
     }
 
     /// Replaces the enabled collections and re-materializes their channels the way
