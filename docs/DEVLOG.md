@@ -3,6 +3,73 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (web tuner: iPhone had no inline playback)
+
+**Shipped.** Nothing. The work is on the branch `web-tuner-ios-playback`, not
+merged.
+
+**Changed.** On iPhone the web tuner never played. Tapping a channel threw
+playback into the native fullscreen player, and leaving that player left a
+frozen frame with the schedule running on without it. One root cause: the
+player element was `<video id="plex-video" autoplay muted>` with no
+`playsinline`. iOS does not allow a video without that attribute to run inline
+at all, so every `play()` the schedule made was refused and the native player
+was the only place the picture could appear. A landscape screenshot from a
+phone showed the end state exactly: the video inline but paused, iOS's own
+transport overlay on top of it (iOS draws that on a video it will not play
+inline, even with no `controls` attribute), the native scrubber reading a real
+position and duration, and the tuner's info panel counting on past it.
+
+Measured before the fix, in WebKit under a shim of Apple's two documented
+iPhone rules (no inline playback without `playsinline`, and no element
+fullscreen API): on one channel tune, `playsInline` false, `paused` true,
+`readyState` 4 with the stream loaded and seeked to the schedule offset, one
+rejected `play()` and zero successful ones. After the fix, same harness: zero
+rejections, `paused` false, `currentTime` advancing, and no fullscreen call
+anywhere in the tune path.
+
+Three more things were found that would each have kept the picture dead, and
+are fixed in the same change:
+
+- A refused `play()` logged "Autoplay blocked" and gave up, so once the browser
+  said no there was no route back short of a reload. Playback now retries on the
+  viewer's next tap or key, one armed listener at a time, and disarms when the
+  channel moves on.
+- Nothing listened for `webkitendfullscreen`. iOS pauses the element when its
+  native player closes, so even a viewer who got playback going through that
+  player came back to a still. Measured: paused after leaving, `currentTime`
+  frozen. It now resumes inline from inside the dismissal gesture, and
+  measured after the fix the clock keeps running.
+- `toggleFullscreen` called `container.requestFullscreen()` unguarded. That API
+  does not exist on iPhone in any spelling, so the FULL SCREEN control threw a
+  TypeError on every tap. It now feature-detects and falls back to the video
+  element's own `webkitEnterFullscreen`, which is the only fullscreen iOS
+  offers. The Jellyfin subtitle gate and the G-key overlay were keyed off
+  `document.fullscreenElement`, which is also undefined on iPhone; both go
+  through one `isVideoFullscreen()` helper now, so captions work in the native
+  player too.
+
+`scripts/web-tuner-player-smoke.mjs` asserts all of it against the source and
+runs in `npm test`. It fails on the pre-fix file with 9 failures, so the
+attributes and the recovery paths cannot quietly disappear again.
+
+**Half-done.** Branch `web-tuner-ios-playback`. Not verified on a real iPhone:
+real iOS was not available to the agent that made the change, and the
+forced-fullscreen rule is iOS-only, so desktop WebKit cannot reproduce it. What
+was run is desktop WebKit and Chromium at phone viewport with a real H.264/AAC
+MP4 served to the direct-play path, plus the shim described above. Someone with
+an iPhone should open the tuner, tap a channel, and confirm the picture starts
+in the guide with no fullscreen transition, that FULL SCREEN opens and closes
+without killing playback, and that playback is still running after closing the
+native player.
+
+The Apple TV app is untouched by this. It plays through AVPlayer natively and
+shares no code with the web player.
+
+**Next.** The iPhone confirmation above. The branch touches only the player and
+fullscreen code, so it should merge cleanly alongside the touch chrome work on
+`web-tuner-screens` and `web-tuner-drawer`.
+
 ## 2026-10-13 (web tuner: phones and tablets)
 
 **Shipped.** Nothing. The work is on the branch `web-tuner-mobile`, not merged.
