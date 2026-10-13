@@ -1,8 +1,8 @@
 import Foundation
 
-/// Result of resolving how to play a Jellyfin item. `playSessionId` is nil when we fell
-/// back to a hand-built URL (no PlaybackInfo handshake), in which case there is no
-/// server-tracked transcode session to stop.
+/// Result of resolving how to play a Jellyfin item. `playSessionId` is nil when Jellyfin
+/// fell back to a hand-built URL (no PlaybackInfo handshake), in which case there is no
+/// server-tracked transcode session to stop. Emby's hand-built URL carries its own id.
 struct PlaybackResolution: Sendable {
     let url: URL
     let playSessionId: String?

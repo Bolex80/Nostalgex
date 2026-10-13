@@ -577,7 +577,10 @@ extension AppState {
         // stop on the next channel change ends this transcode and no other.
         let fallbackSession = UUID().uuidString
         let fallbackStartsAtOffset = itemAPI is PlexAPIService && seekOffset > 0
+        // Emby needs the session id on the URL or every segment is refused; see
+        // EmbyAPIService.buildTranscodeURL(for:sessionID:).
         let transcodeURL: URL? = (itemAPI as? PlexAPIService)?.transcodeURL(for: item, sessionID: fallbackSession, offsetSeconds: seekOffset)
+            ?? (itemAPI as? EmbyAPIService)?.buildTranscodeURL(for: item, sessionID: fallbackSession)
             ?? itemAPI?.buildTranscodeURL(for: item)
 
         if !isDemoMode && directURL == nil && transcodeURL == nil {
@@ -713,7 +716,9 @@ extension AppState {
                             // If direct play failed and we have a transcode URL, fall back
                             if isDirectPlay, let fallback = transcodeURL {
                                 print("[Plex90] gen=\(generation) | Direct play failed, falling back to transcode")
-                                if itemAPI is PlexAPIService { self.activeTranscode = (itemServerID, fallbackSession) }
+                                if itemAPI is PlexAPIService || itemAPI is EmbyAPIService {
+                                    self.activeTranscode = (itemServerID, fallbackSession)
+                                }
                                 if fallbackStartsAtOffset { self.hlsRequestedOffset = self.seekOffset }
                                 self.fallbackToTranscode(url: fallback, seekTo: fallbackStartsAtOffset ? nil : seekTo, generation: generation)
                             } else {
