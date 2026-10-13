@@ -27,10 +27,11 @@ on the right row, Enter after a wrap tunes it. With 300 saved blacklist entries,
 those titles were in any pool before and 278 after, the same 278 a browser with no list
 pools. `npm test` green. Not tried with a real server or on a TV browser.
 
+Settings → Help said Up/Down change channel; Left/Right is what does, so Help now says so.
+
 **Next.** Found while measuring, left alone. In fullscreen (F), Up/Down move the hidden
-guide cursor and the channel does not change, while Settings → Help says Up/Down change
-channel; Left/Right is what changes it. The guide footer advertises [V] HIDE GUIDE, and
-no key handles V.
+guide cursor and the channel does not change. The guide footer advertises [V] HIDE GUIDE,
+and no key handles V.
 
 ## 2026-10-13 (Report Playback rebuilt on PR #18)
 
