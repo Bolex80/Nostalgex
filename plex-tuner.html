@@ -671,6 +671,53 @@
     color: var(--orange);
   }
 
+  /* Short, hint-free button label. Desktop keeps the keyboard hints; touch
+     layouts swap to this one, because [M] and [F] mean nothing on a phone. */
+  .v-btn-short {
+    display: none;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0, 196, 255, 0.55);
+    letter-spacing: 1px;
+    line-height: 1.35;
+  }
+  .v-btn:hover .v-btn-short { color: #000; }
+
+  /* ══════════════════════════════════════
+     TOUCH TOP BAR (phones and tablets)
+  ══════════════════════════════════════ */
+  .m-topbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    height: calc(44px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    z-index: 60;
+  }
+  .m-topbar-logo {
+    width: 96px;
+    height: auto;
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+  .m-topbar-action {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    text-decoration: none;
+    border: 2px solid var(--cyan);
+    padding: 9px 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .m-topbar-action:active { background: var(--cyan); color: #000; }
+
   /* Buy Me a Coffee box — the one button meant to stand out */
   @keyframes coffee-glow {
     0%, 100% { box-shadow: 0 0 6px rgba(255,221,0,0.45), 0 0 14px rgba(255,221,0,0.18); }
@@ -1935,23 +1982,7 @@
   /* ══════════════════════════════════════
      RESPONSIVE
   ══════════════════════════════════════ */
-  @media (max-width: 700px) {
-    /* Video anchors to top, info panel stacks below */
-    .player-screen.layout-side .video-area {
-      flex: 1;
-      flex-direction: column;
-    }
-    .player-screen.layout-side.has-channel .info-panel {
-      width: 100%;
-      flex: 0 0 auto;
-      max-height: 40%;
-      overflow-y: auto;
-      padding: 16px 20px;
-      border-right: none;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      justify-content: flex-start;
-    }
-
+  @media (max-width: 1024px) {
     /* Unmute button — compact */
     .unmute-btn {
       font-size: 8px;
@@ -1968,6 +1999,300 @@
       position: static;
     }
   }
+
+  /* ──────────────────────────────────────
+     Shared touch pieces: a bottom-anchored toolbar and the top bar.
+     Used by the portrait and tablet-landscape blocks below. Desktop and TV
+     never match either, so nothing here can reach them.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait),
+         (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px) {
+    .player-screen.has-channel .m-topbar { display: flex; }
+    /* The fixed corner mark sat on top of the channel tag once the info panel
+       went full width. The top bar carries the logo instead. */
+    .player-screen.has-channel .player-logo { display: none; }
+
+    /* Room at the foot of the screen for the fixed toolbar. */
+    .player-screen.layout-side.has-channel {
+      padding-bottom: calc(56px + env(safe-area-inset-bottom));
+    }
+
+    /* The vertical rail becomes a full-width bar pinned to the bottom edge,
+       one control per equal column, divided by thin borders. */
+    .player-screen.layout-side.has-channel .v-toolbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: auto;
+      height: calc(56px + env(safe-area-inset-bottom));
+      padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      flex-direction: row;
+      gap: 0;
+      z-index: 70;
+      border-right: 0;
+      border-top: 1px solid rgba(255,255,255,0.14);
+    }
+
+    /* Apple TV moved to the top bar; six controls is what a phone fits. */
+    .v-btn--appletv { display: none; }
+
+    .v-toolbar .v-btn,
+    .v-toolbar .v-coffee,
+    .v-toolbar .v-social {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 0;
+      height: 100%;
+      margin-top: 0;
+      border: 0;
+      border-right: 1px solid rgba(255,255,255,0.14);
+      border-radius: 0;
+      padding: 6px 2px;
+      gap: 3px;
+      justify-content: center;
+    }
+    .v-toolbar > *:last-child { border-right: 0; }
+
+    /* Hint-free labels on touch. */
+    .v-toolbar .v-btn-label,
+    .v-toolbar .v-key { display: none; }
+    .v-toolbar .v-btn-short {
+      display: block;
+      font-size: 6px;
+      letter-spacing: 0.5px;
+      color: rgba(0, 196, 255, 0.75);
+    }
+    .v-toolbar .v-btn-value {
+      font-size: 7px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Instagram sits before the coffee box, so the one button that asks for
+       something is the last thing the thumb passes. */
+    .v-toolbar .v-social { order: 1; flex-direction: column; gap: 4px; }
+    .v-toolbar .v-coffee { order: 2; }
+
+    /* Warmer than the rest without the desktop glow, which is far too much at
+       this size: a yellow wash and yellow type rather than a solid slab. */
+    .v-toolbar .v-coffee {
+      animation: none;
+      background: rgba(255, 221, 0, 0.14);
+      border-right: 0;
+    }
+    .v-toolbar .v-coffee svg path { stroke: var(--yellow); }
+    .v-toolbar .v-coffee-label { color: var(--yellow); font-size: 6px; letter-spacing: 0.5px; line-height: 1.35; }
+    .v-toolbar .v-coffee svg { width: 17px; height: 17px; }
+    .v-toolbar .v-social svg { width: 14px; height: 14px; }
+    .v-toolbar .v-social-label { font-size: 6px; letter-spacing: 0.5px; }
+
+    /* Tap feedback, since there is no hover on a touch screen. */
+    .v-toolbar .v-btn:active,
+    .v-toolbar .v-social:active { background: rgba(255,255,255,0.14); }
+    .v-toolbar .v-coffee:active { background: rgba(255, 221, 0, 0.3); }
+    /* :hover fires as a sticky state after a tap on iOS and left buttons
+       looking pressed. Keep the hover swap for pointers that can hover. */
+    @media (hover: none) {
+      .v-toolbar .v-btn:hover { background: rgba(0, 0, 0, 0.8); }
+      .v-toolbar .v-btn:hover .v-btn-short { color: rgba(0, 196, 255, 0.75); }
+      .v-toolbar .v-btn:hover .v-btn-value { color: var(--cyan); }
+      .v-toolbar .v-coffee:hover { background: rgba(255, 221, 0, 0.14); border-color: transparent; }
+    }
+
+    /* Compact info panel type. The desktop sizes are built for a 35% column on
+       a large screen and simply do not fit here. */
+    .player-screen.layout-side.has-channel .info-panel {
+      border-right: none;
+      justify-content: flex-start;
+    }
+    /* The pixel font has no built-in leading, so a tag that wraps to two lines
+       prints them on top of each other. */
+    .info-channel-tag { font-size: 8px; letter-spacing: 2px; margin-bottom: 8px; line-height: 1.6; }
+    .info-title {
+      font-size: 24px;
+      line-height: 1.15;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-episode-title {
+      font-size: 17px;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-meta-row { font-size: 15px; gap: 8px; margin-bottom: 10px; }
+    .info-meta-badge { font-size: 7px; }
+    .info-time { font-size: 15px; }
+    .info-progress-wrap { gap: 10px; }
+    .info-upnext { font-size: 14px; margin-top: 10px; }
+
+    /* Guide: narrower channel column, shorter rows, so more of the lineup
+       is on screen at once. */
+    .grid-channel-col, .grid-row-channel { width: 104px; padding: 0 8px; }
+    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-row { height: 34px; }
+    .grid-ch-num { font-size: 16px; min-width: 18px; }
+    .grid-ch-name { font-size: 15px; letter-spacing: 0; }
+    /* The header is a fixed 32px; a wrapped time label spills into the rows. */
+    .grid-time-slot { font-size: 16px; padding: 0 6px; white-space: nowrap; }
+    .grid-footer { display: none; }
+  }
+
+  /* ──────────────────────────────────────
+     Portrait phones and tablets: the video leads, full width, then the
+     now-playing line, then the guide, then the bottom bar.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait) {
+    .player-screen.layout-side .video-area {
+      flex: 0 0 auto;
+      flex-direction: column;
+      overflow: visible;
+    }
+    /* The video first and edge to edge. */
+    .player-screen.layout-side .video-container {
+      order: -1;
+      width: 100%;
+      flex: 0 0 auto;
+      aspect-ratio: 16 / 9;
+      min-height: 0;
+    }
+    .player-screen.layout-side.has-channel .info-panel {
+      order: 0;
+      width: 100%;
+      flex: 0 0 auto;
+      padding: 10px 14px 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    /* No room for prose next to a 16:9 video on a phone. The title, the meta
+       row and the progress are what a glance needs. */
+    .info-description { display: none; }
+    .guide-grid { flex: 1 1 auto; min-height: 0; }
+  }
+
+  /* Portrait phones proper: tighter still, and up next goes too. */
+  @media (max-width: 560px) and (orientation: portrait) {
+    .info-title { font-size: 20px; }
+    .info-episode-title { font-size: 15px; }
+    .info-upnext { display: none; }
+    .m-topbar-logo { width: 84px; }
+    /* Four time columns in 256px once the channel column is paid for. */
+    .grid-time-slot { font-size: 15px; padding: 0 5px; }
+  }
+
+  /* ──────────────────────────────────────
+     Tablet landscape: the side layout still earns its keep here, and losing
+     the 140px toolbar column is what the video needed. Type is compacted by
+     the shared block above.
+  ────────────────────────────────────── */
+  @media (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px) {
+    .player-screen.layout-side .video-area { flex: 1 1 auto; }
+    .player-screen.layout-side.has-channel .info-panel {
+      width: 34%;
+      padding: 16px 20px;
+      justify-content: center;
+    }
+    .info-description {
+      font-size: 15px;
+      line-height: 1.4;
+      max-height: calc(15px * 1.4 * 3);
+      -webkit-line-clamp: 3;
+      margin-bottom: 12px;
+    }
+    .guide-grid { flex: 0 0 auto; max-height: 44%; }
+  }
+
+  /* ──────────────────────────────────────
+     Landscape phones: height is the scarce dimension, so the toolbar stays a
+     vertical rail (a bottom bar would cost 56px of the 390 available) and
+     everything shrinks.
+  ────────────────────────────────────── */
+  @media (orientation: landscape) and (max-height: 500px) {
+    /* Pinned to the left edge over the full height, not just the video row.
+       Confined to the row it held six controls in 240px, which is under the
+       44px a thumb needs; the full height gives every one of them 55px. */
+    .player-screen.layout-side.has-channel {
+      padding-left: calc(84px + env(safe-area-inset-left));
+    }
+    .player-screen.layout-side.has-channel .v-toolbar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: calc(84px + env(safe-area-inset-left));
+      padding: 6px 6px 6px calc(6px + env(safe-area-inset-left));
+      gap: 4px;
+      z-index: 70;
+      border-right: 1px solid rgba(255,255,255,0.14);
+    }
+    .player-screen.layout-side .video-area { flex: 0 0 62%; }
+    .v-toolbar .v-btn,
+    .v-toolbar .v-coffee,
+    .v-toolbar .v-social {
+      flex: 1 1 0;
+      min-height: 0;
+      padding: 4px 3px;
+      gap: 3px;
+      margin-top: 0;
+    }
+    .v-toolbar .v-btn-label,
+    .v-toolbar .v-key { display: none; }
+    .v-toolbar .v-btn-short {
+      display: block;
+      font-size: 6px;
+      letter-spacing: 0.5px;
+      color: rgba(0, 196, 255, 0.75);
+    }
+    .v-btn-value { font-size: 7px; letter-spacing: 0.5px; }
+    .v-btn--appletv { display: none; }
+    .v-toolbar .v-coffee { animation: none; }
+    .v-coffee svg { width: 16px; height: 16px; }
+    .v-coffee-label { font-size: 6px; letter-spacing: 0.5px; line-height: 1.4; }
+    .v-social { flex-direction: column; }
+    .v-social svg { width: 13px; height: 13px; }
+    .v-social-label { font-size: 6px; letter-spacing: 0.5px; }
+    @media (hover: none) {
+      .v-toolbar .v-btn:hover { background: rgba(0, 0, 0, 0.8); }
+      .v-toolbar .v-btn:hover .v-btn-short { color: rgba(0, 196, 255, 0.75); }
+      .v-toolbar .v-btn:hover .v-btn-value { color: var(--cyan); }
+      .v-toolbar .v-coffee:hover { background: var(--yellow); border-color: var(--yellow); transform: none; }
+    }
+
+    .player-screen.has-channel .player-logo { display: none; }
+    .player-screen.layout-side.has-channel .info-panel {
+      width: 32%;
+      padding: 12px 14px;
+      justify-content: center;
+    }
+    .info-channel-tag { font-size: 7px; letter-spacing: 1.5px; margin-bottom: 6px; line-height: 1.6; }
+    .info-title {
+      font-size: 19px;
+      line-height: 1.15;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-episode-title { font-size: 14px; margin-bottom: 4px; }
+    .info-description { display: none; }
+    .info-meta-row { font-size: 13px; gap: 6px; margin-bottom: 8px; }
+    .info-meta-badge { font-size: 6px; }
+    .info-time { font-size: 13px; }
+    .info-upnext { display: none; }
+
+    .grid-channel-col, .grid-row-channel { width: 96px; padding: 0 8px; }
+    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-row { height: 30px; }
+    .grid-ch-num { font-size: 15px; min-width: 16px; }
+    .grid-ch-name { font-size: 14px; letter-spacing: 0; }
+    .grid-time-slot { font-size: 15px; padding: 0 6px; white-space: nowrap; }
+    .grid-footer { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -1978,6 +2303,13 @@
   <!-- CORNER LOGO -->
   <div class="player-logo">
     <img src="./logo/nostalgex-white.svg" alt="Nostalgex">
+  </div>
+
+  <!-- TOUCH TOP BAR (phones and tablets only; the corner logo is fixed and
+       overlaps the channel tag once the info panel goes full width) -->
+  <div class="m-topbar" id="m-topbar">
+    <img class="m-topbar-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
+    <a class="m-topbar-action" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer">APPLE TV</a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -2001,23 +2333,29 @@
 
     <!-- VERTICAL TOOLBAR (beside info panel in side layout) -->
     <div class="v-toolbar" id="v-toolbar">
+      <!-- Each button carries a desktop label with its keyboard hint and a short
+           touch label without one. A key hint means nothing on a phone. -->
       <button class="v-btn" onclick="toggleMute()">
         <span class="v-btn-label">SOUND [M]</span>
+        <span class="v-btn-short">SOUND</span>
         <span class="v-btn-value" id="tb-sound-val">OFF</span>
       </button>
       <button class="v-btn" onclick="toggleFullscreen()">
         <span class="v-btn-label">FULLSCREEN</span>
-        <span class="v-btn-value">[F]</span>
+        <span class="v-btn-short">FULL SCREEN</span>
+        <span class="v-btn-value v-key">[F]</span>
       </button>
       <button class="v-btn" onclick="toggleRetroMode()">
         <span class="v-btn-label">RETRO [B]</span>
+        <span class="v-btn-short">RETRO</span>
         <span class="v-btn-value" id="tb-retro-val">ON</span>
       </button>
       <button class="v-btn" onclick="showConfig()">
         <span class="v-btn-label">SETTINGS</span>
-        <span class="v-btn-value">[H]</span>
+        <span class="v-btn-short">SETTINGS</span>
+        <span class="v-btn-value v-key">[H]</span>
       </button>
-      <a class="v-btn" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
+      <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
         <span class="v-btn-label">APPLE TV</span>
         <span class="v-btn-value">[↓]</span>
       </a>

@@ -3,6 +3,69 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-13 (web tuner: phones and tablets)
+
+**Shipped.** Nothing. The work is on the branch `web-tuner-mobile`, not merged.
+
+**Changed.** The web tuner had no real phone layout. Measured on a 393x852
+viewport, the video element rendered 393x0: the side layout put the info panel
+and the 140px toolbar in a column, they used the whole 650px video row, and the
+picture got nothing. The toolbar also overflowed its row on a 852x393 landscape
+phone and on an iPad, so the Instagram link was cut in half.
+
+The touch layouts now follow the shape already shipped on another product of
+Chad's: a slim top bar, the video first and edge to edge, the now-playing line
+compacted under it, the guide taking the rest, and the controls as a bar across
+the foot of the screen.
+
+- Portrait up to 1024px: the video is `order: -1`, full width, `aspect-ratio:
+  16 / 9`. The info panel sits under it with the description hidden, the title
+  clamped to two lines and the episode line to one. The guide fills what is
+  left. Measured on 393x852: video 393x221, info 115, guide 416, bar 56.
+- The toolbar becomes a fixed bar, `calc(56px + env(safe-area-inset-bottom))`
+  tall, six equal columns divided by hairlines, with
+  `padding-bottom: env(safe-area-inset-bottom)` so it clears the home
+  indicator. `.player-screen` gains matching padding so the guide is never
+  underneath it.
+- Six controls, not seven. Apple TV moved to the top right, as the one action
+  worth converting on when everything else is within thumb reach. The coffee
+  box keeps its warmth as a yellow wash and yellow type rather than a solid
+  slab, and loses the desktop glow, which is far too much at this size.
+- Keyboard hints are gone from touch labels. `[M]` and `[F]` mean nothing on a
+  phone, so each button carries a second short label that the touch layouts
+  swap in. Desktop keeps the hints.
+- Landscape phones (`max-height: 500px`) keep a vertical rail, because height
+  is the scarce dimension there and a bottom bar would cost 56px of 393. The
+  rail is now pinned to the left edge over the full height instead of being
+  confined to the video row: inside the row its six controls were 35px tall,
+  under the 44px a thumb needs, and the last one was clipped. Pinned, they
+  measure 71x60.
+- Tablet landscape keeps the side layout, since it is a good use of the width,
+  but loses the 140px toolbar column to the bottom bar and has its type
+  compacted. On 1194x834 the video went from 636 to 788 wide.
+- Two text bugs that were visible at tablet width: the fixed corner wordmark
+  printed on top of the channel tag (the top bar carries the mark now, and the
+  corner one is hidden on touch), and `.info-channel-tag` had no line-height,
+  so a tag wrapping to two lines printed them over each other in the pixel
+  font. Grid header times get `white-space: nowrap`; they were wrapping out of
+  the fixed 32px header into the rows below.
+
+Nothing outside a media query changed, so desktop and TV are untouched. Checked
+by measurement at 1440x900: video, info panel, toolbar and guide boxes are
+identical before and after, and the toolbar still shows seven controls with
+their keyboard hints.
+
+**Half-done.** Branch `web-tuner-mobile`. Verified only in headless Chromium at
+393x852, 852x393, 360x800, 834x1194, 1194x834 and 1440x900, driven against a
+synthetic fixture library. Not tried on a real phone or tablet, and not in
+Safari, which is where `env(safe-area-inset-*)`, `aspect-ratio` and sticky
+`:hover` after a tap actually matter. The hover-after-tap guard is written but
+unproven on a real iOS device. The video element was black in every shot
+because the fixture has no media, so the 16:9 box is confirmed by measurement
+rather than by picture.
+
+**Next.** Chad to open the branch on a phone and an iPad before it merges.
+
 ## 2026-10-13 (web tuner: Instagram in the toolbar)
 
 **Shipped.** Nothing yet. On main, goes out with the next deploy.
