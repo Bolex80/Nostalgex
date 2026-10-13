@@ -3294,7 +3294,9 @@
       fragment.appendChild(row);
 
       if (i === promoCoffeeAt) fragment.appendChild(buildPromoRow('coffee'));
+      // selfhost:strip:start
       if (i === promoEmailAt) fragment.appendChild(buildPromoRow('email'));
+      // selfhost:strip:end
     });
     gridBody.appendChild(fragment);
   }
@@ -7413,6 +7415,7 @@
   init();
 </script>
 
+<!-- selfhost:strip:start -->
 <!-- Email signup modal -->
 <div class="promo-modal" id="promo-modal" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
   <div class="promo-modal__inner">
@@ -7489,5 +7492,6 @@
   window.__openPromoModal = openPromoModal;
 })();
 </script>
+<!-- selfhost:strip:end -->
 </body>
 </html>
