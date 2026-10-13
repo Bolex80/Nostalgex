@@ -27,10 +27,17 @@ the foot of the screen.
   `padding-bottom: env(safe-area-inset-bottom)` so it clears the home
   indicator. `.player-screen` gains matching padding so the guide is never
   underneath it.
-- Six controls, not seven. Apple TV moved to the top right, as the one action
-  worth converting on when everything else is within thumb reach. The coffee
-  box keeps its warmth as a yellow wash and yellow type rather than a solid
-  slab, and loses the desktop glow, which is far too much at this size.
+- Six controls, not seven. The App Store link is dropped on touch rather than
+  moved: it points at a tvOS app, and nobody installs one of those from a
+  phone (owner's call). The top bar carries the wordmark and nothing else. The
+  coffee box keeps its warmth as a yellow wash and yellow type rather than a
+  solid slab, and loses the desktop glow, which is far too much at this size.
+- Desktop, short windows: the rail is centred, so once Instagram joined it the
+  content outgrew the video row and clipped SOUND at the top and Instagram at
+  the bottom. Measured 20px over at 1280x800 and 30px at 1440x760. Three
+  height tiers tighten the padding and gaps, and the rail scrolls from the top
+  (`justify-content: safe center`) rather than clipping if it ever does not
+  fit. Re-measured at 1280x650 through 1920x1080: nothing clipped anywhere.
 - Keyboard hints are gone from touch labels. `[M]` and `[F]` mean nothing on a
   phone, so each button carries a second short label that the touch layouts
   swap in. Desktop keeps the hints.

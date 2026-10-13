@@ -597,10 +597,15 @@
     padding: 20px 10px;
     width: 140px;
     flex-shrink: 0;
-    justify-content: center;
+    /* `safe` so a rail taller than its row scrolls from the top instead of
+       centring and clipping its first and last control. */
+    justify-content: safe center;
+    overflow-y: auto;
+    scrollbar-width: none;
     background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
     border-right: 1px solid rgba(255,255,255,0.07);
   }
+  .v-toolbar::-webkit-scrollbar { display: none; }
 
   .player-screen.layout-side.has-channel .v-toolbar {
     display: flex;
@@ -705,18 +710,6 @@
     opacity: 0.85;
     flex-shrink: 0;
   }
-  .m-topbar-action {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
-    letter-spacing: 1px;
-    color: var(--cyan);
-    text-decoration: none;
-    border: 2px solid var(--cyan);
-    padding: 9px 10px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .m-topbar-action:active { background: var(--cyan); color: #000; }
 
   /* Buy Me a Coffee box — the one button meant to stand out */
   @keyframes coffee-glow {
@@ -1979,6 +1972,33 @@
     margin-right: 4px;
   }
 
+  /* Short desktop windows: the rail is centred, so once its content is taller
+     than the video row it spills past both ends and clips SOUND at the top and
+     the Instagram link at the bottom. Measured at 1280x800 and 1440x760 after
+     Instagram joined the rail: 20px and 30px over. Tighten the padding and the
+     gaps rather than drop a control. Touch pointers are excluded because there
+     the rail is the bottom bar, which has its own sizing. */
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 900px) {
+    .v-toolbar { padding: 10px 10px; gap: 6px; }
+    .v-btn { padding: 8px; gap: 4px; }
+    .v-coffee { margin-top: 6px; padding: 9px 8px; gap: 5px; }
+    .v-social { margin-top: 6px; padding: 8px; }
+  }
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 760px) {
+    .v-toolbar { padding: 6px 10px; gap: 4px; }
+    .v-btn { padding: 6px 8px; }
+    .v-coffee { margin-top: 4px; padding: 7px 8px; gap: 4px; }
+    .v-coffee svg { width: 26px; height: 26px; }
+    .v-social { margin-top: 4px; padding: 6px; }
+  }
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 700px) {
+    .v-toolbar { padding: 4px 10px; gap: 3px; }
+    .v-btn { padding: 4px 8px; gap: 3px; }
+    .v-coffee { margin-top: 3px; padding: 6px 8px; gap: 3px; }
+    .v-coffee svg { width: 22px; height: 22px; }
+    .v-social { margin-top: 3px; padding: 5px; }
+  }
+
   /* ══════════════════════════════════════
      RESPONSIVE
   ══════════════════════════════════════ */
@@ -2306,10 +2326,11 @@
   </div>
 
   <!-- TOUCH TOP BAR (phones and tablets only; the corner logo is fixed and
-       overlaps the channel tag once the info panel goes full width) -->
+       overlaps the channel tag once the info panel goes full width). The right
+       hand slot is empty on purpose: the App Store link that sat here was for a
+       tvOS app, which nobody installs from a phone. -->
   <div class="m-topbar" id="m-topbar">
     <img class="m-topbar-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
-    <a class="m-topbar-action" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer">APPLE TV</a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
