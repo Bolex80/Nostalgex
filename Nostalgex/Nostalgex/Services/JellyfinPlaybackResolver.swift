@@ -292,19 +292,38 @@ enum JellyfinPlaybackResolver {
 
         // 2) No transcode URL but the source is directly playable — static stream.
         if source?.SupportsDirectPlay == true {
-            guard var c = URLComponents(string: "\(serverURL)/Videos/\(itemId)/stream") else { return nil }
-            c.queryItems = [
-                .init(name: "Static", value: "true"),
-                .init(name: "MediaSourceId", value: source?.Id ?? mediaSourceId ?? itemId),
-                .init(name: "api_key", value: apiKey),
-            ]
-            if let url = c.url {
+            if let url = staticStreamURL(serverURL: serverURL, itemId: itemId,
+                                         mediaSourceId: source?.Id ?? mediaSourceId ?? itemId, apiKey: apiKey) {
                 return PlaybackResolution(url: url, playSessionId: info.PlaySessionId, isDirectPlay: true)
             }
         }
 
         // 3) Nothing playable (e.g. transcoding disabled server-side).
         return nil
+    }
+
+    /// The direct-play URL for Jellyfin and Emby: the file as stored, served whole.
+    ///
+    /// The `.mp4` on the path is load-bearing. Without it the server labels the response by
+    /// the file's name, not by what is inside it, and AVPlayer goes by the label. An MP4
+    /// saved as `.mkv` (common for downloads; ffprobe reads `mov,mp4,m4a,3gp,3g2,mj2`) came
+    /// back as `video/x-matroska` and AVPlayer refused it in 0.3 s with -11828 "Cannot Open"
+    /// (-12847, "This media format is not supported"). The same bytes asked for as
+    /// `stream.mp4` came back as `video/mp4` and played. Measured on the tvOS 26.1
+    /// simulator against Jellyfin 12.2.0 on 2026-10-12.
+    ///
+    /// `Static=true` still serves the file untouched, whatever the extension says; only the
+    /// label changes. `.mp4` is right for every file that gets here: direct play is offered
+    /// only for the `mp4`, `m4v` and `mov` containers, client and server side alike, and
+    /// AVPlayer reads all three as `video/mp4` (a real QuickTime `.mov` played too).
+    static func staticStreamURL(serverURL: String, itemId: String, mediaSourceId: String, apiKey: String) -> URL? {
+        guard var c = URLComponents(string: "\(serverURL)/Videos/\(itemId)/stream.mp4") else { return nil }
+        c.queryItems = [
+            .init(name: "Static", value: "true"),
+            .init(name: "MediaSourceId", value: mediaSourceId),
+            .init(name: "api_key", value: apiKey),
+        ]
+        return c.url
     }
 
     /// Builds an absolute URL from Jellyfin's (usually server-relative) TranscodingUrl,

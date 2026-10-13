@@ -433,13 +433,11 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         if let audioCodec = item.audioCodec?.lowercased(), !Self.supportedAudioCodecs.contains(audioCodec) {
             return nil
         }
-        guard var components = URLComponents(string: "\(serverURL)/Videos/\(item.ratingKey)/stream") else { return nil }
-        components.queryItems = [
-            .init(name: "Static", value: "true"),
-            .init(name: "MediaSourceId", value: item.partKey ?? item.ratingKey),
-            .init(name: "api_key", value: accessToken),
-        ]
-        return components.url
+        // `stream.mp4`, not `stream`: see JellyfinPlaybackResolver.staticStreamURL.
+        return JellyfinPlaybackResolver.staticStreamURL(
+            serverURL: serverURL, itemId: item.ratingKey,
+            mediaSourceId: item.partKey ?? item.ratingKey, apiKey: accessToken
+        )
     }
 
     func buildTranscodeURL(for item: PlexMediaItem) -> URL? {
@@ -463,7 +461,27 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
             .init(name: "TranscodingMaxAudioChannels", value: "6"),
             .init(name: "SegmentContainer", value: "mp4"),
         ]
-        return components.url
+        return components.url.map { Self.addingApiKey($0, token: accessToken) }
+    }
+
+    /// Adds `ApiKey` beside `api_key` on a URL AVPlayer fetches without our headers.
+    ///
+    /// Jellyfin 12.2 ignores `api_key` unless the admin turns on "legacy authorization",
+    /// and a fresh install has it off (`EnableLegacyAuthorization` false in system.xml).
+    /// The hand-built HLS URLs carried only `api_key`, so on such a server the runtime
+    /// fallback after a failed direct play, and the 1080p starvation rung, were answered
+    /// 401 before ffmpeg started. The failure probe then retried the master playlist with
+    /// the Authorization header, got 200, and the card said "This one wouldn't play" with
+    /// no reason. Measured 2026-10-12: master.m3u8 with `api_key` 401, with `ApiKey` 200,
+    /// and `api_key` 200 again once legacy authorization was switched on. `api_key` stays
+    /// for servers older than `ApiKey`. PlaybackInfo's TranscodingUrl already has `ApiKey`.
+    static func addingApiKey(_ url: URL, token: String) -> URL {
+        guard var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = c.queryItems ?? []
+        guard !items.contains(where: { $0.name == "ApiKey" }) else { return url }
+        items.append(.init(name: "ApiKey", value: token))
+        c.queryItems = items
+        return c.url ?? url
     }
 
     // MARK: - Playback negotiation (PlaybackInfo) + session lifecycle
@@ -524,7 +542,7 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         JellyfinPlaybackResolver.cappedTranscodeURL(
             serverURL: serverURL, item: item, accessToken: accessToken,
             deviceID: deviceID, sessionID: sessionID, supportsHEVC: Self.deviceSupportsHEVC
-        )
+        ).map { Self.addingApiKey($0, token: accessToken) }
     }
 
     /// Jellyfin rejects a start time on segment requests, so the capped stream starts at
