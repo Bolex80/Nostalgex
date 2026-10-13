@@ -260,7 +260,8 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
                     imdbID: show.imdbID,
                     librarySource: .tv,
                     serverID: serverID.isEmpty ? nil : serverID,
-                    videoBitDepth: source?.videoBitDepth
+                    videoBitDepth: source?.videoBitDepth,
+                    showKey: show.Id
                 )
             }
         } catch {
@@ -362,8 +363,11 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
         return boxSets
     }
 
+    /// Same query as Jellyfin, different answer: with `Recursive=true` Emby 4.10 hands
+    /// back a series' episodes rather than the series itself (measured on a lab server).
+    /// The collection matcher takes episode ids as well as series ids, so either works.
     func loadCollectionItems(collectionKey: String) async throws -> [String] {
-        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie").map(\.Id)
+        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie,Series").map(\.Id)
     }
 
     // MARK: - Stream URLs

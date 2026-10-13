@@ -268,7 +268,8 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
                     imdbID: show.imdbID,
                     librarySource: .tv,
                     serverID: serverID.isEmpty ? nil : serverID,
-                    videoBitDepth: source?.videoBitDepth
+                    videoBitDepth: source?.videoBitDepth,
+                    showKey: show.Id
                 )
             }
         } catch {
@@ -398,10 +399,12 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         return boxSets
     }
 
-    /// Movie ids inside a BoxSet. Ids match the ratingKeys parsed in `parseMovieItem`,
-    /// which is what lets the shared collection matcher pair them with library items.
+    /// Film and series ids inside a BoxSet. Film ids match the ratingKeys parsed in
+    /// `parseMovieItem`; a series id matches the `showKey` on that series' episodes, so
+    /// the shared collection matcher can expand it (CollectionMemberIndex). Asking for
+    /// Movie alone dropped every series, so a BoxSet of shows read as empty.
     func loadCollectionItems(collectionKey: String) async throws -> [String] {
-        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie").map(\.Id)
+        try await fetchAllItems(parentId: collectionKey, includeItemTypes: "Movie,Series").map(\.Id)
     }
 
     // MARK: - Stream URLs

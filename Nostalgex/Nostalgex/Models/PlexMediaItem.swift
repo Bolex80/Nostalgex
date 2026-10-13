@@ -71,6 +71,12 @@ struct PlexMediaItem: Identifiable, Hashable {
     var partIndex: Int = 0
     var playbackParts: [PlexPartPlaybackInfo]? = nil
     var exactDurationSeconds: Double? = nil
+    /// Episodes only: the server-local id of the show (Plex `grandparentRatingKey`,
+    /// Jellyfin and Emby `SeriesId`). A collection of shows lists the shows, not their
+    /// episodes, so this is what lets the collection scan expand a show into the
+    /// episodes the library load already holds. Optional so older snapshots still
+    /// decode; nil until the next full library scan.
+    var showKey: String? = nil
 }
 
 extension PlexMediaItem {
@@ -95,7 +101,8 @@ extension PlexMediaItem {
             videoBitDepth: part == nil ? videoBitDepth : part?.bitDepth, doviProfile: part == nil ? doviProfile : part?.doviProfile,
             videoWidth: videoWidth, videoHeight: videoHeight,
             mediaIndex: mediaIndex, partIndex: (additionalPartKeys?.firstIndex(of: key).map { $0 + 1 }) ?? partIndex,
-            playbackParts: playbackParts, exactDurationSeconds: exactDurationSeconds
+            playbackParts: playbackParts, exactDurationSeconds: exactDurationSeconds,
+            showKey: showKey
         )
     }
 
@@ -130,6 +137,7 @@ extension PlexMediaItem: Codable {
         case viewCount, addedAt, studio, tmdbID, imdbID, librarySource, serverID
         case additionalPartKeys
         case videoBitDepth, doviProfile, videoWidth, videoHeight, mediaIndex, partIndex, playbackParts, exactDurationSeconds
+        case showKey
     }
 
     init(from decoder: Decoder) throws {
@@ -173,6 +181,7 @@ extension PlexMediaItem: Codable {
         partIndex = try c.decodeIfPresent(Int.self, forKey: .partIndex) ?? 0
         playbackParts = try c.decodeIfPresent([PlexPartPlaybackInfo].self, forKey: .playbackParts)
         exactDurationSeconds = try c.decodeIfPresent(Double.self, forKey: .exactDurationSeconds)
+        showKey = try c.decodeIfPresent(String.self, forKey: .showKey)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -216,5 +225,6 @@ extension PlexMediaItem: Codable {
         try c.encode(partIndex, forKey: .partIndex)
         try c.encodeIfPresent(playbackParts, forKey: .playbackParts)
         try c.encodeIfPresent(exactDurationSeconds, forKey: .exactDurationSeconds)
+        try c.encodeIfPresent(showKey, forKey: .showKey)
     }
 }

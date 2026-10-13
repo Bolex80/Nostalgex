@@ -2154,7 +2154,7 @@
 
       <div class="config-section-label" style="margin-top: 28px;">MY COLLECTIONS</div>
       <div style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px; margin-bottom: 16px;">
-        Collections on your server with 3 or more movies. Switch one on and it airs from CH 500.
+        Collections on your server with 3 or more movies or episodes. Switch one on and it airs from CH 500.
       </div>
       <div id="collections-status" style="color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 1px; margin-bottom: 12px;"></div>
       <div id="collection-list">
@@ -5035,7 +5035,7 @@
   }
 
   // Mirrors the MY COLLECTIONS rows in BundleManagerView.swift: one switch per server
-  // collection, "N movies" or the duplicate warning underneath.
+  // collection, "N movies" / "N shows · E episodes" or the duplicate warning underneath.
   function renderCollectionList() {
     const container = document.getElementById('collection-list');
     const statusEl = document.getElementById('collections-status');
@@ -5051,7 +5051,7 @@
     } else if (collectionScanState === 'failed' && !rows.length) {
       status = 'COULD NOT READ COLLECTIONS FROM YOUR SERVER';
     } else if (rawCollections && !rows.length) {
-      status = 'NO COLLECTIONS WITH 3 OR MORE MOVIES';
+      status = 'NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES';
     } else if (rows.length) {
       status = `${onAir}/${rows.length} ON AIR`;
     }
@@ -5069,7 +5069,7 @@
       const isFocused = configTab === 'bundles' && idx === bundleFocusIndex;
       const ch = channelByCollection.get(c.id);
       const warning = CL ? CL.duplicateWarning(c) : null;
-      const subtitle = warning || `${c.movieCount} movies`;
+      const subtitle = warning || (CL ? CL.memberSummary(c) : `${c.movieCount} movies`);
 
       const row = document.createElement('div');
       row.className = 'bundle-row';
@@ -5092,8 +5092,8 @@
       const right = ch
         ? `<div style="font-size: 14px; color: var(--cyan); letter-spacing: 1px;">CH ${ch.number}</div>
            <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">CHANNEL</div>`
-        : `<div style="font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${c.movieCount}</div>
-           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">MOVIES</div>`;
+        : `<div style="font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${c.showCount ? (c.movieCount || 0) + c.showCount : c.movieCount}</div>
+           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${!c.showCount ? 'MOVIES' : (c.movieCount ? 'TITLES' : 'SHOWS')}</div>`;
       row.innerHTML = `
         <div class="toggle-switch ${c.enabled ? 'on' : ''}" style="flex-shrink: 0;"></div>
         <div style="flex: 1; min-width: 0;">
@@ -6206,21 +6206,17 @@
     const CL = globalThis.NostalgexCollections;
     if (!CL || !rawCollections || !allItemsCache.length) return;
 
-    const moviesByServer = new Map();
-    for (const it of allItemsCache) {
-      if (!it || it.type !== 'movie') continue;
-      const key = collectionServerKeyForItem(it);
-      if (!moviesByServer.has(key)) moviesByServer.set(key, new Map());
-      const byKey = moviesByServer.get(key);
-      if (!byKey.has(String(it.ratingKey))) byKey.set(String(it.ratingKey), it);
-    }
+    // Films and episodes, with episodes grouped by show, so a collection of shows
+    // expands to the episodes already loaded. This indexed films only, which is where
+    // a collection of shows lost every member.
+    const indexByServer = CL.indexLibrary(allItemsCache, collectionServerKeyForItem);
     // What the app compares against (its `allChannels`): every stock channel built with
     // enough to air, whether or not its bundle is switched on. Fold targets are the
     // FRANCHISES bundle's channels among them (`availableStockFranchiseChannelIDs`).
     const staticChannels = allChannelsUnfiltered.filter(ch =>
       ch.stock && !ch.collection && (ch.itemPool || []).length >= (ch.minItems || 50));
     const franchiseIDs = new Set((bundles.find(b => b.id === 'franchises') || {}).channelIDs || []);
-    collectionCandidates = CL.buildCandidates(rawCollections, moviesByServer, {
+    collectionCandidates = CL.buildCandidates(rawCollections, indexByServer, {
       staticChannels,
       channelsByID: new Map(allChannelsUnfiltered.map(ch => [ch.id, ch])),
       franchiseChannels: staticChannels.filter(ch => franchiseIDs.has(ch.id)),
@@ -6441,6 +6437,9 @@
                     rating: show.CommunityRating || 0,
                     userRating: 0,
                     type: 'episode',
+                    // The series id, which a BoxSet of shows lists in place of its
+                    // episodes. NostalgexCollections.indexLibrary expands it.
+                    showKey: String(show.Id),
                     thumb: null,
                     art: null,
                     viewCount: (ep.UserData && ep.UserData.PlayCount) || 0,
@@ -6739,6 +6738,9 @@
                       rating: show.rating || 0,
                       userRating: show.userRating || 0,
                       type: 'episode',
+                      // The show's key (episode grandparentRatingKey), which a collection
+                      // of shows lists. NostalgexCollections.indexLibrary expands it.
+                      showKey: String(show.ratingKey),
                       thumb: ep.thumb || show.thumb,
                       art: show.art,
                       viewCount: ep.viewCount || 0,

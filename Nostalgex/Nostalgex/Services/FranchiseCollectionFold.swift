@@ -58,11 +58,28 @@ enum FranchiseCollectionFold {
                                  availableStock: availableStock,
                                  enrichmentFor: enrichmentFor,
                                  definitions: definitions,
-                                 threshold: overlapThresholdPercent) {
+                                 threshold: overlapThresholdPercent),
+               carriesEveryShow(of: collection, target) {
                 result[collection.id] = target.label
             }
         }
         return result
+    }
+
+    /// A folded collection is hidden and never built, so folding is only safe when the
+    /// franchise already airs everything in it. Films were the whole story while the scan
+    /// kept only films. A collection that holds shows folds only into a franchise whose
+    /// pool has at least one episode of each of them; otherwise it stays its own channel
+    /// rather than losing the shows (a "Star Trek" set of films and series must not
+    /// vanish into a films-only STAR TREK). Films-only collections pass untouched.
+    static func carriesEveryShow(of collection: DiscoveredCollection, _ target: Target) -> Bool {
+        var covered: [String: Bool] = [:]
+        for item in collection.items where item.type == .episode {
+            let show = CollectionMemberIndex.showIdentity(of: item)
+            if covered[show] == true { continue }
+            covered[show] = target.itemIDs.contains(item.id)
+        }
+        return covered.values.allSatisfy { $0 }
     }
 
     private static func fold(

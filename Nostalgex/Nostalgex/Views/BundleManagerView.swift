@@ -660,7 +660,7 @@ struct SettingsPageView: View {
             if expanded {
                 ForEach(rows) { collection in
                     let warning = duplicateWarning(for: collection)
-                    let subtitle = warning ?? "\(collection.movieCount) movies"
+                    let subtitle = warning ?? collection.memberSummary
                     SettingsToggleRow(
                         title: collection.title,
                         subtitle: subtitle,
@@ -682,7 +682,8 @@ struct SettingsPageView: View {
     /// Subtitle text when a discovered Plex collection looks like a duplicate of
     /// an existing channel. Content overlap (from the TMDB membership manifest)
     /// is the strongest signal; name match is the fallback. Returns nil when
-    /// there's no warning, so the row falls back to "<N> movies".
+    /// there's no warning, so the row falls back to its member summary ("<N> movies",
+    /// "<N> shows · <E> episodes").
     private func duplicateWarning(for collection: DiscoveredCollection) -> String? {
         if let overlap = collection.contentOverlap {
             return "⚠ \(overlap.percent)% already on \(overlap.channelName)"

@@ -327,13 +327,13 @@ extension AppState {
         for server in serversToScan {
             let scanAPI = server.machineIdentifier.isEmpty ? api : apiForServer(server)
 
-            // Movies from THIS server, keyed by raw ratingKey.
-            let itemsByKey = Dictionary(
-                allItems
-                    .filter { $0.type == .movie && ($0.serverID ?? "") == server.machineIdentifier }
-                    .map { ($0.ratingKey, $0) },
-                uniquingKeysWith: { first, _ in first }
-            )
+            // Films and episodes from THIS server, keyed by raw ratingKey, with episodes
+            // also grouped by show so a show in a collection expands to its episodes.
+            // This used to index films only, which is where a collection of shows lost
+            // every member and was skipped as "0 movies".
+            let serverItems = allItems.filter { ($0.serverID ?? "") == server.machineIdentifier }
+            let memberIndex = CollectionMemberIndex(items: serverItems)
+            let serverMovieCount = serverItems.collectionMovieCount
 
             scanningMessage = "Reading collections on \(server.name)…"
             libraryLoadDetail = scanningMessage
@@ -343,7 +343,9 @@ extension AppState {
                 print("[Plex90] COLLECTIONS: '\(server.name)' failed to load sections")
                 continue
             }
-            let movieSections = sections.filter { $0.type == "movie" }
+            // TV libraries too: a Plex collection of shows lives in the TV library, and
+            // reading movie libraries only meant it was never even listed.
+            let collectionSections = sections.filter { $0.type == "movie" || $0.type == "show" }
 
             // Deduped by id: Plex scopes collections to a section, but Jellyfin and Emby
             // keep BoxSets in a virtual folder outside any library and hand back the same
@@ -351,14 +353,14 @@ extension AppState {
             // and match each collection twice.
             var serverCollections: [PlexCollection] = []
             var seenCollectionKeys = Set<String>()
-            for section in movieSections {
+            for section in collectionSections {
                 if let collections = try? await scanAPI.loadCollections(sectionKey: section.key) {
                     for collection in collections where seenCollectionKeys.insert(collection.ratingKey).inserted {
                         serverCollections.append(collection)
                     }
                 }
             }
-            print("[Plex90] COLLECTIONS: '\(server.name)' \(serverCollections.count) collections, \(itemsByKey.count) movies")
+            print("[Plex90] COLLECTIONS: '\(server.name)' \(serverCollections.count) collections, \(serverMovieCount) movies, \(serverItems.count - serverMovieCount) episodes")
 
             collectionScanIndex = 0
             collectionScanTotal = serverCollections.count
@@ -379,14 +381,18 @@ extension AppState {
                 }
 
                 if !loggedSampleKeys && !childKeys.isEmpty {
-                    print("[Plex90] COLLECTIONS: key sample \(childKeys.prefix(3)) vs \(Array(itemsByKey.keys.prefix(3)))")
+                    print("[Plex90] COLLECTIONS: key sample \(childKeys.prefix(3)) vs \(serverItems.prefix(3).map(\.ratingKey))")
                     loggedSampleKeys = true
                 }
 
-                let matchedItems = childKeys.compactMap { itemsByKey[$0] }
-                guard matchedItems.count >= 3 else {
+                let matchedItems = memberIndex.resolve(childKeys)
+                let matchedMovies = matchedItems.collectionMovieCount
+                let membersLog = DiscoveredCollection.memberSummary(
+                    movies: matchedMovies, shows: matchedItems.collectionShowCount,
+                    episodes: matchedItems.count - matchedMovies)
+                guard matchedItems.count >= CollectionMemberIndex.minimumItems else {
                     if !matchedItems.isEmpty {
-                        print("[Plex90] COLLECTIONS: '\(collection.title)' -> \(matchedItems.count) movies (too few, need 3+)")
+                        print("[Plex90] COLLECTIONS: '\(collection.title)' -> \(membersLog) (too few, need \(CollectionMemberIndex.minimumItems)+)")
                     }
                     continue
                 }
@@ -426,17 +432,19 @@ extension AppState {
                 // franchiseID truth (shared TMDB collection = franchise) without the
                 // closure having to touch MainActor-isolated state.
                 var enrichmentByID: [String: MediaEnrichment] = [:]
-                for mi in matchedItems {
+                for mi in matchedItems where mi.type == .movie {   // the classifier reads films only
                     if let e = enrichmentService.enrichment(for: mi) { enrichmentByID[mi.id] = e }
                 }
                 let category = CollectionClassifier.classify(
                     title: collection.title, items: matchedItems,
                     enrichmentFor: { enrichmentByID[$0.id] })
-                let overlap = computeContentOverlap(items: matchedItems)
+                // One entry per show, so a long-running show does not outweigh the rest of
+                // the collection in "N% already on CH X".
+                let overlap = computeContentOverlap(items: matchedItems.collectionTitleRepresentatives)
                 collections4Plus.append(DiscoveredCollection(
                     id: collectionID,
                     title: collection.title.uppercased(),
-                    movieCount: matchedItems.count,
+                    movieCount: matchedMovies,
                     items: matchedItems,
                     enabled: enabledCollectionKeys.contains(collectionID),
                     matchedChannel: matched?.label,
@@ -444,7 +452,7 @@ extension AppState {
                     category: category
                 ))
                 let overlapLog = overlap.map { " (overlap: \($0.percent)% on \($0.channelName))" } ?? ""
-                print("[Plex90] COLLECTIONS: '\(collection.title)' -> \(matchedItems.count) movies [\(category.rawValue)]\(matched.map { " (matches \($0.label))" } ?? "")\(overlapLog)")
+                print("[Plex90] COLLECTIONS: '\(collection.title)' -> \(membersLog) [\(category.rawValue)]\(matched.map { " (matches \($0.label))" } ?? "")\(overlapLog)")
             }
         }
 
