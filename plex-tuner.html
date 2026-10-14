@@ -3702,14 +3702,80 @@
   // requests for a single dead segment while an unrelated channel played.
   let activeTranscodeSession = null;
 
+  // A tune owns its resolver, loader, callbacks and server session. Abort saves work;
+  // the generation/reference check is what prevents an ignored abort or a queued event
+  // from an older tune (including A -> B -> A) from touching the current selection.
+  let playbackRequestGeneration = 0;
+  let activePlaybackRequest = null;
+
+  function ownsPlaybackRequest(request) {
+    return !!request && activePlaybackRequest === request
+      && request.generation === playbackRequestGeneration
+      && !request.controller.signal.aborted
+      && currentChannel === request.channelId
+      && mediaBackend === request.backend
+      && (request.backend !== 'jellyfin' || jellyfinUserId === request.userId)
+      && plexServerUrl === request.serverUrl && plexToken === request.token;
+  }
+
+  function stopTranscodeSession(session) {
+    if (!session || session.stopped || !session.id) return;
+    // A server may reuse an id. A late result must never release the current owner.
+    if (activeTranscodeSession && activeTranscodeSession !== session
+        && activeTranscodeSession.backend === session.backend
+        && activeTranscodeSession.serverUrl === session.serverUrl
+        && activeTranscodeSession.id === session.id) return;
+    session.stopped = true;
+    let url;
+    let options = { keepalive: true };
+    if (session.backend === 'jellyfin') {
+      url = `${session.serverUrl}/Videos/ActiveEncodings`
+        + `?deviceId=${encodeURIComponent(session.deviceId)}&playSessionId=${encodeURIComponent(session.id)}`;
+      url = NostalgexJellyfinUrls.withApiKey(url, session.token);
+      options.method = 'DELETE';
+      options.headers = { Authorization: session.authorization };
+    } else {
+      url = `${session.serverUrl}/video/:/transcode/universal/stop`
+        + `?session=${encodeURIComponent(session.id)}&X-Plex-Token=${encodeURIComponent(session.token)}`;
+    }
+    // Always use the outgoing session's captured credentials and exact id. Never stop
+    // by device alone: a late resolver could otherwise terminate the newly tuned stream.
+    fetch(url, options).catch(() => {});
+  }
+
   function stopActiveTranscode() {
     const session = activeTranscodeSession;
     activeTranscodeSession = null;
-    if (!session || mediaBackend === 'jellyfin') return;
-    const url = `${session.serverUrl}/video/:/transcode/universal/stop`
-      + `?session=${encodeURIComponent(session.id)}&X-Plex-Token=${encodeURIComponent(session.token)}`;
-    // Best effort: the channel has already moved on either way.
-    fetch(url, { keepalive: true }).catch(() => {});
+    stopTranscodeSession(session);
+  }
+
+  function invalidatePlaybackRequest() {
+    const request = activePlaybackRequest;
+    activePlaybackRequest = null;
+    playbackRequestGeneration += 1;
+    if (request) {
+      request.controller.abort();
+      request.cleanups.forEach(cleanup => cleanup());
+      request.cleanups.length = 0;
+    }
+    disarmPlayRetry();
+    clearSubtitleTracks();
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    stopActiveTranscode();
+    currentPlayingItem = null;
+  }
+
+  function beginPlaybackRequest(item, channel) {
+    invalidatePlaybackRequest();
+    const request = {
+      generation: playbackRequestGeneration, controller: new AbortController(), cleanups: [],
+      item, channelId: channel.id, backend: mediaBackend,
+      serverUrl: plexServerUrl, token: plexToken,
+      deviceId: getClientId(), userId: jellyfinUserId,
+      authorization: mediaBackend === 'jellyfin' ? jellyfinAuthHeader() : null,
+    };
+    activePlaybackRequest = request;
+    return request;
   }
   let appState = 'connect'; // 'connect' | 'player' | 'guide' | 'config'
   let discoveredGenres = {}; // { genreName: itemCount }
@@ -3736,6 +3802,8 @@
   let currentPlayingItem = null;
   const activeSubtitleTracks = [];
   const activeSubtitleBlobUrls = [];
+  let subtitleRequestGeneration = 0;
+  let subtitleRequestController = null;
 
   // ══════════════════════════════════════
   // INITIALIZE
@@ -4375,7 +4443,7 @@
     const now = ch.schedule[0];
     const next = ch.schedule[1];
 
-    if (!now) return;
+    if (!now) { stopVideo(); return; }
 
     // Gentle tuning haze on channel change — a soft fade (via the overlay's 0.35s CSS
     // transition) at a restrained peak, not a hard full-brightness flash. Skipped when
@@ -4458,7 +4526,7 @@
   // URL causes 400s on segments AND lets Jellyfin copy h265 video through (black screen +
   // audio). The DeviceProfile's DirectPlayProfiles deliberately omit h265 so the server
   // always transcodes it. Falls back to a hand-built URL if PlaybackInfo is unavailable.
-  async function getJellyfinTranscodeUrl(item) {
+  async function getJellyfinTranscodeUrl(item, request) {
     const msid = item.partKey || item.ratingKey;
     const startTicks = item.offsetSeconds ? Math.floor(item.offsetSeconds) * 10000000 : 0;
     // No StartTimeTicks on the fallback URL. Jellyfin copies the master's query string onto
@@ -4473,11 +4541,19 @@
     // 400. A direct play that failed lands here, because PlaybackInfo offers no
     // TranscodingUrl for a file it thinks the browser can already play.
     const fallback = NostalgexJellyfinUrls.fallbackHlsUrl({
-      serverUrl: plexServerUrl,
+      serverUrl: request.serverUrl,
       itemId: item.ratingKey,
       mediaSourceId: msid,
-      token: plexToken,
-      deviceId: getClientId(),
+      token: request.token,
+      deviceId: request.deviceId,
+    });
+    const result = (url, sessionId = null) => ({
+      url,
+      session: {
+        backend: request.backend, serverUrl: request.serverUrl, token: request.token,
+        deviceId: request.deviceId, authorization: request.authorization,
+        id: (url && new URL(url, request.serverUrl).searchParams.get('PlaySessionId')) || sessionId,
+      },
     });
     const deviceProfile = {
       MaxStreamingBitrate: 120000000,
@@ -4492,9 +4568,10 @@
       SubtitleProfiles: [],
     };
     try {
-      const res = await fetch(`${plexServerUrl}/Items/${item.ratingKey}/PlaybackInfo?userId=${encodeURIComponent(jellyfinUserId)}`, {
+      const res = await fetch(`${request.serverUrl}/Items/${item.ratingKey}/PlaybackInfo?userId=${encodeURIComponent(request.userId)}`, {
         method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': jellyfinAuthHeader() },
+        signal: request.controller.signal,
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': request.authorization },
         body: JSON.stringify((() => {
           const body = {
             DeviceProfile: deviceProfile,
@@ -4507,17 +4584,18 @@
           return body;
         })()),
       });
-      if (!res.ok) return fallback;
+      if (!res.ok) return ownsPlaybackRequest(request) ? result(fallback) : null;
       const data = await res.json();
       const sources = data.MediaSources || [];
       const source = sources.find(s => s.Id === msid) || sources[0];
       if (source && source.TranscodingUrl) {
-        return NostalgexJellyfinUrls.withApiKey(`${plexServerUrl}${source.TranscodingUrl}`, plexToken);
+        return result(NostalgexJellyfinUrls.withApiKey(request.serverUrl + source.TranscodingUrl, request.token), data.PlaySessionId);
       }
-      return fallback;
+      return ownsPlaybackRequest(request) ? result(fallback) : result(null, data.PlaySessionId);
     } catch (e) {
+      if (!ownsPlaybackRequest(request) || e.name === 'AbortError') return null;
       console.warn('[Nostalgex] PlaybackInfo failed, using fallback transcode URL:', e);
-      return fallback;
+      return ownsPlaybackRequest(request) ? result(fallback) : null;
     }
   }
 
@@ -4737,16 +4815,20 @@
   // rejected every play() the schedule made outside a gesture.
   let pendingPlayRetry = null;
   function startVideoPlayback(video) {
+    const request = activePlaybackRequest;
+    if (!ownsPlaybackRequest(request)) return;
     const p = video.play();
     if (!p || !p.catch) return;
     p.catch(e => {
+      if (!ownsPlaybackRequest(request)) return;
       console.warn('Playback blocked, will retry on the next tap or key:', e);
-      armPlayRetry(video);
+      armPlayRetry(video, request);
     });
   }
-  function armPlayRetry(video) {
+  function armPlayRetry(video, request) {
     if (pendingPlayRetry) return;   // one armed listener, not one per refused play
     const retry = () => {
+      if (!ownsPlaybackRequest(request)) return;
       disarmPlayRetry();
       // Only chase it if the element still wants to be playing (the viewer did not
       // deliberately pause, and the channel did not move on).
@@ -4766,6 +4848,12 @@
   }
 
   async function playCurrentItem(item, channel) {
+    const request = beginPlaybackRequest(item, channel);
+    const video = document.getElementById('plex-video');
+    video.onplaying = video.onwaiting = video.onpause = video.onended = video.onerror = video.ontimeupdate = null;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
     // Finalize the previous program's tracker before starting a new one.
     if (playbackTracker) { playbackTracker.stop(); playbackTracker = null; }
 
@@ -4781,7 +4869,6 @@
 
     clearVideoError();
     disarmPlayRetry();   // a retry armed for the outgoing program must not start this one
-    const video = document.getElementById('plex-video');
 
     // Hide the text display
     document.getElementById('channel-display').classList.remove('active');
@@ -4790,9 +4877,6 @@
     // container does NOT reveal the codec (an mp4 can hold HEVC). So decide by the actual
     // video/audio codec when we have it; the video.onerror handler falls back to transcode
     // if we still guess wrong. canDirectPlay is function-scoped so onerror can read it.
-    // Release the outgoing transcode before a new session id is minted below, or we would
-    // be stopping the id we are about to start (and never releasing the old one).
-    stopActiveTranscode();
 
     let streamUrl;
     let canDirectPlay = false;
@@ -4821,7 +4905,14 @@
         });
       } else {
         // Let Jellyfin build the transcode URL (valid PlaySessionId, forced h264/aac).
-        streamUrl = await getJellyfinTranscodeUrl(item);
+        const resolved = await getJellyfinTranscodeUrl(item, request);
+        if (!ownsPlaybackRequest(request)) {
+          stopTranscodeSession(resolved && resolved.session);
+          return;
+        }
+        if (!resolved) return;
+        streamUrl = resolved.url;
+        activeTranscodeSession = resolved.session;
       }
     } else {
       canDirectPlay = !item._forceTranscode && item.partKey && ['mp4', 'webm', 'mov'].includes(item.container);
@@ -4837,7 +4928,7 @@
         // HLS transcode - works for all formats
         const transcodeSessionId = (crypto.randomUUID && crypto.randomUUID())
           || `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        activeTranscodeSession = { id: transcodeSessionId, serverUrl: itemServerUrl, token: itemServerToken };
+        activeTranscodeSession = { backend: request.backend, id: transcodeSessionId, serverUrl: itemServerUrl, token: itemServerToken };
         streamUrl = `${itemServerUrl}/video/:/transcode/universal/start.m3u8`
           + `?path=${encodeURIComponent('/library/metadata/' + item.ratingKey)}`
           + `&mediaIndex=0&partIndex=0&protocol=hls`
@@ -4853,12 +4944,7 @@
       }
     }
 
-    // Destroy the previous loader so it cannot sit there requesting segments of a session
-    // that has already been released above.
-    if (hlsInstance) {
-      hlsInstance.destroy();
-      hlsInstance = null;
-    }
+    if (!ownsPlaybackRequest(request)) return;
 
     // Track the live item and clear any previous subtitle tracks/blobs.
     currentPlayingItem = item;
@@ -4880,6 +4966,7 @@
       hlsInstance.loadSource(streamUrl);
       hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (!ownsPlaybackRequest(request)) return;
         startVideoPlayback(video);
       });
       // One recovery attempt per kind, per program. The flags live out here on purpose:
@@ -4901,6 +4988,7 @@
         (Hls.ErrorDetails && Hls.ErrorDetails.LEVEL_EMPTY_ERROR) || 'levelEmptyError',
       ]);
       hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        if (!ownsPlaybackRequest(request)) return;
         if (!data.fatal) return;
         if (DEAD_STREAM_DETAILS.has(data.details)) {
           try { thisInstance.destroy(); } catch (e) {}
@@ -4940,17 +5028,23 @@
     } else if (isHLS && video.canPlayType('application/vnd.apple.mpegurl')) {
       // Safari native HLS
       video.src = streamUrl;
-      video.addEventListener('loadedmetadata', () => {
+      const onMetadata = () => {
+        if (!ownsPlaybackRequest(request)) return;
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
         startVideoPlayback(video);
-      }, { once: true });
+      };
+      video.addEventListener('loadedmetadata', onMetadata, { once: true });
+      request.cleanups.push(() => video.removeEventListener('loadedmetadata', onMetadata));
     } else {
       // Direct play (mp4, webm)
       video.src = streamUrl;
-      video.addEventListener('loadedmetadata', () => {
+      const onMetadata = () => {
+        if (!ownsPlaybackRequest(request)) return;
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
         startVideoPlayback(video);
-      }, { once: true });
+      };
+      video.addEventListener('loadedmetadata', onMetadata, { once: true });
+      request.cleanups.push(() => video.removeEventListener('loadedmetadata', onMetadata));
     }
 
     // Attach subtitles (no-ops unless enabled + Jellyfin + fullscreen).
@@ -4965,9 +5059,12 @@
     let stallTimer = null;
     let lastTime = -1;
     const clearStall = () => { if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; } };
+    request.cleanups.push(clearStall);
     const armStall = () => {
+      if (!ownsPlaybackRequest(request)) return;
       clearStall();
       stallTimer = setTimeout(() => {
+        if (!ownsPlaybackRequest(request)) return;
         if (!video.paused && !video.ended && video.currentTime === lastTime) {
           console.warn('[PLEX 90] Stall detected, skipping:', item.title);
           clearStall();
@@ -4980,6 +5077,7 @@
     // Drive the playback tracker off real player events. Using on* assignment (not
     // addEventListener) so each new program replaces the handler instead of leaking one.
     video.onplaying = () => {
+      if (!ownsPlaybackRequest(request)) return;
       consecutivePlaybackFailures = 0;   // something actually played; the run is broken
       armStall();
       if (playbackTracker) {
@@ -4988,11 +5086,12 @@
       }
     };
     video.onwaiting = armStall;
-    video.onpause = () => { if (playbackTracker) playbackTracker.onPause(true); };
+    video.onpause = () => { if (ownsPlaybackRequest(request) && playbackTracker) playbackTracker.onPause(true); };
 
     // Handle video ending - advance to next item
-    video.onended = () => { clearStall(); onItemEnded(channel); };
+    video.onended = () => { if (!ownsPlaybackRequest(request)) return; clearStall(); onItemEnded(channel); };
     video.onerror = () => {
+      if (!ownsPlaybackRequest(request)) return;
       const code = video.error?.code;
       // Decode/format failure on a direct play → retry once via transcode. Keep partKey so
       // Jellyfin/Plex still gets the right media source id (don't null it).
@@ -5016,6 +5115,8 @@
   // of racing through the schedule, because that means the server, not the file.
   const MAX_CONSECUTIVE_FAILURES = 3;
   function failCurrentItem(channel, item, failure) {
+    const request = activePlaybackRequest;
+    if (!ownsPlaybackRequest(request) || request.item !== item) return;
     consecutivePlaybackFailures += 1;
     console.warn('[PLEX 90] Playback failed', item && item.title,
       `(${consecutivePlaybackFailures}/${MAX_CONSECUTIVE_FAILURES})`);
@@ -5023,11 +5124,12 @@
     showPlaybackFailure(failure, willSkip);
     if (!willSkip) return;   // three in a row points at the server; park rather than spin
     // Five seconds, same as the Apple TV: long enough to read why.
-    setTimeout(() => {
-      if (currentChannel !== (channel && channel.id)) return;  // user already tuned away
+    const skipTimer = setTimeout(() => {
+      if (!ownsPlaybackRequest(request)) return;
       clearVideoError();
       onItemEnded(channel);
     }, 5000);
+    request.cleanups.push(() => clearTimeout(skipTimer));
   }
 
   function onItemEnded(channel) {
@@ -5045,6 +5147,7 @@
   }
 
   function stopVideo() {
+    invalidatePlaybackRequest();
     // Finalize any in-flight watch session (flush + scrobble check) before tearing down.
     if (playbackTracker) { playbackTracker.stop(); playbackTracker = null; }
     disarmPlayRetry();
@@ -5682,6 +5785,7 @@
   // Playing; Jellyfin/Emby: restores UserData). The page is going away, so the tracker
   // sends with keepalive instead of waiting on its queue.
   window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(true); });
+  window.addEventListener('pagehide', invalidatePlaybackRequest);
 
   function toggleMute() {
     const video = document.getElementById('plex-video');
@@ -5909,6 +6013,9 @@
   }
 
   function clearSubtitleTracks() {
+    subtitleRequestGeneration += 1;
+    if (subtitleRequestController) subtitleRequestController.abort();
+    subtitleRequestController = null;
     const video = document.getElementById('plex-video');
     activeSubtitleTracks.forEach(t => { try { t.remove(); } catch (e) {} });
     activeSubtitleBlobUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
@@ -5924,6 +6031,14 @@
   // crossorigin attribute (which would subject the media stream itself to CORS and could
   // break playback on servers that currently work without CORS headers).
   async function loadSubtitleForCurrentItem(item) {
+    const request = activePlaybackRequest;
+    if (!ownsPlaybackRequest(request) || currentPlayingItem !== item || request.item !== item) return;
+    clearSubtitleTracks();
+    const generation = subtitleRequestGeneration;
+    const controller = new AbortController();
+    subtitleRequestController = controller;
+    const ownsSubtitle = () => ownsPlaybackRequest(request) && currentPlayingItem === item
+      && generation === subtitleRequestGeneration && !controller.signal.aborted && isVideoFullscreen();
     const autoForeign = item && shouldAutoEnableSubs(item.audioStreams || []);
     if ((!subtitlesEnabled && !autoForeign) || mediaBackend !== 'jellyfin') return;
     if (!isVideoFullscreen()) return;  // fullscreen-only, matching tvOS
@@ -5931,9 +6046,10 @@
     const sub = pickSubtitle(item.subtitles);
     if (!sub) return;
     try {
-      const res = await fetch(buildSubtitleUrl(item, sub));
-      if (!res.ok) return;
+      const res = await fetch(buildSubtitleUrl(item, sub), { signal: controller.signal });
+      if (!ownsSubtitle() || !res.ok) return;
       const vtt = await res.text();
+      if (!ownsSubtitle()) return;
       const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
       const video = document.getElementById('plex-video');
       const track = document.createElement('track');
@@ -5945,9 +6061,10 @@
       video.appendChild(track);
       activeSubtitleTracks.push(track);
       activeSubtitleBlobUrls.push(url);
-      track.addEventListener('load', () => { if (track.track) track.track.mode = 'showing'; });
-      setTimeout(() => { if (track.track) track.track.mode = 'showing'; }, 300);
+      track.addEventListener('load', () => { if (ownsSubtitle() && track.track) track.track.mode = 'showing'; });
+      setTimeout(() => { if (ownsSubtitle() && track.track) track.track.mode = 'showing'; }, 300);
     } catch (e) {
+      if (!ownsSubtitle() || e.name === 'AbortError') return;
       console.warn('[Nostalgex] Subtitle load failed:', e);
     }
   }

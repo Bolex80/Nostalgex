@@ -19,6 +19,18 @@ as an Apple TV.
 backfill has come close to it before. The shared Supabase cache and a 7 day edge cache
 absorb most of it, but a third client population is worth keeping an eye on.
 
+## 2026-10-15 (PR #28: upstream reconciliation)
+
+**Shipped.** Updated `fix/web-tune-ownership` for PR #28. No app release or deployment.
+
+**Changed.** Merged upstream `1ae5dc4` so the tablet control rail is retained alongside rapid-tune ownership. Only the development log conflicted; both the upstream and feature entries are preserved. No ownership behavior was changed during reconciliation.
+
+**Measured.** The complete npm suite, hosted build and self-host build passed on the reconciled tree, including all 17 rapid-tune race scenarios. Native source and bundled channel inputs are unchanged from upstream, so this web-only update did not need a new native run. The staged diff has no whitespace errors.
+
+**Half-done.** Real-browser playback and live server cleanup are still unverified. Fresh GitHub Actions will validate the updated PR head after push.
+
+**Next.** Await upstream review. Combining this with the independent reporting controls remains a separate integration step.
+
 ## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
 
 **Changed.** All on branch `tablet-rail`, unmerged and undeployed.
@@ -89,6 +101,49 @@ reporting a coarse pointer keeps the desktop layout.
 **Next.** Chad to look at it on the iPad, in both orientations, and say whether
 portrait's narrower video is the right trade for the controls and the extra
 guide rows. If it is, merge and ship with the next web tuner deploy.
+
+## 2026-10-14 (Web rapid-tune ownership, local review branch)
+
+**Shipped.** Nothing published. This patch is prepared locally on
+`fix/web-tune-ownership` for separate review.
+
+**Changed.** An offline harness reproduced the production race: selecting A then
+B, with PlaybackInfo resolving B then A, left A attached to the player. Subtitle
+responses could likewise append A after B. Each tune now owns a generation,
+request identity, cancellation signal, and captured connection context. Results
+must still own the current selection after asynchronous work before changing the
+player, tracker, or active server session. Returning to the same channel and
+item does not revive an old request.
+
+- Retiring a tune aborts its resolver, destroys its HLS loader, removes native
+  metadata listeners, and cancels failure/stall timers. Queued media, HLS, gesture
+  retry and subtitle callbacks also check ownership before acting.
+- Late resolver results release only their captured server session, including
+  Jellyfin/Emby active encodings. Cleanup does not use mutable connection
+  credentials or a device-wide stop. A reused active session id is protected.
+  Selecting a channel with no program now retires the outgoing playback.
+- Subtitle loads have separate cancellation and generations, including body-read
+  awaits and preference reloads for the same item.
+- Added `npm run test:web-tune-ownership` to the standard test chain. Its 17
+  offline scenarios execute production functions with controlled promises,
+  mocked network/media/DOM, and fetches deliberately ignoring abort signals.
+  All 17 passed. Existing web player smoke passed all 12 assertions; Jellyfin
+  URL smoke passed 26. The new script passed `node --check`, both inline tuner
+  scripts parsed without execution, and `git diff --check` passed. The complete
+  npm suite and both hosted and self-hosted builds also passed. The native
+  source tree and bundled channel inputs are identical to pinned upstream
+  `9dd308b`, whose offline native suite passed 698 tests; no native source
+  change required a new native run for this web-only patch.
+
+**Half-done.** Local branch only. No live Plex, Jellyfin or Emby requests, browser
+media playback, CORS checks, or device testing were performed. Session deletion
+is best effort; when cancellation prevents receiving a server-assigned session
+id, the client cannot explicitly delete that unknown id. Activity-reporting
+features and pause controls are outside this patch.
+
+**Next.** Review the local diff and complete real-browser validation before
+choosing whether to publish. Verify rapid tuning with native HLS and
+HLS.js, subtitles, connection changes, and server-side session cleanup.
 
 ## 2026-10-14 (Docker web tuner: caught up with main, branch)
 
