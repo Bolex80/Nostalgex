@@ -3,6 +3,35 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-14 (playback recovery ownership, local review branch)
+
+**Shipped.** Nothing published or installed. Changes are on
+`fix/playback-recovery-ownership` for review.
+
+**Changed.** Retries and fallback players now have an attempt token in addition
+to the channel load generation. Status events, seek completions, startup
+watchdogs and error probes check the exact player item before acting. Delayed
+loads, negotiations and watchdogs are owned tasks and are cancelled on
+replacement or disconnect. The starvation monitor and startup watchdog share
+one pending server-stream negotiation. A cancelled request that still returns a
+session stops that exact session instead of installing it. Initial-load offset
+state is updated only after the request is still current. The existing
+`resolveServerStream` behavior and retry delays are preserved.
+
+Measured. Seven focused offline tests pass against AppState's production
+recovery callbacks with AVPlayerItem and a controlled backend, including
+repeated starvation verdicts, overlapping watchdog recovery, late replies,
+rapid channel changes, cancelled debounce and preparation. The full offline
+native suite passes 705 tests with zero failures (676 XCTest and 29 Swift
+Testing). Swift syntax and whitespace checks pass. No user credentials or real
+media-server state were used.
+
+**Half-done.** The branch is local and unpublished. Actual Apple TV playback,
+backend resource usage and server session teardown are unverified.
+
+**Next.** Review the patch, then verify rapid surfing and slow-server recovery
+on hardware before publication.
+
 ## 2026-10-14 (Docker web tuner: caught up with main, branch)
 
 **Changed.** All on branch `docker-selfhost`, still unmerged and unpublished.
