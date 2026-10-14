@@ -597,7 +597,10 @@ class AppState {
     var videoFrameProbe: AVPlayerItemVideoOutput?
     var currentChannel: Channel? = nil
     var currentItem: PlexMediaItem? = nil {
-        didSet { if currentItem?.ratingKey != oldValue?.ratingKey { refreshNowPlayingInfo() } }
+        didSet {
+            if currentItem == nil { playbackInformation = nil }
+            if currentItem?.ratingKey != oldValue?.ratingKey { refreshNowPlayingInfo() }
+        }
     }
     var currentPartIndex: Int = 0
     var currentPartBaseSeconds: Double = 0
@@ -635,6 +638,9 @@ class AppState {
     /// `loadCurrentItem`, cleared when the session ends. Rides on `playback.stopped`
     /// so watch time can be split by direct play vs transcode.
     var currentPlaybackDelivery: AnalyticsPlaybackDelivery? = nil
+
+    /// Sanitized, attempt-owned data for the in-player information screen.
+    var playbackInformation: PlaybackInformation?
 
     /// Guard so `playback.ready` fires once per session even though the ready path is
     /// entered again on transcode fallback / retry. Reset in `loadCurrentItem`.

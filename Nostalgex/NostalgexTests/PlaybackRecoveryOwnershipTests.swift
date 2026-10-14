@@ -41,10 +41,11 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
             return await withCheckedContinuation { pending[index] = $0 }
         }
 
-        func finish(_ index: Int, session: String?, startsAtOffset: Bool = true) {
+        func finish(_ index: Int, session: String?, startsAtOffset: Bool = true,
+                    isDirectPlay: Bool = false, url: URL? = nil) {
             let result = session.map {
-                (PlaybackResolution(url: URL(fileURLWithPath: "/synthetic-\($0).m3u8"),
-                                    playSessionId: $0, isDirectPlay: false), startsAtOffset)
+                (PlaybackResolution(url: url ?? URL(fileURLWithPath: "/synthetic-\($0).m3u8"),
+                                    playSessionId: $0, isDirectPlay: isDirectPlay), startsAtOffset)
             }
             pending.removeValue(forKey: index)?.resume(returning: result)
         }
@@ -59,7 +60,11 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
     private final class Backend: MediaBackend, @unchecked Sendable {
         let requests = Requests()
         let offersCappedStream: Bool
-        init(offersCappedStream: Bool = false) { self.offersCappedStream = offersCappedStream }
+        let offersDirectPlay: Bool
+        init(offersCappedStream: Bool = false, offersDirectPlay: Bool = false) {
+            self.offersCappedStream = offersCappedStream
+            self.offersDirectPlay = offersDirectPlay
+        }
         let serverID = "synthetic"
         let authHeaders: [String: String] = [:]
         func testConnection() async throws -> String { "synthetic" }
@@ -67,7 +72,9 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         func loadSections() async throws -> [PlexSection] { [] }
         func loadCollections(sectionKey: String) async throws -> [PlexCollection] { [] }
         func loadCollectionItems(collectionKey: String) async throws -> [String] { [] }
-        func buildDirectPlayURL(for item: PlexMediaItem) -> URL? { nil }
+        func buildDirectPlayURL(for item: PlexMediaItem) -> URL? {
+            offersDirectPlay ? URL(fileURLWithPath: "/synthetic-missing.mp4") : nil
+        }
         func buildTranscodeURL(for item: PlexMediaItem) -> URL? { URL(fileURLWithPath: "/synthetic.m3u8") }
         func thumbnailURL(for item: PlexMediaItem, width: Int) -> URL? { nil }
         func resolveTranscodePlayback(for item: PlexMediaItem, offsetSeconds: Int) async -> Requests.Result? {
@@ -106,12 +113,17 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         let playerItem = AVPlayerItem(asset: AVMutableComposition())
         state.player = AVPlayer(playerItem: playerItem)
         state.playbackState = .playing
+        state.beginPlaybackInformation(for: state.currentItem!, generation: state.loadGeneration)
+        let information = state.beginPlaybackInformationAttempt(generation: state.loadGeneration,
+            attempt: state.playbackAttemptGeneration, isDirectPlay: true)
+        state.markPlaybackInformationReady(for: playerItem, generation: state.loadGeneration,
+            attempt: state.playbackAttemptGeneration, attemptID: information)
         return (state, playerItem)
     }
 
-    private func waitForRequests(_ count: Int, backend: Backend,
+    private func waitForRequests(_ count: Int, backend: Backend, timeout: TimeInterval = 2,
                                  file: StaticString = #filePath, line: UInt = #line) async {
-        let deadline = Date().addingTimeInterval(2)
+        let deadline = Date().addingTimeInterval(timeout)
         while await backend.requests.snapshot().kinds.count < count, Date() < deadline {
             try? await Task.sleep(for: .milliseconds(5))
         }
@@ -140,6 +152,8 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
             }
         }
         XCTAssertEqual(verdicts, 4, "the real monitor repeats its verdict while the backend is pending")
+        XCTAssertEqual(state.playbackInformation?.reason, .streamStalled)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
         state.handleWatchdogNoPicture(playerItem: playerItem, item: state.currentItem,
                                       isDirectPlay: true, generation: state.loadGeneration,
                                       attempt: state.playbackAttemptGeneration, allowCappedRetry: true,
@@ -147,6 +161,7 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         await waitForRequests(1, backend: backend)
         let requests = await backend.requests.snapshot()
         XCTAssertEqual(requests.kinds, ["server:first"], "all recovery uses the forced server-stream resolver")
+        XCTAssertEqual(state.playbackInformation?.reason, .streamStalled, "a competing watchdog must not overwrite the winning recovery")
         let task = state.playbackResolutionTask
         state.invalidatePlaybackAttempt()
         await backend.requests.finish(0, session: "retired")
@@ -171,6 +186,7 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         XCTAssertTrue(state.player === nextPlayer)
         XCTAssertNil(state.activeTranscode)
         XCTAssertEqual(state.hlsRequestedOffset, 0)
+        XCTAssertNil(state.playbackInformation)
         let final = await backend.requests.snapshot()
         XCTAssertEqual(final.stopped, ["late"])
         state.player = nil
@@ -206,14 +222,19 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         starve(state, newItem, position: 70)
         await waitForRequests(2, backend: backend)
         let current = state.playbackResolutionTask
+        let currentInformation = state.playbackInformation
         await backend.requests.finish(0, session: "old")
         await retired?.value
         XCTAssertTrue(state.playbackRecoveryInFlight)
         XCTAssertNil(state.activeTranscode)
+        XCTAssertEqual(state.playbackInformation, currentInformation)
         await backend.requests.finish(1, session: "new")
         await current?.value
         XCTAssertEqual(state.activeTranscode?.playSessionId, "new")
         XCTAssertEqual(state.seekOffset, 70)
+        XCTAssertEqual(state.playbackInformation?.reason, .streamStalled)
+        XCTAssertEqual(state.playbackInformation?.delivery, .serverStream)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
         let result = await backend.requests.snapshot()
         XCTAssertEqual(result.stopped, ["old"])
         state.invalidatePlaybackAttempt() // cancel the real 300ms fallback before any file is opened
@@ -232,11 +253,14 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         state.loadCurrentItem()
         await waitForRequests(2, backend: backend)
         let current = state.playbackResolutionTask
+        let secondInformation = state.playbackInformation
         await backend.requests.finish(0, session: "first-late")
         await retired?.value
         XCTAssertNil(state.activeTranscode)
         XCTAssertEqual(state.hlsRequestedOffset, 0)
         XCTAssertEqual(state.seekOffset, 900)
+        XCTAssertEqual(state.playbackInformation, secondInformation)
+        XCTAssertEqual(state.playbackInformation?.generation, state.loadGeneration)
         let result = await backend.requests.snapshot()
         // Cleanup of initial resolution is detached, so drain it without fixed sleeps.
         let deadline = Date().addingTimeInterval(2)
@@ -260,6 +284,9 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
                                       deadline: 20, detail: "controlled no-picture stream")
         let session = state.activeTranscode?.playSessionId
         XCTAssertNotNil(session)
+        XCTAssertEqual(state.playbackInformation?.reason, .startupNoPicture)
+        XCTAssertEqual(state.playbackInformation?.recoveryRequest, .compatibility1080p)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
         await waitForRequests(1, backend: backend)
         let preparing = state.playbackResolutionTask
         state.currentItem = nil
@@ -273,6 +300,7 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         XCTAssertEqual(result.stopped, [session!, session!],
                        "channel teardown stops it, then late prepare cleanup stops a potentially reopened session")
         XCTAssertNil(state.lastStreamURL, "the cancelled preparation must never install a player item")
+        XCTAssertNil(state.playbackInformation)
         state.player = nil
     }
 
@@ -291,6 +319,103 @@ final class PlaybackRecoveryOwnershipTests: XCTestCase {
         state.invalidatePlaybackAttempt()
         await backend.requests.finish(0, session: nil)
         await current?.value
+        state.player = nil
+    }
+
+    func testWatchdogInformationDescribesPendingRecoveryWithoutRevivingTheOldReadyCallback() async {
+        let backend = Backend()
+        let (state, playerItem) = makeState(backend)
+        let owner = state.playbackAttemptGeneration
+        let oldInformation = state.playbackInformation?.attemptID
+        state.handleWatchdogNoPicture(playerItem: playerItem, item: state.currentItem,
+                                      isDirectPlay: true, generation: state.loadGeneration,
+                                      attempt: owner, allowCappedRetry: true,
+                                      deadline: 15, detail: "controlled no-picture stream")
+        await waitForRequests(1, backend: backend)
+        XCTAssertEqual(state.playbackInformation?.reason, .startupNoPicture)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
+        state.markPlaybackInformationReady(for: playerItem, generation: state.loadGeneration,
+                                           attempt: owner, attemptID: oldInformation)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
+        let pending = state.playbackResolutionTask
+        await backend.requests.finish(0, session: "watchdog")
+        await pending?.value
+        XCTAssertEqual(state.playbackInformation?.reason, .startupNoPicture)
+        XCTAssertEqual(state.playbackInformation?.delivery, .serverStream)
+        state.invalidatePlaybackAttempt()
+        state.stopActiveTranscodeIfNeeded()
+        state.player = nil
+    }
+
+    func testServerRecoveryInformationUsesTheResolversDeliveryEvidence() async {
+        let backend = Backend()
+        let (state, playerItem) = makeState(backend)
+        starve(state, playerItem)
+        await waitForRequests(1, backend: backend)
+        let pending = state.playbackResolutionTask
+        await backend.requests.finish(0, session: "direct-result", isDirectPlay: true)
+        await pending?.value
+        XCTAssertEqual(state.playbackInformation?.delivery, .directPlay)
+        XCTAssertEqual(state.playbackInformation?.reason, .streamStalled)
+        XCTAssertEqual(state.playbackInformation?.isReady, false, "a resolver result is not player readiness")
+        state.invalidatePlaybackAttempt()
+        state.stopActiveTranscodeIfNeeded()
+        state.player = nil
+    }
+
+    func testStaleInformationInitializationCannotReplaceTheCurrentProgram() {
+        let backend = Backend()
+        let (state, _) = makeState(backend)
+        state.loadGeneration += 1
+        state.beginPlaybackInformation(for: item("second"), generation: state.loadGeneration)
+        let current = state.playbackInformation
+        state.beginPlaybackInformation(for: item("retired"), generation: state.loadGeneration - 1)
+        XCTAssertEqual(state.playbackInformation, current)
+        state.invalidatePlaybackAttempt()
+        state.player = nil
+    }
+
+    func testDirectPlayerFailurePublishesItsFallbackReasonDuringPreparation() async {
+        let backend = Backend(offersDirectPlay: true)
+        let (state, _) = makeState(backend)
+        state.loadCurrentItem()
+        // The missing local file drives the production AVPlayerItem failure callback.
+        // The server preparation remains controlled and never contacts a media server.
+        await waitForRequests(1, backend: backend, timeout: 5)
+        let snapshot = await backend.requests.snapshot()
+        XCTAssertEqual(snapshot.kinds, ["prepare"])
+        XCTAssertEqual(state.playbackInformation?.reason, .directPlayFailed)
+        XCTAssertEqual(state.playbackInformation?.delivery, .serverStream)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
+        let preparing = state.playbackResolutionTask
+        state.invalidatePlaybackAttempt()
+        await backend.requests.finish(0, session: nil)
+        await preparing?.value
+        state.player = nil
+    }
+
+    func testFailedServerStreamRetryRetiresThePreviousInformationAttempt() async {
+        let backend = Backend()
+        let (state, _) = makeState(backend)
+        state.loadCurrentItem()
+        await waitForRequests(1, backend: backend)
+        let resolving = state.playbackResolutionTask
+        let firstOwner = state.playbackAttemptGeneration
+        // Missing HLS can remain in loading while AVFoundation waits on its playlist.
+        // A missing local MP4 deterministically exercises the same .failed callback.
+        await backend.requests.finish(0, session: "missing-local-file",
+                                      url: URL(fileURLWithPath: "/synthetic-missing-retry.mp4"))
+        await resolving?.value
+        let deadline = Date().addingTimeInterval(5)
+        while state.playbackInformation?.reason != .playerRetry, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(state.playbackInformation?.reason, .playerRetry)
+        XCTAssertEqual(state.playbackInformation?.delivery, .serverStream)
+        XCTAssertEqual(state.playbackInformation?.isReady, false)
+        XCTAssertGreaterThan(state.playbackAttemptGeneration, firstOwner)
+        state.invalidatePlaybackAttempt()
+        state.stopActiveTranscodeIfNeeded()
         state.player = nil
     }
 }
