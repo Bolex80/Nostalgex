@@ -3,6 +3,71 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-14 (Docker web tuner: caught up with main, branch)
+
+**Changed.** All on branch `docker-selfhost`, still unmerged and unpublished.
+
+- `origin/main` merged in. The branch was cut from 1.0.26 (47) and predated the
+  whole mobile web tuner pass, so the image would have handed self-hosters the
+  old desktop-only tuner. That was the reason Docker was put on hold, so this had
+  to come first. The two tuner pages merged with no conflict: main rewrote layout
+  and playback, the branch touched sign-in plumbing and added marker comments,
+  and the hunks did not overlap. Four files conflicted (`vite.config.js`,
+  `package.json`, `.github/workflows/ci.yml`, `docs/DEVLOG.md`) and kept both
+  sides. The self-host build asserts that no remote script, stylesheet, font or
+  image survives, so the new drawer and touch markup could not quietly bring the
+  CDN back.
+- The channel hub's hero screenshot is measured on first render instead of at
+  module import. `vite.config.js` now imports `scripts/build-bundles.mjs` for the
+  hosted site, the self-host build loads the same config, and its Docker context
+  carries only the two tuner pages, so measuring at import failed the image build
+  before any tuner work started.
+
+Measured. `npm ci`, `npm test` and both builds green. `dist/` still differs from
+main only in the `location.protocol` guards, the `randomUUID` fallback, the
+relative tuner links and the two self-host branches in the shared scripts. No
+marker line reaches `dist/`. In `dist-selfhost/` every `https://` in a `src` or
+`href` is a user-facing link (App Store, GitHub, Instagram, Buy Me a Coffee,
+plex.tv/link); no subresource is remote. Image 26.5 MB compressed on amd64 and
+26.8 MB on arm64, built multi-arch, both run on a Mac (amd64 emulated).
+
+In headless Chrome against the running container on a LAN http origin, driving a
+scratch Jellyfin 12.2:
+
+- Phone layout is in the image. At 393x852 the video container is 393x221, the
+  video element carries `playsinline` and `webkit-playsinline`, the bottom
+  toolbar is `display: none`, the MENU button is 86x44, the drawer opens to 300px
+  and closes on Escape and on a tap outside, and the page has 0px of horizontal
+  scroll. Same at 360x800, 834x1194 and both landscape sizes; the desktop rail
+  comes back at 1440x900. Guide scrolls and tunes at every size, no page errors.
+- A channel played from the http origin, at phone size as well as desktop, 2 to
+  24 seconds to picture and still running at 2:36.
+- Hosts contacted while connecting and playing: with `NOSTALGEX_ENRICHMENT=off`,
+  only the container and the media server, nothing else at all. With it on, the
+  same plus the Supabase metadata cache.
+- Enrichment gating measured directly, since the scratch library has no TMDB ids
+  and never reaches the metadata layer on its own. Driving the page's own
+  enrichment entry with three TMDB ids: with enrichment on, three records came
+  from the Supabase cache and no other host was contacted; with it off, the run
+  skipped, logged why, and made no request beyond `config.json`. Music lookups
+  report off in both.
+- Plex PIN request, QR render and polling work from the http origin: nine
+  plex.tv requests, no CORS failure, no other host.
+
+**Half-done.** The relay change is still not deployed, so a cache miss cannot be
+filled from a self-host origin today. Every TMDB id in the measurement above was
+a cache hit, so the relay path itself is still unproven from a container. Plex
+sign-in was still not completed from an http origin, only the PIN handshake.
+TV browsers are still untested (no Fire OS device). No arm64 hardware run; arm64
+was only built and inspected, not executed on an arm64 server. The plan's second
+egress test, the container and a media server on an `--internal` Docker network,
+has not been run; the proof so far is the browser request log. No GHCR image, no
+tag, no `/self-host` page.
+
+**Next.** Deploy the relay and prove a cache miss fills from a container. Then
+the Phase 0 TV pass, which needs a Fire TV device. Publishing (tag, image,
+making the package public, the page and the posts) waits on Chad.
+
 ## 2026-10-14 (1.0.26 released)
 
 **Shipped.** 1.0.26 (48) is live on the App Store, released manually after Apple
