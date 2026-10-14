@@ -481,7 +481,7 @@ extension AppState {
         ))
     }
 
-    func loadCurrentItem() {
+    func loadCurrentItem(preservingTracker: Bool = false) {
         // Clear the previous item's audio-track list so a new/uni-track program never
         // shows stale tracks; applyAudioTrackSelection republishes when the group loads.
         audioTracks = []
@@ -490,20 +490,23 @@ extension AppState {
         audibleGroupItem = nil
         hasSubtitleTracks = false
 
-        // Flush accumulated watch time for the outgoing session before creating a new
-        // tracker. This is where per-item watch time analytics is emitted: the previous
-        // channel+delivery is still current at this point.
-        emitPlaybackStoppedForActiveSession()
+        if !preservingTracker {
+            currentPartBaseSeconds = 0
+            // Flush accumulated watch time for the outgoing session before creating a new
+            // tracker. This is where per-item watch time analytics is emitted: the previous
+            // channel+delivery is still current at this point.
+            emitPlaybackStoppedForActiveSession()
 
-        // Session state resets — the new item gets a fresh delivery and a fresh ready
-        // signal. Both are set inside the readyToPlay branches below.
-        currentPlaybackDelivery = nil
-        playbackReadyReported = false
+            // Session state resets — the new item gets a fresh delivery and a fresh ready
+            // signal. Both are set inside the readyToPlay branches below.
+            currentPlaybackDelivery = nil
+            playbackReadyReported = false
 
-        // Stop the previous tracker before anything else so its scrobble fires cleanly.
-        let outgoing = playbackTracker
-        playbackTracker = nil
-        outgoing?.stop()
+            // Stop the previous tracker before anything else so its scrobble fires cleanly.
+            let outgoing = playbackTracker
+            playbackTracker = nil
+            outgoing?.stop()
+        }
 
         // Invalidate everything from previous load
         loadDebounceTimer?.invalidate()
@@ -514,10 +517,19 @@ extension AppState {
         // next/previousChannel / advanceToNextItem — they all funnel through here).
         stopActiveTranscodeIfNeeded()
 
-        guard let item = currentItem else {
+        guard var item = currentItem else {
             print("[Plex90] gen=\(generation) | No item, going idle")
             playbackState = .idle
             return
+        }
+
+        if !preservingTracker {
+            let position = item.playbackPosition(at: seekOffset)
+            item = position.item
+            currentItem = item
+            currentPartIndex = item.partIndex
+            currentPartBaseSeconds = position.baseSeconds
+            seekOffset = position.offsetSeconds
         }
 
         // An item stamped with a server that is not signed in cannot be played by the one
@@ -534,15 +546,17 @@ extension AppState {
         // Create a fresh tracker for this item. Reporting stays off unless the user
         // turned it on: Plex gets timeline + scrobble, Jellyfin and Emby get the same
         // watch counted on their server. Either way the tracker still accumulates time.
-        let reportingOn = !isDemoMode && syncPlexActivity
-        let reportingBackend: (any MediaBackend)? = reportingOn ? api(for: item.serverID) : nil
-        playbackTracker = PlaybackTracker(
-            item: item,
-            seekOffset: seekOffset,
-            plexAPI: reportingBackend as? PlexAPIService,
-            watchReporter: reportingBackend as? any WatchActivityReporting
-        )
-        if let tracker = playbackTracker { attachRatingNudgeCounter(to: tracker) }
+        if !preservingTracker {
+            let reportingOn = !isDemoMode && syncPlexActivity
+            let reportingBackend: (any MediaBackend)? = reportingOn ? api(for: item.serverID) : nil
+            playbackTracker = PlaybackTracker(
+                item: item,
+                seekOffset: Int(currentPartBaseSeconds) + seekOffset,
+                plexAPI: reportingBackend as? PlexAPIService,
+                watchReporter: reportingBackend as? any WatchActivityReporting
+            )
+            if let tracker = playbackTracker { attachRatingNudgeCounter(to: tracker) }
+        }
 
         // Show the retro "tuning" loading state while we resolve + start playback. The
         // overlay itself only appears after a ~0.75s threshold (view-side), so fast starts
@@ -563,7 +577,10 @@ extension AppState {
         // stop on the next channel change ends this transcode and no other.
         let fallbackSession = UUID().uuidString
         let fallbackStartsAtOffset = itemAPI is PlexAPIService && seekOffset > 0
+        // Emby needs the session id on the URL or every segment is refused; see
+        // EmbyAPIService.buildTranscodeURL(for:sessionID:).
         let transcodeURL: URL? = (itemAPI as? PlexAPIService)?.transcodeURL(for: item, sessionID: fallbackSession, offsetSeconds: seekOffset)
+            ?? (itemAPI as? EmbyAPIService)?.buildTranscodeURL(for: item, sessionID: fallbackSession)
             ?? itemAPI?.buildTranscodeURL(for: item)
 
         if !isDemoMode && directURL == nil && transcodeURL == nil {
@@ -699,7 +716,9 @@ extension AppState {
                             // If direct play failed and we have a transcode URL, fall back
                             if isDirectPlay, let fallback = transcodeURL {
                                 print("[Plex90] gen=\(generation) | Direct play failed, falling back to transcode")
-                                if itemAPI is PlexAPIService { self.activeTranscode = (itemServerID, fallbackSession) }
+                                if itemAPI is PlexAPIService || itemAPI is EmbyAPIService {
+                                    self.activeTranscode = (itemServerID, fallbackSession)
+                                }
                                 if fallbackStartsAtOffset { self.hlsRequestedOffset = self.seekOffset }
                                 self.fallbackToTranscode(url: fallback, seekTo: fallbackStartsAtOffset ? nil : seekTo, generation: generation)
                             } else {
@@ -960,7 +979,9 @@ extension AppState {
                 let offset = self.seekOffset
                 Task { @MainActor [weak self] in
                     guard let self, self.loadGeneration == generation else { return }
-                    guard let resolved = await backend.resolveTranscodePlayback(for: item, offsetSeconds: offset),
+                    // Not resolveTranscodePlayback: asked that, Jellyfin and Emby hand back
+                    // the same file for anything they can direct play.
+                    guard let resolved = await backend.resolveServerStream(for: item, offsetSeconds: offset),
                           self.loadGeneration == generation else {
                         if self.loadGeneration == generation {
                             self.emitPlaybackError(.watchdogSkip)
@@ -1011,6 +1032,21 @@ extension AppState {
     /// So the ladder resumes the *same* item from the current position one rung down,
     /// and only skips when the capped stream starves too.
     private func installStarvationMonitor(for playerItem: AVPlayerItem, item: PlexMediaItem?, isDirectPlay: Bool, generation: Int, allowCappedRetry: Bool) {
+        // AVPlayer's playing / paused / buffering feeds Plex Now Playing (PR #18). Only the
+        // current player and item count, so an old channel's callback cannot reach the
+        // next tracker. The watch clock is separate.
+        if let observedPlayer = player {
+            observedPlayer.publisher(for: \.timeControlStatus)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self, weak observedPlayer, weak playerItem] status in
+                    guard let self, self.loadGeneration == generation,
+                          let observedPlayer, self.player === observedPlayer,
+                          let playerItem, observedPlayer.currentItem === playerItem else { return }
+                    let state = status == .playing ? "playing" : status == .paused ? "paused" : "buffering"
+                    self.playbackTracker?.onHeartbeatPlaybackState(state)
+                }
+                .store(in: &cancellables)
+        }
         var monitor = PlaybackStarvation()
         let title = item?.title ?? currentItem?.title ?? "Unknown"
         Timer.publish(every: 1.0, on: .main, in: .common)
@@ -1049,7 +1085,8 @@ extension AppState {
             let backend = api(for: item.serverID)
             Task { @MainActor [weak self] in
                 guard let self, self.loadGeneration == generation else { return }
-                guard let resolved = await backend.resolveTranscodePlayback(for: item, offsetSeconds: position),
+                // The server stream, never the file that just starved; see resolveServerStream.
+                guard let resolved = await backend.resolveServerStream(for: item, offsetSeconds: position),
                       self.loadGeneration == generation else {
                     if self.loadGeneration == generation { self.advanceToNextItem() }
                     return
@@ -1178,6 +1215,7 @@ extension AppState {
     // a single item with multiple Media.Part entries), plays the next disc before advancing
     // the schedule. For single-disc / single-file content, advances to the next item.
     private func handlePartEnded() {
+        playbackTracker?.onPlaybackPreparing()
         if let item = currentItem,
            let extra = item.additionalPartKeys,
            currentPartIndex < extra.count {
@@ -1185,10 +1223,17 @@ extension AppState {
             let partNum = currentPartIndex + 2  // human-readable: disc 2, disc 3, …
             let totalParts = extra.count + 1
             print("[Plex90] MULTI-PART: \"\(item.title)\" — starting disc \(partNum) of \(totalParts)")
+            let metadataDuration = item.playbackParts?.first { $0.key == item.partKey }?.durationSeconds
+            let measuredDuration = player?.currentItem?.duration.seconds
+            if let duration = metadataDuration, duration.isFinite, duration > 0 {
+                currentPartBaseSeconds += duration
+            } else if let duration = measuredDuration, duration.isFinite, duration > 0 {
+                currentPartBaseSeconds += duration + hlsBaseOffset
+            }
             currentPartIndex += 1
             currentItem = item.withPartKey(nextKey)
             seekOffset = 0
-            loadCurrentItem()
+            loadCurrentItem(preservingTracker: true)
         } else {
             currentPartIndex = 0
             advanceToNextItem(fromNaturalEnd: true)

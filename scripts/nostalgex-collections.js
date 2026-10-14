@@ -2,13 +2,18 @@
 // (Nostalgex/Nostalgex/App/AppState+Channels.swift `scanCollections` and
 // `materializeDynamicChannels`, Models/Channel.swift `CollectionCategory`).
 //
-// - Plex: /library/sections/{key}/collections per movie section, then
+// - Plex: /library/sections/{key}/collections per movie and TV section, then
 //   /library/collections/{key}/children for the ratingKeys.
 // - Jellyfin and Emby: BoxSet items from /Items (one global list, deduped by id),
-//   then the Movie children of each BoxSet. Same calls as JellyfinAPIService and
-//   EmbyAPIService `loadCollections` / `loadCollectionItems`.
-// - A collection becomes a candidate when 3+ of its children are movies the library
-//   scan already holds on that server.
+//   then the Movie and Series children of each BoxSet. Same calls as
+//   JellyfinAPIService and EmbyAPIService `loadCollections` / `loadCollectionItems`.
+// - Children resolve against what the library scan already holds on that server
+//   (CollectionMemberIndex.swift): a film or episode key is that item, a show key
+//   (Plex grandparentRatingKey, Jellyfin SeriesId, carried as `showKey` on every
+//   episode) is all of that show's episodes. Emby answers the BoxSet query with the
+//   episodes themselves, which match by key.
+// - A collection becomes a candidate when it resolves to 3+ playable items. A
+//   films-only collection is held to the old "3+ movies" exactly.
 // - Candidates are sorted by upper-cased title (Swift `<` on String, so code-unit
 //   order), and the switched-on ones get CH 500 upward, capped at 200 channels
 //   (CH 500-699), ids from 1,020,000. Anything enabled past the cap is not built.
@@ -113,14 +118,23 @@
    * FranchiseCollectionFold steps 3 and 4 against the stock franchise channels:
    * the name match or manifest overlap points at one, or 60%+ of the collection's
    * movies already sit in one's pool. Returns the target label or null.
+   *
+   * A folded collection is hidden, so one that holds shows folds only into a channel
+   * already airing an episode of each of them (Swift `carriesEveryShow`).
    */
   function foldTarget(collection, franchiseChannels, itemKey, threshold = OVERLAP_THRESHOLD) {
     if (!franchiseChannels.length) return null;
+    const ch = pickFoldChannel(collection, franchiseChannels, itemKey, threshold);
+    if (!ch || !carriesEveryShow(collection, ch, itemKey)) return null;
+    return channelLabel(ch);
+  }
+
+  function pickFoldChannel(collection, franchiseChannels, itemKey, threshold) {
     const labels = new Map(franchiseChannels.map((ch) => [channelLabel(ch), ch]));
-    if (collection.matchedChannel && labels.has(collection.matchedChannel)) return collection.matchedChannel;
+    if (collection.matchedChannel && labels.has(collection.matchedChannel)) return labels.get(collection.matchedChannel);
     if (collection.contentOverlap) {
       const ch = franchiseChannels.find((c) => c.id === collection.contentOverlap.channelID);
-      if (ch) return channelLabel(ch);
+      if (ch) return ch;
     }
     const total = collection.items.length;
     if (!total) return null;
@@ -131,17 +145,116 @@
       for (const it of ch.itemPool || []) if (keys.has(itemKey(it))) count++;
       if (count > ((best && best.count) || 0)) best = { ch, count };
     }
-    if (best && Math.round((best.count / total) * 100) >= threshold) return channelLabel(best.ch);
+    if (best && Math.round((best.count / total) * 100) >= threshold) return best.ch;
     return null;
+  }
+
+  function carriesEveryShow(collection, ch, itemKey) {
+    const pool = new Set((ch.itemPool || []).map(itemKey));
+    const covered = new Map();
+    for (const it of collection.items) {
+      if (!it || it.type !== 'episode') continue;
+      const show = showIdentity(it);
+      if (covered.get(show)) continue;
+      covered.set(show, pool.has(itemKey(it)));
+    }
+    for (const ok of covered.values()) if (!ok) return false;
+    return true;
+  }
+
+  // ── Pure: members (CollectionMemberIndex.swift) ────────────────────────────
+
+  /** Which show an episode belongs to: its show key, else its show title. */
+  function showIdentity(it) {
+    return it.showKey != null && it.showKey !== '' ? `key:${it.showKey}` : `title:${it.title}`;
+  }
+
+  /**
+   * Index the library per server: every item by ratingKey, and episodes grouped by
+   * their show key. Returns Map(serverKey -> { byKey, byShow }).
+   */
+  function indexLibrary(items, serverKeyFor) {
+    const out = new Map();
+    for (const it of items || []) {
+      if (!it) continue;
+      const sk = serverKeyFor(it);
+      if (!out.has(sk)) out.set(sk, { byKey: new Map(), byShow: new Map() });
+      const idx = out.get(sk);
+      const key = String(it.ratingKey);
+      if (!idx.byKey.has(key)) idx.byKey.set(key, it);
+      if (it.type === 'episode' && it.showKey != null && it.showKey !== '') {
+        const show = String(it.showKey);
+        if (!idx.byShow.has(show)) idx.byShow.set(show, []);
+        idx.byShow.get(show).push(it);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Child keys -> library items, each once, in child order. `index` is { byKey, byShow }
+   * from indexLibrary, or a plain Map(ratingKey -> item) (films only, the old shape).
+   */
+  function resolveMembers(childKeys, index) {
+    const byKey = index instanceof Map ? index : ((index && index.byKey) || new Map());
+    const byShow = index instanceof Map ? new Map() : ((index && index.byShow) || new Map());
+    const items = [];
+    const seen = new Set();
+    // One index is one server, where a ratingKey is unique.
+    const add = (it) => {
+      const id = String(it.ratingKey);
+      if (!seen.has(id)) { seen.add(id); items.push(it); }
+    };
+    for (const k of childKeys || []) {
+      const key = String(k);
+      const it = byKey.get(key);
+      if (it) add(it);
+      else if (byShow.has(key)) byShow.get(key).forEach(add);
+    }
+    return items;
+  }
+
+  function countMembers(items) {
+    let movies = 0;
+    const shows = new Set();
+    for (const it of items) {
+      if (it.type === 'episode') shows.add(showIdentity(it));
+      else movies++;
+    }
+    return { movies, shows: shows.size, episodes: items.length - movies };
+  }
+
+  /** Films plus the first episode of each show: one entry per title. */
+  function titleRepresentatives(items) {
+    const seen = new Set();
+    return items.filter((it) => {
+      if (it.type !== 'episode') return true;
+      const show = showIdentity(it);
+      if (seen.has(show)) return false;
+      seen.add(show);
+      return true;
+    });
+  }
+
+  /** Swift `DiscoveredCollection.memberSummary`. */
+  function memberSummary(c) {
+    const movies = c.movieCount || 0;
+    const shows = c.showCount || 0;
+    const episodes = c.episodeCount || 0;
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    if (!shows) return `${movies} movies`;
+    if (!movies) return `${plural(shows, 'show', 'shows')} · ${plural(episodes, 'episode', 'episodes')}`;
+    return `${plural(movies, 'movie', 'movies')} · ${plural(shows, 'show', 'shows')}`;
   }
 
   // ── Pure: candidates and channels ──────────────────────────────────────────
 
   /**
-   * raw: [{ id, title, childKeys, serverKey }]. moviesByServer: Map(serverKey ->
-   * Map(ratingKey -> item)). Returns candidates sorted the way the app lists them.
+   * raw: [{ id, title, childKeys, serverKey }]. indexByServer: Map(serverKey -> index),
+   * the index from indexLibrary, or a plain Map(ratingKey -> item) of films (the old
+   * shape, still accepted). Returns candidates sorted the way the app lists them.
    */
-  function buildCandidates(raw, moviesByServer, ctx = {}) {
+  function buildCandidates(raw, indexByServer, ctx = {}) {
     const staticChannels = ctx.staticChannels || [];
     const channelsByID = ctx.channelsByID || new Map(staticChannels.map((c) => [c.id, c]));
     const franchiseChannels = ctx.franchiseChannels || [];
@@ -149,22 +262,20 @@
     const enabledKeys = ctx.enabledKeys || new Set();
     const out = [];
     for (const c of raw) {
-      const movies = moviesByServer.get(c.serverKey) || new Map();
-      const items = [];
-      const seen = new Set();
-      for (const k of c.childKeys || []) {
-        const it = movies.get(String(k));
-        if (it && !seen.has(String(k))) { seen.add(String(k)); items.push(it); }
-      }
-      if (items.length < MIN_MOVIES) continue;
+      const items = resolveMembers(c.childKeys, indexByServer.get(c.serverKey));
+      if (items.length < MIN_ITEMS) continue;
+      const counts = countMembers(items);
       const candidate = {
         id: c.id,
         title: String(c.title || 'Untitled').toUpperCase(),
-        movieCount: items.length,
+        movieCount: counts.movies,
+        showCount: counts.shows,
+        episodeCount: counts.episodes,
         items,
         enabled: enabledKeys.has(c.id),
         matchedChannel: matchStaticChannel(c.title, staticChannels),
-        contentOverlap: contentOverlap(items, ctx.manifest, channelsByID),
+        // One entry per show, so a long show does not outweigh the rest of the set.
+        contentOverlap: contentOverlap(titleRepresentatives(items), ctx.manifest, channelsByID),
         foldedInto: null,
       };
       candidate.foldedInto = foldTarget(candidate, franchiseChannels, itemKey);
@@ -238,7 +349,8 @@
     const sections = ((await getJSON('/library/sections')).MediaContainer || {}).Directory || [];
     const list = [];
     const seen = new Set();
-    for (const section of sections.filter((s) => s.type === 'movie')) {
+    // TV sections too: a Plex collection of shows lives in the TV library.
+    for (const section of sections.filter((s) => s.type === 'movie' || s.type === 'show')) {
       try {
         const data = await getJSON(`/library/sections/${section.key}/collections`);
         for (const c of (data.MediaContainer || {}).Metadata || []) {
@@ -279,8 +391,9 @@
       try {
         let start = 0;
         while (true) {
+          // Movie,Series: Jellyfin returns the series ids, Emby the series' episodes.
           const page = await getJSON(`/Items?userId=${uid}&ParentId=${encodeURIComponent(b.Id)}&Recursive=true`
-            + `&IncludeItemTypes=Movie&StartIndex=${start}&Limit=200&SortBy=SortName`);
+            + `&IncludeItemTypes=Movie,Series&StartIndex=${start}&Limit=200&SortBy=SortName`);
           const items = page.Items || [];
           for (const it of items) childKeys.push(String(it.Id));
           start += items.length;
@@ -311,6 +424,11 @@
     matchStaticChannel,
     contentOverlap,
     foldTarget,
+    showIdentity,
+    indexLibrary,
+    resolveMembers,
+    titleRepresentatives,
+    memberSummary,
     buildCandidates,
     duplicateWarning,
     materialize,

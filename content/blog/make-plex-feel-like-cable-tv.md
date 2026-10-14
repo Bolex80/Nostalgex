@@ -2,6 +2,8 @@
 title: "How to Make Plex Feel Like Cable TV Again (Yes, With a Real Channel Guide)"
 seo_title: "Make Plex Feel Like Cable TV Again"
 description: "Turn your own Plex library into live channels with a retro TV guide. How Nostalgex works, how to set it up for free, plus notes for Jellyfin and Emby."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/make-plex-feel-like-cable-tv/cover.jpg"
+cover_alt: "Nostalgex live channel guide on Apple TV with several channels mid program, built from a Plex library"
 slug: make-plex-feel-like-cable-tv
 date: 2026-10-16
 draft: true
@@ -22,6 +24,8 @@ Cable never asked. Something was on channel 12. Something else was on at 10. You
 ## What a Live Channel Guide Fixes
 
 A channel guide gives your library an opinion. Instead of ten thousand posters, you get a lineup.
+
+![Nostalgex guide in October with an offer to add the Scream bundle above channels already airing movies](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/make-plex-feel-like-cable-tv/scream-banner-guide.webp)
 
 Plex has its own Live TV section, but it's built around Plex's streaming channels and antenna tuners, not the movies sitting on your server. Nostalgex fills that gap by building Plex channels out of your own library:
 

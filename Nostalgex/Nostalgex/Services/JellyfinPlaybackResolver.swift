@@ -1,8 +1,8 @@
 import Foundation
 
-/// Result of resolving how to play a Jellyfin item. `playSessionId` is nil when we fell
-/// back to a hand-built URL (no PlaybackInfo handshake), in which case there is no
-/// server-tracked transcode session to stop.
+/// Result of resolving how to play a Jellyfin item. `playSessionId` is nil when Jellyfin
+/// fell back to a hand-built URL (no PlaybackInfo handshake), in which case there is no
+/// server-tracked transcode session to stop. Emby's hand-built URL carries its own id.
 struct PlaybackResolution: Sendable {
     let url: URL
     let playSessionId: String?
@@ -140,9 +140,51 @@ struct JellyfinDeviceProfile: Encodable, Sendable {
     }
 }
 
+/// Body of the PlaybackInfo POST, shared by Jellyfin and Emby.
+///
+/// `EnableDirectPlay` and `EnableDirectStream` are nil on the first attempt, so the keys are
+/// left out and the server decides exactly as it always has. They are false only when the
+/// file has already been played directly and gave no picture or starved; see
+/// `JellyfinPlaybackResolver.playbackInfoBody`.
+struct PlaybackInfoBody: Encodable, Sendable {
+    let DeviceProfile: JellyfinDeviceProfile
+    let MediaSourceId: String
+    let MaxStreamingBitrate: Int
+    let EnableDirectPlay: Bool?
+    let EnableDirectStream: Bool?
+}
+
 enum JellyfinPlaybackResolver {
     /// Codecs AVPlayer can decode. HEVC is gated separately on hardware support.
     private static let audioCodecs = "aac,ac3,eac3,mp3"
+
+    /// What the app asks PlaybackInfo. `serverStreamOnly` is the retry after a direct play
+    /// that gave no picture or starved, and it has to come back as an HLS stream the server
+    /// makes, not the file that just failed.
+    ///
+    /// Asked the first-attempt question, both servers call an 8-bit H.264 MP4 directly
+    /// playable and hand back no TranscodingUrl, so the resolver returned the same static
+    /// file and the ladder played it a second time before it reached the 1080p rung.
+    /// Measured 2026-10-13 against Jellyfin 12.2.0 and Emby 4.10.1.0: first-attempt body
+    /// gives `SupportsDirectPlay=true`, no TranscodingUrl, on both. `EnableDirectPlay=false`
+    /// alone is enough for Jellyfin but not for Emby, which then reports
+    /// `SupportsDirectStream=true` and still no TranscodingUrl. With both flags false each
+    /// server returns a `master.m3u8` TranscodingUrl whose variant, init and first three
+    /// segments answer 200. An MKV is unaffected: it never direct plays, and the flags
+    /// change nothing about the TranscodingUrl it already gets.
+    static func playbackInfoBody(
+        mediaSourceId: String,
+        supportsHEVC: Bool,
+        serverStreamOnly: Bool
+    ) -> PlaybackInfoBody {
+        PlaybackInfoBody(
+            DeviceProfile: deviceProfile(supportsHEVC: supportsHEVC),
+            MediaSourceId: mediaSourceId,
+            MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
+            EnableDirectPlay: serverStreamOnly ? false : nil,
+            EnableDirectStream: serverStreamOnly ? false : nil
+        )
+    }
 
     static func deviceProfile(supportsHEVC: Bool) -> JellyfinDeviceProfile {
         let videoCodecs = supportsHEVC ? "h264,hevc" : "h264"
@@ -267,12 +309,16 @@ enum JellyfinPlaybackResolver {
     /// Pure selection of the playback URL from a decoded PlaybackInfo. No networking — unit
     /// testable. Returns nil only when there is genuinely no playable source (transcoding
     /// disabled and not directly playable), which the caller maps to a `.error` state.
+    ///
+    /// `serverStreamOnly` never returns the static file: a server that still offers only
+    /// direct play gets nil, and the caller falls back to its hand-built HLS stream.
     static func resolve(
         _ info: PlaybackInfoResponse,
         serverURL: String,
         apiKey: String,
         itemId: String,
-        mediaSourceId: String?
+        mediaSourceId: String?,
+        serverStreamOnly: Bool = false
     ) -> PlaybackResolution? {
         let sources = info.MediaSources ?? []
         let source = sources.first(where: { $0.Id == mediaSourceId }) ?? sources.first
@@ -290,8 +336,9 @@ enum JellyfinPlaybackResolver {
             }
         }
 
-        // 2) No transcode URL but the source is directly playable — static stream.
-        if source?.SupportsDirectPlay == true {
+        // 2) No transcode URL but the source is directly playable: static stream. Not on
+        //    the retry after a direct play failed, because that is the file that just failed.
+        if !serverStreamOnly, source?.SupportsDirectPlay == true {
             if let url = staticStreamURL(serverURL: serverURL, itemId: itemId,
                                          mediaSourceId: source?.Id ?? mediaSourceId ?? itemId, apiKey: apiKey) {
                 return PlaybackResolution(url: url, playSessionId: info.PlaySessionId, isDirectPlay: true)

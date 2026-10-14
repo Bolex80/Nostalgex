@@ -2,6 +2,8 @@
 title: "The Best Channel Surfing Apps for Apple TV: Live Channels From Your Plex or Jellyfin Library"
 seo_title: "Best Channel Surfing Apps for Apple TV 2026"
 description: "Coax, Bunny Ears TV, TubeTime+, analoq and Nostalgex turn Plex or Jellyfin into live channels on Apple TV. Prices, tvOS needs and who each one really fits."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/cover.jpg"
+cover_alt: "Channel surfing on Apple TV with Nostalgex: a movie playing full screen on channel 140 Nostalgex Horror"
 excerpt: "Coax, Bunny Ears TV, TubeTime+, analoq and Nostalgex all turn your library into live TV on Apple TV. I built one of them, so here's the fairest comparison I can write."
 author: "Chad Mueller"
 slug: apple-tv-channel-surfing-apps
@@ -50,6 +52,8 @@ The sections below go app by app so you can match one to your setup.
 
 That's where Nostalgex fits, and it's why I built it. It's free on the [App Store](https://apps.apple.com/app/nostalgex/id6762563534), open source under the MIT license, and has no ads, no account and no in app purchases. It needs nothing paid on your end either. No Plex Pass, no subscription.
 
+![Nostalgex guide grid with the Scream Adults channel selected and Scream Kids, Fright Night and Nostalgex Horror around it](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/scream-adults-guide-grid.webp)
+
 You connect your Plex or Jellyfin server ([how it works on Plex](/plex), [how it works on Jellyfin](/jellyfin)) and it builds 131 channels in 14 bundles from your library automatically. You don't pick what goes where. You open the guide and something is already on, halfway through, like cable used to be. This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR. Here's [what a night on those looks like](/blog/90s-slasher-movies-halloween-marathon).
 
 It needs tvOS 18 or later. There's also a free [web tuner](/web-tuner) that runs the same idea in a browser, as long as your server is reachable over https.
@@ -90,6 +94,8 @@ If you're on Jellyfin and wondering why its own guide is empty, I explained that
 ## Which one is right for my setup?
 
 Here's how I'd break it down if a friend asked:
+
+![Nostalgex guide grid on Apple TV with Overboard airing on the Girls Night channel](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/girls-night-overboard-grid.webp)
 
 * Want it free, run Jellyfin, or have an older Apple TV on tvOS 18: **Nostalgex**.
 * Want to shape your own lineups, run Emby, or use iPhone and iPad too: **Coax**.

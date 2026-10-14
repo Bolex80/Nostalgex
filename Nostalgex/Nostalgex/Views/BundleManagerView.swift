@@ -74,9 +74,9 @@ struct SettingsPageView: View {
 
                         settingsDivider
 
-                        // Display
+                        // Playback: how a channel looks and sounds once it is on screen.
                         VStack(alignment: .leading, spacing: 20) {
-                            sectionHeader("DISPLAY", subtitle: "Visual effects and aspect ratio")
+                            sectionHeader("PLAYBACK", subtitle: "Picture, quality, subtitles and audio")
 
                             SettingsToggleRow(
                                 title: "RETRO MODE",
@@ -167,33 +167,52 @@ struct SettingsPageView: View {
                                     let available = availableNames.count
                                     let total = bundle.channelIDs.count
 
-                                    // Line 1: channels you have. Line 2 (amber): channels that
-                                    // can't build yet because there isn't enough content.
+                                    // Availability is only computed for packages that are on, so
+                                    // an OFF package is an invitation, never a warning.
+                                    // ON: line 1 is the channels you have, line 2 (amber) the
+                                    // ones that can't build yet for lack of content.
                                     let subtitle: String = {
+                                        if !bundle.enabled {
+                                            let invite = "Turn on to add up to \(total) channel\(total == 1 ? "" : "s") from your library."
+                                            guard bundle.activeMonths != nil, !inSeason else { return invite }
+                                            return "\(seasonalLabel(for: bundle)) · \(invite)"
+                                        }
                                         if available == 0 { return "Not enough content to build this bundle" }
                                         let names = availableNames.joined(separator: ", ")
                                         guard bundle.activeMonths != nil, !inSeason else { return names }
                                         return "\(seasonalLabel(for: bundle)) · \(names)"
                                     }()
                                     let warning: String? = {
-                                        guard available > 0, !missingNames.isEmpty else { return nil }
+                                        guard bundle.enabled, available > 0, !missingNames.isEmpty else { return nil }
                                         return "Needs more content: \(missingNames.joined(separator: ", "))"
                                     }()
-                                    let detail: String? = "\(available)/\(total) CH"
+                                    let detail: String? = bundle.enabled ? "\(available)/\(total) CH" : "\(total) CH"
+                                    // While its channels build, the row says so instead of
+                                    // briefly reading "Not enough content" and dimming.
+                                    let building = bundle.enabled && appState.buildingBundleIDs.contains(bundle.id)
 
                                     SettingsToggleRow(
                                         title: bundle.name,
-                                        subtitle: subtitle,
+                                        subtitle: building ? "Finding \(total) channel\(total == 1 ? "" : "s") in your library" : subtitle,
                                         detail: detail,
-                                        warning: warning,
+                                        warning: building ? nil : warning,
                                         isOn: bundle.enabled,
-                                        isFocused: focusedItem == "bundle_\(bundle.id)"
+                                        isFocused: focusedItem == "bundle_\(bundle.id)",
+                                        isLoading: building,
+                                        loadingMessage: "BUILDING"
                                     ) {
                                         appState.toggleBundle(bundle)
                                     }
                                     .focused($focusedItem, equals: "bundle_\(bundle.id)")
                                     .id("bundle_\(bundle.id)")
-                                    .opacity(available == 0 ? 0.5 : 1.0)
+                                    .opacity(bundle.enabled && available == 0 && !building ? 0.5 : 1.0)
+
+                                    // The classics above are the stock half of FRANCHISES.
+                                    // Everything the library itself turned out to hold
+                                    // sits right under them, one switch each.
+                                    if bundle.id == AppState.franchisesBundleID && bundle.enabled {
+                                        foundFranchisesBlock
+                                    }
                                 }
                             }
                         }
@@ -202,7 +221,7 @@ struct SettingsPageView: View {
 
                         // My Collections — scan once, then browse by category accordion (no bundle toggles)
                         VStack(alignment: .leading, spacing: 20) {
-                            sectionHeader("MY COLLECTIONS", subtitle: "Scan Plex collections, then turn individual collections into channels")
+                            sectionHeader("MY COLLECTIONS", subtitle: "Scan your server's collections, then turn the ones you want into channels")
 
                             VStack(spacing: 14) {
                                 scanCollectionsHeroButton(
@@ -215,6 +234,15 @@ struct SettingsPageView: View {
                                         .fill(Color.white.opacity(0.06))
                                         .frame(height: 1)
                                         .padding(.vertical, 4)
+
+                                    if appState.visibleDiscoveredCollections.isEmpty {
+                                        // Every collection the scan found is a franchise the
+                                        // FRANCHISES package already carries.
+                                        Text(allCollectionsFoldedHint)
+                                            .font(.custom("DMMono-Regular", size: 20))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
 
                                     ForEach(Array(CollectionCategory.allCases), id: \.rawValue) { category in
                                         collectionsCategoryAccordion(category: category)
@@ -277,6 +305,7 @@ struct SettingsPageView: View {
                 }
                 StreamQuality.current = picked
                 streamQuality = picked
+                appState.preferenceSync.record(PreferenceSync.streamQualityKey, value: picked.rawValue)
             }
         }
         .sheet(isPresented: $showSubtitleLanguagePicker) {
@@ -402,13 +431,113 @@ struct SettingsPageView: View {
         SubtitleLanguagePreset.displayLabel(for: code)
     }
 
+    // MARK: - Franchises (under the FRANCHISES package row)
+
+    /// The indented block under FRANCHISES: one alphabetical list of every franchise,
+    /// the stock classics (CH100-106) and the ones found in the library, each with its
+    /// own switch. ADD ALL / REMOVE ALL act on the whole list. Hidden while the package
+    /// is off (see the caller).
+    @ViewBuilder
+    private var foundFranchisesBlock: some View {
+        let rows = appState.franchiseListRows
+
+        VStack(alignment: .leading, spacing: 4) {
+            if rows.isEmpty {
+                Text(foundFranchisesEmptyHint)
+                    .font(.custom("DMMono-Regular", size: 20))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+            } else {
+                HStack(spacing: 12) {
+                    Text("YOUR FRANCHISES")
+                        .font(.custom("DMMono-Medium", size: 20))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text("\(rows.filter(\.enabled).count)/\(rows.count) ON")
+                        .font(.custom("VT323-Regular", size: 22))
+                        .foregroundStyle(.white.opacity(0.4))
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
+
+                // Only when the range is actually full (CH 300-499); otherwise nothing.
+                let overCap = appState.dynamicChannelsOverCap[.franchises, default: 0]
+                if overCap > 0 {
+                    Text("Up to \(CollectionCategory.franchises.displayCapacity) franchise channels fit in the guide. \(overCap) more are switched on but not shown.")
+                        .font(.custom("DMMono-Regular", size: 18))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 6)
+                }
+
+                let allOn = rows.allSatisfy(\.enabled)
+                let allOff = !rows.contains(where: \.enabled)
+                HStack(spacing: 12) {
+                    FranchiseActionButton(
+                        title: "ADD ALL",
+                        subtitle: allOn ? "Every franchise is on" : "Turn on all \(rows.count)",
+                        isEnabled: !allOn,
+                        isFocused: focusedItem == "franchise_add_all"
+                    ) {
+                        appState.setAllFranchises(enabled: true)
+                    }
+                    .focused($focusedItem, equals: "franchise_add_all")
+                    .id("franchise_add_all")
+
+                    FranchiseActionButton(
+                        title: "REMOVE ALL",
+                        subtitle: allOff ? "None are on" : "Take them all out of the guide",
+                        isEnabled: !allOff,
+                        isFocused: focusedItem == "franchise_remove_all"
+                    ) {
+                        appState.setAllFranchises(enabled: false)
+                    }
+                    .focused($focusedItem, equals: "franchise_remove_all")
+                    .id("franchise_remove_all")
+                }
+
+                ForEach(rows) { row in
+                    SettingsToggleRow(
+                        title: row.name,
+                        subtitle: row.countLabel,
+                        detail: row.channelNumber.map { "CH \($0)" },
+                        isOn: row.enabled,
+                        isFocused: focusedItem == "franchise_\(row.id)"
+                    ) {
+                        appState.toggleFranchiseRow(row)
+                    }
+                    .focused($focusedItem, equals: "franchise_\(row.id)")
+                    .id("franchise_\(row.id)")
+                }
+            }
+        }
+        .padding(.leading, 24)
+    }
+
+    private var foundFranchisesEmptyHint: String {
+        if appState.isDemoMode {
+            return "Demo mode has no library to search. Connect a server to find your franchises."
+        }
+        return "Franchises you own show up here once your library has been enriched."
+    }
+
     // MARK: - My Collections (scan hero + accordion)
 
     private var collectionEmptyHint: String {
         if appState.allItems.isEmpty {
             return "Wait for your library to finish loading, then scan here."
         }
-        return "Finds Plex movie collections with 3+ films. Categories appear after the first scan."
+        return "Finds server movie collections with 3+ films. Franchises go under CHANNEL PACKAGES; the rest appear here after the first scan."
+    }
+
+    private var allCollectionsFoldedHint: String {
+        let count = appState.discoveredCollections.count
+        let noun = count == 1 ? "collection is" : "collections are"
+        return "All \(count) of your \(noun) already covered by the FRANCHISES package."
     }
 
     private func collectionsScanSubtitle() -> String? {
@@ -419,7 +548,11 @@ struct SettingsPageView: View {
         if appState.discoveredCollections.isEmpty {
             return "Turns your server's collections into optional channels"
         }
-        return "\(appState.discoveredCollections.count) COLLECTIONS CACHED · TAP TO RESCAN"
+        let visible = appState.visibleDiscoveredCollections.count
+        let folded = appState.discoveredCollections.count - visible
+        let foldedNote = folded > 0 ? " · \(folded) UNDER FRANCHISES" : ""
+        let noun = visible == 1 ? "COLLECTION" : "COLLECTIONS"
+        return "\(visible) \(noun) CACHED\(foldedNote) · TAP TO RESCAN"
     }
 
     @ViewBuilder
@@ -489,7 +622,8 @@ struct SettingsPageView: View {
 
     @ViewBuilder
     private func collectionsCategoryAccordion(category: CollectionCategory) -> some View {
-        let rows = appState.discoveredCollections.filter { $0.category == category }
+        // A collection the fold credited to a franchise is not offered here again.
+        let rows = appState.visibleDiscoveredCollections.filter { $0.category == category }
         if rows.isEmpty {
             EmptyView()
         } else {
@@ -526,7 +660,7 @@ struct SettingsPageView: View {
             if expanded {
                 ForEach(rows) { collection in
                     let warning = duplicateWarning(for: collection)
-                    let subtitle = warning ?? "\(collection.movieCount) movies"
+                    let subtitle = warning ?? collection.memberSummary
                     SettingsToggleRow(
                         title: collection.title,
                         subtitle: subtitle,
@@ -548,7 +682,8 @@ struct SettingsPageView: View {
     /// Subtitle text when a discovered Plex collection looks like a duplicate of
     /// an existing channel. Content overlap (from the TMDB membership manifest)
     /// is the strongest signal; name match is the fallback. Returns nil when
-    /// there's no warning, so the row falls back to "<N> movies".
+    /// there's no warning, so the row falls back to its member summary ("<N> movies",
+    /// "<N> shows · <E> episodes").
     private func duplicateWarning(for collection: DiscoveredCollection) -> String? {
         if let overlap = collection.contentOverlap {
             return "⚠ \(overlap.percent)% already on \(overlap.channelName)"
@@ -658,16 +793,12 @@ struct SettingsPageView: View {
             .padding(.top, 8)
 
             // Playback reporting. Same switch on every server: off, a watch here
-            // stays in the app; on, it counts on the server they connected.
+            // stays in the app; on, the server sees what's playing and a real watch
+            // counts. Either way nothing is left in Continue Watching (PlaybackTracker).
             if !appState.isDemoMode {
                 SettingsToggleRow(
                     title: "REPORT PLAYBACK TO \(appState.backendDisplayName.uppercased())",
-                    subtitle: "Off by default. When on, a real watch here counts on your server.",
-                    // Warning stays full-brightness while the row's own text dims,
-                    // so the side effect is legible exactly when it applies.
-                    warning: appState.syncPlexActivity
-                        ? "Channel surfing can mark plays and leave resume points"
-                        : nil,
+                    subtitle: "Off by default. When on, your server sees what's playing and a film you watch most of counts as watched. Channel surfing never fills your Continue Watching.",
                     isOn: appState.syncPlexActivity,
                     isFocused: focusedItem == "plex_sync"
                 ) {
@@ -675,8 +806,23 @@ struct SettingsPageView: View {
                 }
                 .focused($focusedItem, equals: "plex_sync")
                 .id("plex_sync")
-                .accessibilityHint("Updates play counts, resume points and Continue Watching in \(appState.backendDisplayName)")
+                .accessibilityHint("Shows what's playing and updates play counts in \(appState.backendDisplayName). Continue Watching is left as it was")
             }
+
+            // Off by default and per-TV. Turning it on pushes this TV's lineup and
+            // settings to iCloud first, then listens.
+            SettingsToggleRow(
+                title: "SYNC WITH MY OTHER APPLE TVS",
+                subtitle: appState.iCloudSyncEnabled
+                    ? "This Apple TV's lineup is shared through iCloud."
+                    : "Turn on to share your lineup and settings with your other Apple TVs through iCloud.",
+                isOn: appState.iCloudSyncEnabled,
+                isFocused: focusedItem == "icloud_sync"
+            ) {
+                appState.iCloudSyncEnabled.toggle()
+            }
+            .focused($focusedItem, equals: "icloud_sync")
+            .id("icloud_sync")
 
             SettingsToggleRow(
                 title: "DISCONNECT FROM \(appState.backendDisplayName.uppercased())",
@@ -750,6 +896,51 @@ private struct CollectionAccordionHeaderRow: View {
         .buttonStyle(SettingsButtonStyle(isFocused: isFocused, accentColor: Color("BrandCyan")))
         .animation(.easeInOut(duration: 0.18), value: isExpanded)
         .animation(.easeInOut(duration: 0.12), value: isFocused)
+    }
+}
+
+// MARK: - Franchises: ADD ALL / REMOVE ALL
+
+/// Half-width action row for the found-franchise block. Same chrome as
+/// SettingsToggleRow (DMMono, cyan focus stroke), no switch, dims when it has nothing
+/// left to do so the pair reads as a state as much as a control.
+private struct FranchiseActionButton: View {
+    let title: String
+    let subtitle: String
+    let isEnabled: Bool
+    let isFocused: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.custom("DMMono-Medium", size: 22))
+                    .foregroundStyle(isEnabled ? .white : .white.opacity(0.35))
+                Text(subtitle)
+                    .font(.custom("DMMono-Regular", size: 20))
+                    .foregroundStyle(.white.opacity(isEnabled ? 0.8 : 0.5))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isFocused ? .white.opacity(0.07) : .white.opacity(0.02))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isFocused ? Color("BrandCyan").opacity(0.5) : .clear, lineWidth: 1.5)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(SettingsButtonStyle(isFocused: isFocused))
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+        .accessibilityHint(subtitle)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 

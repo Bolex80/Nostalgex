@@ -231,6 +231,17 @@
       "studioRuled": false,
       "defaultOn": false,
       "note": "264 = Back to the Future Collection."
+    },
+    {
+      "canonicalName": "SPIDER-MAN",
+      "stockChannelID": null,
+      "tmdbCollectionIDs": [556, 125574, 531241, 573436, 225941],
+      "nameMatchTokens": ["spider-man"],
+      "tvShowTitles": ["Spidey and His Amazing Friends"],
+      "filmTitles": [],
+      "studioRuled": false,
+      "defaultOn": false,
+      "note": "Five TMDB collections merged, verified live 2026-10-13 via search/collection: 556 = Spider-Man (Raimi trilogy), 125574 = The Amazing Spider-Man, 531241 = Spider-Man (MCU), 573436 = Spider-Man: Spider-Verse, 225941 = Spider-Man (TV), the 1977-80 TV films. Its own channel, not folded into MARVEL CH101; the MCU films also pass CH101's Marvel Studios rule, and Settings counts them under SPIDER-MAN only. The token joins shows (The Amazing Spider-Man, Spider-Man: The Animated Series)."
     }
   ]
 }

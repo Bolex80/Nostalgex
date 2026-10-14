@@ -340,7 +340,10 @@ extension AppState {
 
             let enrichableCount = allItems.filter { $0.tmdbID != nil || $0.imdbID != nil }.count
             await pulseLibraryPhase(.enrichingMetadata, detail: "\(enrichableCount) titles")
-            await enrichmentService.enrichItems(allItems)
+            await enrichmentService.enrichItems(
+                allItems,
+                omdbGates: OMDBGate.gates(from: config.channels.compactMap(\.rules))
+            )
             await briefUILBeat()
             LibraryLoadProbe.mark("enrichment")
 
@@ -373,6 +376,12 @@ extension AppState {
             let dynamicChannels = allChannels.filter { $0.rules == nil }
             allChannels = (staticBuilt + dynamicChannels).sorted { $0.number < $1.number }
             LibraryLoadProbe.mark("channelsMerged")
+
+            // Enrichment has landed and the classics are built: decide which franchises
+            // the library holds, fold any server collection that is one of them, and
+            // rebuild the runtime channels from both lists.
+            rebuildFoundFranchises()
+            materializeDynamicChannels()
 
             setLibraryPhase(.finishing)
             print("[Plex90] BUNDLES: \(bundles.map { "\($0.name)(\($0.channelIDs.count)ch, \($0.enabled ? "ON" : "OFF"))" }.joined(separator: ", "))")
@@ -641,6 +650,11 @@ extension AppState {
         lastLoadAtUnix = snap.lastLoadAtUnix
         librarySignature = snap.librarySignature
 
+        // The bundle list in UserDefaults is the latest choice, and may be newer than the
+        // snapshot (a toggle that never re-saved it, or a lineup that arrived from another
+        // Apple TV through iCloud while this one was off). Read it before the snapshot
+        // overwrites it.
+        let storedBundleIDs = UserDefaults.standard.stringArray(forKey: PreferenceSync.enabledBundlesKey)
         enabledBundleIDs = Set(snap.enabledBundleIDList)
         bundles = snap.bundleDefinitions.map { def in
             def.toChannelBundle(enabled: enabledBundleIDs.contains(def.id))
@@ -656,6 +670,11 @@ extension AppState {
             Channel.fromSnapshotRow($0, itemLookup: lookup, includePool: true)
         }
         discoveredCollections = snap.discoveredCollectionRows.map { $0.resolve(itemLookup: lookup) }
+        // The enrichment cache is empty until the next scan, so the found list cannot be
+        // rebuilt here; it is restored as saved, with the viewer's current switches applied.
+        foundFranchises = (snap.foundFranchiseRows ?? []).map {
+            $0.resolve(itemLookup: lookup, enabledIDs: enabledFranchiseIDs, disabledIDs: disabledFranchiseIDs)
+        }
 
         scanSectionIndex = 0
         scanTotalSections = 0
@@ -663,14 +682,29 @@ extension AppState {
 
         // Collection lineup no longer exposes per-category toggles; keep bundles enabled when discoveries exist.
         syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: false)
-        saveBundlePreferences()
+        let preferredBundleIDs = Self.preferredBundleIDsAfterSnapshot(
+            stored: storedBundleIDs, snapshotWithDiscoveries: enabledBundleIDs,
+            discoveredCategoryBundleIDs: Set(discoveredCollections.map(\.category.bundleID)))
+        if preferredBundleIDs == enabledBundleIDs { saveBundlePreferences() }
         for i in bundles.indices {
             bundles[i].enabled = enabledBundleIDs.contains(bundles[i].id)
         }
 
+        // Runtime channels come back from the restored lists rather than the stored rows,
+        // so the found-franchise channel ids are known to applyBundleFilter. Same content,
+        // same numbering: the lists are what the rows were built from.
+        materializeDynamicChannels()
         applyBundleFilter()
         if currentChannel == nil, let first = channels.first {
             selectChannel(first)
+        }
+        if preferredBundleIDs != enabledBundleIDs {
+            print("[Sync] snapshot lineup differs from the saved one, rebuilding to the saved lineup")
+            applyEnabledBundleIDs(preferredBundleIDs)
+        }
+        if discoveredCollections.contains(where: { $0.enabled != enabledCollectionKeys.contains($0.id) }) {
+            print("[Sync] snapshot collections differ from the saved ones, rebuilding")
+            applyEnabledCollectionKeys(enabledCollectionKeys)
         }
         print("[Plex90] Snapshot: restored from disk (no Plex crawl)")
     }
@@ -703,7 +737,8 @@ extension AppState {
             bundles: bundles,
             enabledBundleIDs: enabledBundleIDs,
             exclusiveRules: exclusiveRules,
-            discoveredCollections: discoveredCollections
+            discoveredCollections: discoveredCollections,
+            foundFranchises: foundFranchises
         )
         LibraryLoadProbe.mark("snapshot.capture")
         LibrarySnapshotStore.saveInBackground(payload)

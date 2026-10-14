@@ -3,6 +3,7 @@ import { readdirSync, mkdirSync, copyFileSync } from 'fs'
 import { defineConfig, loadEnv } from 'vite'
 import { writeBlogToDist } from './scripts/build-blog.mjs'
 import { selfhostPlugins, hostedMarkerPlugin } from './scripts/selfhost-build.mjs'
+import { writeBundlesToDist } from './scripts/build-bundles.mjs'
 
 // The browser-loaded helper scripts (scripts/nostalgex-*.js|.cjs) are referenced
 // by plex-tuner.html with a plain <script src>. Vite can't bundle non-module scripts,
@@ -40,6 +41,29 @@ function emitBlog() {
   }
 }
 
+// Render the channel guide into dist/channels.html and
+// dist/channels/<bundle-id>.html from channels.json plus content/bundles/*.md.
+// Same arrangement as emitBlog above: real files, so no rewrites, and nothing
+// added to rollupOptions.input. See scripts/build-bundles.mjs.
+function emitBundles() {
+  return {
+    name: 'nostalgex-bundles',
+    async closeBundle() {
+      const distDir = resolve(__dirname, 'dist')
+      const summary = await writeBundlesToDist(distDir)
+      // eslint-disable-next-line no-console
+      console.log(
+        `channels: emitted the hub + ${summary.bundles} bundle page${summary.bundles === 1 ? '' : 's'} ` +
+          `(${summary.indexed} indexed, ${summary.held} held) to dist/channels/`,
+      )
+      if (summary.skipped.length) {
+        // eslint-disable-next-line no-console
+        console.warn(`channels: no content file yet for ${summary.skipped.join(', ')}`)
+      }
+    },
+  }
+}
+
 // plex-tuner.html reads VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and
 // VITE_TMDB_RELAY_URL through Vite's %VITE_...% HTML replacement (see .env.example).
 // The Supabase pair is meant to be set; left unset, the placeholders stay in the page
@@ -73,7 +97,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [hostedMarkerPlugin(), copyBrowserScripts(), emitBlog()],
+    plugins: [hostedMarkerPlugin(), copyBrowserScripts(), emitBlog(), emitBundles()],
     build: {
       rollupOptions: {
         input: {

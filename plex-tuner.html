@@ -323,6 +323,10 @@
     letter-spacing: 1px;
     white-space: nowrap;
   }
+  /* Transparent on a pointer screen: the children are the column's own items,
+     so nothing about the desktop or TV layout changes. The touch blocks below
+     switch it to flex and give it a border. */
+  .loading-library-panel { display: contents; }
   .loading-library-rail {
     display: flex;
     align-items: flex-start;
@@ -597,10 +601,15 @@
     padding: 20px 10px;
     width: 140px;
     flex-shrink: 0;
-    justify-content: center;
+    /* `safe` so a rail taller than its row scrolls from the top instead of
+       centring and clipping its first and last control. */
+    justify-content: safe center;
+    overflow-y: auto;
+    scrollbar-width: none;
     background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
     border-right: 1px solid rgba(255,255,255,0.07);
   }
+  .v-toolbar::-webkit-scrollbar { display: none; }
 
   .player-screen.layout-side.has-channel .v-toolbar {
     display: flex;
@@ -671,6 +680,202 @@
     color: var(--orange);
   }
 
+  /* Short, hint-free button label. Desktop keeps the keyboard hints; touch
+     layouts swap to this one, because [M] and [F] mean nothing on a phone. */
+  .v-btn-short {
+    display: none;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0, 196, 255, 0.55);
+    letter-spacing: 1px;
+    line-height: 1.35;
+  }
+  .v-btn:hover .v-btn-short { color: #000; }
+
+  /* ══════════════════════════════════════
+     TOUCH TOP BAR (phones and tablets)
+  ══════════════════════════════════════ */
+  .m-topbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    height: calc(48px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    z-index: 60;
+  }
+  .m-topbar-logo {
+    width: 96px;
+    height: auto;
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════
+     TOUCH CONTROLS: MENU BUTTON AND DRAWER
+
+     On a phone or tablet the guide and the video are the product, so the
+     controls are not on screen at all. They live behind one button in the top
+     right and open as a sheet from the right edge. Desktop and TV never show
+     either: both are display:none until a touch media query turns them on.
+  ══════════════════════════════════════ */
+  .m-menu-btn {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    height: 44px;
+    padding: 0 12px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .m-menu-btn-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  /* Three stacked bars, drawn as blocks so they keep the pixel edge the rest
+     of the interface has. */
+  .m-menu-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .m-menu-bars span {
+    display: block;
+    width: 15px;
+    height: 3px;
+    background: var(--cyan);
+  }
+  .m-menu-btn:active { background: rgba(0, 196, 255, 0.2); }
+
+  .m-drawer-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.66);
+    z-index: 399;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  body.drawer-open .m-drawer-scrim { opacity: 1; pointer-events: auto; }
+
+  .m-drawer {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(300px, 84vw);
+    z-index: 400;
+    flex-direction: column;
+    gap: 8px;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) 12px;
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d20 100%);
+    border-left: 2px solid var(--cyan);
+    overflow-y: auto;
+    scrollbar-width: none;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+  }
+  .m-drawer::-webkit-scrollbar { display: none; }
+  body.drawer-open .m-drawer { transform: translateX(0); }
+
+  .m-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+  .m-drawer-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .m-drawer-close {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    line-height: 1;
+  }
+  .m-drawer-close:active { background: rgba(0, 196, 255, 0.2); }
+
+  .m-drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+  }
+  .m-drawer-item:active { background: rgba(0, 196, 255, 0.2); }
+  .m-drawer-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1.5;
+    flex: 1 1 auto;
+  }
+  .m-drawer-value {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    line-height: 1.5;
+    flex-shrink: 0;
+  }
+  .m-drawer-value.off { color: var(--orange); }
+  .m-drawer-item svg { display: block; flex-shrink: 0; }
+
+  /* The coffee box is the only control asking for anything, so it is the only
+     warm one in here. */
+  .m-drawer-item--coffee {
+    background: var(--yellow);
+    border-color: var(--yellow);
+    margin-top: 4px;
+    animation: coffee-glow 2.4s ease-in-out infinite;
+  }
+  .m-drawer-item--coffee .m-drawer-label { color: #000; }
+  .m-drawer-item--coffee svg .steam { animation: coffee-steam 1.8s ease-in-out infinite; }
+  .m-drawer-item--coffee:active { background: #fff; border-color: #fff; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .m-drawer, .m-drawer-scrim { transition: none; }
+    .m-drawer-item--coffee { animation: none; }
+    .m-drawer-item--coffee svg .steam { animation: none; }
+  }
+
   /* Buy Me a Coffee box — the one button meant to stand out */
   @keyframes coffee-glow {
     0%, 100% { box-shadow: 0 0 6px rgba(255,221,0,0.45), 0 0 14px rgba(255,221,0,0.18); }
@@ -711,6 +916,34 @@
     color: #000;
     letter-spacing: 1px;
     line-height: 1.5;
+  }
+
+  /* Instagram sits under the coffee box, in the toolbar's own shape and colour
+     so the yellow one stays the only button that asks for something. */
+  .v-social {
+    margin-top: 8px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    padding: 10px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s ease;
+  }
+  .v-social:hover { background: rgba(0,196,255,0.14); transform: translateY(-2px); }
+  .v-social svg { display: block; flex-shrink: 0; }
+  .v-social-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0, 196, 255, 0.55);
+    letter-spacing: 1px;
+    line-height: 1;
   }
 
 
@@ -889,7 +1122,18 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    width: 500px;
+    /* min() so the column is the same 500px on a desktop and never wider than
+       the screen on a phone, where it used to run off both edges and take the
+       row checkboxes with it. */
+    width: min(500px, 100%);
+    max-width: 100%;
+  }
+  .server-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-width: 0;
   }
   .server-picker.active { display: flex; }
   .server-picker-title {
@@ -942,6 +1186,24 @@
   }
   .server-option-info { flex: 1; min-width: 0; }
   .server-option-name { color: #fff; }
+  /* Both of these are touch-only; a pointer screen keeps the inline "(shared)"
+     suffix and the always-visible address it has always had. */
+  .server-option-tags { display: none; }
+  .server-picker-addr { display: none; }
+  .server-tag {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    padding: 4px 6px;
+    border: 1px solid rgba(0,196,255,0.35);
+    color: rgba(0,196,255,0.9);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .server-tag--off {
+    border-color: rgba(255,120,120,0.5);
+    color: #ff8a8a;
+  }
   .server-option-url {
     font-size: 22px;
     color: rgba(255,255,255,0.35);
@@ -1845,43 +2107,6 @@
   }
 
 
-  /* Blacklist tab */
-  .blacklist-search-wrap { position: relative; margin-bottom: 4px; }
-  .blacklist-input {
-    width: 100%; box-sizing: border-box;
-    background: rgba(255,255,255,0.05);
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 6px; color: #fff;
-    font-family: inherit; font-size: 14px;
-    padding: 12px 16px; outline: none;
-    letter-spacing: 0.5px;
-  }
-  .blacklist-input:focus { border-color: var(--cyan); }
-  .blacklist-input::placeholder { color: rgba(255,255,255,0.25); }
-  .blacklist-results {
-    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
-    background: #1a1a1a; border: 2px solid var(--cyan);
-    border-radius: 6px; max-height: 240px; overflow-y: auto;
-    z-index: 20;
-  }
-  .blacklist-result-row {
-    padding: 10px 16px; cursor: pointer; font-size: 13px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .blacklist-result-row:last-child { border-bottom: none; }
-  .blacklist-result-row:hover { background: rgba(0,255,255,0.08); color: var(--cyan); }
-  .blacklist-entry {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; margin-bottom: 4px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 4px;
-    font-size: 13px; gap: 12px;
-  }
-  .blacklist-entry span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .blacklist-remove { cursor: pointer; color: rgba(255,255,255,0.25); font-size: 14px; flex-shrink: 0; line-height: 1; }
-  .blacklist-remove:hover { color: #ff4444; }
-
   /* Minimal fullscreen overlay (G key) */
   .fs-overlay {
     position: absolute;
@@ -1941,26 +2166,37 @@
     margin-right: 4px;
   }
 
+  /* Short desktop windows: the rail is centred, so once its content is taller
+     than the video row it spills past both ends and clips SOUND at the top and
+     the Instagram link at the bottom. Measured at 1280x800 and 1440x760 after
+     Instagram joined the rail: 20px and 30px over. Tighten the padding and the
+     gaps rather than drop a control. Touch pointers are excluded because there
+     the rail is the bottom bar, which has its own sizing. */
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 900px) {
+    .v-toolbar { padding: 10px 10px; gap: 6px; }
+    .v-btn { padding: 8px; gap: 4px; }
+    .v-coffee { margin-top: 6px; padding: 9px 8px; gap: 5px; }
+    .v-social { margin-top: 6px; padding: 8px; }
+  }
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 760px) {
+    .v-toolbar { padding: 6px 10px; gap: 4px; }
+    .v-btn { padding: 6px 8px; }
+    .v-coffee { margin-top: 4px; padding: 7px 8px; gap: 4px; }
+    .v-coffee svg { width: 26px; height: 26px; }
+    .v-social { margin-top: 4px; padding: 6px; }
+  }
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 700px) {
+    .v-toolbar { padding: 4px 10px; gap: 3px; }
+    .v-btn { padding: 4px 8px; gap: 3px; }
+    .v-coffee { margin-top: 3px; padding: 6px 8px; gap: 3px; }
+    .v-coffee svg { width: 22px; height: 22px; }
+    .v-social { margin-top: 3px; padding: 5px; }
+  }
+
   /* ══════════════════════════════════════
      RESPONSIVE
   ══════════════════════════════════════ */
-  @media (max-width: 700px) {
-    /* Video anchors to top, info panel stacks below */
-    .player-screen.layout-side .video-area {
-      flex: 1;
-      flex-direction: column;
-    }
-    .player-screen.layout-side.has-channel .info-panel {
-      width: 100%;
-      flex: 0 0 auto;
-      max-height: 40%;
-      overflow-y: auto;
-      padding: 16px 20px;
-      border-right: none;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      justify-content: flex-start;
-    }
-
+  @media (max-width: 1024px) {
     /* Unmute button — compact */
     .unmute-btn {
       font-size: 8px;
@@ -1977,6 +2213,498 @@
       position: static;
     }
   }
+
+  /* ──────────────────────────────────────
+     Shared touch pieces: the top bar with its menu button, the drawer that
+     holds every control, and no on-screen toolbar at all. Used by the portrait
+     and tablet-landscape blocks below. Desktop and TV never match either, so
+     nothing here can reach them.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait),
+         (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px) {
+    .player-screen.has-channel .m-topbar { display: flex; }
+    /* The fixed corner mark sat on top of the channel tag once the info panel
+       went full width. The top bar carries the logo instead. */
+    .player-screen.has-channel .player-logo { display: none; }
+
+    /* The rail and the bottom bar are both gone here. Six controls were worth
+       a row of the guide on a phone and they are not: they are in the drawer,
+       one tap behind MENU, and the screen they held goes to the guide. */
+    .player-screen.layout-side.has-channel .v-toolbar { display: none; }
+    .player-screen.layout-side.has-channel {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .m-menu-btn { display: flex; }
+    .m-drawer { display: flex; }
+    .m-drawer-scrim { display: block; }
+    /* The closed drawer is parked off the right edge, which widens the document
+       and leaves the page scrollable sideways. body already clips; html does
+       not. */
+    html { overflow-x: hidden; overflow-x: clip; }
+
+    /* Compact info panel type. The desktop sizes are built for a 35% column on
+       a large screen and simply do not fit here. */
+    .player-screen.layout-side.has-channel .info-panel {
+      border-right: none;
+      justify-content: flex-start;
+    }
+    /* The pixel font has no built-in leading, so a tag that wraps to two lines
+       prints them on top of each other. */
+    .info-channel-tag { font-size: 8px; letter-spacing: 2px; margin-bottom: 8px; line-height: 1.6; }
+    .info-title {
+      font-size: 24px;
+      line-height: 1.15;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-episode-title {
+      font-size: 17px;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-meta-row { font-size: 15px; gap: 8px; margin-bottom: 10px; }
+    .info-meta-badge { font-size: 7px; }
+    .info-time { font-size: 15px; }
+    .info-progress-wrap { gap: 10px; }
+    .info-upnext { font-size: 14px; margin-top: 10px; }
+
+    /* Guide: narrower channel column, shorter rows, so more of the lineup
+       is on screen at once. */
+    .grid-channel-col, .grid-row-channel { width: 104px; padding: 0 8px; }
+    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-row { height: 34px; }
+    .grid-ch-num { font-size: 16px; min-width: 18px; }
+    .grid-ch-name { font-size: 15px; letter-spacing: 0; }
+    /* The header is a fixed 32px; a wrapped time label spills into the rows. */
+    .grid-time-slot { font-size: 16px; padding: 0 6px; white-space: nowrap; }
+    .grid-footer { display: none; }
+  }
+
+  /* ──────────────────────────────────────
+     Portrait phones and tablets: the video leads, full width, then the
+     now-playing line, then the guide, then the bottom bar.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait) {
+    .player-screen.layout-side .video-area {
+      flex: 0 0 auto;
+      flex-direction: column;
+      overflow: visible;
+    }
+    /* The video first and edge to edge. */
+    .player-screen.layout-side .video-container {
+      order: -1;
+      width: 100%;
+      flex: 0 0 auto;
+      aspect-ratio: 16 / 9;
+      min-height: 0;
+    }
+    .player-screen.layout-side.has-channel .info-panel {
+      order: 0;
+      width: 100%;
+      flex: 0 0 auto;
+      padding: 10px 14px 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    /* No room for prose next to a 16:9 video on a phone. The title, the meta
+       row and the progress are what a glance needs. */
+    .info-description { display: none; }
+    .guide-grid { flex: 1 1 auto; min-height: 0; }
+  }
+
+  /* Portrait phones proper: tighter still, and up next goes too. */
+  @media (max-width: 560px) and (orientation: portrait) {
+    .info-title { font-size: 20px; }
+    .info-episode-title { font-size: 15px; }
+    .info-upnext { display: none; }
+    .m-topbar-logo { width: 84px; }
+    /* A phone screen is all guide now, so the rows can afford to be a little
+       tighter: one more channel on screen at 393x852. */
+    .grid-row { height: 32px; }
+    /* Four time columns in 256px once the channel column is paid for. */
+    .grid-time-slot { font-size: 15px; padding: 0 5px; }
+  }
+
+  /* ──────────────────────────────────────
+     Tablet landscape: the side layout still earns its keep here, and losing
+     the 140px toolbar column is what the video needed. Type is compacted by
+     the shared block above.
+  ────────────────────────────────────── */
+  @media (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px) {
+    .player-screen.layout-side .video-area { flex: 1 1 auto; }
+    .player-screen.layout-side.has-channel .info-panel {
+      width: 34%;
+      padding: 16px 20px;
+      justify-content: center;
+    }
+    .info-description {
+      font-size: 15px;
+      line-height: 1.4;
+      max-height: calc(15px * 1.4 * 3);
+      -webkit-line-clamp: 3;
+      margin-bottom: 12px;
+    }
+    /* The bottom bar used to take 56px off the foot of the screen. Raised from
+       44% so the guide gets that back rather than the video row, which is
+       already as tall as the panel beside it allows. */
+    .guide-grid { flex: 0 0 auto; max-height: 50%; }
+  }
+
+  /* ──────────────────────────────────────
+     Landscape phones: height is the scarce dimension, so the toolbar stays a
+     vertical rail (a bottom bar would cost 56px of the 390 available) and
+     everything shrinks.
+  ────────────────────────────────────── */
+  @media (orientation: landscape) and (max-height: 500px) {
+    /* Pinned to the left edge over the full height, not just the video row.
+       Confined to the row it held six controls in 240px, which is under the
+       44px a thumb needs; the full height gives every one of them 55px. */
+    .player-screen.layout-side.has-channel {
+      padding-left: calc(84px + env(safe-area-inset-left));
+    }
+    .player-screen.layout-side.has-channel .v-toolbar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: calc(84px + env(safe-area-inset-left));
+      padding: 6px 6px 6px calc(6px + env(safe-area-inset-left));
+      gap: 4px;
+      z-index: 70;
+      border-right: 1px solid rgba(255,255,255,0.14);
+    }
+    .player-screen.layout-side .video-area { flex: 0 0 62%; }
+    .v-toolbar .v-btn,
+    .v-toolbar .v-coffee,
+    .v-toolbar .v-social {
+      flex: 1 1 0;
+      min-height: 0;
+      padding: 4px 3px;
+      gap: 3px;
+      margin-top: 0;
+    }
+    .v-toolbar .v-btn-label,
+    .v-toolbar .v-key { display: none; }
+    .v-toolbar .v-btn-short {
+      display: block;
+      font-size: 6px;
+      letter-spacing: 0.5px;
+      color: rgba(0, 196, 255, 0.75);
+    }
+    .v-btn-value { font-size: 7px; letter-spacing: 0.5px; }
+    .v-btn--appletv { display: none; }
+    .v-toolbar .v-coffee { animation: none; }
+    .v-coffee svg { width: 16px; height: 16px; }
+    .v-coffee-label { font-size: 6px; letter-spacing: 0.5px; line-height: 1.4; }
+    .v-social { flex-direction: column; }
+    .v-social svg { width: 13px; height: 13px; }
+    .v-social-label { font-size: 6px; letter-spacing: 0.5px; }
+    @media (hover: none) {
+      .v-toolbar .v-btn:hover { background: rgba(0, 0, 0, 0.8); }
+      .v-toolbar .v-btn:hover .v-btn-short { color: rgba(0, 196, 255, 0.75); }
+      .v-toolbar .v-btn:hover .v-btn-value { color: var(--cyan); }
+      .v-toolbar .v-coffee:hover { background: var(--yellow); border-color: var(--yellow); transform: none; }
+    }
+
+    .player-screen.has-channel .player-logo { display: none; }
+    .player-screen.layout-side.has-channel .info-panel {
+      width: 32%;
+      padding: 12px 14px;
+      justify-content: center;
+    }
+    .info-channel-tag { font-size: 7px; letter-spacing: 1.5px; margin-bottom: 6px; line-height: 1.6; }
+    .info-title {
+      font-size: 19px;
+      line-height: 1.15;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .info-episode-title { font-size: 14px; margin-bottom: 4px; }
+    .info-description { display: none; }
+    .info-meta-row { font-size: 13px; gap: 6px; margin-bottom: 8px; }
+    .info-meta-badge { font-size: 6px; }
+    .info-time { font-size: 13px; }
+    .info-upnext { display: none; }
+
+    .grid-channel-col, .grid-row-channel { width: 96px; padding: 0 8px; }
+    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-row { height: 30px; }
+    .grid-ch-num { font-size: 15px; min-width: 16px; }
+    .grid-ch-name { font-size: 14px; letter-spacing: 0; }
+    .grid-time-slot { font-size: 15px; padding: 0 6px; white-space: nowrap; }
+    .grid-footer { display: none; }
+  }
+
+  /* ──────────────────────────────────────
+     Landscape phones, touch only: no rail either. The block above still runs
+     for a short desktop window, which keeps its rail and its key hints; this
+     one only overrides it where the pointer is a finger.
+
+     A top bar would cost 48px of the 393 available, so the menu button floats
+     in the top right corner instead, over the letterboxed black beside the
+     video, taking no layout height at all. The 84px the rail held goes back to
+     the guide's width, and the video row gives up a few percent of its height,
+     which is the only place extra guide rows can come from in landscape.
+  ────────────────────────────────────── */
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    .player-screen.layout-side.has-channel {
+      padding-left: env(safe-area-inset-left);
+    }
+    .player-screen.layout-side.has-channel .v-toolbar { display: none; }
+
+    /* The bar itself becomes the floating button's holder: no background, no
+       height in the flow, pinned to the top right corner. */
+    .player-screen.has-channel .m-topbar {
+      display: flex;
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: auto;
+      width: auto;
+      height: auto;
+      padding: 6px max(6px, env(safe-area-inset-right)) 0 0;
+      background: none;
+      border-bottom: 0;
+      z-index: 80;
+    }
+    .m-topbar-logo { display: none; }
+    .m-menu-btn { display: flex; height: 44px; background: rgba(0, 0, 0, 0.85); }
+    .m-drawer { display: flex; }
+    .m-drawer-scrim { display: block; }
+    html { overflow-x: hidden; overflow-x: clip; }
+
+    /* 393px of drawer for seven boxes: tighter rows, same tap target. */
+    .m-drawer { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+    .m-drawer-item { min-height: 44px; padding: 8px 12px; }
+
+
+    .player-screen.layout-side .video-area { flex: 0 0 55%; }
+  }
+
+  /* ──────────────────────────────────────
+     Touch: the server picker and the first-run build screen. Same gating as the
+     shared touch block above, so a desktop or TV pointer never matches any of
+     it. Both screens are reached before a channel exists, which is why they sit
+     outside the .has-channel rules.
+  ────────────────────────────────────── */
+  @media (max-width: 1024px) and (orientation: portrait),
+         (pointer: coarse) and (orientation: landscape) and (min-height: 501px) and (max-width: 1366px),
+         (orientation: landscape) and (max-height: 500px) {
+    /* The connect screen had no padding, so a 560px wordmark ran off both edges
+       of a 393px phone. Pad it, let it scroll when a long server list does not
+       fit, and keep the mark inside the gutters. */
+    .plex-connect {
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      justify-content: safe center;
+      overflow-y: auto;
+      gap: 16px;
+    }
+    .plex-logo { width: 100%; max-width: 360px; }
+    .plex-logo img { max-width: 100%; }
+    /* The waiting line wraps to two lines at this width and was ragged left. */
+    .plex-waiting-text, .plex-signin-label, .plex-hint { text-align: center; }
+    .server-picker-title {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 2px;
+    }
+    .server-picker, .server-picker-list { gap: 10px; }
+
+    /* A row is a name, a tick and two or three short badges. The address was
+       most of the row's height and none of its usefulness at this width. */
+    .server-option {
+      padding: 12px 14px;
+      min-height: 60px;
+      font-size: 22px;
+      border-radius: 4px;
+      gap: 12px !important;
+    }
+    .server-option-name {
+      font-size: 24px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+    .server-option-shared-inline { display: none; }
+    .server-option-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .server-option-check {
+      width: 26px;
+      height: 26px;
+      font-size: 17px;
+    }
+    /* Selected has to read at a glance on a small screen, so it gets a cyan
+       edge down the left as well as the tick. */
+    .server-option.selected {
+      border-color: var(--cyan);
+      background: rgba(0,255,255,0.1);
+      box-shadow: inset 3px 0 0 var(--cyan);
+    }
+    .server-option:active { background: rgba(255,255,255,0.1); }
+
+    /* Addresses are collapsed, and come back wrapped rather than cut off. */
+    .server-option-url { display: none; }
+    .server-picker.show-addresses .server-option-url {
+      display: block;
+      font-size: 17px;
+      line-height: 1.3;
+      margin-top: 8px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .server-picker-addr {
+      display: block;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.55);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      letter-spacing: 1px;
+      padding: 14px 16px;
+      min-height: 44px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .server-picker-addr:active { background: rgba(255,255,255,0.08); }
+    .server-picker-connect {
+      width: 100%;
+      min-height: 52px;
+      padding: 16px 24px;
+      font-size: 11px;
+    }
+    .server-picker-connect:active { background: rgba(0,255,255,0.25); }
+
+    /* ── First-run build screen ──
+       The panel is inset:0 inside .video-container, which the portrait rules
+       size to a 16:9 box. Measured at 393x852: a 221px tall box holding 510px
+       of content, so the coffee block fell off the bottom and the remaining
+       two thirds of the screen was empty black. While .building is set there is
+       no video and no guide, so give the container the whole screen.
+       position:fixed is not an option here: the retro flicker animation puts a
+       transform on .video-container, which makes it the containing block for
+       fixed descendants, so fixed resolved to the same 221px box. */
+    .player-screen.building.layout-side .video-area,
+    .player-screen.building .video-area {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .player-screen.building.layout-side .video-container,
+    .player-screen.building .video-container {
+      order: 0;
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      min-height: 0;
+    }
+    .player-screen.building .loading-library {
+      z-index: 120;
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      /* One composed group rather than three things drifting apart: the mark,
+         the status card and the coffee ask sit together in the middle of the
+         screen, and the panel scrolls if a short window cannot hold them. */
+      justify-content: safe center;
+      gap: clamp(16px, 4vh, 40px);
+    }
+    /* Nothing else belongs on screen while the lineup builds. */
+    .player-screen.building .m-topbar,
+    .player-screen.building .guide-grid { display: none; }
+    /* Retro mode pins the empty video to 4:3 off its height. Once the container
+       is the full screen that is wider than the screen, which put a horizontal
+       scrollbar on the build screen (1137px of page at 393px of viewport).
+       Build state only: nothing is playing, and playback rules are untouched. */
+    body.retro-mode .player-screen.building #plex-video {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+    }
+    /* Three bands rather than one floating stack: mark at the top, the live
+       status card in the middle, the coffee ask at the foot. */
+    .loading-library-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 460px;
+      padding: 18px 16px;
+      border: 1px solid rgba(0,196,255,0.3);
+      border-radius: 6px;
+      background: rgba(0,196,255,0.05);
+    }
+    .loading-library-logo { margin-bottom: 0; max-height: 9vh; width: min(240px, 60%); }
+    .loading-library-first-hint {
+      white-space: normal;
+      font-size: 11px;
+      line-height: 1.5;
+      letter-spacing: 0.5px;
+      max-width: 34ch;
+    }
+    .loading-library-rail { margin-top: 0; max-width: 100%; }
+    /* The labels were ellipsised to CHANNE... at 10px. Smaller type and elastic
+       connectors fit all five steps, music included, at 360px. */
+    /* The step owns the width its label needs; the connectors take what is
+       left. Equal columns were what cut CHANNELS down to CHANNE... */
+    .load-rail-step { gap: 7px; flex: 0 1 auto; padding: 0 2px; }
+    .load-rail-dot { width: 22px; height: 22px; }
+    .load-rail-dot-active { width: 8px; height: 8px; }
+    .load-rail-label { font-size: 8px; letter-spacing: 0.5px; }
+    .load-rail-connector { width: auto; flex: 1 1 6px; min-width: 6px; margin-top: 10px; }
+    .loading-library-text {
+      font-size: 11px;
+      line-height: 1.8;
+      letter-spacing: 1.5px;
+    }
+    .loading-library-sub { font-size: 14px; letter-spacing: 1px; }
+    /* The rail was a thin line stranded in the middle of the screen. In the card
+       it is the width of the card, thicker, and reads with the count under it. */
+    .loading-library-progress-wrap { max-width: 100%; gap: 8px; }
+    .loading-library-progress-track { height: 10px; border-radius: 5px; }
+    .loading-library-progress { border-radius: 5px; }
+    .loading-library-progress-caption { font-size: 11px; }
+    .loading-library-coffee { margin-top: 0; }
+    .loading-library-coffee-lead { font-size: 11px; line-height: 1.5; }
+    .loading-library-coffee-btn { min-height: 48px; padding: 14px 20px; }
+  }
+
+  /* Landscape phones: height is the scarce dimension on both screens, so the
+     bands stack from the top and scroll rather than spreading apart. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .plex-logo { max-width: 240px; }
+    /* 393px of height has to hold the mark, the title, four rows and CONNECT.
+       The list still scrolls, but a row is half the height it is in portrait. */
+    .plex-connect { gap: 10px; }
+    .plex-logo img { max-height: 15vh; object-fit: contain; }
+    .server-picker, .server-picker-list { gap: 8px; }
+    .server-option { min-height: 48px; padding: 8px 12px; }
+    .server-option-name { font-size: 20px; }
+    .server-option-tags { margin-top: 4px; }
+    .server-tag { font-size: 6px; padding: 3px 5px; }
+    .server-picker-connect { min-height: 46px; padding: 12px 20px; }
+    .player-screen.building .loading-library {
+      justify-content: safe center;
+      gap: 10px;
+    }
+    .loading-library-logo { max-height: 14vh; width: min(180px, 40%); }
+    .loading-library-panel { padding: 12px 14px; gap: 10px; max-width: 520px; }
+    .loading-library-first-hint { max-width: 60ch; }
+    .loading-library-coffee { gap: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -1987,6 +2715,62 @@
   <!-- CORNER LOGO -->
   <div class="player-logo">
     <img src="./logo/nostalgex-white.svg" alt="Nostalgex">
+  </div>
+
+  <!-- TOUCH TOP BAR (phones and tablets only; the corner logo is fixed and
+       overlaps the channel tag once the info panel goes full width). The
+       wordmark on the left, and on the right the one control a phone shows:
+       everything else is behind it in the drawer. -->
+  <div class="m-topbar" id="m-topbar">
+    <img class="m-topbar-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
+    <button class="m-menu-btn" id="m-menu-btn" type="button" aria-label="Open controls"
+            aria-haspopup="dialog" aria-expanded="false" aria-controls="m-drawer">
+      <span class="m-menu-btn-label">MENU</span>
+      <span class="m-menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+  </div>
+
+  <!-- TOUCH CONTROLS DRAWER. A phone shows the guide and the video; the
+       controls live in here until asked for. Duplicated rather than moved out
+       of the vertical rail so the desktop rail is untouched. -->
+  <div class="m-drawer-scrim" id="m-drawer-scrim"></div>
+  <div class="m-drawer" id="m-drawer" role="dialog" aria-modal="true" aria-label="Controls" aria-hidden="true">
+    <div class="m-drawer-head">
+      <span class="m-drawer-title">CONTROLS</span>
+      <button class="m-drawer-close" id="m-drawer-close" type="button" aria-label="Close controls">X</button>
+    </div>
+    <button class="m-drawer-item" type="button" onclick="toggleMute()">
+      <span class="m-drawer-label">SOUND</span>
+      <!-- Playback starts muted, so this starts in its off colour. -->
+      <span class="m-drawer-value off" id="dw-sound-val">OFF</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); toggleFullscreen();">
+      <span class="m-drawer-label">FULL SCREEN</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="toggleRetroMode()">
+      <span class="m-drawer-label">RETRO</span>
+      <span class="m-drawer-value" id="dw-retro-val">ON</span>
+    </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); showConfig();">
+      <span class="m-drawer-label">SETTINGS</span>
+    </button>
+    <a class="m-drawer-item" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
+        <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
+        <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
+      </svg>
+      <span class="m-drawer-label">INSTAGRAM</span>
+    </a>
+    <a class="m-drawer-item m-drawer-item--coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+      <span class="m-drawer-label">BUY ME A COFFEE</span>
+    </a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -2010,23 +2794,29 @@
 
     <!-- VERTICAL TOOLBAR (beside info panel in side layout) -->
     <div class="v-toolbar" id="v-toolbar">
+      <!-- Each button carries a desktop label with its keyboard hint and a short
+           touch label without one. A key hint means nothing on a phone. -->
       <button class="v-btn" onclick="toggleMute()">
         <span class="v-btn-label">SOUND [M]</span>
+        <span class="v-btn-short">SOUND</span>
         <span class="v-btn-value" id="tb-sound-val">OFF</span>
       </button>
       <button class="v-btn" onclick="toggleFullscreen()">
         <span class="v-btn-label">FULLSCREEN</span>
-        <span class="v-btn-value">[F]</span>
+        <span class="v-btn-short">FULL SCREEN</span>
+        <span class="v-btn-value v-key">[F]</span>
       </button>
       <button class="v-btn" onclick="toggleRetroMode()">
         <span class="v-btn-label">RETRO [B]</span>
+        <span class="v-btn-short">RETRO</span>
         <span class="v-btn-value" id="tb-retro-val">ON</span>
       </button>
       <button class="v-btn" onclick="showConfig()">
         <span class="v-btn-label">SETTINGS</span>
-        <span class="v-btn-value">[H]</span>
+        <span class="v-btn-short">SETTINGS</span>
+        <span class="v-btn-value v-key">[H]</span>
       </button>
-      <a class="v-btn" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
+      <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
         <span class="v-btn-label">APPLE TV</span>
         <span class="v-btn-value">[↓]</span>
       </a>
@@ -2039,12 +2829,23 @@
         </svg>
         <span class="v-coffee-label">BUY ME<br>A COFFEE</span>
       </a>
+      <a class="v-social" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" aria-label="Nostalgex on Instagram">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
+          <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
+          <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
+        </svg>
+        <span class="v-social-label">INSTAGRAM</span>
+      </a>
     </div>
 
     <!-- VIDEO CONTAINER (wraps video + overlays) -->
     <div class="video-container" id="video-container">
       <!-- Actual video player -->
-      <video id="plex-video" autoplay muted></video>
+      <!-- playsinline is load-bearing on iPhone: without it iOS refuses to run the
+           video inline at all, hands playback to the native fullscreen player, and
+           pauses on the way out. webkit-playsinline is the same promise for older iOS. -->
+      <video id="plex-video" autoplay muted playsinline webkit-playsinline></video>
 
       <!-- Unmute button -->
       <button class="unmute-btn" id="unmute-btn">CLICK TO UNMUTE &nbsp;/&nbsp; M KEY</button>
@@ -2052,17 +2853,23 @@
       <!-- Loading library indicator -->
       <div class="loading-library" id="loading-library" style="display: none;">
         <img class="loading-library-logo" src="./logo/nostalgex-white.svg" alt="Nostalgex">
-        <div class="loading-library-first-hint" id="loading-library-first-hint" style="display: none;">
-          First setup can take a few minutes to scan and build channels.
-        </div>
-        <div class="loading-library-rail" id="loading-library-rail" aria-hidden="true"></div>
-        <div class="loading-library-text" id="loading-library-headline">SCANNING YOUR LIBRARY</div>
-        <div class="loading-library-sub" id="loading-library-sub">Discovering your content</div>
-        <div class="loading-library-progress-wrap" id="loading-library-progress-wrap">
-          <div class="loading-library-progress-track">
-            <div class="loading-library-progress" id="loading-library-progress"></div>
+        <!-- display:contents on a pointer screen, so the desktop and TV column is
+             exactly the flat stack it always was. Touch sizes turn it into one
+             card, which is what stops the steps, the status line and the rail
+             reading as three stranded things on a phone. -->
+        <div class="loading-library-panel">
+          <div class="loading-library-first-hint" id="loading-library-first-hint" style="display: none;">
+            First setup can take a few minutes to scan and build channels.
           </div>
-          <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
+          <div class="loading-library-rail" id="loading-library-rail" aria-hidden="true"></div>
+          <div class="loading-library-text" id="loading-library-headline">SCANNING YOUR LIBRARY</div>
+          <div class="loading-library-sub" id="loading-library-sub">Discovering your content</div>
+          <div class="loading-library-progress-wrap" id="loading-library-progress-wrap">
+            <div class="loading-library-progress-track">
+              <div class="loading-library-progress" id="loading-library-progress"></div>
+            </div>
+            <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
+          </div>
         </div>
         <div class="loading-library-coffee">
           <div class="loading-library-coffee-lead">Channels are building. Grab a coffee while you wait.</div>
@@ -2157,7 +2964,7 @@
     </div>
     <div class="grid-body" id="grid-body"></div>
     <div class="grid-footer">
-      <span>[V]</span> HIDE GUIDE  <span>[ENTER]</span> TUNE IN  <span>[UP/DOWN]</span> BROWSE
+      <span>[ENTER]</span> TUNE IN  <span>[UP/DOWN]</span> BROWSE
     </div>
   </div>
 
@@ -2177,7 +2984,6 @@
       <div class="config-tab active" id="tab-bundles" onclick="switchConfigTab('bundles')">BUNDLES</div>
       <div class="config-tab" id="tab-server" onclick="switchConfigTab('server')">SERVER</div>
       <div class="config-tab" id="tab-help" onclick="switchConfigTab('help')">HELP</div>
-      <div class="config-tab" id="tab-blacklist" onclick="switchConfigTab('blacklist')">BLACKLIST</div>
     </div>
 
     <div id="config-tab-bundles" style="display:none">
@@ -2192,7 +2998,7 @@
 
       <div class="config-section-label" style="margin-top: 28px;">MY COLLECTIONS</div>
       <div style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px; margin-bottom: 16px;">
-        Collections on your server with 3 or more movies. Switch one on and it airs from CH 500.
+        Collections on your server with 3 or more movies or episodes. Switch one on and it airs from CH 500.
       </div>
       <div id="collections-status" style="color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 1px; margin-bottom: 12px;"></div>
       <div id="collection-list">
@@ -2346,21 +3152,10 @@
     </div><!-- end config-columns -->
     </div><!-- end config-tab-channels -->
 
-    <div id="config-tab-blacklist" style="display:none">
-      <div class="config-section-label">BLACKLIST</div>
-      <div style="color:rgba(255,255,255,0.35);font-size:12px;margin-bottom:16px;letter-spacing:0.5px;">Exclude titles from all channels. Search your library and click to add.</div>
-      <div class="blacklist-search-wrap">
-        <input type="text" id="blacklist-input" class="blacklist-input" placeholder="Search your library..." autocomplete="off" spellcheck="false" />
-        <div class="blacklist-results" id="blacklist-results" style="display:none"></div>
-      </div>
-      <div class="config-section-label" id="blacklist-count-label" style="margin-top:24px;font-size:9px;"></div>
-      <div id="blacklist-list"></div>
-    </div>
-
     <div id="config-tab-help" style="display:none">
       <div class="help-content">
         <div class="help-section-label">PLAYBACK</div>
-        <div class="help-row"><div class="help-key">UP / DOWN</div><div class="help-desc">Change channel</div></div>
+        <div class="help-row"><div class="help-key">LEFT / RIGHT</div><div class="help-desc">Change channel</div></div>
         <div class="help-row"><div class="help-key">M</div><div class="help-desc">Mute / unmute</div></div>
         <div class="help-row"><div class="help-key">F</div><div class="help-desc">Fullscreen</div></div>
         <div class="help-row"><div class="help-key">B</div><div class="help-desc">Toggle retro mode (4:3 + CRT)</div></div>
@@ -2596,12 +3391,6 @@
     return item.title || '';
   }
 
-  function itemTitleHaystack(item) {
-    const MB = globalThis.NostalgexMusicBrainz;
-    if (MB) return MB.titleHaystack(item);
-    return (item.title || '').toLowerCase();
-  }
-
 
   // Stock channel definitions — the single source of truth is channels.json, the
   // same file the Apple TV app reads. There used to be an inline fallback lineup
@@ -2739,7 +3528,10 @@
       manifest: channelMembershipManifest,
       exclusiveRules,
     });
-    return pool.items.filter(item => !blacklist.has(String(item.ratingKey)));
+    // A Settings blacklist used to be filtered out here. The tab is gone, so a
+    // list saved under plex90_blacklist is no longer read: titles hidden through
+    // a tab nobody can open would stay missing with no way to bring them back.
+    return pool.items;
   }
 
   function getCoveredGenres() {
@@ -2820,7 +3612,7 @@
   let discoveredGenres = {}; // { genreName: itemCount }
   let allItemsCache = []; // cached items for populating new channels
   let guideLayout = localStorage.getItem('plex90_guide_layout') || 'side';
-  let configTab = 'channels'; // 'channels' | 'help' | 'blacklist' | 'server'
+  let configTab = 'channels'; // 'channels' | 'help' | 'server'
   let activeSuggestedTab = 'movie'; // 'general' | 'movie' | 'tv' | 'music'
   let retroMode = localStorage.getItem('plex90_retro_mode') !== 'false';
 
@@ -2842,15 +3634,10 @@
   const activeSubtitleTracks = [];
   const activeSubtitleBlobUrls = [];
 
-  // Blacklist — ratingKeys excluded from all channels
-  let blacklist = new Set();
-  let blacklistedItems = []; // [{ratingKey, title}] for display
-
   // ══════════════════════════════════════
   // INITIALIZE
   // ══════════════════════════════════════
   async function init() {
-    loadBlacklist();
     await loadStockChannelsFromJSON();
     if (channelsLoadFailed) {
       const errorEl = document.getElementById('plex-error-label');
@@ -2910,6 +3697,46 @@
     // Reflect the saved retro state across all controls on load
     updateRetroControls();
     updateSyncActivityControls();
+
+    // Touch controls drawer: the button, the close box, and the scrim.
+    const menuBtn = document.getElementById('m-menu-btn');
+    if (menuBtn) menuBtn.addEventListener('click', toggleDrawer);
+    const drawerClose = document.getElementById('m-drawer-close');
+    if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+    const drawerScrim = document.getElementById('m-drawer-scrim');
+    if (drawerScrim) drawerScrim.addEventListener('click', closeDrawer);
+    // A tap outside the sheet closes it even where the scrim does not reach,
+    // for instance the floating menu button's own corner in landscape.
+    document.addEventListener('pointerdown', (e) => {
+      if (!document.body.classList.contains('drawer-open')) return;
+      const drawer = document.getElementById('m-drawer');
+      if (drawer && drawer.contains(e.target)) return;
+      if (menuBtn && menuBtn.contains(e.target)) return;
+      closeDrawer();
+    });
+    // Escape closes and Tab stays inside. Everything else falls through, so
+    // M, F, B and H keep working while it is open.
+    document.addEventListener('keydown', (e) => {
+      if (!document.body.classList.contains('drawer-open')) return;
+      if (e.key === 'Escape') {
+        closeDrawer();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = drawerFocusables();
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !items.includes(active))) {
+        last.focus();
+        e.preventDefault();
+      } else if (!e.shiftKey && (active === last || !items.includes(active))) {
+        first.focus();
+        e.preventDefault();
+      }
+    }, true);
 
     // Wire up grid row clicks
     document.getElementById('grid-body').addEventListener('click', (e) => {
@@ -3531,9 +4358,16 @@
     // (see JellyfinPlaybackResolver.offsetPlayback). StartTimeTicks still goes in the
     // PlaybackInfo body, where it only informs the decision and never reaches a segment URL.
     // withApiKey adds ApiKey: Jellyfin 12.2 with legacy auth off answers 401 to api_key alone.
-    const fallback = NostalgexJellyfinUrls.withApiKey(`${plexServerUrl}/Videos/${item.ratingKey}/master.m3u8`
-      + `?MediaSourceId=${encodeURIComponent(msid)}&api_key=${plexToken}`
-      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=3840&SegmentContainer=ts&DeviceId=${getClientId()}`, plexToken);
+    // The fallback also carries its own PlaySessionId, or Emby refuses every segment with a
+    // 400. A direct play that failed lands here, because PlaybackInfo offers no
+    // TranscodingUrl for a file it thinks the browser can already play.
+    const fallback = NostalgexJellyfinUrls.fallbackHlsUrl({
+      serverUrl: plexServerUrl,
+      itemId: item.ratingKey,
+      mediaSourceId: msid,
+      token: plexToken,
+      deviceId: getClientId(),
+    });
     const deviceProfile = {
       MaxStreamingBitrate: 120000000,
       DirectPlayProfiles: [
@@ -3586,11 +4420,15 @@
   // (entry gate) AND accumulated >= 75% of total runtime as active watch time.
   //
   // Continue Watching: reporting must never leave a program in Continue Watching,
-  // Resume or On Deck. Before the first report the tracker reads what the server held
-  // for the item; when the session ends (or reporting is turned off) it puts that back.
-  // The decision table and request shapes live in scripts/nostalgex-watch-state.js,
-  // shared with the Apple TV app through scripts/watch-cleanup-golden.json. Every call
-  // goes through one queue so the cleanup always lands after the last report.
+  // Resume or On Deck. Plex timeline reports carry no position, so Plex lists the title
+  // in Now Playing and stores nothing; a counted episode's next-up entry is removed
+  // unless its show was already in Continue Watching. Jellyfin/Emby reports keep the
+  // position (a stop without one marks the item played), so the tracker reads UserData
+  // before the first report and puts it back when the session ends. Decision table and
+  // request shapes: scripts/nostalgex-watch-state.js, shared with the Apple TV app
+  // through scripts/watch-cleanup-golden.json. Every call goes through one queue so the
+  // cleanup always lands after the last report. A server that stops answering gets
+  // fewer pulses (createPulseBackoff); nothing here changes the user's setting.
   let playbackTracker = null;
 
   function makePlaybackTracker(item) {
@@ -3614,6 +4452,7 @@
         })
       : WS.mediaServerGuard({ serverUrl: plexServerUrl, userId: jellyfinUserId, authHeader: jellyfinAuthHeader });
 
+    const backoff = WS.createPulseBackoff();
     const t = {
       eligibleEntry: entryFrac <= 0.15,
       activeWatchSeconds: 0,
@@ -3625,6 +4464,7 @@
       prior: null,      // what the server held before the first report (null = unreadable)
       captureQueued: false,
       captured: false,  // the read has finished
+      paused: false,    // Plex Now Playing shows a pause as a pause
     };
 
     function accumulate() {
@@ -3632,18 +4472,25 @@
       t.activeWatchSeconds += (Date.now() - t.watchStart) / 1000;
       t.watchStart = null;
     }
-    // After a Plex scrobble, any nonzero position becomes a fresh resume point on the
-    // item it just marked watched. Position 0 keeps Now Playing alive without one.
+    // Jellyfin/Emby position. Plex reports never carry one.
     function timeMs() {
-      if (isPlex && t.scrobbled) return 0;
       return (seekOffset * 1000) + Math.round(t.activeWatchSeconds * 1000);
     }
-    function durationMs() { return Math.round(totalSec * 1000); }
 
-    // ── Plex reporting ──
-    function plexTimeline(state) {
-      const u = guard.timelineUrl(rk, state, timeMs(), durationMs(), sessionID);
-      queue.enqueue(() => fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' } }).catch(() => {}));
+    // One report through the queue. Pulses wait out the backoff; everything else goes.
+    // `now` (page unloading) sends immediately with keepalive instead of queueing.
+    function report(doFetch, opts) {
+      const o = opts || {};
+      if (o.pulse && !backoff.allowPulse()) return;
+      const run = () => doFetch(!!o.now).then(r => backoff.record(!!(r && r.ok)), () => backoff.record(false));
+      if (o.now) run(); else queue.enqueue(run);
+    }
+
+    // ── Plex reporting (position-free) ──
+    function plexTimeline(state, opts) {
+      const reported = state === 'playing' && t.paused ? 'paused' : state;
+      const u = guard.timelineUrl(rk, reported, sessionID);
+      report(keepalive => fetch(u, { method: 'PUT', headers: { 'Accept': 'application/json' }, keepalive }), opts);
     }
     function plexScrobble() {
       const u = guard.scrobbleUrl(rk);
@@ -3661,13 +4508,12 @@
         PositionTicks: timeMs() * 10000, // ms -> 100ns ticks
         IsPaused: false,
       });
-      const send = () => fetch(`${plexServerUrl}${path}`, {
+      report(keepalive => fetch(`${plexServerUrl}${path}`, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': jellyfinAuthHeader() },
         body,
-        keepalive: !!(opts && opts.keepalive),
-      }).catch(() => {});
-      if (opts && opts.now) send(); else queue.enqueue(send);
+        keepalive,
+      }), opts);
     }
 
     // Read the prior state once, queued ahead of the first report.
@@ -3675,9 +4521,9 @@
       if (t.captureQueued) return;
       t.captureQueued = true;
       queue.enqueue(async () => {
-        t.prior = await guard.capture(rk);
+        t.prior = await guard.capture(rk, item.type);
         t.captured = true;
-        console.log('[Tracker] PRIOR', rk, t.prior ? JSON.stringify(t.prior) : 'unreadable');
+        console.log('[Tracker] PRIOR', rk, t.prior ? JSON.stringify(t.prior) : 'none (Plex film, or unreadable)');
       });
     }
     // Put Continue Watching / Resume back. `unloading`: the page is going away, so send
@@ -3693,8 +4539,8 @@
     }
 
     function reportProgress() {
-      if (isPlex) plexTimeline('playing');
-      else jfPost('/Sessions/Playing/Progress');
+      if (isPlex) plexTimeline('playing', { pulse: true });
+      else jfPost('/Sessions/Playing/Progress', { pulse: true });
     }
     // Plex: timeline never bumps the view count, so we scrobble explicitly when the
     // hybrid gate passes. Jellyfin/Emby: mark played unless the position is already past
@@ -3732,33 +4578,80 @@
         else jfPost('/Sessions/Playing');
         t.timer = setInterval(tick, 10000);
       },
-      onPause() { if (!t.stopped) accumulate(); },
-      onResume() { if (!t.stopped && t.started) t.watchStart = Date.now(); },
-      // Flush, send the stop report, do a final scrobble check, then restore
-      // Continue Watching. `unloading` (pagehide) sends without waiting on the queue.
+      // `fromPlayer`: the video element itself paused or played (not a hidden tab), so
+      // Plex Now Playing shows it right away instead of on the next pulse.
+      onPause(fromPlayer) {
+        if (t.stopped) return;
+        accumulate();
+        if (fromPlayer && isPlex && t.started && !t.paused) { t.paused = true; plexTimeline('paused'); }
+      },
+      onResume(fromPlayer) {
+        if (t.stopped || !t.started) return;
+        t.watchStart = Date.now();
+        if (fromPlayer && isPlex && t.paused) { t.paused = false; plexTimeline('playing'); }
+      },
+      // Flush, send the stop report, do a final scrobble check, then clean up.
+      // `unloading` (pagehide) sends now with keepalive instead of waiting on the queue.
       stop(unloading) {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
         accumulate();
+        const now = unloading ? { now: true } : null;
         if (t.started) {
-          // Unloading on Plex: skip the stopped report. The pulses already wrote a
-          // position, and a stopped report racing the cleanup could rewrite it.
-          if (!isPlex) jfPost('/Sessions/Playing/Stopped', unloading ? { now: true, keepalive: true } : null);
-          else if (!unloading) plexTimeline('stopped');
+          // Plex stop is position-free, so it can never write a resume point.
+          if (isPlex) plexTimeline('stopped', now);
+          else jfPost('/Sessions/Playing/Stopped', now);
         }
         if (!unloading) evaluateAndScrobble();
         cleanup(!!unloading);
       },
-      // Tear down without further reports (the user turned reporting off mid-program).
-      // Restores whatever the reports already sent wrote to Continue Watching.
+      // Tear down without further progress (the user turned reporting off mid-program).
+      // Plex gets one position-free stop so Now Playing clears; Jellyfin/Emby get no stop
+      // (it would store a position or mark the item played) and the cleanup restores UserData.
       abandon() {
         if (t.stopped) return;
         t.stopped = true;
         if (t.timer) { clearInterval(t.timer); t.timer = null; }
+        if (isPlex && t.started) plexTimeline('stopped');
         cleanup(false);
       },
     };
+  }
+
+  // Start playback and, if the browser refuses, try again on the viewer's next touch or
+  // key instead of logging and giving up. A refused play() used to leave the channel on a
+  // loaded but frozen frame with no way back short of a reload, which is what an iPhone
+  // did on every tune: the element had no playsinline, so iOS would not run it inline and
+  // rejected every play() the schedule made outside a gesture.
+  let pendingPlayRetry = null;
+  function startVideoPlayback(video) {
+    const p = video.play();
+    if (!p || !p.catch) return;
+    p.catch(e => {
+      console.warn('Playback blocked, will retry on the next tap or key:', e);
+      armPlayRetry(video);
+    });
+  }
+  function armPlayRetry(video) {
+    if (pendingPlayRetry) return;   // one armed listener, not one per refused play
+    const retry = () => {
+      disarmPlayRetry();
+      // Only chase it if the element still wants to be playing (the viewer did not
+      // deliberately pause, and the channel did not move on).
+      if (!video.paused || !video.src && !video.currentSrc) return;
+      const p = video.play();
+      if (p && p.catch) p.catch(() => {});
+    };
+    pendingPlayRetry = retry;
+    for (const ev of ['pointerdown', 'touchend', 'keydown'])
+      document.addEventListener(ev, retry, { once: true, capture: true });
+  }
+  function disarmPlayRetry() {
+    if (!pendingPlayRetry) return;
+    for (const ev of ['pointerdown', 'touchend', 'keydown'])
+      document.removeEventListener(ev, pendingPlayRetry, { capture: true });
+    pendingPlayRetry = null;
   }
 
   async function playCurrentItem(item, channel) {
@@ -3776,6 +4669,7 @@
     }
 
     clearVideoError();
+    disarmPlayRetry();   // a retry armed for the outgoing program must not start this one
     const video = document.getElementById('plex-video');
 
     // Hide the text display
@@ -3875,7 +4769,7 @@
       hlsInstance.loadSource(streamUrl);
       hlsInstance.attachMedia(video);
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       });
       // One recovery attempt per kind, per program. The flags live out here on purpose:
       // hls.js builds a fresh payload object for every error event, so a flag written onto
@@ -3937,14 +4831,14 @@
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       }, { once: true });
     } else {
       // Direct play (mp4, webm)
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
-        video.play().catch(e => console.warn('Autoplay blocked:', e));
+        startVideoPlayback(video);
       }, { once: true });
     }
 
@@ -3979,11 +4873,11 @@
       armStall();
       if (playbackTracker) {
         playbackTracker.onReady();   // idempotent: starts the session once
-        playbackTracker.onResume();  // re-arm the watch clock after a stall/pause
+        playbackTracker.onResume(true);  // re-arm the watch clock after a stall/pause
       }
     };
     video.onwaiting = armStall;
-    video.onpause = () => { if (playbackTracker) playbackTracker.onPause(); };
+    video.onpause = () => { if (playbackTracker) playbackTracker.onPause(true); };
 
     // Handle video ending - advance to next item
     video.onended = () => { clearStall(); onItemEnded(channel); };
@@ -4042,6 +4936,7 @@
   function stopVideo() {
     // Finalize any in-flight watch session (flush + scrobble check) before tearing down.
     if (playbackTracker) { playbackTracker.stop(); playbackTracker = null; }
+    disarmPlayRetry();
     const video = document.getElementById('plex-video');
     video.pause();
     video.removeAttribute('src');
@@ -4192,7 +5087,7 @@
     }
   }
 
-  function updateGuideFocus() {
+  function updateGuideFocus(wrapped = false) {
     // `guideFocusIndex` indexes getEnabledChannels(), but the promo rows share the
     // .grid-row class, so walking the full NodeList by position drifted one row per
     // promo row above the cursor. The highlight then sat on the channel before the
@@ -4213,7 +5108,10 @@
     });
 
     if (focusedRow) {
-      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // A wrap lands at the far end of the list. Centering the row there runs the
+      // scroll all the way to that end, so wrapping to channel one shows the top of
+      // the guide again, seasonal invite included, the way Apple TV centers its rows.
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: wrapped ? 'center' : 'nearest' });
     }
   }
 
@@ -4509,32 +5407,6 @@
     saveChannelConfig();
   }
 
-  function saveBlacklist() {
-    localStorage.setItem('plex90_blacklist', JSON.stringify(blacklistedItems));
-  }
-  function loadBlacklist() {
-    try {
-      const raw = localStorage.getItem('plex90_blacklist');
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      arr.forEach(e => {
-        blacklist.add(String(e.ratingKey));
-        blacklistedItems.push({ ratingKey: e.ratingKey, title: e.title });
-      });
-    } catch(e) {}
-  }
-
-  function applyBlacklistToChannels() {
-    CHANNELS.forEach(ch => {
-      if (!ch.rules || !allItemsCache.length) return;
-      ch.itemPool = shuffleArray(filterItems(allItemsCache, ch.rules, ch.id, ch.category));
-      if (ch.itemPool.length >= (ch.minItems || 50)) buildChannelSchedule(ch);
-      else ch.enabled = false;
-    });
-    refreshCollectionChannels();
-    renderConfig();
-  }
-
   function saveChannelConfig() {
     // Collection channels are rebuilt from the server scan and the saved switches
     // (nostalgex_enabled_collections); restoring one here would bring it back as a
@@ -4633,12 +5505,32 @@
   // ══════════════════════════════════════
   // CONFIG VISIBILITY
   // ══════════════════════════════════════
+  // iPhone has no element fullscreen API at all: Element.requestFullscreen and its webkit
+  // spelling are both undefined there, so the old call threw a TypeError and the FULL
+  // SCREEN control did nothing. The video element's own webkitEnterFullscreen is the only
+  // fullscreen iOS offers, so fall back to it.
+  function isVideoFullscreen() {
+    if (document.fullscreenElement) return true;
+    const video = document.getElementById('plex-video');
+    return !!(video && video.webkitDisplayingFullscreen);
+  }
+
   function toggleFullscreen() {
     const container = document.getElementById('video-container');
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(e => console.warn('Fullscreen failed:', e));
-    } else {
+    const video = document.getElementById('plex-video');
+    if (!isVideoFullscreen()) {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(e => console.warn('Fullscreen failed:', e));
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (video && video.webkitEnterFullscreen) {
+        // iPhone. Leaving this player pauses the video; webkitendfullscreen resumes it.
+        try { video.webkitEnterFullscreen(); } catch (e) { console.warn('Fullscreen failed:', e); }
+      }
+    } else if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen();
+    } else if (video && video.webkitExitFullscreen) {
+      video.webkitExitFullscreen();
     }
   }
 
@@ -4652,6 +5544,22 @@
     }
   });
 
+  // iOS native player: same subtitle gate as fullscreenchange, and, on the way out,
+  // put playback back inline. iOS pauses the element when the native player closes, so
+  // without this the tuner sits on a still frame with the schedule running on without it.
+  (() => {
+    const video = document.getElementById('plex-video');
+    if (!video) return;
+    video.addEventListener('webkitbeginfullscreen', () => {
+      loadSubtitleForCurrentItem(currentPlayingItem);
+    });
+    video.addEventListener('webkitendfullscreen', () => {
+      clearSubtitleTracks();
+      // The handler runs inside the dismissal gesture, so this play() is allowed.
+      if (video.paused && !video.ended && (video.src || video.currentSrc)) startVideoPlayback(video);
+    });
+  })();
+
   // Pause the watch clock when the tab is hidden, resume when it returns — so
   // background time doesn't count toward the 75% scrobble gate.
   document.addEventListener('visibilitychange', () => {
@@ -4659,8 +5567,9 @@
     if (document.hidden) playbackTracker.onPause();
     else playbackTracker.onResume();
   });
-  // Restore Continue Watching if the user closes or navigates away mid-program. The page
-  // is going away, so the tracker sends with keepalive instead of waiting on its queue.
+  // Close the session if the user closes or navigates away mid-program (Plex: clears Now
+  // Playing; Jellyfin/Emby: restores UserData). The page is going away, so the tracker
+  // sends with keepalive instead of waiting on its queue.
   window.addEventListener('pagehide', () => { if (playbackTracker) playbackTracker.stop(true); });
 
   function toggleMute() {
@@ -4672,10 +5581,59 @@
   }
 
   function updateToolbarSound() {
-    const el = document.getElementById('tb-sound-val');
-    if (!el) return;
-    el.textContent = videoMuted ? 'OFF' : 'ON';
-    el.classList.toggle('off', videoMuted);
+    // The rail and the touch drawer each carry their own copy of the value.
+    for (const id of ['tb-sound-val', 'dw-sound-val']) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = videoMuted ? 'OFF' : 'ON';
+      el.classList.toggle('off', videoMuted);
+    }
+  }
+
+  /* ══════════════════════════════════════
+     TOUCH CONTROLS DRAWER
+
+     Opening it only moves a panel: it never touches the video element, so
+     playback carries on behind the scrim. Dismissed by the close box, by a tap
+     outside, or by Escape. While it is open Tab cycles inside it, and every
+     other key falls through to the normal shortcuts.
+  ══════════════════════════════════════ */
+  let drawerReturnFocus = null;
+
+  function drawerFocusables() {
+    const drawer = document.getElementById('m-drawer');
+    if (!drawer) return [];
+    return [...drawer.querySelectorAll('button, a[href]')]
+      .filter(el => !el.disabled && el.getBoundingClientRect().width > 0);
+  }
+
+  function openDrawer() {
+    const drawer = document.getElementById('m-drawer');
+    const btn = document.getElementById('m-menu-btn');
+    if (!drawer) return;
+    drawerReturnFocus = document.activeElement;
+    document.body.classList.add('drawer-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    const first = drawerFocusables()[0];
+    if (first) first.focus();
+  }
+
+  function closeDrawer() {
+    const drawer = document.getElementById('m-drawer');
+    const btn = document.getElementById('m-menu-btn');
+    if (!drawer || !document.body.classList.contains('drawer-open')) return;
+    document.body.classList.remove('drawer-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    const back = drawerReturnFocus && document.contains(drawerReturnFocus) ? drawerReturnFocus : btn;
+    if (back && typeof back.focus === 'function') back.focus();
+    drawerReturnFocus = null;
+  }
+
+  function toggleDrawer() {
+    if (document.body.classList.contains('drawer-open')) closeDrawer();
+    else openDrawer();
   }
 
   function tbRefresh() {
@@ -4716,8 +5674,10 @@
   // Reflect retro state across every control (side toolbar value, floating button,
   // settings toggle) so the on/off state is always clear, not hidden behind the B key.
   function updateRetroControls() {
-    const tb = document.getElementById('tb-retro-val');
-    if (tb) { tb.textContent = retroMode ? 'ON' : 'OFF'; tb.classList.toggle('off', !retroMode); }
+    for (const id of ['tb-retro-val', 'dw-retro-val']) {
+      const tb = document.getElementById(id);
+      if (tb) { tb.textContent = retroMode ? 'ON' : 'OFF'; tb.classList.toggle('off', !retroMode); }
+    }
     const cfg = document.getElementById('cfg-retro-toggle');
     if (cfg) { cfg.textContent = retroMode ? 'ON' : 'OFF'; cfg.classList.toggle('on', retroMode); }
   }
@@ -4855,7 +5815,7 @@
   async function loadSubtitleForCurrentItem(item) {
     const autoForeign = item && shouldAutoEnableSubs(item.audioStreams || []);
     if ((!subtitlesEnabled && !autoForeign) || mediaBackend !== 'jellyfin') return;
-    if (!document.fullscreenElement) return;  // fullscreen-only, matching tvOS
+    if (!isVideoFullscreen()) return;  // fullscreen-only, matching tvOS
     if (!item || !Array.isArray(item.subtitles) || item.subtitles.length === 0) return;
     const sub = pickSubtitle(item.subtitles);
     if (!sub) return;
@@ -4918,8 +5878,9 @@
   let fsOverlayTimer = null;
 
   function toggleFsOverlay() {
-    // Enter fullscreen if not already
-    if (!document.fullscreenElement) {
+    // Enter fullscreen if not already. requestFullscreen is undefined on iPhone, where
+    // this overlay is keyboard-only anyway, so guard rather than throw.
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
     fsOverlayVisible = !fsOverlayVisible;
@@ -5085,7 +6046,7 @@
   }
 
   // Mirrors the MY COLLECTIONS rows in BundleManagerView.swift: one switch per server
-  // collection, "N movies" or the duplicate warning underneath.
+  // collection, "N movies" / "N shows · E episodes" or the duplicate warning underneath.
   function renderCollectionList() {
     const container = document.getElementById('collection-list');
     const statusEl = document.getElementById('collections-status');
@@ -5101,7 +6062,7 @@
     } else if (collectionScanState === 'failed' && !rows.length) {
       status = 'COULD NOT READ COLLECTIONS FROM YOUR SERVER';
     } else if (rawCollections && !rows.length) {
-      status = 'NO COLLECTIONS WITH 3 OR MORE MOVIES';
+      status = 'NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES';
     } else if (rows.length) {
       status = `${onAir}/${rows.length} ON AIR`;
     }
@@ -5119,7 +6080,7 @@
       const isFocused = configTab === 'bundles' && idx === bundleFocusIndex;
       const ch = channelByCollection.get(c.id);
       const warning = CL ? CL.duplicateWarning(c) : null;
-      const subtitle = warning || `${c.movieCount} movies`;
+      const subtitle = warning || (CL ? CL.memberSummary(c) : `${c.movieCount} movies`);
 
       const row = document.createElement('div');
       row.className = 'bundle-row';
@@ -5142,8 +6103,8 @@
       const right = ch
         ? `<div style="font-size: 14px; color: var(--cyan); letter-spacing: 1px;">CH ${ch.number}</div>
            <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">CHANNEL</div>`
-        : `<div style="font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${c.movieCount}</div>
-           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">MOVIES</div>`;
+        : `<div style="font-size: 14px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${c.showCount ? (c.movieCount || 0) + c.showCount : c.movieCount}</div>
+           <div style="font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 1px;">${!c.showCount ? 'MOVIES' : (c.movieCount ? 'TITLES' : 'SHOWS')}</div>`;
       row.innerHTML = `
         <div class="toggle-switch ${c.enabled ? 'on' : ''}" style="flex-shrink: 0;"></div>
         <div style="flex: 1; min-width: 0;">
@@ -5165,20 +6126,14 @@
     configTab = tab;
     document.getElementById('tab-bundles').classList.toggle('active', tab === 'bundles');
     document.getElementById('tab-help').classList.toggle('active', tab === 'help');
-    document.getElementById('tab-blacklist').classList.toggle('active', tab === 'blacklist');
     document.getElementById('tab-general').classList.toggle('active', tab === 'general');
     document.getElementById('tab-server').classList.toggle('active', tab === 'server');
     document.getElementById('config-tab-channels').style.display = 'none';
     document.getElementById('config-tab-bundles').style.display = tab === 'bundles' ? '' : 'none';
     document.getElementById('config-tab-help').style.display = tab === 'help' ? '' : 'none';
-    document.getElementById('config-tab-blacklist').style.display = tab === 'blacklist' ? '' : 'none';
     document.getElementById('config-tab-general').style.display = tab === 'general' ? '' : 'none';
     document.getElementById('config-tab-server').style.display = tab === 'server' ? '' : 'none';
     if (tab === 'bundles') { bundleFocusIndex = 0; renderBundleList(); }
-    if (tab === 'blacklist') {
-      renderBlacklistList();
-      setTimeout(initBlacklistSearch, 50);
-    }
     // Give the new pane a focus anchor so the first Up/Down has somewhere to
     // start from. Bundles runs its own index, so leave that one alone.
     if (tab !== 'bundles') {
@@ -5192,89 +6147,6 @@
       btn.classList.toggle('active', btn.dataset.tab === tab);
     });
     renderSuggestedList();
-  }
-
-  // ══════════════════════════════════════
-  // BLACKLIST
-  // ══════════════════════════════════════
-  function addToBlacklist(item) {
-    blacklist.add(String(item.ratingKey));
-    blacklistedItems.push({ ratingKey: item.ratingKey, title: item.title });
-    saveBlacklist();
-    applyBlacklistToChannels();
-    renderBlacklistList();
-    document.getElementById('blacklist-input').value = '';
-    hideBlacklistResults();
-  }
-
-  function removeFromBlacklist(ratingKey) {
-    blacklist.delete(String(ratingKey));
-    blacklistedItems = blacklistedItems.filter(e => String(e.ratingKey) !== String(ratingKey));
-    saveBlacklist();
-    applyBlacklistToChannels();
-    renderBlacklistList();
-  }
-
-  function renderBlacklistResults(matches) {
-    const el = document.getElementById('blacklist-results');
-    if (!matches.length) { hideBlacklistResults(); return; }
-    el.innerHTML = '';
-    matches.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'blacklist-result-row';
-      const typeTag = item.type === 'movie' ? 'MOVIE' : item.type === 'episode' ? 'TV' : 'MUSIC';
-      const line = itemGuideTitle(item);
-      row.innerHTML = `<span>${escapeHtml(line)}</span> <span style="opacity:0.4;font-size:11px;">${typeTag} ${item.year || ''}</span>`;
-      row.addEventListener('mousedown', (e) => { e.preventDefault(); addToBlacklist(item); });
-      el.appendChild(row);
-    });
-    el.style.display = 'block';
-  }
-
-  function hideBlacklistResults() {
-    const el = document.getElementById('blacklist-results');
-    if (el) el.style.display = 'none';
-  }
-
-  function renderBlacklistList() {
-    const el = document.getElementById('blacklist-list');
-    const label = document.getElementById('blacklist-count-label');
-    if (!el) return;
-    if (label) label.textContent = blacklistedItems.length
-      ? `${blacklistedItems.length} EXCLUDED TITLE${blacklistedItems.length !== 1 ? 'S' : ''}`
-      : '';
-    if (!blacklistedItems.length) {
-      el.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:12px;padding:12px 0;">No titles blacklisted yet.</div>';
-      return;
-    }
-    el.innerHTML = '';
-    [...blacklistedItems].reverse().forEach(entry => {
-      const row = document.createElement('div');
-      row.className = 'blacklist-entry';
-      row.innerHTML = `<span>${escapeHtml(entry.title)}</span><span class="blacklist-remove" onclick="removeFromBlacklist('${escapeHtml(String(entry.ratingKey))}')">&#x2715;</span>`;
-      el.appendChild(row);
-    });
-  }
-
-  let blacklistSearchTimer = null;
-  function initBlacklistSearch() {
-    const input = document.getElementById('blacklist-input');
-    if (!input || input._blacklistInit) return;
-    input._blacklistInit = true;
-    input.addEventListener('input', () => {
-      clearTimeout(blacklistSearchTimer);
-      blacklistSearchTimer = setTimeout(() => {
-        const q = input.value.trim().toLowerCase();
-        if (q.length < 2) { hideBlacklistResults(); return; }
-        const matches = allItemsCache
-          .filter(i => itemTitleHaystack(i).includes(q) && !blacklist.has(String(i.ratingKey)))
-          .slice(0, 20);
-        renderBlacklistResults(matches);
-      }, 200);
-    });
-    input.addEventListener('blur', () => {
-      setTimeout(hideBlacklistResults, 200);
-    });
   }
 
   function showConfig() {
@@ -5313,14 +6185,13 @@
   // ── Settings keyboard navigation ──────────────────────────────
   // Up/Down used to walk `.config-channel-row` no matter which tab was open.
   // Those rows live in #config-tab-channels, which is always display:none, so
-  // on General, Server and Blacklist the index moved while nothing on screen
-  // changed and the cursor appeared stuck. Walk the visible pane instead.
+  // on General and Server the index moved while nothing on screen changed and
+  // the cursor appeared stuck. Walk the visible pane instead.
   const CONFIG_FOCUSABLE_SEL = [
     'button',
     'select',
     'input:not([type="hidden"])',
     'a[href]',
-    '.blacklist-remove',
     '[tabindex]:not([tabindex="-1"])',
   ].join(', ');
 
@@ -5346,11 +6217,6 @@
     let next = current === -1 ? (delta > 0 ? 0 : items.length - 1) : current + delta;
     next = Math.max(0, Math.min(next, items.length - 1));
     const el = items[next];
-    // Spans like .blacklist-remove are not focusable on their own; -1 allows
-    // programmatic focus without adding them to the tab order.
-    if (!el.hasAttribute('tabindex') && !/^(BUTTON|INPUT|SELECT|A)$/.test(el.tagName)) {
-      el.setAttribute('tabindex', '-1');
-    }
     el.focus({ preventScroll: true });
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -5358,12 +6224,6 @@
   function focusFirstConfigItem() {
     const items = getConfigFocusables();
     if (items.length) items[0].focus({ preventScroll: true });
-  }
-
-  /** True when the user is typing, so arrows should move the caret, not the UI. */
-  function isTypingInConfig() {
-    const el = document.activeElement;
-    return !!el && el.tagName === 'INPUT' && /^(text|search|email|url|password|number)$/i.test(el.type || 'text');
   }
 
   function toggleChannel(index) {
@@ -5390,6 +6250,7 @@
   let pollInterval = null;
   let discoveredServers = [];
   let serverFocusIndex = 0;
+  let serverAddressesShown = false; // touch picker: addresses are collapsed until asked for
   let selectedServerIndices = new Set(); // indices into discoveredServers (multi-select)
   let selectedServers = []; // [{name, url, token, connections}] — all connected servers
 
@@ -5554,6 +6415,10 @@
           connections: r.connections || [],
           accessToken: r.accessToken,
           owned: r.owned,
+          // plex.tv already knows whether it can see the server. Carrying the
+          // flag through is what lets the picker say so before the user picks
+          // a server that is never going to answer.
+          presence: r.presence,
           machineIdentifier: r.clientIdentifier || '',
         }));
 
@@ -5600,22 +6465,53 @@
     picker.innerHTML = '';
     picker.appendChild(title);
 
+    const list = document.createElement('div');
+    list.className = 'server-picker-list';
+    picker.appendChild(list);
+
     discoveredServers.forEach((server, i) => {
       const selected = selectedServerIndices.has(i);
       const opt = document.createElement('div');
       opt.className = `server-option${selected ? ' selected' : ''}`;
+      opt.setAttribute('role', 'checkbox');
+      opt.setAttribute('tabindex', '0');
+      opt.setAttribute('aria-checked', selected ? 'true' : 'false');
       opt.style.cssText = 'display:flex;align-items:center;gap:14px;cursor:pointer;';
       const bestConn = server.connections.find(c => c.local) || server.connections[0];
+      // What a phone actually needs from a row: the name, whether it is someone
+      // else's, and whether it can be reached. The address is 80 characters of
+      // plex.direct hash that never fits, so it moves behind SHOW ADDRESSES.
+      const tags = [];
+      if (!server.owned) tags.push('<span class="server-tag">SHARED</span>');
+      if (server.presence === false) tags.push('<span class="server-tag server-tag--off">OFFLINE</span>');
+      else if (bestConn && bestConn.relay) tags.push('<span class="server-tag">RELAY</span>');
+      else if (bestConn && bestConn.local) tags.push('<span class="server-tag">LOCAL</span>');
+      else if (bestConn) tags.push('<span class="server-tag">REMOTE</span>');
       opt.innerHTML = `
         <div class="server-option-check">${selected ? '✓' : ''}</div>
         <div class="server-option-info">
-          <div class="server-option-name">${escapeHtml(server.name)}${server.owned ? '' : ' (shared)'}</div>
+          <div class="server-option-name">${escapeHtml(server.name)}${server.owned ? '' : '<span class="server-option-shared-inline"> (shared)</span>'}</div>
+          ${tags.length ? `<div class="server-option-tags">${tags.join('')}</div>` : ''}
           <div class="server-option-url">${bestConn ? escapeHtml(bestConn.uri) : 'Unknown address'}</div>
         </div>
       `;
       opt.addEventListener('click', () => toggleServerOption(i));
-      picker.appendChild(opt);
+      list.appendChild(opt);
     });
+
+    // Touch only (hidden by the pointer rules in CSS): the addresses are still
+    // one tap away for anyone working out why a server will not connect.
+    const addrToggle = document.createElement('button');
+    addrToggle.className = 'server-picker-addr';
+    addrToggle.type = 'button';
+    addrToggle.textContent = serverAddressesShown ? 'HIDE ADDRESSES' : 'SHOW ADDRESSES';
+    addrToggle.setAttribute('aria-expanded', serverAddressesShown ? 'true' : 'false');
+    addrToggle.addEventListener('click', () => {
+      serverAddressesShown = !serverAddressesShown;
+      renderServerOptions();
+    });
+    picker.appendChild(addrToggle);
+    picker.classList.toggle('show-addresses', serverAddressesShown);
 
     const connectBtn = document.createElement('button');
     connectBtn.className = 'server-picker-connect';
@@ -6369,21 +7265,17 @@
     const CL = globalThis.NostalgexCollections;
     if (!CL || !rawCollections || !allItemsCache.length) return;
 
-    const moviesByServer = new Map();
-    for (const it of allItemsCache) {
-      if (!it || it.type !== 'movie') continue;
-      const key = collectionServerKeyForItem(it);
-      if (!moviesByServer.has(key)) moviesByServer.set(key, new Map());
-      const byKey = moviesByServer.get(key);
-      if (!byKey.has(String(it.ratingKey))) byKey.set(String(it.ratingKey), it);
-    }
+    // Films and episodes, with episodes grouped by show, so a collection of shows
+    // expands to the episodes already loaded. This indexed films only, which is where
+    // a collection of shows lost every member.
+    const indexByServer = CL.indexLibrary(allItemsCache, collectionServerKeyForItem);
     // What the app compares against (its `allChannels`): every stock channel built with
     // enough to air, whether or not its bundle is switched on. Fold targets are the
     // FRANCHISES bundle's channels among them (`availableStockFranchiseChannelIDs`).
     const staticChannels = allChannelsUnfiltered.filter(ch =>
       ch.stock && !ch.collection && (ch.itemPool || []).length >= (ch.minItems || 50));
     const franchiseIDs = new Set((bundles.find(b => b.id === 'franchises') || {}).channelIDs || []);
-    collectionCandidates = CL.buildCandidates(rawCollections, moviesByServer, {
+    collectionCandidates = CL.buildCandidates(rawCollections, indexByServer, {
       staticChannels,
       channelsByID: new Map(allChannelsUnfiltered.map(ch => [ch.id, ch])),
       franchiseChannels: staticChannels.filter(ch => franchiseIDs.has(ch.id)),
@@ -6403,7 +7295,6 @@
       if (allChannelsUnfiltered[i].collection) allChannelsUnfiltered.splice(i, 1);
     }
     for (const ch of channels) {
-      ch.itemPool = ch.itemPool.filter(it => !blacklist.has(String(it.ratingKey)));
       ch.enabled = ch.itemPool.length >= ch.minItems;
       if (ch.enabled) buildChannelSchedule(ch);
       allChannelsUnfiltered.push(ch);
@@ -6605,6 +7496,9 @@
                     rating: show.CommunityRating || 0,
                     userRating: 0,
                     type: 'episode',
+                    // The series id, which a BoxSet of shows lists in place of its
+                    // episodes. NostalgexCollections.indexLibrary expands it.
+                    showKey: String(show.Id),
                     thumb: null,
                     art: null,
                     viewCount: (ep.UserData && ep.UserData.PlayCount) || 0,
@@ -6903,6 +7797,9 @@
                       rating: show.rating || 0,
                       userRating: show.userRating || 0,
                       type: 'episode',
+                      // The show's key (episode grandparentRatingKey), which a collection
+                      // of shows lists. NostalgexCollections.indexLibrary expands it.
+                      showKey: String(show.ratingKey),
                       thumb: ep.thumb || show.thumb,
                       art: show.art,
                       viewCount: ep.viewCount || 0,
@@ -7222,10 +8119,7 @@
         return;
       }
       if (key === 'ArrowLeft' || key === 'ArrowRight') {
-        // Don't yank the user off the tab while they are typing in the
-        // blacklist search box; let the arrows move the caret instead.
-        if (isTypingInConfig()) return;
-        const tabs = ['general', 'bundles', 'server', 'help', 'blacklist'];
+        const tabs = ['general', 'bundles', 'server', 'help'];
         const idx = tabs.indexOf(configTab);
         switchConfigTab(key === 'ArrowRight' ? tabs[(idx + 1) % tabs.length] : tabs[(idx + tabs.length - 1) % tabs.length]);
         e.preventDefault();
@@ -7258,8 +8152,8 @@
         e.preventDefault();
         return;
       }
-      // General, Server, Blacklist and Help: walk whatever is actually on
-      // screen in the active tab.
+      // General, Server and Help: walk whatever is actually on screen in the
+      // active tab.
       if (key === 'ArrowDown') {
         moveConfigFocus(1);
         e.preventDefault();
@@ -7271,8 +8165,8 @@
         return;
       }
       if (key === 'Enter') {
-        // Let the focused control handle it. Inputs keep their own behaviour
-        // (the blacklist search commits on Enter), everything else is a click.
+        // Let the focused control handle it. Inputs keep their own behaviour,
+        // everything else is a click.
         const el = document.activeElement;
         if (el && el.tagName !== 'INPUT' && typeof el.click === 'function') {
           el.click();
@@ -7296,20 +8190,21 @@
         return;
       }
 
-      // Navigation: Up/Down to browse channels
+      // Navigation: Up/Down to browse channels. Both ends wrap: Down on the
+      // last channel goes to channel one, Up on channel one goes to the last.
       const prevKey = 'ArrowUp';
       const nextKey = 'ArrowDown';
 
-      if (key === prevKey) {
-        guideFocusIndex = Math.max(guideFocusIndex - 1, 0);
-        updateGuideFocus();
-        e.preventDefault();
-        return;
-      }
-      if (key === nextKey) {
-        const enabled = getEnabledChannels();
-        guideFocusIndex = Math.min(guideFocusIndex + 1, enabled.length - 1);
-        updateGuideFocus();
+      if (key === prevKey || key === nextKey) {
+        const count = getEnabledChannels().length;
+        if (count > 0) {
+          // The index can sit past the end after channels were switched off.
+          const from = Math.min(Math.max(guideFocusIndex, 0), count - 1);
+          const step = key === nextKey ? 1 : -1;
+          const wrapped = step === 1 ? from === count - 1 : from === 0;
+          guideFocusIndex = (from + step + count) % count;
+          updateGuideFocus(wrapped);
+        }
         e.preventDefault();
         return;
       }

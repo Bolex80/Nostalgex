@@ -57,48 +57,67 @@ const meta = (o) => ({ MediaContainer: { Metadata: [o] } });
 const row = (items) => ({ MediaContainer: { Metadata: items } });
 const cleanupPaths = ["/:/unscrobble", "/:/progress", "/actions/removeFromContinueWatching"];
 
-async function plexSession(routes, counted) {
+async function plexSession(routes, counted, type) {
   const r = recorder(routes);
-  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "X-Plex-Token=tok", fetchImpl: r.fetchImpl });
+  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "X-Plex-Token=tok", fetchImpl: r.fetchImpl, retryDelayMs: 0 });
   const queue = WS.createReportQueue();
   let prior;
-  queue.enqueue(async () => { prior = await guard.capture("41418"); });
-  queue.enqueue(() => r.fetchImpl(guard.timelineUrl("41418", "playing", 1500000, 5976930, "s"), { method: "PUT" }));
-  queue.enqueue(() => r.fetchImpl(guard.timelineUrl("41418", "stopped", 1620000, 5976930, "s"), { method: "PUT" }));
+  queue.enqueue(async () => { prior = await guard.capture("41418", type); });
+  queue.enqueue(() => r.fetchImpl(guard.timelineUrl("41418", "playing", "s"), { method: "PUT" }));
+  queue.enqueue(() => r.fetchImpl(guard.timelineUrl("41418", "stopped", "s"), { method: "PUT" }));
   queue.enqueue(() => guard.restore("41418", prior, counted));
   await queue.drain();
   return r.calls;
 }
 
-await check("plex: surf an unwatched film -> one unscrobble, after the last report", async () => {
-  const calls = await plexSession({ "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "movie" })]] }, false);
+await check("plex: timeline reports carry no position", async () => {
+  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "X-Plex-Token=tok" });
+  for (const state of ["playing", "paused", "buffering", "stopped"]) {
+    const q = Object.fromEntries(new URL(guard.timelineUrl("42", state, "sess")).searchParams);
+    deepStrictEqual(q, { ratingKey: "42", key: "/library/metadata/42", state, "X-Plex-Session-Identifier": "sess", "X-Plex-Token": "tok" });
+  }
+});
+
+await check("plex: surf a film -> timeline only, never read, never cleaned up", async () => {
+  // Whatever the film held (resume point, watched twice) is never read or touched.
+  const calls = await plexSession({ "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "movie", viewOffset: 600000, viewCount: 2 })]] }, false, "movie");
+  deepStrictEqual(calls.map((c) => `${c.method} ${c.path} ${c.query.state}`), ["PUT /:/timeline playing", "PUT /:/timeline stopped"]);
+});
+
+await check("plex: surf an episode -> its show is looked up, nothing cleaned up", async () => {
+  const calls = await plexSession({
+    "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "episode", grandparentRatingKey: "48279" })]],
+    "GET /hubs/continueWatching/items": [[200, row([])]],
+  }, false, "episode");
   strictEqual(calls[0].path, "/library/metadata/41418");
-  const cleanup = calls.filter((c) => cleanupPaths.includes(c.path));
-  deepStrictEqual(cleanup.map((c) => c.path), ["/:/unscrobble"]);
-  deepStrictEqual(cleanup[0].query, { key: "41418", identifier: "com.plexapp.plugins.library", "X-Plex-Token": "tok" });
-  strictEqual(calls[calls.length - 1].path, "/:/unscrobble");
+  strictEqual(calls.filter((c) => cleanupPaths.includes(c.path)).length, 0);
 });
 
-await check("plex: prior resume point -> progress back to it", async () => {
-  const calls = await plexSession({ "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "movie", viewOffset: 600000 })]] }, false);
-  const cleanup = calls.filter((c) => cleanupPaths.includes(c.path));
-  strictEqual(cleanup.length, 1);
-  strictEqual(cleanup[0].method, "PUT");
-  strictEqual(cleanup[0].path, "/:/progress");
-  strictEqual(cleanup[0].query.time, "600000");
-  strictEqual(cleanup[0].query.state, "stopped");
+await check("plex: counted episode, metadata unreadable -> nothing removed", async () => {
+  const calls = await plexSession({ "GET /library/metadata/41418": [[500, null]] }, true, "episode");
+  strictEqual(calls.filter((c) => cleanupPaths.includes(c.path)).length, 0);
 });
 
-await check("plex: watched film -> removeFromContinueWatching only", async () => {
-  const calls = await plexSession({ "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "movie", viewCount: 2 })]] }, false);
-  const cleanup = calls.filter((c) => cleanupPaths.includes(c.path));
-  deepStrictEqual(cleanup.map((c) => `${c.method} ${c.path} ${c.query.ratingKey}`), ["PUT /actions/removeFromContinueWatching 41418"]);
+await check("plex: next-up that lands just after the scrobble is still removed", async () => {
+  const calls = await plexSession({
+    "GET /library/metadata/41418": [[200, meta({ ratingKey: "41418", type: "episode", grandparentRatingKey: "48279" })]],
+    "GET /hubs/continueWatching/items": [[200, row([])], [200, row([])], [200, row([{ ratingKey: "41419", type: "episode", grandparentRatingKey: "48279" }])]],
+  }, true, "episode");
+  deepStrictEqual(calls.filter((c) => c.path === "/actions/removeFromContinueWatching").map((c) => c.query.ratingKey), ["41419"]);
 });
 
-await check("plex: metadata read fails -> removeFromContinueWatching only, never unscrobble", async () => {
-  const calls = await plexSession({ "GET /library/metadata/41418": [[500, null]] }, false);
-  const cleanup = calls.filter((c) => cleanupPaths.includes(c.path));
-  deepStrictEqual(cleanup.map((c) => c.path), ["/actions/removeFromContinueWatching"]);
+await check("backoff: each failure skips more pulses, capped at 30, reset by an answer", async () => {
+  const b = WS.createPulseBackoff();
+  const skipped = [];
+  for (let i = 0; i < 8; i++) {
+    b.record(false);
+    let n = 0;
+    while (!b.allowPulse()) n += 1;
+    skipped.push(n);
+  }
+  deepStrictEqual(skipped, [1, 2, 4, 8, 16, 30, 30, 30]);
+  b.record(true);
+  strictEqual(b.allowPulse(), true);
 });
 
 await check("plex: counted episode, show not in Continue Watching -> remove the next-up entry", async () => {
@@ -109,8 +128,8 @@ await check("plex: counted episode, show not in Continue Watching -> remove the 
       [200, row([{ ratingKey: "900", type: "episode", grandparentRatingKey: "777" }, { ratingKey: "48283", type: "episode", grandparentRatingKey: "48279" }])],
     ],
   });
-  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "X-Plex-Token=tok", fetchImpl: r.fetchImpl });
-  const prior = await guard.capture("48281");
+  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "X-Plex-Token=tok", fetchImpl: r.fetchImpl, retryDelayMs: 0 });
+  const prior = await guard.capture("48281", "episode");
   strictEqual(prior.showKey, "48279");
   strictEqual(prior.showInContinueWatching, false);
   strictEqual(new URL(guard.scrobbleUrl("48281")).searchParams.get("key"), "48281");
@@ -124,8 +143,8 @@ await check("plex: counted episode, show already in Continue Watching -> nothing
     "GET /library/metadata/48281": [[200, meta({ ratingKey: "48281", type: "episode", grandparentRatingKey: "48279" })]],
     "GET /hubs/continueWatching/items": [[200, row([{ ratingKey: "48280", type: "episode", grandparentRatingKey: "48279" }])]],
   });
-  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "", fetchImpl: r.fetchImpl });
-  const prior = await guard.capture("48281");
+  const guard = WS.plexGuard({ serverUrl: "http://plex.test", authQuery: "", fetchImpl: r.fetchImpl, retryDelayMs: 0 });
+  const prior = await guard.capture("48281", "episode");
   await guard.restore("48281", prior, true);
   strictEqual(r.calls.filter((c) => cleanupPaths.includes(c.path)).length, 0);
 });

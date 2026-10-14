@@ -11,9 +11,15 @@ class AppState {
     // MARK: - Dependencies
 
     let credentialStore: any CredentialStoring
+    /// Mirrors the synced display and lineup preferences to iCloud. See PreferenceSync.
+    let preferenceSync: PreferenceSync
 
-    init(credentialStore: any CredentialStoring = KeychainCredentialStore()) {
+    init(credentialStore: any CredentialStoring = KeychainCredentialStore(),
+         preferenceSync: PreferenceSync? = nil) {
         self.credentialStore = credentialStore
+        self.preferenceSync = preferenceSync ?? .shared
+        self.preferenceSync.applier = self
+        self.iCloudSyncEnabled = self.preferenceSync.isEnabled
 
         // UI tests run in a shared simulator environment; allow a launch argument to reset
         // persisted credentials so tests don't leak state across runs.
@@ -58,13 +64,43 @@ class AppState {
     /// Used only by analytics — no UI depends on it.
     private var analyticsSessionStartedAt: Date = Date()
 
+    private var reportingBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+
+    private func finishReportingBackgroundTask() {
+        guard reportingBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(reportingBackgroundTask)
+        reportingBackgroundTask = .invalid
+    }
+
+    /// Ends the tracker's session for the background and asks tvOS for a few seconds so
+    /// the stop and the Continue Watching cleanup reach the server before suspension
+    /// (PR #18's grace period). Nothing to wait for when reporting is off. Best effort:
+    /// a force quit, network loss or the OS expiring the task can still drop it.
+    private func reportPlaybackBackgrounded() {
+        finishReportingBackgroundTask()
+        guard let tracker = playbackTracker else { return }
+        let identifier = syncPlexActivity && !isDemoMode
+            ? UIApplication.shared.beginBackgroundTask(withName: "Finish playback report") { [weak self] in
+                self?.finishReportingBackgroundTask()
+            }
+            : .invalid
+        reportingBackgroundTask = identifier
+        tracker.onBackground()
+        guard identifier != .invalid else { return }
+        Task { @MainActor [weak self] in
+            await ReportQueue.shared.drain()
+            guard let self, self.reportingBackgroundTask == identifier else { return }
+            self.finishReportingBackgroundTask()
+        }
+    }
+
     private func setupBackgroundObservers() {
         NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 // Flush watch time before the tracker's own background handler zeroes it.
                 self?.emitPlaybackStoppedForActiveSession()
-                self?.playbackTracker?.onBackground()
+                self?.reportPlaybackBackgrounded()
                 // Then close out the foreground period. Ordering matters: watch time
                 // rides its own signal, and app.session.ended is the umbrella around
                 // it.
@@ -241,6 +277,9 @@ class AppState {
     var libraryLoadVisibleSteps: [LibraryLoadPhase] = LibraryLoadPhase.visibleSteps(includesCollections: false, includesMusic: false)
     var channelBuildIndex: Int = 0
     var channelBuildTotal: Int = 0
+    /// Packages switched on whose channels are still being built. Settings shows a
+    /// spinner on these rows so a build in progress doesn't look like a frozen screen.
+    var buildingBundleIDs: Set<String> = []
     var errorMessage: String? = nil {
         // Any connect or sign-in failure this launch keeps the rating nudge away.
         didSet { if errorMessage != nil { ratingNudgeLaunch.hadConnectError = true } }
@@ -365,11 +404,46 @@ class AppState {
         UserDefaults.standard.stringArray(forKey: "nostalgex_enabled_collections") ?? []
     )
 
+    // MARK: - Found franchises (see AppState+Franchises)
+
+    /// Franchises the builder found in the library, stock folds included. Rebuilt after
+    /// every enrichment pass and restored from the snapshot in between.
+    var foundFranchises: [FoundFranchise] = []
+    /// Stable franchise ids the viewer switched on. Found franchises default OFF, except
+    /// the few the dictionary marks `defaultOn`. Kept as a plain string array in
+    /// UserDefaults so iCloud sync can carry it as-is.
+    var enabledFranchiseIDs: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: AppState.enabledFranchisesKey) ?? []
+    )
+    /// Stable franchise ids the viewer switched OFF. Only changes the outcome for a
+    /// `defaultOn` franchise: it stays off across launches and rescans once turned off.
+    var disabledFranchiseIDs: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey) ?? []
+    )
+    /// Enabled items per category that did not get a channel because the category's
+    /// display range was full (see `CollectionCategory.displayNumberEnd`). Zero normally.
+    var dynamicChannelsOverCap: [CollectionCategory: Int] = [:]
+    /// Runtime channel ids of the found franchises currently materialised. They ride on
+    /// the FRANCHISES bundle switch rather than a bundle of their own.
+    var foundFranchiseChannelIDs: [Int] = []
+
     // MARK: - Display settings
+
+    /// The SYNC WITH MY OTHER APPLE TVS switch. Per-TV, off by default, never synced.
+    /// Mirrors `preferenceSync.isEnabled`; the set in `init` matches it, so the guard
+    /// keeps a redundant write from re-running the turn-on merge.
+    var iCloudSyncEnabled: Bool = false {
+        didSet {
+            guard iCloudSyncEnabled != preferenceSync.isEnabled else { return }
+            preferenceSync.setEnabled(iCloudSyncEnabled)
+            Analytics.track(.settingChanged(key: "icloud_sync", value: iCloudSyncEnabled ? "true" : "false"))
+        }
+    }
 
     var retroMode: Bool = UserDefaults.standard.object(forKey: "nostalgex_retro_mode") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(retroMode, forKey: "nostalgex_retro_mode")
+            preferenceSync.record(PreferenceSync.retroModeKey, value: retroMode)
             if oldValue != retroMode {
                 Analytics.track(.settingChanged(key: "retro_mode", value: retroMode ? "true" : "false"))
             }
@@ -378,26 +452,28 @@ class AppState {
 
     static let syncPlexActivityDefaultsKey = "nostalgex_sync_plex_activity"
 
-    /// When true, playback is reported to the connected server so play counts grow
-    /// and items can surface in Continue Watching. Off = watch privately.
+    /// When true, playback is reported to the connected server: Now Playing shows what's
+    /// on and a qualifying watch counts. Off = watch privately.
     /// Same switch for Plex, Jellyfin, and Emby. Demo never reports.
     ///
-    /// Defaults OFF. Channel surfing tunes past dozens of programs in a sitting, and
-    /// reporting each one buries the household's real "Continue Watching" row under
-    /// half-watched items nobody chose to start. Opt in, don't opt out.
+    /// Defaults OFF. Opt in, don't opt out. When on, channel surfing never leaves items in
+    /// the household's Continue Watching row: Plex reports carry no position, and Jellyfin
+    /// and Emby get each program's prior state back (`PlaybackTracker`).
     /// Rewatch channels still fill from plays the server already recorded.
     var syncPlexActivity: Bool = AppState.resolveSyncPlexActivity(
         stored: UserDefaults.standard.object(forKey: AppState.syncPlexActivityDefaultsKey)
     ) {
         didSet {
             UserDefaults.standard.set(syncPlexActivity, forKey: Self.syncPlexActivityDefaultsKey)
-            // Turning off mid-program: silently abandon the live tracker so the current
-            // item stops reporting immediately (no final "stopped" offset). The next item
-            // gets a tracker with no Plex API. Turning on takes effect on the next item.
+            // Turning off mid-program: abandon the live tracker so the current item stops
+            // reporting immediately; it clears Now Playing (Plex) or restores UserData
+            // (Jellyfin, Emby). Turning on takes effect on the next item. Only the user
+            // changes this: a failed report backs off (`PulseBackoff`), never switches it off.
             if !syncPlexActivity { playbackTracker?.abandon() }
             if oldValue != syncPlexActivity {
                 Analytics.track(.settingChanged(key: "sync_plex_activity", value: syncPlexActivity ? "true" : "false"))
             }
+            preferenceSync.record(PreferenceSync.reportPlaybackKey, value: syncPlexActivity)
         }
     }
 
@@ -412,6 +488,7 @@ class AppState {
     var preferredSubtitleLanguageCode: String = AppState.loadPreferredSubtitleLanguageInitial() {
         didSet {
             UserDefaults.standard.set(preferredSubtitleLanguageCode, forKey: Self.subtitleLanguageDefaultsKey)
+            preferenceSync.record(PreferenceSync.subtitleLanguageKey, value: preferredSubtitleLanguageCode)
             applySubtitleSelection()
             if oldValue != preferredSubtitleLanguageCode {
                 Analytics.track(.settingChanged(key: "subtitle_language", value: preferredSubtitleLanguageCode))
@@ -423,6 +500,7 @@ class AppState {
     var subtitlesInFullscreenEnabled: Bool =
         UserDefaults.standard.object(forKey: "nostalgex_subtitles_fullscreen") as? Bool ?? false {
         didSet { UserDefaults.standard.set(subtitlesInFullscreenEnabled, forKey: "nostalgex_subtitles_fullscreen")
+            preferenceSync.record(PreferenceSync.subtitlesFullscreenKey, value: subtitlesInFullscreenEnabled)
             applySubtitleSelection()
             if oldValue != subtitlesInFullscreenEnabled {
                 Analytics.track(.settingChanged(key: "subtitles_fullscreen", value: subtitlesInFullscreenEnabled ? "true" : "false"))
@@ -436,6 +514,7 @@ class AppState {
     var autoSubtitlesForForeignAudioEnabled: Bool =
         UserDefaults.standard.object(forKey: "nostalgex_auto_subs_foreign_audio") as? Bool ?? true {
         didSet { UserDefaults.standard.set(autoSubtitlesForForeignAudioEnabled, forKey: "nostalgex_auto_subs_foreign_audio")
+            preferenceSync.record(PreferenceSync.autoSubsForeignAudioKey, value: autoSubtitlesForForeignAudioEnabled)
             applySubtitleSelection()
             if oldValue != autoSubtitlesForForeignAudioEnabled {
                 Analytics.track(.settingChanged(key: "auto_subtitles_foreign_audio", value: autoSubtitlesForForeignAudioEnabled ? "true" : "false"))
@@ -456,6 +535,7 @@ class AppState {
     var preferredAudioLanguageCode: String = AppState.loadPreferredAudioLanguageInitial() {
         didSet {
             UserDefaults.standard.set(preferredAudioLanguageCode, forKey: Self.audioLanguageDefaultsKey)
+            preferenceSync.record(PreferenceSync.audioLanguageKey, value: preferredAudioLanguageCode)
             applyAudioTrackSelection()
             if oldValue != preferredAudioLanguageCode {
                 Analytics.track(.settingChanged(key: "audio_language", value: preferredAudioLanguageCode))
@@ -520,6 +600,7 @@ class AppState {
         didSet { if currentItem?.ratingKey != oldValue?.ratingKey { refreshNowPlayingInfo() } }
     }
     var currentPartIndex: Int = 0
+    var currentPartBaseSeconds: Double = 0
 
     // MARK: - Rating nudge (see AppState+RatingNudge.swift)
 

@@ -2,12 +2,13 @@
 title: "ErsatzTV and Tunarr Alternatives for Apple TV: Live Channels From Your Library, No Server Needed"
 seo_title: "ErsatzTV & Tunarr Alternatives for Apple TV"
 description: "ErsatzTV is in maintenance mode and Tunarr needs a server. Here's how the alternatives compare, and when a free Apple TV app is honestly all you need."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/tunarr-ersatztv-alternative-apple-tv/cover.jpg"
+cover_alt: "Full screen movie playing on the Classic Fam Jams channel in the Nostalgex Apple TV app, no server needed"
 excerpt: "I love what Tunarr and ErsatzTV do. But if your channels only ever play on one Apple TV, you might not need a server tool at all. Here's how I'd decide."
 author: "Chad Mueller"
 slug: tunarr-ersatztv-alternative-apple-tv
-date: 2026-10-12
-updated: 2026-10-12
-draft: true
+date: 2026-10-13
+updated: 2026-10-13
 ---
 
 # ErsatzTV and Tunarr Alternatives for Apple TV: Live Channels From Your Library, No Server Needed
@@ -54,6 +55,8 @@ There are two usual routes. You can add the tuner to Plex Live TV and watch in t
 
 This is the question I wish someone had asked me earlier. A channel server makes sense when you want the same channels on lots of different screens: the Roku in the bedroom, Plex on a phone, Kodi in the basement. It's the shared source for everything.
 
+![Nostalgex guide on Apple TV airing Urban Legend on the Nostalgex Horror channel straight from a home library](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/tunarr-ersatztv-alternative-apple-tv/nostalgex-horror-guide.webp)
+
 If every bit of your channel surfing happens on one or two Apple TVs, a server is a lot of plumbing for that job. The guide and the schedule can live in the app on the TV, and the app can just ask your media server for the file when it's time to play it. That's how every channel surfing app on Apple TV works, including mine.
 
 There's a comment in [an r/selfhosted thread](https://www.reddit.com/r/selfhosted/comments/1ryr6p0/analoq_my_take_on_a_free_plex_live_tv_app_for/) that stuck with me. Someone said they'd used ErsatzTV for years, got tired of streaming hiccups, and noted that Apple TV options had been "so limited." That's who this kind of app is for.
@@ -61,6 +64,8 @@ There's a comment in [an r/selfhosted thread](https://www.reddit.com/r/selfhoste
 ## How does Nostalgex compare to Tunarr and ErsatzTV?
 
 Here's what you give up with [Nostalgex](/), plainly:
+
+![Nostalgex channel flip bar over a playing movie, showing what is on the next channels](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/tunarr-ersatztv-alternative-apple-tv/channel-flip-bar.webp)
 
 * **No handmade schedules.** You don't build channels or time slots. Nostalgex builds every channel and schedule from your library on its own. If you want Seinfeld at 7 and a movie at 9 every night, that's a Tunarr job.
 * **No tuner or M3U output.** Nothing gets shared out to Plex Live TV, Kodi or other players.

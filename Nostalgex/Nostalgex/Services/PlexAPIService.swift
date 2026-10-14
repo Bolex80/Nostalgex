@@ -7,6 +7,9 @@ struct PlexAPIService: MediaBackend {
     /// images, and lookups can be routed back to the correct server when multiple are
     /// connected. Empty for the demo/no-server case.
     var serverID: String = ""
+    /// Carries playback reports (timeline, scrobble, Continue Watching cleanup). Tests
+    /// replace it with a recorder.
+    var reportTransport: any ReportTransport = URLSessionReportTransport.shared
 
     /// URLSession with timeout configured for Plex API calls
     private static let session: URLSession = {
@@ -429,10 +432,18 @@ struct PlexAPIService: MediaBackend {
             imdbID: show.imdbID,
             librarySource: .tv,
             serverID: serverID.isEmpty ? nil : serverID,
+            additionalPartKeys: {
+                let extra = (media?.Part ?? []).dropFirst().compactMap { $0.key }
+                return extra.isEmpty ? nil : Array(extra)
+            }(),
             videoBitDepth: media?.videoStream?.bitDepth,
             doviProfile: media?.videoStream?.DOVIProfile,
             videoWidth: media?.width,
-            videoHeight: media?.height
+            videoHeight: media?.height,
+            mediaIndex: ep.bestMediaIndex ?? 0,
+            playbackParts: media?.playbackParts,
+            exactDurationSeconds: ep.duration.map { Double($0) / 1000 },
+            showKey: show.ratingKey
         )
     }
 
@@ -515,7 +526,10 @@ struct PlexAPIService: MediaBackend {
             videoBitDepth: media?.videoStream?.bitDepth,
             doviProfile: media?.videoStream?.DOVIProfile,
             videoWidth: media?.width,
-            videoHeight: media?.height
+            videoHeight: media?.height,
+            mediaIndex: item.bestMediaIndex ?? 0,
+            playbackParts: media?.playbackParts,
+            exactDurationSeconds: item.duration.map { Double($0) / 1000 }
         )
     }
 
@@ -705,8 +719,8 @@ struct PlexAPIService: MediaBackend {
         let offersHEVC = CodecSupport.offersHEVC(doviProfile: item.doviProfile, deviceCapable: hevcCapable)
         let items: [URLQueryItem] = [
             .init(name: "path",                      value: "/library/metadata/\(item.ratingKey)"),
-            .init(name: "mediaIndex",                value: "0"),
-            .init(name: "partIndex",                 value: "0"),
+            .init(name: "mediaIndex",                value: String(item.mediaIndex)),
+            .init(name: "partIndex",                 value: String(item.partIndex)),
             .init(name: "protocol",                  value: "hls"),
             .init(name: "session",                   value: sessionID),
             .init(name: "offset",                    value: String(offsetSeconds)),
@@ -1143,41 +1157,50 @@ struct PlexAPIService: MediaBackend {
 
     // MARK: - Session reporting (Now Playing + Scrobble)
 
-    /// Report current playback position to Plex so Now Playing, On Deck, and watch history stay accurate.
-    func reportTimeline(ratingKey: String, key: String, state: String, timeMs: Int, durationMs: Int, sessionID: String) async {
-        guard var components = URLComponents(string: "\(serverURL)/:/timeline") else { return }
+    /// Builds the Continue Watching cleanup and scrobble requests. Shares this service's
+    /// server, token and transport.
+    var watchStateGuard: PlexWatchStateGuard {
+        PlexWatchStateGuard(serverURL: serverURL, headers: baseHeaders, transport: reportTransport)
+    }
+
+    /// Position-free Now Playing report (from PR #18, w6trp). No `time` or `duration`, so
+    /// Plex lists the session in Now Playing at offset 0 and writes no resume point: the
+    /// item never reaches Continue Watching. `stopped` takes it out of Now Playing. Both
+    /// measured on a real server 2026-10-13. Kept separate from the scrobble so no default
+    /// can add a position to it.
+    func heartbeatRequest(ratingKey: String, state: String, sessionID: String) -> URLRequest? {
+        guard ["playing", "paused", "buffering", "stopped"].contains(state),
+              !ratingKey.isEmpty, ratingKey.allSatisfy(\.isNumber), !sessionID.isEmpty,
+              var components = URLComponents(string: serverURL + "/:/timeline") else { return nil }
         components.queryItems = [
-            .init(name: "ratingKey",                value: ratingKey),
-            .init(name: "key",                      value: key),
-            .init(name: "state",                    value: state),
-            .init(name: "time",                     value: "\(timeMs)"),
-            .init(name: "duration",                 value: "\(durationMs)"),
-            .init(name: "X-Plex-Session-Identifier", value: sessionID),
+            .init(name: "ratingKey", value: ratingKey),
+            .init(name: "key", value: "/library/metadata/\(ratingKey)"),
+            .init(name: "state", value: state)
         ]
-        guard let url = components.url else { return }
-        var req = URLRequest(url: url)
-        req.httpMethod = "PUT"
-        baseHeaders.forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        _ = try? await Self.session.data(for: req)
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 10
+        baseHeaders.forEach { request.setValue($1, forHTTPHeaderField: $0) }
+        request.setValue(sessionID, forHTTPHeaderField: "X-Plex-Session-Identifier")
+        return request
+    }
+
+    /// True when Plex answered 2xx. A failure only slows the next pulses (`PulseBackoff`).
+    @discardableResult
+    func reportHeartbeat(ratingKey: String, state: String, sessionID: String) async -> Bool {
+        guard let request = heartbeatRequest(ratingKey: ratingKey, state: state, sessionID: sessionID),
+              let status = await reportTransport.send(request)?.status else { return false }
+        return (200..<300).contains(status)
     }
 
     /// Mark an item as watched in Plex (scrobble). Fires once per session when the hybrid
     /// watch rule passes (entry gate ≤ 15% + active time ≥ 75% of runtime).
     func scrobble(ratingKey: String) async {
-        guard var components = URLComponents(string: "\(serverURL)/:/scrobble") else { return }
-        components.queryItems = [
-            .init(name: "key",        value: "/library/metadata/\(ratingKey)"),
-            .init(name: "identifier", value: "com.plexapp.plugins.library"),
-        ]
-        guard let url = components.url else { return }
-        var req = URLRequest(url: url)
-        baseHeaders.forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        do {
-            let (_, response) = try await Self.session.data(for: req)
-            if let http = response as? HTTPURLResponse {
-                print("[Plex90] Scrobble \(ratingKey): HTTP \(http.statusCode)")
-            }
-        } catch {
+        guard let req = watchStateGuard.scrobbleRequest(ratingKey: ratingKey) else { return }
+        if let status = await reportTransport.send(req)?.status {
+            print("[Plex90] Scrobble \(ratingKey): HTTP \(status)")
+        } else {
             print("[Plex90] Scrobble \(ratingKey) failed silently")
         }
     }
@@ -1330,14 +1353,19 @@ struct PlexRawItem: Decodable {
     /// Highest-quality version: max bitrate, tie-broken on vertical resolution. Falls back to
     /// the first version when none report a bitrate, so libraries without that metadata behave
     /// exactly as before.
-    var bestMedia: PlexMedia? {
+    var bestMediaIndex: Int? {
         guard let medias = Media, !medias.isEmpty else { return nil }
-        guard medias.contains(where: { $0.bitrate != nil }) else { return medias.first }
-        return medias.max { a, b in
-            let ba = a.bitrate ?? Int.min, bb = b.bitrate ?? Int.min
+        guard medias.contains(where: { $0.bitrate != nil }) else { return 0 }
+        return medias.indices.max { a, b in
+            let ba = medias[a].bitrate ?? Int.min, bb = medias[b].bitrate ?? Int.min
             if ba != bb { return ba < bb }
-            return PlexRawItem.resolutionHeight(a.videoResolution) < PlexRawItem.resolutionHeight(b.videoResolution)
+            return PlexRawItem.resolutionHeight(medias[a].videoResolution) < PlexRawItem.resolutionHeight(medias[b].videoResolution)
         }
+    }
+
+    var bestMedia: PlexMedia? {
+        guard let index = bestMediaIndex else { return nil }
+        return Media?[index]
     }
 
     /// Vertical resolution from a "WIDTHxHEIGHT" string (or a label like "4k"); 0 if unknown.
@@ -1362,6 +1390,8 @@ struct PlexRawItem: Decodable {
         let Part: [PlexPart]?
         struct PlexPart: Decodable {
             let key: String?
+            let container: String?
+            let duration: Int?
             let Stream: [PlexStream]?
         }
         struct PlexStream: Decodable {
@@ -1370,8 +1400,20 @@ struct PlexRawItem: Decodable {
             let bitDepth: Int?
             let DOVIProfile: Int?
         }
+        var playbackParts: [PlexPartPlaybackInfo] {
+            (Part ?? []).compactMap { part in
+                guard let key = part.key else { return nil }
+                let video = part.Stream?.first { $0.streamType == 1 }
+                let audio = part.Stream?.first { $0.streamType == 2 }
+                return PlexPartPlaybackInfo(key: key, container: part.container ?? container,
+                    videoCodec: video?.codec ?? videoCodec, audioCodec: audio?.codec ?? audioCodec,
+                    bitDepth: video?.bitDepth, doviProfile: video?.DOVIProfile,
+                    durationSeconds: part.duration.map { Double($0) / 1000 })
+            }
+        }
         var videoStream: PlexStream? {
             Part?.first?.Stream?.first { $0.streamType == 1 }
         }
     }
 }
+

@@ -10,16 +10,22 @@
 //
 // The rule: Report Playback keeps Now Playing and real watches flowing to the user's
 // server, but a program the tuner played must never be left in Continue Watching (Plex),
-// Resume (Jellyfin, Emby) or On Deck. Before the first report we read what the server
-// held for the item; when the session ends we put that back. Measured against Plex,
-// Emby 4.10 and Jellyfin 12.2 on 2026-10-11 (Nostalgex/docs/plex-session-reporting.md).
+// Resume (Jellyfin, Emby) or On Deck.
+//
+// Plex: timeline reports carry no time or duration (PR #18), so Now Playing lists the
+// title and Plex stores nothing; a surf needs no cleanup. A counted episode's next-up
+// entry is removed unless its show was already in Continue Watching before tune-in.
+// Jellyfin/Emby: the start report bumps PlayCount and a stop without a position marks the
+// item played (Emby 4.10.1, 2026-10-13), so reports keep the position; we read UserData
+// before the first report and put it back when the session ends.
+// Numbers in Nostalgex/docs/plex-session-reporting.md.
 //
 // USAGE (browser: plain <script src="scripts/nostalgex-watch-state.js">,
 // node: `import "./nostalgex-watch-state.js"`, then globalThis):
 //
 //   const WS = window.NostalgexWatchState;
 //   const guard = WS.plexGuard({ serverUrl, authQuery: 'X-Plex-Token=...', fetchImpl: fetch });
-//   WS.sharedQueue.enqueue(async () => { prior = await guard.capture(ratingKey); });
+//   WS.sharedQueue.enqueue(async () => { prior = await guard.capture(ratingKey, item.type); });
 //   ...reports, all through WS.sharedQueue...
 //   WS.sharedQueue.enqueue(() => guard.restore(ratingKey, prior, counted));
 
@@ -32,17 +38,12 @@
   // prior: { resumePosition, playCount, played, lastPlayedDate, showKey, showInContinueWatching }
   // or null when the read failed. resumePosition is Plex ms or Jellyfin/Emby 100ns ticks.
 
+  // Reports carry no position, so a surf leaves nothing to undo. An episode scrobble adds
+  // the next episode to Continue Watching: remove it unless the show was already there.
+  // Unknown prior: leave it, rather than remove a row the user had.
   function plexPlan(prior, counted) {
-    if (counted) {
-      // The scrobble cleared the item's own resume point; an episode scrobble adds the
-      // next episode to Continue Watching. Remove that unless the show was already there.
-      if (!prior || !prior.showKey || prior.showInContinueWatching) return [];
-      return [{ kind: 'removeShowFromContinueWatching', show: prior.showKey }];
-    }
-    if (!prior) return [{ kind: 'removeFromContinueWatching' }];
-    if (prior.resumePosition > 0) return [{ kind: 'progress', time: prior.resumePosition }];
-    if (prior.playCount === 0 && !prior.played) return [{ kind: 'unscrobble' }];
-    return [{ kind: 'removeFromContinueWatching' }];
+    if (!counted || !prior || !prior.showKey || prior.showInContinueWatching) return [];
+    return [{ kind: 'removeShowFromContinueWatching', show: prior.showKey }];
   }
 
   function mediaServerPlan(prior, counted) {
@@ -57,9 +58,6 @@
   /** Compact form used by scripts/watch-cleanup-golden.json. */
   function describe(step) {
     switch (step.kind) {
-      case 'unscrobble': return 'unscrobble';
-      case 'progress': return `progress ${step.time}`;
-      case 'removeFromContinueWatching': return 'removeFromContinueWatching';
       case 'removeShowFromContinueWatching': return `removeShowFromContinueWatching ${step.show}`;
       case 'markUnplayed': return 'markUnplayed';
       case 'userData': {
@@ -74,8 +72,8 @@
   }
 
   // ── Ordering ──
-  // Plex writes a resume point on every timeline report, so a cleanup that lands before
-  // the last report is undone by it. Every report and cleanup goes through one queue.
+  // Every report and cleanup goes through one queue, so a Jellyfin/Emby restore always
+  // lands after the last report (which would otherwise write a position over it).
   function createReportQueue() {
     let tail = Promise.resolve();
     return {
@@ -84,6 +82,26 @@
         return tail;
       },
       drain() { return tail; },
+    };
+  }
+
+  // ── Backoff (must match PulseBackoff in Swift) ──
+  // A server that stops answering gets fewer 10 second pulses, never a changed setting:
+  // each failure skips 1, 2, 4 ... up to 30 pulses; any answered report resets it.
+  // Starts, stops, scrobbles and cleanup always go out.
+  function createPulseBackoff() {
+    let failures = 0;
+    let skip = 0;
+    return {
+      allowPulse() {
+        if (skip > 0) { skip -= 1; return false; }
+        return true;
+      },
+      record(success) {
+        if (success) { failures = 0; skip = 0; return; }
+        failures += 1;
+        skip = Math.min(30, 1 << Math.min(failures - 1, 5));
+      },
     };
   }
 
@@ -105,7 +123,7 @@
   }
 
   // ── Plex ──
-  function plexGuard({ serverUrl, authQuery, fetchImpl }) {
+  function plexGuard({ serverUrl, authQuery, fetchImpl, retryDelayMs }) {
     const f = fetchImpl || global.fetch.bind(global);
     const url = (path, params) => {
       const q = new URLSearchParams(params || {}).toString();
@@ -119,61 +137,47 @@
       return r.json.MediaContainer.Metadata || [];
     }
 
-    function stepUrl(step, rk) {
-      switch (step.kind) {
-        case 'unscrobble': return ['GET', url('/:/unscrobble', { key: rk, identifier: LIBRARY })];
-        case 'progress': return ['PUT', url('/:/progress', { key: rk, identifier: LIBRARY, time: String(step.time), state: 'stopped' })];
-        case 'removeFromContinueWatching': return ['PUT', url('/actions/removeFromContinueWatching', { ratingKey: rk })];
-        default: return null;
-      }
-    }
+    const delay = retryDelayMs == null ? 1000 : retryDelayMs;
 
     return {
       url,
       /** `key` is the bare rating key; /library/metadata/{rk} is answered with 404. */
       scrobbleUrl: rk => url('/:/scrobble', { key: rk, identifier: LIBRARY }),
-      timelineUrl: (rk, state, timeMs, durationMs, sessionId) => url('/:/timeline', {
-        ratingKey: rk, key: `/library/metadata/${rk}`, state, time: String(timeMs),
-        duration: String(durationMs), 'X-Plex-Session-Identifier': sessionId,
+      /** Position-free: no time or duration, so Plex lists it in Now Playing and stores nothing. */
+      timelineUrl: (rk, state, sessionId) => url('/:/timeline', {
+        ratingKey: rk, key: `/library/metadata/${rk}`, state, 'X-Plex-Session-Identifier': sessionId,
       }),
-      async capture(rk) {
+      /** Episodes only: is the show already in Continue Watching? Films cost no request. */
+      async capture(rk, type) {
+        if (type && type !== 'episode') return null;
         const r = await send(f, 'GET', url(`/library/metadata/${encodeURIComponent(rk)}`), { json: true });
         const meta = ok(r) && r.json && r.json.MediaContainer && (r.json.MediaContainer.Metadata || [])[0];
-        if (!meta) return null;
-        const prior = {
-          resumePosition: meta.viewOffset || 0,
-          playCount: meta.viewCount || 0,
-          played: (meta.viewCount || 0) > 0,
-          lastPlayedDate: null,
-          showKey: null,
-          showInContinueWatching: false,
-        };
-        if (meta.type === 'episode' && meta.grandparentRatingKey) {
-          const show = String(meta.grandparentRatingKey);
-          prior.showKey = show;
-          const row = await continueWatching();
+        if (!meta || meta.type !== 'episode' || !meta.grandparentRatingKey) return null;
+        const show = String(meta.grandparentRatingKey);
+        const row = await continueWatching();
+        return {
+          resumePosition: 0, playCount: 0, played: false, lastPlayedDate: null,
+          showKey: show,
           // Unreadable row: assume the show was there, so we never remove a real entry.
-          prior.showInContinueWatching = row
+          showInContinueWatching: row
             ? row.some(e => String(e.grandparentRatingKey) === show || String(e.ratingKey) === show)
-            : true;
-        }
-        return prior;
+            : true,
+        };
       },
       async restore(rk, prior, counted, opts) {
         const keepalive = !!(opts && opts.keepalive);
         for (const step of plexPlan(prior, counted)) {
-          if (step.kind === 'removeShowFromContinueWatching') {
+          // Plex adds the next episode about a second after the scrobble. Look up to three times.
+          for (let attempt = 0; attempt < 3; attempt++) {
             const row = (await continueWatching()) || [];
-            for (const e of row.filter(x => String(x.grandparentRatingKey) === step.show)) {
+            const added = row.filter(x => String(x.grandparentRatingKey) === step.show);
+            for (const e of added) {
               const r = await send(f, 'PUT', url('/actions/removeFromContinueWatching', { ratingKey: String(e.ratingKey) }), { keepalive });
               console.log('[Tracker] cleanup', rk, 'removeFromContinueWatching next-up', e.ratingKey, r ? r.status : 'failed');
             }
-            continue;
+            if (added.length || attempt === 2) break;
+            await new Promise(res => setTimeout(res, delay));
           }
-          const req = stepUrl(step, rk);
-          if (!req) continue;
-          const r = await send(f, req[0], req[1], { keepalive });
-          console.log('[Tracker] cleanup', rk, describe(step), r ? r.status : 'failed');
         }
       },
     };
@@ -233,6 +237,7 @@
     mediaServerPlan,
     describe,
     createReportQueue,
+    createPulseBackoff,
     sharedQueue: createReportQueue(),
     plexGuard,
     mediaServerGuard,

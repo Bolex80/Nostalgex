@@ -1119,8 +1119,6 @@ a { color: inherit; }
   cursor: pointer;
   transition: color 160ms var(--ease);
 }
-.lineup__group-head:hover .lineup__group-name { color: var(--pink); }
-
 .lineup__group-name {
   flex: 1;
   min-width: 0;
@@ -1128,6 +1126,47 @@ a { color: inherit; }
   font-size: 18px;
   letter-spacing: -0.01em;
   transition: color 160ms var(--ease);
+}
+
+/* The name is a link to the bundle's guide page while the rest of the head
+   toggles the group open, so the hover state belongs to the link alone.
+   Hovering the row used to tint the name, which now reads as a broken link. */
+.lineup__group-link {
+  color: inherit;
+  text-decoration: none;
+}
+/* Hover is not available on touch, so the arrow is the standing cue that the
+   name goes somewhere. Decorative: the link text alone reads fine. */
+.lineup__group-link::after {
+  content: "\2192";
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.8em;
+  opacity: 0.45;
+  transform: translateX(0);
+  transition: transform 160ms var(--ease), opacity 160ms var(--ease);
+}
+.lineup__group-link:hover::after,
+.lineup__group-link:focus-visible::after {
+  opacity: 1;
+  transform: translateX(3px);
+}
+/* Narrow rows: a long name (ADVENTURELAND) pushes the arrow onto its own line,
+   which reads as a bullet rather than an affordance. Underline instead; it
+   costs no width and is the clearer touch cue anyway. */
+@media (max-width: 760px) {
+  .lineup__group-link::after { content: none; }
+  .lineup__group-link {
+    text-decoration: underline;
+    text-decoration-color: var(--hairline);
+    text-underline-offset: 3px;
+  }
+}
+.lineup__group-link:hover,
+.lineup__group-link:focus-visible {
+  color: var(--pink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .lineup__group-count {
   font-family: var(--font-mono);
@@ -1139,6 +1178,17 @@ a { color: inherit; }
   border-radius: 999px;
   padding: 2px 10px 1px;
   white-space: nowrap;
+}
+/* The chevron is a real <button> (app.js), so strip the UA button styling and
+   keep the plus/minus drawn by .faq-marker. */
+.lineup__group-toggle {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
 }
 .lineup__group.is-open .faq-marker::after { transform: rotate(90deg) scaleY(0); }
 .lineup__group.is-open .faq-marker::before,
@@ -2026,6 +2076,49 @@ a { color: inherit; }
   margin: 0 0 40px;
   border: 2px solid var(--ink);
   box-shadow: 5px 5px 0 var(--ink);
+}
+
+/* Inline images in a post or a guide page. Same frame as the cover, one step
+   quieter, and the caption only appears when the markdown gives the image a
+   title. */
+.page-figure {
+  margin: 36px 0;
+}
+.page-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--cyan);
+}
+.page-figure figcaption,
+.page-clip figcaption {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.page-clip {
+  margin: 36px 0;
+}
+.page-clip-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--cyan);
+  background: var(--paper-deep);
+}
+@media (max-width: 640px) {
+  .page-figure img,
+  .page-clip-video {
+    box-shadow: 3px 3px 0 var(--cyan);
+  }
+  .page-figure,
+  .page-clip {
+    margin: 26px 0;
+  }
 }
 
 .blog-post-body {

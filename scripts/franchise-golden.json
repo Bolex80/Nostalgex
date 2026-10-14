@@ -271,8 +271,8 @@
       ]
     },
     {
-      "name": "name-tie-broken-by-stable-id",
-      "about": "Two different collections that clean to the same name are two channels, ordered by stableID as a string (tmdb:126209 before tmdb:91361).",
+      "name": "same-name-collections-merge",
+      "about": "Two different collections that clean to the same name are ONE channel (franchiseMergeKey). Films stay in input order; the channel is named after, and keyed by, the lowest collection id (tmdb:91361); both ids are listed. Before the merge rule these were two HALLOWEEN channels.",
       "availableStockChannelIDs": [],
       "movies": [
         { "id": "h1", "title": "Halloween", "enrichment": { "franchiseID": 91361, "franchiseName": "Halloween Collection" } },
@@ -285,14 +285,9 @@
       "tvItems": [],
       "expected": [
         {
-          "name": "HALLOWEEN", "stableID": "tmdb:126209", "placement": { "type": "dynamic" },
-          "movies": ["z1", "z2", "z3"], "tvItems": [],
-          "mergedFranchiseIDs": [126209], "fromDictionary": false
-        },
-        {
           "name": "HALLOWEEN", "stableID": "tmdb:91361", "placement": { "type": "dynamic" },
-          "movies": ["h1", "h2", "h3"], "tvItems": [],
-          "mergedFranchiseIDs": [91361], "fromDictionary": false
+          "movies": ["h1", "z1", "h2", "z2", "h3", "z3"], "tvItems": [],
+          "mergedFranchiseIDs": [91361, 126209], "fromDictionary": false
         }
       ]
     },
@@ -322,6 +317,72 @@
           "mergedFranchiseIDs": [], "fromDictionary": true
         }
       ]
+    },
+    {
+      "name": "split-collections-merge-by-name",
+      "about": "The general rule, from the owner's library (2026-10-13). American Pie (2806) and American Pie (Spin-off) (298820) are one channel: Collection and a trailing parenthetical are dropped before names are compared. The Addams Family (Animated) (750822, two films) merges with Addams Family (11716, one film) across a leading The, and only together pass the three-film gate; the merged name drops the parenthetical and comes from the lowest id. Pokemon and Pokemon: Best Wishes! are different names and stay apart (the second has two films and builds nothing). The Addams Family show joins the merged channel by name.",
+      "availableStockChannelIDs": [],
+      "movies": [
+        { "id": "ap1", "title": "American Pie (1999)", "enrichment": { "franchiseID": 2806, "franchiseName": "American Pie Collection" } },
+        { "id": "aps1", "title": "American Pie Presents: Band Camp (2005)", "enrichment": { "franchiseID": 298820, "franchiseName": "American Pie (Spin-off) Collection" } },
+        { "id": "ap2", "title": "American Pie 2 (2001)", "enrichment": { "franchiseID": 2806, "franchiseName": "American Pie Collection" } },
+        { "id": "aps2", "title": "American Pie Presents: The Naked Mile (2006)", "enrichment": { "franchiseID": 298820, "franchiseName": "American Pie (Spin-off) Collection" } },
+        { "id": "aa1", "title": "The Addams Family (2019)", "enrichment": { "franchiseID": 750822, "franchiseName": "The Addams Family (Animated) Collection" } },
+        { "id": "af1", "title": "Addams Family Values (1993)", "enrichment": { "franchiseID": 11716, "franchiseName": "Addams Family Collection" } },
+        { "id": "aa2", "title": "The Addams Family 2 (2021)", "enrichment": { "franchiseID": 750822, "franchiseName": "The Addams Family (Animated) Collection" } },
+        { "id": "pk1", "title": "Pokemon: The First Movie", "enrichment": { "franchiseID": 34055, "franchiseName": "Pokemon Collection" } },
+        { "id": "pk2", "title": "Pokemon: The Movie 2000", "enrichment": { "franchiseID": 34055, "franchiseName": "Pokemon Collection" } },
+        { "id": "pk3", "title": "Pokemon 3: The Movie", "enrichment": { "franchiseID": 34055, "franchiseName": "Pokemon Collection" } },
+        { "id": "bw1", "title": "Pokemon the Movie: White", "enrichment": { "franchiseID": 661028, "franchiseName": "Pokemon: Best Wishes! Collection" } },
+        { "id": "bw2", "title": "Pokemon the Movie: Black", "enrichment": { "franchiseID": 661028, "franchiseName": "Pokemon: Best Wishes! Collection" } }
+      ],
+      "tvItems": [
+        { "id": "t1", "title": "The Addams Family", "episodeTitle": "Pilot" }
+      ],
+      "expected": [
+        {
+          "name": "ADDAMS FAMILY", "stableID": "tmdb:11716", "placement": { "type": "dynamic" },
+          "movies": ["aa1", "af1", "aa2"], "tvItems": ["t1"],
+          "mergedFranchiseIDs": [11716, 750822], "fromDictionary": false
+        },
+        {
+          "name": "AMERICAN PIE", "stableID": "tmdb:2806", "placement": { "type": "dynamic" },
+          "movies": ["ap1", "aps1", "ap2", "aps2"], "tvItems": [],
+          "mergedFranchiseIDs": [2806, 298820], "fromDictionary": false
+        },
+        {
+          "name": "POKEMON", "stableID": "tmdb:34055", "placement": { "type": "dynamic" },
+          "movies": ["pk1", "pk2", "pk3"], "tvItems": [],
+          "mergedFranchiseIDs": [34055], "fromDictionary": false
+        }
+      ]
+    },
+    {
+      "name": "spider-man-merges-five-collections",
+      "about": "Dictionary SPIDER-MAN, ids verified live 2026-10-13: Raimi trilogy (556), The Amazing Spider-Man (125574), MCU (531241), Spider-Verse (573436) and the 1977-80 TV films (225941) are one dynamic channel even with CH101 in the lineup; it never folds into MARVEL. Shows join by the spider-man token (The Amazing Spider-Man 1977 series, Spider-Man: The Animated Series) or by listed title (Spidey and His Amazing Friends). Spider Riders has no token. Iron Man, an MCU film in its own collection, is untouched and alone builds nothing.",
+      "availableStockChannelIDs": [100, 101, 102, 103, 104, 105, 106],
+      "movies": [
+        { "id": "sm1", "title": "Spider-Man (2002)", "enrichment": { "franchiseID": 556, "franchiseName": "Spider-Man Collection" } },
+        { "id": "mcu1", "title": "Spider-Man: Homecoming (2017)", "enrichment": { "franchiseID": 531241, "franchiseName": "Spider-Man (MCU) Collection" } },
+        { "id": "asm1", "title": "The Amazing Spider-Man (2012)", "enrichment": { "franchiseID": 125574, "franchiseName": "The Amazing Spider-Man Collection" } },
+        { "id": "sv1", "title": "Spider-Man: Into the Spider-Verse (2018)", "enrichment": { "franchiseID": 573436, "franchiseName": "Spider-Man: Spider-Verse Collection" } },
+        { "id": "tv77", "title": "Spider-Man Strikes Back (1978)", "enrichment": { "franchiseID": 225941, "franchiseName": "Spider-Man (TV) Collection" } },
+        { "id": "mcu2", "title": "Spider-Man: No Way Home (2021)", "enrichment": { "franchiseID": 531241, "franchiseName": "Spider-Man (MCU) Collection" } },
+        { "id": "im1", "title": "Iron Man (2008)", "enrichment": { "franchiseID": 131292, "franchiseName": "Iron Man Collection" } }
+      ],
+      "tvItems": [
+        { "id": "st1", "title": "The Amazing Spider-Man (1977)", "episodeTitle": "Pilot" },
+        { "id": "st2", "title": "Spider-Man: The Animated Series", "episodeTitle": "Night of the Lizard" },
+        { "id": "st3", "title": "Spidey and His Amazing Friends", "episodeTitle": "Pilot" },
+        { "id": "x1", "title": "Spider Riders", "episodeTitle": "Pilot" }
+      ],
+      "expected": [
+        {
+          "name": "SPIDER-MAN", "stableID": "dict:SPIDER-MAN", "placement": { "type": "dynamic" },
+          "movies": ["sm1", "mcu1", "asm1", "sv1", "tv77", "mcu2"], "tvItems": ["st1", "st2", "st3"],
+          "mergedFranchiseIDs": [556, 125574, 225941, 531241, 573436], "fromDictionary": true
+        }
+      ]
     }
   ],
   "titleKeys": [
@@ -344,7 +405,19 @@
     { "title": "Loki", "franchise": null },
     { "title": "Parabellum", "franchise": null },
     { "title": "Starsky & Hutch", "franchise": null },
-    { "title": "The Matrixx", "franchise": null }
+    { "title": "The Matrixx", "franchise": null },
+    { "title": "Spider-Man: Lotus (2023)", "franchise": "SPIDER-MAN" }
+  ],
+  "mergeKeys": [
+    { "name": "Spider-Man (MCU) Collection", "key": "spider man" },
+    { "name": "Spider-Man Collection", "key": "spider man" },
+    { "name": "American Pie (Spin-off) Collection", "key": "american pie" },
+    { "name": "The Addams Family (Animated) Collection", "key": "addams family" },
+    { "name": "Teenage Mutant Ninja Turtles (Remake) (2014) Collection", "key": "teenage mutant ninja turtles" },
+    { "name": "The Amazing Spider-Man Collection", "key": "amazing spider man" },
+    { "name": "(500) Days of Summer Collection", "key": "500 days of summer" },
+    { "name": "Pokémon: Best Wishes! Collection", "key": "pokémon best wishes" },
+    { "name": "Theodore Rex", "key": "theodore rex" }
   ],
   "collectionFolds": [
     {

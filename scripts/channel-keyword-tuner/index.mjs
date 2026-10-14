@@ -5,15 +5,20 @@
 // Usage:
 //   TMDB_API_KEY=xxx node scripts/channel-keyword-tuner/index.mjs
 //   TMDB_API_KEY=xxx node scripts/channel-keyword-tuner/index.mjs --channel 56
+//   ... --cache /tmp/tmdb-cache.json   keep every TMDB response on disk and
+//                                      reuse it, so a rerun sees the same data
+//   ... --out /tmp/regen               write the manifest and report there
+//                                      instead of over the shipped files
 //
-// Input:  scripts/channel-keyword-tuner/exemplars.json
-// Output: scripts/channel-keyword-tuner/report.md
+// Input:  scripts/channel-keyword-tuner/exemplars.json, channels.json
+// Output: channels-memberships.json, scripts/channel-keyword-tuner/report.md
 
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { channelRuleGate, gateIsEmpty, ruleGateDecision } from "./genre-gate.mjs";
 
 const require = createRequire(import.meta.url);
 const { titleContainsWord } = require("../nostalgex-channel-filter.cjs");
@@ -43,20 +48,42 @@ const args = process.argv.slice(2);
 const channelFilter = args.includes("--channel")
   ? args[args.indexOf("--channel") + 1].split(",").map(s => Number(s.trim())).filter(n => !isNaN(n))
   : null;
+const argPath = (flag) => (args.includes(flag) ? path.resolve(args[args.indexOf(flag) + 1]) : null);
+const cachePath = argPath("--cache");
+const outDir = argPath("--out");
 
 // TMDB supports two auth styles:
 //   v3 API key — short string, passed as ?api_key=xxx
 //   v4 Read Access Token — long JWT starting with "eyJ", passed as Bearer header
 const isBearerToken = KEY.startsWith("eyJ");
 
+// Optional disk cache (--cache). Keyed by path and query without the key, so
+// the file holds no credentials. TMDB recommendations shift week to week; a
+// cached run is the only way to compare two generator versions on one dataset.
+const diskCache = cachePath && fsSync.existsSync(cachePath)
+  ? JSON.parse(fsSync.readFileSync(cachePath, "utf8"))
+  : {};
+
 async function tmdb(pathPart, params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const cacheKey = query ? `${pathPart}?${query}` : pathPart;
+  if (cachePath && cacheKey in diskCache) {
+    const hit = diskCache[cacheKey];
+    if (hit?.__status) throw new Error(`TMDB ${hit.__status} ${pathPart}`);
+    return hit;
+  }
   const url = new URL(TMDB + pathPart);
   if (!isBearerToken) url.searchParams.set("api_key", KEY);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const headers = isBearerToken ? { Authorization: `Bearer ${KEY}` } : {};
   const r = await fetch(url, { headers });
-  if (!r.ok) throw new Error(`TMDB ${r.status} ${pathPart}`);
-  return r.json();
+  if (!r.ok) {
+    if (cachePath && r.status === 404) diskCache[cacheKey] = { __status: 404 };
+    throw new Error(`TMDB ${r.status} ${pathPart}`);
+  }
+  const json = await r.json();
+  if (cachePath) diskCache[cacheKey] = json;
+  return json;
 }
 
 async function findExemplar(title, mediaType) {
@@ -210,7 +237,7 @@ async function getDetailsCached(id, mediaType) {
   return d;
 }
 
-async function processChannel(ch, globalLocks = []) {
+async function processChannel(ch, globalLocks = [], rules = {}) {
   const exemplarsList = ch.exemplars || [];
   const collectionsList = ch.tmdbCollections || [];
   console.error(`\n=== CH ${ch.id} ${ch.name} (${ch.mediaType}) — ${exemplarsList.length} exemplars, ${collectionsList.length} TMDB collections ===`);
@@ -331,6 +358,10 @@ async function processChannel(ch, globalLocks = []) {
   // entirely (Jurassic World into DOCS via viewer-overlap recs). Apply two
   // filters before letting a candidate be claimed:
   //   1. Per-channel requires — requireGenres / requireOriginalLanguage
+  //   1b. Default genre gate: the channel's own rules.genres.include and
+  //       requireAll from channels.json, plus any genreRescueKeywords from
+  //       exemplars.json (genre-gate.mjs). Applies to every channel that has
+  //       one, so Bond stops landing on CRIME FLICKS / MYSTERY via recs.
   //   2. Global locks — items with a marker signal (e.g. "stand-up comedy"
   //      keyword) can only ever appear on the channel they're locked to
   // Only candidates at/above the claim threshold are checked (one cached TMDB
@@ -338,7 +369,13 @@ async function processChannel(ch, globalLocks = []) {
   const wantGenres = (ch.requireGenres || []).map((g) => g.toLowerCase());
   const wantLangs = (ch.requireOriginalLanguage || []).map((l) => l.toLowerCase());
   const wantCompanies = (ch.requireProductionCompanies || []).map((c) => c.toLowerCase());
-  const hasGate = wantGenres.length || wantLangs.length || wantCompanies.length;
+  const ruleGate = channelRuleGate(rules, ch);
+  const hasGate = wantGenres.length || wantLangs.length || wantCompanies.length || !gateIsEmpty(ruleGate);
+  function ruleReason(det, name) {
+    const d = ruleGateDecision(det, ruleGate);
+    if (d.rescuedBy) console.error(`  + kept "${name}" off-genre, keyword "${d.rescuedBy}"`);
+    return d.reason;
+  }
   const minRelated = Number(process.env.MIN_RELATED || 2);
   if (hasGate || globalLocks.length) {
     const gated = [];
@@ -350,7 +387,8 @@ async function processChannel(ch, globalLocks = []) {
         console.error(`  🔒 lock dropped "${rel.name}" — globally locked to CH ${lockedTo}`);
         continue;
       }
-      const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+      const why = gateReason(det, wantGenres, wantLangs, wantCompanies)
+      || ruleReason(det, rel.name);
       if (!why) {
         if (lockedTo != null) rel._exclusiveTo = lockedTo;
         gated.push(rel);
@@ -376,7 +414,8 @@ async function processChannel(ch, globalLocks = []) {
       console.error(`  🔒 ${label} lock dropped "${member.name}" — locked to CH ${lockedTo}`);
       return { ok: false };
     }
-    const why = gateReason(det, wantGenres, wantLangs, wantCompanies);
+    const why = gateReason(det, wantGenres, wantLangs, wantCompanies)
+        || ruleReason(det, member.name);
     if (why) {
       console.error(`  ⊘ ${label} dropped "${member.name}" — ${why}`);
       return { ok: false };
@@ -619,22 +658,29 @@ async function main() {
 
   const results = [];
   for (const ch of channels) {
-    results.push(await processChannel(ch, globalLocks));
+    results.push(await processChannel(ch, globalLocks, channelRulesById[ch.id]));
   }
 
+  if (cachePath) {
+    await fs.writeFile(cachePath, JSON.stringify(diskCache));
+    console.error(`\nTMDB cache ${cachePath}: ${Object.keys(diskCache).length} responses`);
+  }
+  if (outDir) await fs.mkdir(outDir, { recursive: true });
+
   const report = renderReport(results, minRelatedCount);
-  const reportPath = path.join(__dirname, "report.md");
+  const reportPath = outDir ? path.join(outDir, "report.md") : path.join(__dirname, "report.md");
   await fs.writeFile(reportPath, report);
   console.error(`\nWrote ${reportPath}`);
 
   // Manifest is what the app consumes. When running on a subset of channels,
   // merge with the existing manifest so we don't lose claims for channels we
-  // didn't re-process this run.
-  const manifestPath = path.join(__dirname, "..", "..", "channels-memberships.json");
+  // didn't re-process this run. The merge base is always the shipped file.
+  const shippedManifestPath = path.join(__dirname, "..", "..", "channels-memberships.json");
+  const manifestPath = outDir ? path.join(outDir, "channels-memberships.json") : shippedManifestPath;
   let existing = null;
   if (channelFilter) {
     try {
-      existing = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+      existing = JSON.parse(await fs.readFile(shippedManifestPath, "utf8"));
     } catch { /* first run */ }
   }
   const fresh = buildManifest(results, minRelatedCount, channelRulesById, raw.handCurated || []);
@@ -665,5 +711,7 @@ async function main() {
 
 main().catch(err => {
   console.error("Fatal:", err);
+  // Keep what was fetched so a rerun picks up where this one stopped.
+  if (cachePath) fsSync.writeFileSync(cachePath, JSON.stringify(diskCache));
   process.exit(1);
 });

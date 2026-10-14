@@ -2,6 +2,8 @@
 title: "The 90s Slasher Movie Marathon: A Halloween Night on the SCREAM Channels"
 seo_title: "90s Slasher Movies for a Halloween Marathon"
 description: "A Halloween marathon of 90s slasher movies, and what a night on the Nostalgex SCREAM channels looks like with those films in your own library."
+cover: "https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/90s-slasher-movies-halloween-marathon/cover.jpg"
+cover_alt: "Nostalgex retro mode on Apple TV with the channel flip bar showing Scream Kids, Fright Night, Scream Adults and Nostalgex Horror"
 slug: 90s-slasher-movies-halloween-marathon
 date: 2026-10-08
 ---
@@ -61,6 +63,8 @@ Nostalgex is a free, open source app for Apple TV, plus a free [web tuner](/web-
 ### SCREAM is on channels 137 to 140
 
 Version 1.0.23 added SCREAM, a Halloween bundle with four channels: SCREAM KIDS (137), FRIGHT NIGHT (138), SCREAM ADULTS (139), and NOSTALGEX HORROR (140), which is built for 70s, 80s, and 90s horror. In October the Apple TV guide offers SCREAM right at the top (say yes and it's in your lineup), with the kids channel first. Handy while the doorbell's still going. It's available any month from Settings, too, if you watch Scream in July.
+
+![Nostalgex guide on Apple TV with Scream Kids, Fright Night, Scream Adults and Nostalgex Horror on channels 137 to 140](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/90s-slasher-movies-halloween-marathon/scream-bundle-guide.webp)
 
 The channels keep airing even when nobody's watching, so when you tune in at 9:40, you land in the middle of something, like 1997.
 

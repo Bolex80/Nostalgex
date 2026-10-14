@@ -73,6 +73,13 @@ protocol MediaBackend: Sendable {
     /// is requested, so the client seeks, and an offset on the URL breaks the segment requests.
     func resolveTranscodePlayback(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)?
 
+    /// The server stream for a file that was played directly and gave no picture or
+    /// starved. Must not hand back that same file. Plex's transcode request is always a
+    /// server stream, so the default is `resolveTranscodePlayback(for:offsetSeconds:)`.
+    /// Jellyfin and Emby override it: asked the first-attempt question about a file they
+    /// can direct play, they answer with the file itself.
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)?
+
     /// Stops an active server-side transcode session so it doesn't linger (matters on a
     /// 24/7 channel-flipping app). `playSessionId` is the backend's session token when it
     /// has one (Jellyfin); backends keyed off a stable client id (Plex) may ignore it.
@@ -141,6 +148,7 @@ enum MediaServerPlaybackReport {
         return URLSession(configuration: config)
     }()
 
+    @discardableResult
     static func post(
         serverURL: String,
         authorization: String,
@@ -149,8 +157,8 @@ enum MediaServerPlaybackReport {
         mediaSourceId: String,
         playSessionId: String,
         positionTicks: Int
-    ) async {
-        guard let url = URL(string: "\(serverURL)\(event.path)") else { return }
+    ) async -> Bool {
+        guard let url = URL(string: "\(serverURL)\(event.path)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -163,7 +171,9 @@ enum MediaServerPlaybackReport {
             PositionTicks: positionTicks,
             IsPaused: false
         ))
-        _ = try? await session.data(for: req)
+        guard let (_, response) = try? await session.data(for: req),
+              let http = response as? HTTPURLResponse else { return false }
+        return (200..<300).contains(http.statusCode)
     }
 
     /// One increment, matching a Plex scrobble. Used when the watch cleared the
@@ -181,15 +191,20 @@ enum MediaServerPlaybackReport {
 }
 
 protocol WatchActivityReporting: Sendable {
+    /// True when the server answered 2xx. Only feeds `PulseBackoff`.
+    @discardableResult
     func reportWatchActivity(
         itemId: String,
         mediaSourceId: String,
         playSessionId: String,
         positionTicks: Int,
         event: MediaServerPlaybackReport.Event
-    ) async
+    ) async -> Bool
 
     func markWatched(itemId: String) async
+
+    /// Restores Resume after a session so reporting never leaves a program there.
+    var watchStateGuard: any WatchStateGuarding { get }
 }
 
 extension MediaBackend {
@@ -222,6 +237,10 @@ extension MediaBackend {
     func resolveTranscodePlayback(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
         guard let r = await resolveTranscodePlayback(for: item) else { return nil }
         return (r, false)
+    }
+
+    func resolveServerStream(for item: PlexMediaItem, offsetSeconds: Int) async -> (resolution: PlaybackResolution, startsAtOffset: Bool)? {
+        await resolveTranscodePlayback(for: item, offsetSeconds: offsetSeconds)
     }
 
     func cappedTranscodeURL(for item: PlexMediaItem, offsetSeconds: Int, sessionID: String) -> URL? { nil }
