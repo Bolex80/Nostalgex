@@ -3,6 +3,30 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-14 (1.0.26 released)
+
+**Shipped.** 1.0.26 (48) is live on the App Store, released manually after Apple
+approved it. The three tips (Popcorn, TV Dinner, Pizza Night) were approved with
+it, so the tip jar works for the first time. The jump from 1.0.23 means the
+release notes cover 1.0.24 through 1.0.26.
+
+Apple's two review queues disagreed: the full App Store review passed while the
+TestFlight beta review for the same binary was still waiting, a day after
+submission. Build 48 was never distributed to the external groups. 49 takes that
+slot instead.
+
+**Changed.** `content/changelog.json` marks 1.0.26 `released: true`, so the site
+shows it. 1.0.24 and 1.0.25 stay `false`: those versions only ever existed in
+TestFlight, and their changes are inside the 1.0.26 notes. The privacy page's
+playback reporting paragraph now covers the Apple TV app, not just the web tuner,
+because 1.0.26 is where position-free Plex reporting shipped. Effective date moved
+to October 14, 2026.
+
+**Next.** Build 49: the Emby fallback stream fix, the Jellyfin and Emby stall
+retry fix, and collections that hold TV shows. All three are on main and none are
+in 48. The two playback ones are pre-existing faults, present in 1.0.23 as well,
+so 1.0.26 does not regress anyone; they want a hardware pass before 49 ships.
+
 ## 2026-10-13 (web tuner: controls behind one menu on touch)
 
 **Shipped.** Nothing. The work is on the branch `web-tuner-drawer`, not merged.
