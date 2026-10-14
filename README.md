@@ -28,6 +28,26 @@ The Apple TV app can connect to more than one server at a time.
 
 **Source of truth:** this repository (`chadMueller/Nostalgex`) contains the **public site**, **web tuner**, and **tvOS app** together. Read **[docs/REPOSITORY-LAYOUT.md](docs/REPOSITORY-LAYOUT.md)** for boundaries, deploy split, and how to avoid duplicating Nostalgex inside unrelated monorepos.
 
+## Playback reporting in source builds
+
+Settings has two independent choices: **SHOW NOW PLAYING ON <SERVER>** and
+**MARK WATCHED ON <SERVER>** on Apple TV (Settings > CONNECTION), and
+**Show Now Playing** and **Mark Watched** in the web tuner's Settings > PLAYBACK.
+Both default off, preserving the existing opt-in default. An explicit old Report
+Playback choice carries over to both; an explicit new off is kept.
+
+Show Now Playing displays the current channel on your server. Mark Watched counts
+a program only when you join during its first 15% and watch at least 75%. Either
+can be enabled on its own, and changing one takes effect without retuning.
+Plex Now Playing-only sends no position or watched updates. Jellyfin and Emby
+require readable prior watch state before any reports or watched writes; an
+unreadable baseline skips that session instead of clearing real resume progress.
+Their watch-state restoration still needs a working connection.
+
+These controls are in the source builds; the 1.0.26 release notes below describe
+the previous combined Report Playback switch. See the [reporting reference](Nostalgex/docs/plex-session-reporting.md)
+for migration, Continue Watching cleanup and validation limits.
+
 ## What's new in 1.0.26
 
 The App Store went straight from 1.0.23 to 1.0.26, so this one rolls up 1.0.24, 1.0.25 and 1.0.26. Full notes in the [release](https://github.com/chadMueller/Nostalgex/releases/tag/v1.0.26).
@@ -197,7 +217,7 @@ Reporting a container problem? Include your server and its version, the machine 
 
 Here is the full list for the tvOS app:
 
-- **Your media server.** Direct from the Apple TV to your Plex, Jellyfin or Emby. Sign-in goes straight to the server, and REPORT PLAYBACK only talks to that same server. No credentials are ever sent anywhere else.
+- **Your media server.** Direct from the Apple TV to your Plex, Jellyfin or Emby. Sign-in goes straight to the server, and Show Now Playing / Mark Watched only talk to that same server. No credentials are ever sent anywhere else.
 - **plex.tv** (Plex only). The PIN sign-in flow and server discovery, like every Plex client.
 - **iCloud** (only if you turn on sync). Your lineup and settings, in your own iCloud. Server logins stay on the device.
 - **MusicBrainz.** Public metadata for the music video channels. No key, no account.

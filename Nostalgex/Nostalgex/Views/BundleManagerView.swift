@@ -792,21 +792,32 @@ struct SettingsPageView: View {
             .accessibilityLabel("Rescan library")
             .padding(.top, 8)
 
-            // Playback reporting. Same switch on every server: off, a watch here
-            // stays in the app; on, the server sees what's playing and a real watch
-            // counts. Either way nothing is left in Continue Watching (PlaybackTracker).
             if !appState.isDemoMode {
                 SettingsToggleRow(
-                    title: "REPORT PLAYBACK TO \(appState.backendDisplayName.uppercased())",
-                    subtitle: "Off by default. When on, your server sees what's playing and a film you watch most of counts as watched. Channel surfing never fills your Continue Watching.",
-                    isOn: appState.syncPlexActivity,
-                    isFocused: focusedItem == "plex_sync"
+                    title: "SHOW NOW PLAYING ON \(appState.backendDisplayName.uppercased())",
+                    subtitle: appState.backendKind == .plex
+                        ? "Show the current program on Plex. Leave Mark Watched off to keep watch history unchanged."
+                        : "Show the current program. Prior watch state is restored when playback ends; a working connection is required.",
+                    isOn: appState.showNowPlaying,
+                    isFocused: focusedItem == "now_playing_sync"
                 ) {
-                    appState.syncPlexActivity.toggle()
+                    appState.showNowPlaying.toggle()
                 }
-                .focused($focusedItem, equals: "plex_sync")
-                .id("plex_sync")
-                .accessibilityHint("Shows what's playing and updates play counts in \(appState.backendDisplayName). Continue Watching is left as it was")
+                .focused($focusedItem, equals: "now_playing_sync")
+                .id("now_playing_sync")
+                .accessibilityHint("Reports the current program to \(appState.backendDisplayName). Mark Watched is a separate choice")
+
+                SettingsToggleRow(
+                    title: "MARK WATCHED ON \(appState.backendDisplayName.uppercased())",
+                    subtitle: "Count a program as watched when you tune in during its first 15% and watch at least 75%. Independent of Now Playing. Off by default.",
+                    isOn: appState.markWatched,
+                    isFocused: focusedItem == "mark_watched"
+                ) {
+                    appState.markWatched.toggle()
+                }
+                .focused($focusedItem, equals: "mark_watched")
+                .id("mark_watched")
+                .accessibilityHint("Updates watch history after a qualifying watch. Does not enable Now Playing")
             }
 
             // Off by default and per-TV. Turning it on pushes this TV's lineup and

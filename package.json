@@ -23,7 +23,7 @@
     "test:tuner-gate": "node scripts/channel-tuner-gate-smoke.mjs",
     "test:web-tune-ownership": "node scripts/web-tune-ownership-smoke.mjs",
     "test:web-player": "node scripts/web-tuner-player-smoke.mjs",
-    "test": "npm run test:filter && npm run test:schedule && npm run test:franchises && npm run test:watch-state && npm run test:jellyfin-urls && npm run test:subscribe && npm run test:tmdb && npm run test:enrichment && npm run test:collections && npm run test:tuner-gate && npm run test:web-player && npm run test:web-tune-ownership && npm run channels:doc:check && npm run changelog:check && npm run bundles:render:strict && npm run selfhost:render:check",
+    "test": "npm run test:filter && npm run test:schedule && npm run test:franchises && npm run test:watch-state && npm run test:reporting-controls && npm run test:jellyfin-urls && npm run test:subscribe && npm run test:tmdb && npm run test:enrichment && npm run test:collections && npm run test:tuner-gate && npm run test:web-player && npm run test:web-tune-ownership && npm run channels:doc:check && npm run changelog:check && npm run bundles:render:strict && npm run selfhost:render:check",
     "build": "npm run selfhost:render && npm run changelog:render && npm run blog:render && npm run bundles:render && vite build",
     "build:selfhost": "vite build --mode selfhost --outDir dist-selfhost",
     "preview": "vite preview",
@@ -35,7 +35,8 @@
     "test:franchises": "node scripts/nostalgex-franchise-smoke.mjs",
     "test:watch-state": "node scripts/nostalgex-watch-state-smoke.mjs",
     "test:jellyfin-urls": "node scripts/nostalgex-jellyfin-urls-smoke.mjs",
-    "media:measure": "node scripts/measure-media.mjs"
+    "media:measure": "node scripts/measure-media.mjs",
+    "test:reporting-controls": "node scripts/playback-reporting-controls-smoke.mjs"
   },
   "devDependencies": {
     "@fontsource-variable/bricolage-grotesque": "5.3.0",
