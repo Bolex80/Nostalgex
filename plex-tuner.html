@@ -4121,7 +4121,9 @@
       fragment.appendChild(row);
 
       if (i === promoCoffeeAt) fragment.appendChild(buildPromoRow('coffee'));
+      // selfhost:strip:start
       if (i === promoEmailAt) fragment.appendChild(buildPromoRow('email'));
+      // selfhost:strip:end
     });
     gridBody.appendChild(fragment);
   }
@@ -6252,10 +6254,21 @@
   let selectedServerIndices = new Set(); // indices into discoveredServers (multi-select)
   let selectedServers = []; // [{name, url, token, connections}] — all connected servers
 
+  // crypto.randomUUID only exists on secure pages (https, localhost). A self-hosted
+  // tuner on plain http gets the same v4 shape from getRandomValues, which works anywhere.
+  function randomClientId() {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+
   function getClientId() {
     let id = localStorage.getItem('plex90_client_id');
     if (!id) {
-      id = crypto.randomUUID();
+      id = randomClientId();
       localStorage.setItem('plex90_client_id', id);
     }
     return id;
@@ -6673,8 +6686,9 @@
             }
           } catch {
             // A saved http:// server on this https page is the browser blocking
-            // mixed content, which never resolves on its own — not a blip.
-            if (/^http:\/\//i.test(storedUrl || '')) {
+            // mixed content, which never resolves on its own — not a blip. A
+            // self-hosted tuner on plain http has no such block.
+            if (location.protocol === 'https:' && /^http:\/\//i.test(storedUrl || '')) {
               mixedContentBlocked = true;
             }
             // Otherwise: both plex.tv and the server were unreachable (network blip
@@ -7984,10 +7998,14 @@
       globalThis.NostalgexLibraryLoad?.hide();
       const errorEl = document.getElementById('plex-error-label');
       if (mediaBackend === 'jellyfin') {
+        // A self-hosted tuner on plain http: no mixed content, and no nostalgex.app.
+        const selfHttp = location.protocol === 'http:';
         errorEl.textContent = err && err.plexStatus
-          ? 'JELLYFIN SESSION ENDED. RECONNECT AT NOSTALGEX.APP/WEB-TUNER'
+          ? (selfHttp ? 'JELLYFIN SESSION ENDED. RECONNECT TO SIGN IN AGAIN' : 'JELLYFIN SESSION ENDED. RECONNECT AT NOSTALGEX.APP/WEB-TUNER')
           : mixedContentBlocked
           ? 'YOUR SERVER USES HTTP. BROWSERS BLOCK THAT ON A SECURE PAGE. USE AN HTTPS URL, OR THE APPLE TV APP FOR A LOCAL SERVER'
+          : selfHttp
+          ? 'COULD NOT REACH JELLYFIN SERVER. CHECK THAT IT IS RUNNING AND REACHABLE FROM THIS DEVICE'
           : 'COULD NOT REACH JELLYFIN SERVER. IT HAS TO ANSWER OVER HTTPS — A PLAIN LAN SERVER NEEDS THE APPLE TV APP';
         errorEl.style.display = 'block';
         // For Jellyfin errors don't show the Plex connect button — direct them back to the connect page
@@ -7997,7 +8015,7 @@
         if (!reconnectEl) {
           const btn = document.createElement('a');
           btn.id = 'plex-reconnect-jf';
-          btn.href = '/web-tuner';
+          btn.href = 'web-tuner';
           btn.className = 'plex-btn';
           btn.textContent = 'RECONNECT JELLYFIN';
           btn.style.cssText = 'display:inline-block;margin-top:16px;text-decoration:none;';
@@ -8308,6 +8326,7 @@
   init();
 </script>
 
+<!-- selfhost:strip:start -->
 <!-- Email signup modal -->
 <div class="promo-modal" id="promo-modal" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
   <div class="promo-modal__inner">
@@ -8384,5 +8403,6 @@
   window.__openPromoModal = openPromoModal;
 })();
 </script>
+<!-- selfhost:strip:end -->
 </body>
 </html>

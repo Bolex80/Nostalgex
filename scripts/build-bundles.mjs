@@ -564,14 +564,25 @@ export function hubMeta() {
 // The hub has no content file, so its hero is named here. It uses the lineup
 // screenshot the home page already ships, which is app UI rather than a frame
 // from somebody's film.
-const HUB_IMAGE = resolveImage(
-  {
-    image: "/screens/lineup-1280.webp",
-    image_alt:
-      "The Nostalgex channel guide on Apple TV, showing bundles of live channels built from a Plex library",
-  },
-  { file: "scripts/build-bundles.mjs (hub)", rootDir: ROOT },
-);
+//
+// Measured on first use, not at import. The self-host build imports this module
+// from vite.config.js but never renders the site, and its Docker context carries
+// only the two tuner pages, so measuring at import made the image build fail on
+// a missing screenshot.
+let hubImage = null;
+function hubImageRef() {
+  if (!hubImage) {
+    hubImage = resolveImage(
+      {
+        image: "/screens/lineup-1280.webp",
+        image_alt:
+          "The Nostalgex channel guide on Apple TV, showing bundles of live channels built from a Plex library",
+      },
+      { file: "scripts/build-bundles.mjs (hub)", rootDir: ROOT },
+    );
+  }
+  return hubImage;
+}
 
 function renderHubPage(model, assetHrefs) {
   const { bundles, totalChannels, bundleCount, content } = model;
@@ -653,10 +664,10 @@ ${cells}${moreCell}
     title,
     description,
     canonical: HUB_CANONICAL,
-    ogImage: `${SITE_ORIGIN}${HUB_IMAGE.src}`,
-    ogImageAlt: HUB_IMAGE.alt,
-    ogImageWidth: HUB_IMAGE.width,
-    ogImageHeight: HUB_IMAGE.height,
+    ogImage: `${SITE_ORIGIN}${hubImageRef().src}`,
+    ogImageAlt: hubImageRef().alt,
+    ogImageWidth: hubImageRef().width,
+    ogImageHeight: hubImageRef().height,
     ogType: "website",
     jsonLd,
     extraMeta: `<link rel="stylesheet" href="/channels.css">`,
@@ -673,7 +684,7 @@ ${renderBreadcrumb(crumbs)}
         <h1>Channel Guide: ${escapeHtml(totalChannels)} Channels in ${escapeHtml(bundleCount)} Bundles</h1>
         <p class="channels-dek">Every channel here is a rule, not a playlist. Point the app at your own Plex or Jellyfin server and the channels with enough matching titles switch themselves on, grouped into the ${escapeHtml(bundleCount)} bundles below. This is the whole lineup, so you can see what the guide would look like before you install anything.</p>
       </header>
-      ${renderCover(HUB_IMAGE, { className: "channels-cover" })}
+      ${renderCover(hubImageRef(), { className: "channels-cover" })}
 
       <div class="channels-guide">
 ${rows}

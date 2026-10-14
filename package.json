@@ -22,6 +22,7 @@
     "test:web-player": "node scripts/web-tuner-player-smoke.mjs",
     "test": "npm run test:filter && npm run test:schedule && npm run test:franchises && npm run test:watch-state && npm run test:jellyfin-urls && npm run test:subscribe && npm run test:tmdb && npm run test:enrichment && npm run test:collections && npm run test:tuner-gate && npm run test:web-player && npm run channels:doc:check && npm run changelog:check && npm run bundles:render:strict",
     "build": "npm run changelog:render && npm run blog:render && npm run bundles:render && vite build",
+    "build:selfhost": "vite build --mode selfhost --outDir dist-selfhost",
     "preview": "vite preview",
     "snapshot": "node --env-file-if-exists=.env scripts/devtools/build-snapshot.mjs",
     "devtools": "node --env-file-if-exists=.env scripts/devtools/server.mjs",
@@ -34,8 +35,15 @@
     "media:measure": "node scripts/measure-media.mjs"
   },
   "devDependencies": {
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource/press-start-2p": "5.3.0",
+    "@fontsource/silkscreen": "5.3.0",
+    "@fontsource/space-mono": "5.3.0",
+    "@fontsource/vt323": "5.3.0",
     "gray-matter": "^4.0.3",
+    "hls.js": "1.5.17",
     "marked": "^18.1.0",
+    "qrcodejs": "1.0.0",
     "vite": "^7.1.0"
   }
 }
