@@ -76,8 +76,14 @@ on 2026-10-15:
   `roku`.
 - **An official app:** they would like to publish it as the official Nostalgex
   app for Roku, under the Nostalgex name with full credit to the repo owner,
-  and offered to talk about how to work on it together. Still open: where the
-  code lives, who publishes it, the credit, and the logo.
+  and offered to talk about how to work on it together.
+
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18954700)
+on 2026-10-15: yes, and asked where the code lives (PRs or commit access to
+`roku/`), whether the store listing goes on their Roku developer account, how
+the credit should appear, and whether it may use the logo. Also reported that
+franchise channels are in, and asked for `roku` on the relay and which
+Supabase URL and anon key Roku builds should use.
 
 ## Channel ideas: Discussion #29
 
