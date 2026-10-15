@@ -3,6 +3,89 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-15 (PR #27: upstream reconciliation)
+
+**Shipped.** Updated `fix/playback-recovery-ownership` for PR #27. No app release, installation or deployment.
+
+**Changed.** Merged upstream `1ae5dc4` so the tablet control rail is retained. Only the development log conflicted; both the upstream and feature entries are preserved. Native recovery behavior was unchanged during reconciliation, and the PR remains independent of the other playback changes.
+
+**Measured.** The full offline native suite passed 705 tests with zero failures on tvOS Simulator. Six live/opt-in harness classes were excluded. The complete npm suite, hosted build and self-host build passed on the reconciled tree. The staged diff has no whitespace errors.
+
+**Half-done.** Apple TV callback timing, real backend resource usage and live server session teardown remain unverified. Fresh GitHub Actions will validate the updated PR head after push.
+
+**Next.** Await upstream review. Combining the separate playback PRs remains an integration step before release.
+
+## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
+
+**Changed.** All on branch `tablet-rail`, unmerged and undeployed.
+
+- The web tuner shows the desktop control rail on tablets again instead of the
+  MENU button and the drawer. The drawer was the right call on a phone, where
+  six controls cost a row of the guide, but on an iPad it hid SOUND, FULL
+  SCREEN, RETRO, SETTINGS, APPLE TV, BUY ME A COFFEE and INSTAGRAM behind a tap
+  for no reason. Where the rail shows, the top bar, the MENU button and the
+  drawer are all `display: none` and the fixed corner wordmark comes back, so
+  there is never a second way to the same controls, and nothing in the drawer is
+  focusable by keyboard either.
+- Gated on the width the rail needs, not on device names, following the
+  `pointer: coarse` pattern already in the file so no laptop and no narrow
+  desktop window can match. Portrait needs 700px: a phone in portrait is at most
+  about 440px and a folding phone opens to 674px, while the narrowest tablet in
+  portrait is 744px. Landscape needs 1000px, with the same `min-height: 501px`
+  and `max-width: 1366px` as the tablet-landscape block it overrides; the
+  narrowest tablet in landscape is 1133px and an unfolded folding phone is
+  841px.
+- Tablet portrait stacks, so the rail had no column to stand in and all three
+  arrangements were built and measured at 834x1194 before choosing. Rail beside
+  the info panel under a full-width video: the video keeps 834x469 but the row
+  under it grows from 148px to 467px and the guide falls from 12 rows to 5. The
+  full desktop side layout: the video drops to 444px wide, narrower than the
+  guide under it. Rail beside the video with the info panel full width
+  underneath, which is what shipped: the video goes from 834x469 to 694x390, the
+  row is the rail's height instead of the rail's height added to the video's,
+  and the guide rises from 12 rows to 15. That trades 17% of the video's width
+  for three guide rows and seven controls on screen.
+- Rail controls are 44px minimum on touch, where the desktop rail packs a button
+  into 36px, paid for out of the padding and the gaps. Without the compaction
+  the rail was 24px taller than its row at 1133x744 and scrolled. The rail also
+  swaps to the short labels the drawer used, because [M] and [F] mean nothing on
+  a tablet with no keyboard, and `:hover` is neutralised under `hover: none` so a
+  tapped button does not stay lit.
+- Rotating a tablet out of a drawer layout now closes an open drawer, since the
+  rotation takes the MENU button away and would otherwise leave the sheet and
+  its scrim on screen with nothing to dismiss them.
+
+**Measured.** `npm test` and `npm run build` green. Headless Chrome against the
+built `dist/`, at iPhone portrait and landscape, a 360x800 Android, iPad mini,
+iPad and iPad Pro in both orientations, 1440x900, 1280x800, 1440x700, 1100x760
+and 1920x1080. Guide rows fully visible, before to after: iPad portrait 12 to
+15, iPad mini portrait 12 to 14, iPad Pro portrait 14 to 16, and all three
+landscape sizes unchanged at 10, 8 and 12 because the rail takes its width from
+the video rather than from the guide. All seven controls reachable on every
+tablet size with the smallest tap target 44px, the rail fitting its row with no
+internal scroll anywhere, no horizontal page scroll, no page errors, and SOUND,
+RETRO and SETTINGS all driven by a real tap.
+
+Desktop, TV and phones are unchanged, proved by dumping the rect and 36
+computed properties of every element in the player at eight sizes from a build
+of `main` and a build of the branch. The only differences are animation phase
+(the retro scanlines, the VHS tracking bar, the coffee steam) and the live
+progress bars, plus one new `<span class="v-btn-short">APPLE TV</span>` that is
+`display: none` and 0x0 everywhere outside the tablet rail. The first-run build
+screen measures identically to main at both iPad sizes.
+
+**Half-done.** Branch only, not merged. Not tried on a real iPad and not in
+Safari: everything above is headless Chromium with touch emulation, so the
+`pointer: coarse` matching, the safe-area insets and iOS's own tap handling are
+unverified on hardware. A touch screen wider than 1366px in landscape still
+falls through to the desktop rail with its 36px targets and keyboard hints; that
+is the same gap the tablet block already had, left alone so a 1920px TV browser
+reporting a coarse pointer keeps the desktop layout.
+
+**Next.** Chad to look at it on the iPad, in both orientations, and say whether
+portrait's narrower video is the right trade for the controls and the extra
+guide rows. If it is, merge and ship with the next web tuner deploy.
+
 ## 2026-10-14 (playback recovery ownership, local review branch)
 
 **Shipped.** Nothing published or installed. Changes are on

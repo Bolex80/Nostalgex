@@ -2356,6 +2356,108 @@
   }
 
   /* ──────────────────────────────────────
+     Tablets: the rail comes back, the MENU button goes.
+
+     A phone hides six controls behind MENU because the guide needs every
+     pixel. A tablet does not: it has the width for a 140px rail beside the
+     video and the height to spare for it. Two ways to reach the same controls
+     would be worse than either one, so where the rail shows, the top bar, the
+     MENU button and the drawer are all display:none and the desktop corner
+     mark comes back.
+
+     Gated on the width the rail needs, not on a device name. pointer:coarse
+     keeps every laptop and desktop out, including a narrow window. Portrait
+     needs 700px: a phone in portrait is at most about 440px and a folding
+     phone opens to 674px, so both stay on the drawer, while the narrowest
+     tablet in portrait is 744px. Landscape needs 1000px with the same
+     min-height:501px and max-width:1366px as the tablet block above, which it
+     overrides: the narrowest tablet in landscape is 1133px and an unfolded
+     folding phone in landscape is 841px.
+  ────────────────────────────────────── */
+  @media (pointer: coarse) and (orientation: portrait) and (min-width: 700px),
+         (pointer: coarse) and (orientation: landscape) and (min-height: 501px)
+           and (min-width: 1000px) and (max-width: 1366px) {
+    .player-screen.layout-side.has-channel .v-toolbar { display: flex; }
+    .player-screen.has-channel .m-topbar { display: none; }
+    .m-menu-btn, .m-drawer, .m-drawer-scrim { display: none; }
+    /* The top bar carried the wordmark for the drawer layouts. Without it the
+       fixed corner mark is the logo again, exactly as on desktop. */
+    .player-screen.has-channel .player-logo { display: block; }
+
+    /* Same controls, same shape, sized for a thumb. The desktop rail packs a
+       button into 36px, which is under the 44px a touch target needs, so the
+       boxes grow and the padding and gaps shrink to pay for it. Measured at
+       1133x744 the uncompacted rail was 24px taller than its row and scrolled;
+       compacted it fits with room over. */
+    .v-toolbar { padding: 8px; gap: 6px; }
+    .v-toolbar .v-btn,
+    .v-toolbar .v-coffee,
+    .v-toolbar .v-social {
+      min-height: 44px;
+      justify-content: center;
+    }
+    .v-toolbar .v-btn { padding: 6px 8px; }
+    .v-toolbar .v-coffee { margin-top: 6px; padding: 8px; gap: 5px; }
+    .v-toolbar .v-coffee svg { width: 26px; height: 26px; }
+    .v-toolbar .v-social { margin-top: 6px; padding: 8px; }
+    /* [M] and [F] mean nothing without a keyboard, and most tablets have
+       none, so the rail uses the same short labels the drawer did. */
+    .v-toolbar .v-btn-label,
+    .v-toolbar .v-key { display: none; }
+    .v-toolbar .v-btn-short { display: block; }
+
+    /* Touch leaves :hover stuck on the last thing tapped, which would park a
+       solid cyan button in the rail until something else was pressed. */
+    @media (hover: none) {
+      .v-toolbar .v-btn:hover { background: rgba(0, 0, 0, 0.8); }
+      .v-toolbar .v-btn:hover .v-btn-short { color: rgba(0, 196, 255, 0.55); }
+      .v-toolbar .v-btn:hover .v-btn-value { color: var(--cyan); }
+      .v-toolbar .v-btn:hover .v-btn-value.off { color: var(--orange); }
+      .v-toolbar .v-coffee:hover { background: var(--yellow); border-color: var(--yellow); transform: none; }
+      .v-toolbar .v-social:hover { background: rgba(0, 0, 0, 0.8); transform: none; }
+      .v-toolbar .v-btn:active { background: rgba(0, 255, 255, 0.25); }
+      .v-toolbar .v-social:active { background: rgba(0, 196, 255, 0.14); }
+    }
+  }
+
+  /* Tablet portrait. Portrait stacks, so the rail has no column of its own to
+     stand in and all three arrangements were built and measured at 834x1194:
+
+       - rail beside the info panel under a full-width video: the video keeps
+         834x469, but the row under it grows from 148px to the rail's height
+         and the guide falls from 12 rows to 5. Too expensive.
+       - the desktop side layout, info and rail and video all in one row: the
+         video drops to 444px wide, less than the guide underneath it. The
+         video is the page.
+       - rail beside the video, info panel full width underneath, which is what
+         this is: the video goes from 834x469 to 694x390, the row is the
+         rail's height rather than the rail's height added to the video's, and
+         the guide goes up from 12 rows to 17.
+
+     The last one costs 17% of the video's width and buys five guide rows and
+     every control on screen, so that is the one. */
+  @media (pointer: coarse) and (orientation: portrait) and (min-width: 700px) {
+    .player-screen.layout-side.has-channel .video-area {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      grid-template-areas:
+        "rail  video"
+        "info  info";
+    }
+    /* grid-area beats the order:-1 the portrait block gives the video. */
+    .player-screen.layout-side.has-channel .video-container { grid-area: video; }
+    .player-screen.layout-side.has-channel .info-panel { grid-area: info; }
+    .player-screen.layout-side.has-channel .v-toolbar {
+      grid-area: rail;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    /* The rail is against the left edge here, not the info panel, so the fixed
+       corner mark landed on top of the SOUND button. Past the rail it sits over
+       the video exactly as it does on desktop. */
+    .player-screen.has-channel .player-logo { left: calc(140px + 24px); }
+  }
+
+  /* ──────────────────────────────────────
      Landscape phones: height is the scarce dimension, so the toolbar stays a
      vertical rail (a bottom bar would cost 56px of the 390 available) and
      everything shrinks.
@@ -2818,6 +2920,7 @@
       </button>
       <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
         <span class="v-btn-label">APPLE TV</span>
+        <span class="v-btn-short">APPLE TV</span>
         <span class="v-btn-value">[↓]</span>
       </a>
       <a class="v-coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee to support Nostalgex">
@@ -3712,6 +3815,14 @@
       const drawer = document.getElementById('m-drawer');
       if (drawer && drawer.contains(e.target)) return;
       if (menuBtn && menuBtn.contains(e.target)) return;
+      closeDrawer();
+    });
+    // Rotating a tablet from a drawer layout into a rail layout takes the MENU
+    // button away under an open drawer, which would leave the sheet and its
+    // scrim on screen with nothing to close them.
+    window.addEventListener('resize', () => {
+      if (!document.body.classList.contains('drawer-open')) return;
+      if (menuBtn && menuBtn.offsetParent !== null) return;
       closeDrawer();
     });
     // Escape closes and Tab stays inside. Everything else falls through, so
