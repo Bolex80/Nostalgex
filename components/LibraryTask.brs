@@ -107,7 +107,9 @@ sub loadLibrary()
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone.
-    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) then
+    ' The package list counts too: a new package that is off changes no
+    ' channel, but Settings has to show it.
+    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) then
         print "library: background refresh matches the saved guide"
     else
         m.top.fromCache = false
