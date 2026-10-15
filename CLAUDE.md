@@ -21,6 +21,9 @@ with the Nostalgex maintainer.
 - **Keep the MIT notice.** `LICENSE` carries upstream's copyright line, and
   ported files keep it.
 - **Upstream clone is read-only.** The local Nostalgex clone's `origin` is the
-  maintainer's GitHub, so never push it. Anything for upstream goes out as the
-  repo owner's own post or PR, drafted, never sent by a session.
+  maintainer's GitHub, so never push it. Anything for upstream is drafted,
+  checked claim by claim, and shown to the repo owner first. A session posts
+  it only when he says to post that draft, and only through
+  `scripts/post-upstream.sh` (Discussions on upstream, nothing else), then
+  records it in `docs/UPSTREAM.md`. PRs to upstream stay his to open.
 - **Plex first.** Jellyfin and Emby follow once Plex reaches parity.
