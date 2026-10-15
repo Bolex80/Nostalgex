@@ -91,7 +91,9 @@ empty.
 
 **Cost on device:** about 0.16 ms per item-channel check (186,144 in 29.7 s on
 a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
-the app has to filter in a Task node and cache pools between launches.
+the app filters in a Task node, and keeps the last build's guide and pools
+between launches (`components/LibraryTask.brs`): a day-old guide is
+rescheduled from the saved pools in seconds while the full build runs behind.
 
 ## Parity is proven, not eyeballed
 

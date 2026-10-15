@@ -17,6 +17,83 @@ function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
     return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
 end function
 
+' The saved pools: each guide channel's pool as the last build filtered it,
+' before the shuffle, with the items they hold. Filtering is most of a build
+' (over a minute on a TV), and a pool rarely changes from one day to the
+' next, so when the saved guide is a day old these are shuffled and
+' scheduled for today instead, in seconds, and the full build still runs
+' behind them. Kept while the app version, month (seasonal packages),
+' packages and franchise choices are the same.
+function NxPoolCachePath() as String
+    return "cachefs:/nostalgex-pools.json"
+end function
+
+function NxPoolCacheKey(month as Integer, bundles as Object) as String
+    info = CreateObject("roAppInfo")
+    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
+end function
+
+sub NxSavePools(ordered as Object, guide as Object, month as Integer)
+    index = {}
+    items = []
+    chans = []
+    for each ch in ordered
+        saved = {}
+        for each k in ch
+            if k <> "pool" and k <> "basePool" then saved[k] = ch[k]
+        end for
+        pool = ch.basePool
+        if pool = invalid then pool = ch.pool
+        idx = []
+        for each it in pool
+            id = NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)
+            n = index[id]
+            if n = invalid then
+                n = items.Count()
+                index[id] = n
+                copy = {}
+                for each k in it
+                    if k <> "nxFilter" then copy[k] = it[k]
+                end for
+                items.Push(copy)
+            end if
+            idx.Push(n)
+        end for
+        saved.poolIdx = idx
+        chans.Push(saved)
+    end for
+    WriteAsciiFile(NxPoolCachePath(), FormatJson({
+        key: NxPoolCacheKey(month, guide.enabledBundles), items: items, channels: chans,
+        libraryItems: guide.items, bundles: guide.bundles, franchises: guide.franchises
+    }))
+end sub
+
+' The guide from the saved pools, as { ordered, guide }, or invalid when
+' there are none for this key.
+function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles as Object) as Dynamic
+    if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
+    saved = ParseJson(ReadAsciiFile(NxPoolCachePath()))
+    if type(saved) <> "roAssociativeArray" then return invalid
+    if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
+    ordered = []
+    for each ch in saved.channels
+        pool = []
+        for each n in ch.poolIdx
+            pool.Push(saved.items[n])
+        end for
+        ch.Delete("poolIdx")
+        if NxTruthy(ch.built) then pool = NxSeededShuffle(pool, nowSec)
+        ch.pool = pool
+        ordered.Push(ch)
+    end for
+    NxClearManifests()
+    guide = {
+        channels: NxScheduleGuide(ordered, nowSec), builtAt: nowSec, items: saved.libraryItems,
+        bundles: saved.bundles, enabledBundles: bundles, franchises: saved.franchises
+    }
+    return { ordered: ordered, guide: guide }
+end function
+
 sub loadLibrary()
     m.top.status = "loading"
     timer = CreateObject("roTimespan")
@@ -35,6 +112,17 @@ sub loadLibrary()
                     shown = true
                     print "library: showing the saved guide after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
                 end if
+            end if
+        end if
+        if not shown then
+            m.top.progress = "Scheduling your channels…"
+            fromPools = NxGuideFromSavedPools(clock0.nowSec, clock0.month, NxEnabledBundles())
+            if fromPools <> invalid then
+                m.top.fromCache = true
+                m.top.guide = fromPools.guide
+                m.top.status = "ready"
+                shown = true
+                print "library: showing the saved pools, scheduled for today, after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
             end if
         end if
     end if
@@ -159,7 +247,10 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
         print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, in "; timer.TotalMilliseconds(); " ms"
     end if
     for each ch in channels
-        if ch.built then ch.pool = NxSeededShuffle(ch.pool, nowSec&)
+        if ch.built then
+            ch.basePool = ch.pool
+            ch.pool = NxSeededShuffle(ch.pool, nowSec&)
+        end if
     end for
 
     ' Found franchise channels show while the package is on; its own channel
@@ -191,6 +282,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
     end for
     guide = { channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles, franchises: franchiseRows }
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
+    timer.Mark()
+    NxSavePools(ordered, guide, clock.month)
+    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms"
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone.
     ' The package list counts too: a new package that is off changes no

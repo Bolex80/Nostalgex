@@ -12,8 +12,9 @@ same look, rewritten in BrightScript and SceneGraph.
 
 It signs in to Plex, reads your library, and airs the same channels and
 schedules as upstream, in the Apple TV app's guide, with packages and live
-playback. Once signed in it opens on its saved guide in under a second and
-refreshes in the background. Plex only; Jellyfin and Emby are not ported.
+playback. Once signed in it opens on its saved guide in under a second, or
+on a later day in a few seconds from the saved channel pools, and refreshes
+in the background. Plex only; Jellyfin and Emby are not ported.
 
 ## Install (developer mode)
 
@@ -46,8 +47,9 @@ there. Debug output is on the TV's port 8085 (`nc <tv> 8085`).
   *Settings > Network > Secure connections* to *Preferred*.
 - **Read-only.** The app never reports playback to Plex and never changes
   watch status or anything else in your library.
-- **The saved guide** (`cachefs:`) holds titles and schedules only, and is
-  deleted on sign-out.
+- **The saved guide** (`cachefs:`) holds titles and schedules, and the saved
+  pools the library items each channel draws on. Both are deleted on
+  sign-out.
 - **Enrichment is off unless a build turns it on** (`NOSTALGEX_ENRICHMENT` in
   `.env`, see [docs/PORTING.md](docs/PORTING.md)). When on, only TMDB and
   IMDb ids leave the TV, to the Nostalgex relay and its shared cache, as the

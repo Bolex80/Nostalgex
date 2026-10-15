@@ -119,9 +119,10 @@ sub signOut()
     if m.signIn <> invalid then m.signIn.control = "stop"
     dropGuide()
     NxPlexClearAuth()
-    ' The saved guide and the enrichment cache (which TMDB ids the library
-    ' has) are this account's library; they go with the sign-in.
+    ' The saved guide and pools and the enrichment cache (which TMDB ids the
+    ' library has) are this account's library; they go with the sign-in.
     DeleteFile("cachefs:/nostalgex-guide.json")
+    DeleteFile("cachefs:/nostalgex-pools.json")
     DeleteFile("cachefs:/nostalgex-enrichment.json")
     startSignIn()
 end sub
