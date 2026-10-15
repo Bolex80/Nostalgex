@@ -81,12 +81,20 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
         ' the server and the original picture.
         profile = "h264"
         if NxCanDecodeHevc() then profile = "hevc"
-        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile)
+        ' Text subtitles come as a WebVTT track the TV shows or hides, as
+        ' upstream's tvOS app asks (subtitles=auto). Without the target, Plex
+        ' burns in a file's default subtitles and re-encodes the video to do it.
+        ' Plex offers the one track that this Plex account has selected for the
+        ' file; image subtitles (PGS, VobSub) are still burned in.
+        extra = "add-transcode-target(type=subtitleProfile&context=streaming&protocol=hls&container=webvtt&subtitleCodec=webvtt)"
+        if profile = "hevc" then
+            extra = extra + "+add-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=hevc)"
+        end if
+        q = q + "&subtitles=auto"
+        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt")
         q = q + "&X-Plex-Client-Identifier=" + NxPlexClientId()
         q = q + "&X-Plex-Product=nostalgex-roku&X-Plex-Platform=Roku&X-Plex-Device=Roku"
-        if profile = "hevc" then
-            q = q + "&X-Plex-Client-Profile-Extra=" + NxUrlEncode("add-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=hevc)")
-        end if
+        q = q + "&X-Plex-Client-Profile-Extra=" + NxUrlEncode(extra)
         content.url = base + "/video/:/transcode/universal/start.m3u8?" + q
         content.streamFormat = "hls"
         stopUrl = base + "/video/:/transcode/universal/stop?session=" + session
@@ -94,8 +102,22 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
     return { content: content, stopUrl: stopUrl, route: route }
 end function
 
+' Percent-encodes all but A-Z a-z 0-9 - _ . ~, byte by byte in UTF-8, as
+' roUrlTransfer.Escape does. That component is task-only on Roku OS 16, and
+' this runs on the render thread, where creating it crashed the app.
 function NxUrlEncode(s as String) as String
-    return CreateObject("roUrlTransfer").Escape(s)
+    bytes = CreateObject("roByteArray")
+    bytes.FromAsciiString(s)
+    hex = "0123456789ABCDEF"
+    out = ""
+    for each b in bytes
+        if (b >= 65 and b <= 90) or (b >= 97 and b <= 122) or (b >= 48 and b <= 57) or b = 45 or b = 95 or b = 46 or b = 126 then
+            out = out + Chr(b)
+        else
+            out = out + "%" + Mid(hex, (b >> 4) + 1, 1) + Mid(hex, (b and 15) + 1, 1)
+        end if
+    end for
+    return out
 end function
 
 function NxCanDecodeHevc() as Boolean

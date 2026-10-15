@@ -24,6 +24,7 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | engine ported, passing off-device; not in the guide (below) |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
+| `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen. No language picker, as Plex sends one track (below) |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text; the maintainer holds the artwork until it is settled where the port lives ([UPSTREAM.md](UPSTREAM.md)) |
 
 Start-up follows upstream's cached-library path. The last build's guide is
@@ -172,9 +173,22 @@ throwaway checkout, whatever the clone has checked out.
   time it sees it, so the session ID is per decoding profile. On a TV that
   decodes HEVC, `X-Plex-Client-Profile-Extra` with
   `add-transcode-target-codec(...videoCodec=hevc)` makes Plex copy HEVC rather
-  than re-encode it. Files with subtitles on by default are still re-encoded,
-  to burn the subtitles in. An equivalent hint for AAC audio was ignored, so
-  audio still converts to MP3, which costs little.
+  than re-encode it. An equivalent hint for AAC audio was ignored, so audio
+  still converts to MP3, which costs little.
+- Plex subtitles: `subtitles=auto` with
+  `add-transcode-target(type=subtitleProfile&…&container=webvtt&subtitleCodec=webvtt)`
+  sends text subtitles as a WebVTT rendition rather than burning them in.
+  Plex offers only the track the Plex account has selected for the file. It
+  ignores `subtitleStreamID` on the request, and choosing a track is a PUT to
+  `/library/parts` that changes the account's selection, so the app doesn't.
+  Image subtitles (PGS, VobSub) are still burned in. `/library/streams/<id>`
+  serves external subtitle files only (501 for embedded ones), and
+  direct-played files get no subtitles.
+- Roku draws subtitles only while the TV-wide caption mode is On. The app
+  turns it on while they show and puts it back after, saving the old value
+  (`captionModeBefore`) so a launch after leaving with Home restores it.
+- `roUrlTransfer` is task-only on Roku OS 16: created on the render thread
+  it is `invalid` (OS 15 allowed it), so `NxUrlEncode` encodes by hand.
 - System fonts go on a Label's `font` attribute. A `<Font uri="font:…">`
   child draws nothing: the label goes blank with no error.
 

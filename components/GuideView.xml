@@ -12,6 +12,8 @@
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
   <script type="text/brightscript" uri="pkg:/components/GuideView.brs" />
   <children>
     <Rectangle id="screen" width="1920" height="1080" color="0x000000FF" />
@@ -53,6 +55,7 @@
     </Group>
     <Group id="sidebar" translation="[0,555]" visible="false" />
     <Label id="bug" visible="false" translation="[60,980]" />
+    <Label id="ccToast" visible="false" translation="[1460,60]" width="400" horizAlign="right" />
     <Label id="notice" translation="[1200,500]" width="700" wrap="true" color="0xFF6B6BFF" />
   </children>
 </component>

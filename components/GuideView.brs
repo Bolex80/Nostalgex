@@ -32,10 +32,15 @@ sub init()
     styleLabel("hazeText", "DMMono-Medium", 26, "0xFFFFFF6B")
     styleLabel("bug", "VT323-Regular", 48, "0xFFFFFFFF")
     styleLabel("notice", "DMMono-Regular", 20, "0xFF6B6BFF")
+    styleLabel("ccToast", "VT323-Regular", 48, "0xFFFFFFFF")
 
     m.video = m.top.FindNode("video")
     m.video.ObserveField("state", "onVideoState")
     m.video.ObserveField("bufferingStatus", "onBuffering")
+    m.video.ObserveField("availableSubtitleTracks", "applySubtitles")
+    m.subs = NxSubtitleSettings()
+    m.hasSubs = false
+    restoreCaptionMode()
     m.tick = CreateObject("roSGNode", "Timer")
     m.tick.repeat = true
     m.tick.duration = 1
@@ -482,6 +487,7 @@ sub onVideoState()
     if state = "playing" then
         m.retried = false
         m.top.FindNode("haze").visible = false
+        applySubtitles()
     end if
     if state = "error" then
         print "player: error "; m.video.errorCode; " "; m.video.errorMsg
@@ -521,8 +527,99 @@ sub setFullscreen(on as Boolean)
         m.video.width = 740
         m.video.height = 555
         m.top.FindNode("bug").visible = false
+        m.top.FindNode("ccToast").visible = false
     end if
     positionHaze()
+    applySubtitles()
+end sub
+
+' ── Subtitles ───────────────────────────────────────────────────────────────
+
+' Upstream's applySubtitleSelection: shown in fullscreen only, never over the
+' guide; always when SUBTITLES is ALWAYS, and with FOREIGN AUDIO only when no
+' audio track is in the TV's language and the subtitles are. Upstream also
+' shows forced subtitles when they're off; Roku doesn't say which are forced.
+sub applySubtitles()
+    tracks = NxList(m.video.availableSubtitleTracks)
+    m.hasSubs = tracks.Count() > 0
+    show = false
+    if m.fullscreen and m.hasSubs then
+        want = NxSubPreferredLanguage()
+        tags = []
+        for each t in tracks
+            tags.Push(NxSubComparableTag(t.Language))
+        end for
+        idx = NxSubPreferredTrackIndex(tags, want)
+        if m.subs.always then
+            show = true
+        else if m.subs.foreign then
+            audio = []
+            for each a in NxList(m.video.availableAudioTracks)
+                audio.Push(NxSubComparableTag(a.Language))
+            end for
+            ' Wrong-language subtitles are worse than none, as upstream says.
+            if NxSubShouldAutoEnable(audio, want) and tags[idx] <> invalid then
+                show = NxSubMatches(tags[idx], want)
+            end if
+        end if
+        if show then m.video.subtitleTrack = tracks[idx].TrackName
+    end if
+    setCaptions(show)
+end sub
+
+' Roku draws subtitles only while its caption mode is on, and that mode is the
+' TV's own setting. When it is off, it is turned on just while subtitles show
+' and put back afterwards. The old value is saved first, so a launch after
+' leaving with Home puts it back too.
+sub setCaptions(show as Boolean)
+    m.video.suppressCaptions = not show
+    reg = CreateObject("roRegistrySection", "player")
+    if show and m.video.globalCaptionMode <> "On" then
+        if not reg.Exists("captionModeBefore") then
+            reg.Write("captionModeBefore", m.video.globalCaptionMode)
+            reg.Flush()
+        end if
+        m.video.globalCaptionMode = "On"
+    else if not show then
+        restoreCaptionMode()
+    end if
+    tracks = NxList(m.video.availableSubtitleTracks)
+    print "player: subtitles "; show; " (tracks "; tracks.Count(); ", caption mode "; m.video.globalCaptionMode; ")"
+end sub
+
+sub restoreCaptionMode()
+    reg = CreateObject("roRegistrySection", "player")
+    if not reg.Exists("captionModeBefore") then return
+    m.video.globalCaptionMode = reg.Read("captionModeBefore")
+    reg.Delete("captionModeBefore")
+    reg.Flush()
+end sub
+
+' The CC control of upstream's Now Playing panel, on the * key in fullscreen:
+' flips ALWAYS, and says NONE when the airing has no subtitles.
+sub toggleCaptions()
+    text = "CC  NONE"
+    if m.hasSubs then
+        m.subs.always = not m.subs.always
+        NxSaveSubtitleSettings(m.subs)
+        applySubtitles()
+        text = "CC  OFF"
+        if m.subs.always then text = "CC  ON"
+    end if
+    toast = m.top.FindNode("ccToast")
+    toast.text = text
+    toast.visible = true
+    if m.toastTimer = invalid then
+        m.toastTimer = CreateObject("roSGNode", "Timer")
+        m.toastTimer.duration = 3
+        m.toastTimer.ObserveField("fire", "onToastTimer")
+    end if
+    m.toastTimer.control = "stop"
+    m.toastTimer.control = "start"
+end sub
+
+sub onToastTimer()
+    m.top.FindNode("ccToast").visible = false
 end sub
 
 ' The channel bug, bottom left, in full screen only.
@@ -674,6 +771,8 @@ sub onSettingsResult()
     m.top.RemoveChild(m.settings)
     m.settings = invalid
     m.top.SetFocus(true)
+    m.subs = NxSubtitleSettings()
+    applySubtitles()
     if result = "rebuild" or result = "signOut" then
         stopPrevious()
         m.tick.control = "stop"
@@ -700,6 +799,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             keepFocusVisible()
             tune(idx)
             showBug()
+            return true
+        end if
+        if key = "options" then
+            toggleCaptions()
             return true
         end if
         return false

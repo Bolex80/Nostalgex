@@ -77,6 +77,7 @@ push, against a fresh clone of upstream.
 | `source/franchise/` | The franchise builder, ported from upstream; not in the guide yet |
 | `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules |
 | `source/plex/` | Plex sign-in, library loader, playback |
+| `source/subtitles/` | Subtitle settings and language matching, ported from upstream |
 | `source/util/` | Shared helpers |
 | `data/` | Upstream's channel config and franchise dictionary, vendored unchanged (`data/UPSTREAM`) |
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |

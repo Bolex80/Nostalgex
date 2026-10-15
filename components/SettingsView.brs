@@ -37,17 +37,44 @@ function newRect(x as Float, y as Float, w as Float, h as Float, color as String
     return r
 end function
 
-' Rows: every package, then sign-out.
+' Rows: every package, subtitles, then sign-out.
 sub open(unused = invalid as Dynamic)
     m.enabled = []
     m.enabled.Append(m.top.enabledBundles)
+    m.subs = NxSubtitleSettings()
     m.top.SetFocus(true)
     render()
 end sub
 
 function rowCount() as Integer
-    return m.top.bundles.Count() + 1
+    return m.top.bundles.Count() + 2
 end function
+
+' Upstream's SUBTITLES row (BundleManagerView): one setting for both flags.
+function subtitleModeLabel() as String
+    if m.subs.always then return "ALWAYS"
+    if m.subs.foreign then return "FOREIGN AUDIO"
+    return "OFF"
+end function
+
+function subtitleModeExplanation() as String
+    if m.subs.always then return "Shown in fullscreen whenever the video has them"
+    if m.subs.foreign then return "Shown in fullscreen when the audio isn't in your language"
+    return "Never shown. Press to change"
+end function
+
+' Off, then foreign audio only, then always, then back to off.
+sub cycleSubtitleMode()
+    if m.subs.always then
+        m.subs.always = false
+        m.subs.foreign = false
+    else if m.subs.foreign then
+        m.subs.always = true
+    else
+        m.subs.foreign = true
+    end if
+    NxSaveSubtitleSettings(m.subs)
+end sub
 
 sub render()
     page = m.top.FindNode("page")
@@ -76,6 +103,12 @@ sub render()
                 state = "ON"
                 stateColor = "0xFFE500FF"
             end if
+        else if i = m.top.bundles.Count() then
+            label = "SUBTITLES"
+            detail = subtitleModeExplanation()
+            state = subtitleModeLabel()
+            stateColor = "0xFFFFFF59"
+            if state <> "OFF" then stateColor = "0xFFE500FF"
         else
             label = "SIGN OUT OF PLEX"
             detail = "Forget this TV's Plex sign-in"
@@ -93,7 +126,12 @@ sub render()
         if focused then nameColor = "0xFFFFFFFF"
         page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, 30, y + 10))
         page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", 30, y + 40))
-        if state <> "" then page.AppendChild(newLabel(state, "DMMono-Medium", 24, stateColor, 1580, y + 22))
+        if state <> "" then
+            stateLabel = newLabel(state, "DMMono-Medium", 24, stateColor, 1260, y + 22)
+            stateLabel.width = 380
+            stateLabel.horizAlign = "right"
+            page.AppendChild(stateLabel)
+        end if
         y = y + 74
     end for
     page.AppendChild(newLabel("OK toggles · BACK returns to the guide", "DMMono-Regular", 20, "0xFFFFFF59", 0, y + 24))
@@ -122,6 +160,9 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             if not found then kept.Push(id)
             m.enabled = kept
             m.changed = true
+            render()
+        else if m.focus = m.top.bundles.Count() then
+            cycleSubtitleMode()
             render()
         else
             m.top.result = "signOut"
