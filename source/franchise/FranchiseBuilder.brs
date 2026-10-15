@@ -470,7 +470,8 @@ function NxFranchiseBuild(opts as Object) as Object
         else
             titleDef = NxFranchiseMatchTitle(movie.title, "filmKeys", defs, false)
             if titleDef <> invalid then
-                NxFranchiseBucket(buckets, order, "dict:" + titleDef.canonicalName, titleDef.canonicalName, titleDef).movies.Push(movie)
+                b = NxFranchiseBucket(buckets, order, "dict:" + titleDef.canonicalName, titleDef.canonicalName, titleDef)
+                b.movies.Push(movie)
             else if fid <> invalid then
                 if not autoFoundNames.DoesExist(fid.ToStr()) and en.name <> invalid then
                     autoFoundNames[fid.ToStr()] = UCase(NxFranchiseCleanName(en.name))
@@ -532,7 +533,8 @@ function NxFranchiseBuild(opts as Object) as Object
             tvMatch[title] = def
         end if
         if type(def) = "roAssociativeArray" then
-            NxFranchiseBucket(buckets, order, "dict:" + def.canonicalName, def.canonicalName, def).tvItems.Push(tv)
+            b = NxFranchiseBucket(buckets, order, "dict:" + def.canonicalName, def.canonicalName, def)
+            b.tvItems.Push(tv)
         else
             titleLower = NxFranchiseNormalizedTitle(tv.title)
             for each fk in found
