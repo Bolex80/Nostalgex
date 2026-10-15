@@ -57,3 +57,9 @@ the repo owner to the project Discord.
 the same day: a separate repo is fine, the builder is ported and passes
 `franchise-golden.json`, and should the Roku guide show franchise channels
 now, following the Apple TV app, or wait for the web tuner?
+
+[Asked](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18937338)
+on 2026-10-14, in the same thread: may the Roku app use upstream's TMDB/OMDb
+relay and shared `media_enrichments` cache as `nostalgex-enrichment.js` does,
+and under which `X-Nostalgex-Client` value? Until they answer, enrichment
+stays unported ([PORTING.md](PORTING.md)).
