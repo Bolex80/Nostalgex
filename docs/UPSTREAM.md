@@ -61,8 +61,23 @@ now, following the Apple TV app, or wait for the web tuner?
 [Asked](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18937338)
 on 2026-10-14, in the same thread: may the Roku app use upstream's TMDB/OMDb
 relay and shared `media_enrichments` cache as `nostalgex-enrichment.js` does,
-and under which `X-Nostalgex-Client` value? Until they answer, enrichment
-stays unported ([PORTING.md](PORTING.md)).
+and under which `X-Nostalgex-Client` value?
+
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18953180)
+on 2026-10-15:
+
+- **Franchises:** the Roku follows the Apple TV app and shows franchise
+  channels now. Done ([PORTING.md](PORTING.md)).
+- **Enrichment:** yes, through the relay and the shared cache, as
+  `X-Nostalgex-Client: roku`. On 2026-10-15 the relay still answered `roku`
+  with 403, since `api/tmdb.js` accepts only `tvos`, `web` and `selfhost`. The
+  Supabase URL and anon key are build settings upstream, not in its repo, as
+  in its Docker image. Enrichment stays unported until the relay accepts
+  `roku`.
+- **An official app:** they would like to publish it as the official Nostalgex
+  app for Roku, under the Nostalgex name with full credit to the repo owner,
+  and offered to talk about how to work on it together. Still open: where the
+  code lives, who publishes it, the credit, and the logo.
 
 ## Channel ideas: Discussion #29
 
@@ -72,4 +87,10 @@ SLASHER, FOUND FOOTAGE, HORROR COMEDY, WORLD HORROR), plus MYSTERY BOX TV in
 CASE FILES, CRINGE TV in PRIME TIME and A24 in NETWORKS. It notes that SCREAM
 is October-only and that an exclusive rule keeps "Halloween" and "Scream"
 titles on SCREAM ADULTS. `channels.json` here stays unchanged until upstream
-answers.
+adopts something.
+
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/29#discussioncomment-18953112)
+on 2026-10-15. They liked SLASHER and FOUND FOOTAGE most and will post back
+once they have worked out which channels fit as a package. Horror will be
+available outside October as a bundle that can be switched on or off, and so
+will the Christmas bundle.
