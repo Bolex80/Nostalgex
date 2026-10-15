@@ -153,6 +153,10 @@ throwaway checkout, whatever the clone has checked out.
   shows case-sensitively ("The Wire" and "the wire" are two groups), so every
   AA keyed on titles or ratingKeys sets it.
 - `Abs()` returns a Float. Array indexes must be `Integer`, not `LongInteger`.
+- The TV's compiler rejects a statement that calls a method on a function's
+  result, `F(x).list.Push(y)` (compile error `&h02`, and the app drops back to
+  the home screen). The off-device interpreter accepts it, so assign the
+  result first: `b = F(x)`, then `b.list.Push(y)`.
 - Every Task node already has a `state` field (`init`/`run`/`stop`/`done`).
   An interface field of the same name never reaches its observer, so use
   another name (`status`).
