@@ -14,6 +14,11 @@ const titles = [
   "Café — Noir", "Amélie (２００１)", "Rocky (19)", "Rocky(2001)", "Rocky (2001) ", "Hello World",
   "Mr.Robot", "Up!", "(500) Days of Summer", "Bob's Burgers", "‘Allo ‘Allo!", "M*A*S*H",
   "Æon Flux", "Straße", "Ⅻ Monkeys", "Nº 1", "½ Price", "¿Qué?", "Señor × Señora", "Daredevil (2015) (2015)",
+  // Case mapping the TV's LCase gets wrong or might: Greek with medial and
+  // final sigma, Latin Extended-A (both pairings), Cyrillic, Armenian,
+  // circled letters, Ÿ, ẞ and İ.
+  "ΟΔΥΣΣΕΙΑ", "Ο ΆΝΘΡΩΠΟΣ ΣΤΗ ΓΗ", "ΣΑΣ", "ŁÓDŹ ŚWIĘTA", "ČEŠKÁ ŽENA", "ĽUBOŠ", "ŸVES", "İSTANBUL",
+  "ЁЛКИ", "ЇЖАК Є", "ҐРУНТ", "ԱՐԱՐԱՏ", "ⒸⒾⓉⓎ", "GROẞ", "ĞÜZEL", "ØRSTED", "ĦAMRUN", "ŊUŊ",
 ];
 
 const tokens = [

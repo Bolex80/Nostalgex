@@ -27,6 +27,11 @@
 '   Upstream already approximates Swift here.
 ' - Names sort by code point, as upstream's compareStrings does, without its
 '   NFC step. Plex hands out NFC titles.
+' - Lowercasing is NxFranchiseLower, not LCase. On the TV, LCase leaves
+'   full-width letters and Roman numerals alone and maps Έ to ҽ (seen on Roku
+'   OS 15 and 16), where JS toLowerCase lowers all three. NxFranchiseLower has
+'   JS's mappings written out for Latin, Greek (final sigma included),
+'   Cyrillic, Armenian, Roman numerals, circled and full-width letters.
 '
 ' What the Roku lacks: TMDB enrichment. Without `item.enrichment` a film has no
 ' collection id, so only the dictionary's titles and tokens place it, as on the
@@ -178,11 +183,100 @@ function NxFranchiseCompare(a as String, b as String) as Integer
     return 1
 end function
 
+' ── Lowercasing ─────────────────────────────────────────────────────────────
+
+' JS toLowerCase for the scripts titles use. ASCII-only text takes LCase,
+' which is right for ASCII on every Roku.
+function NxFranchiseLower(s as String) as String
+    g = GetGlobalAA()
+    if g.nxNonAscii = invalid then g.nxNonAscii = CreateObject("roRegex", "[^\x00-\x7F]", "")
+    if not g.nxNonAscii.IsMatch(s) then return LCase(s)
+    n = s.Len()
+    out = ""
+    for i = 1 to n
+        cp = Asc(Mid(s, i, 1))
+        if cp = 931 then
+            ' Σ is ς at the end of a word: after a letter, before no letter.
+            prevLetter = false
+            if i > 1 then prevLetter = NxFranchiseCharClass(Asc(Mid(s, i - 1, 1))) = 1
+            nextLetter = false
+            if i < n then nextLetter = NxFranchiseCharClass(Asc(Mid(s, i + 1, 1))) = 1
+            if prevLetter and not nextLetter then out = out + Chr(962) else out = out + Chr(963)
+        else if cp = 304 then
+            out = out + "i" + Chr(775) ' İ: i and a combining dot, as JS gives
+        else
+            out = out + Chr(NxFranchiseLowerCp(cp))
+        end if
+    end for
+    return out
+end function
+
+function NxFranchiseLowerCp(cp as Integer) as Integer
+    if cp < 128 then
+        if cp >= 65 and cp <= 90 then return cp + 32
+        return cp
+    end if
+    if cp < 256 then
+        if cp >= 192 and cp <= 222 and cp <> 215 then return cp + 32
+        return cp
+    end if
+    if cp < 384 then ' Latin Extended-A
+        if cp = 376 then return 255
+        if (cp >= 313 and cp <= 328) or (cp >= 377 and cp <= 382) then
+            if cp mod 2 = 1 then return cp + 1
+            return cp
+        end if
+        if cp = 305 or cp = 312 or cp = 329 or cp = 383 then return cp
+        if cp mod 2 = 0 then return cp + 1
+        return cp
+    end if
+    if cp >= 880 and cp < 1024 then ' Greek
+        if cp = 902 then return 940
+        if cp >= 904 and cp <= 906 then return cp + 37
+        if cp = 908 then return 972
+        if cp = 910 or cp = 911 then return cp + 63
+        if (cp >= 913 and cp <= 929) or (cp >= 931 and cp <= 939) then return cp + 32
+        if cp = 880 or cp = 882 or cp = 886 then return cp + 1
+        if cp = 895 then return 1011
+        if cp = 975 then return 983
+        if cp >= 984 and cp <= 1007 and cp mod 2 = 0 then return cp + 1
+        if cp = 1012 then return 952
+        if cp = 1015 or cp = 1018 then return cp + 1
+        if cp = 1017 then return 1010
+        if cp >= 1021 then return cp - 130
+        return cp
+    end if
+    if cp >= 1024 and cp < 1328 then ' Cyrillic
+        if cp <= 1039 then return cp + 80
+        if cp <= 1071 then return cp + 32
+        if cp < 1120 then return cp
+        if cp = 1216 then return 1231
+        if cp >= 1217 and cp <= 1230 then
+            if cp mod 2 = 1 then return cp + 1
+            return cp
+        end if
+        if (cp >= 1120 and cp <= 1153) or (cp >= 1162 and cp <= 1215) or (cp >= 1232 and cp <= 1327) then
+            if cp mod 2 = 0 then return cp + 1
+        end if
+        return cp
+    end if
+    if cp >= 1329 and cp <= 1366 then return cp + 48 ' Armenian
+    if cp >= 7680 and cp <= 7935 then ' Latin Extended Additional
+        if cp = 7838 then return 223
+        if (cp <= 7829 or cp >= 7840) and cp mod 2 = 0 then return cp + 1
+        return cp
+    end if
+    if cp >= 8544 and cp <= 8559 then return cp + 16 ' Roman numerals
+    if cp >= 9398 and cp <= 9423 then return cp + 26 ' circled letters
+    if cp >= 65313 and cp <= 65338 then return cp + 32 ' full-width letters
+    return cp
+end function
+
 ' ── Title normalization ─────────────────────────────────────────────────────
 
 ' Lowercased, with any trailing " (YYYY)" dropped. Upstream's normalizedTitle.
 function NxFranchiseNormalizedTitle(raw as Dynamic) as String
-    s = LCase(NxToStr(raw))
+    s = NxFranchiseLower(NxToStr(raw))
     n = s.Len()
     if n >= 7 and Mid(s, n - 6, 2) = " (" and Right(s, 1) = ")" then
         for i = n - 4 to n - 1
@@ -242,7 +336,7 @@ end function
 function NxFranchiseCleanName(raw as Dynamic) as String
     name = NxToStr(raw)
     suffix = " collection"
-    if Len(name) >= Len(suffix) and LCase(Right(name, Len(suffix))) = suffix then name = Left(name, Len(name) - Len(suffix))
+    if Len(name) >= Len(suffix) and NxFranchiseLower(Right(name, Len(suffix))) = suffix then name = Left(name, Len(name) - Len(suffix))
     return name.Trim()
 end function
 
@@ -539,7 +633,7 @@ function NxFranchiseBuild(opts as Object) as Object
             titleLower = NxFranchiseNormalizedTitle(tv.title)
             for each fk in found
                 b = buckets[fk.key]
-                if NxFranchiseContainsToken(titleLower, LCase(b.name)) then
+                if NxFranchiseContainsToken(titleLower, NxFranchiseLower(b.name)) then
                     b.tvItems.Push(tv)
                     exit for
                 end if
