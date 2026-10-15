@@ -61,3 +61,18 @@ function NxStockFranchiseOn(id as String, choices as Object) as Boolean
     if choices.disabled.DoesExist(id) then return false
     return true
 end function
+
+' The switches saved on the TV (Settings writes them, the library load reads
+' them). Nothing saved is no choices; ParseJson("") logs an error, so it is
+' skipped.
+function NxSavedFranchiseChoices() as Object
+    reg = CreateObject("roRegistrySection", "guide")
+    lists = []
+    for each key in ["franchisesOn", "franchisesOff"]
+        raw = reg.Read(key)
+        parsed = invalid
+        if raw <> "" then parsed = ParseJson(raw)
+        lists.Push(parsed)
+    end for
+    return NxFranchiseChoices(lists[0], lists[1])
+end function

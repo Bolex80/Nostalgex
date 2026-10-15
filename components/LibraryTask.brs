@@ -239,12 +239,6 @@ function NxEnabledBundles() as Object
     return ["nostalgex"]
 end function
 
-' The viewer's franchise switches, saved on the TV (SettingsView writes them).
-function NxSavedFranchiseChoices() as Object
-    reg = CreateObject("roRegistrySection", "guide")
-    return NxFranchiseChoices(ParseJson(reg.Read("franchisesOn")), ParseJson(reg.Read("franchisesOff")))
-end function
-
 sub fail(message as String)
     m.top.message = message
     m.top.status = "error"
