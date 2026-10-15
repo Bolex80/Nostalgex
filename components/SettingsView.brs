@@ -6,6 +6,7 @@ sub init()
     m.rowsVisible = 10
     m.fonts = {}
     m.changed = false
+    m.franchisesChanged = false
 end sub
 
 function fontOf(name as String, size as Integer) as Object
@@ -37,17 +38,54 @@ function newRect(x as Float, y as Float, w as Float, h as Float, color as String
     return r
 end function
 
-' Rows: every package, subtitles, then sign-out.
+' Rows: every package, with the franchise list under FRANCHISES while it is
+' on (upstream's BundleManagerView), then subtitles, then sign-out.
 sub open(unused = invalid as Dynamic)
     m.enabled = []
     m.enabled.Append(m.top.enabledBundles)
     m.subs = NxSubtitleSettings()
+    reg = CreateObject("roRegistrySection", "guide")
+    m.choices = NxFranchiseChoices(ParseJson(reg.Read("franchisesOn")), ParseJson(reg.Read("franchisesOff")))
+    buildRows()
     m.top.SetFocus(true)
     render()
 end sub
 
+' The row list: { kind: bundle | franchiseAll | franchise | subtitles | signOut }.
+' The franchise rows are the last guide build's, so they show once the
+' package was on for a build.
+sub buildRows()
+    m.rows = []
+    for i = 0 to m.top.bundles.Count() - 1
+        b = m.top.bundles[i]
+        m.rows.Push({ kind: "bundle", index: i })
+        if b.id = NxFranchisesBundleID() and NxHasValue(m.enabled, b.id) and m.top.franchises.Count() > 0 then
+            m.rows.Push({ kind: "franchiseAll" })
+            for each f in m.top.franchises
+                m.rows.Push({ kind: "franchise", franchise: f })
+            end for
+        end if
+    end for
+    m.rows.Push({ kind: "subtitles" })
+    m.rows.Push({ kind: "signOut" })
+end sub
+
 function rowCount() as Integer
-    return m.top.bundles.Count() + 2
+    return m.rows.Count()
+end function
+
+' A row's switch: the viewer's choice since the last build, else the build's.
+function franchiseOn(f as Object) as Boolean
+    if m.choices.enabled.DoesExist(f.id) then return true
+    if m.choices.disabled.DoesExist(f.id) then return false
+    return f.enabled
+end function
+
+function anyFranchiseOff() as Boolean
+    for each f in m.top.franchises
+        if not franchiseOn(f) then return true
+    end for
+    return false
 end function
 
 ' Upstream's SUBTITLES row (BundleManagerView): one setting for both flags.
@@ -91,8 +129,10 @@ sub render()
     for i = m.top0 to last
         focused = i = m.focus
         accent = "0xFFE500"
-        if i < m.top.bundles.Count() then
-            b = m.top.bundles[i]
+        row = m.rows[i]
+        indent = 0
+        if row.kind = "bundle" then
+            b = m.top.bundles[row.index]
             on = NxHasValue(m.enabled, b.id)
             label = b.name
             detail = b.channelIDs.Count().ToStr() + " CHANNELS"
@@ -103,7 +143,26 @@ sub render()
                 state = "ON"
                 stateColor = "0xFFE500FF"
             end if
-        else if i = m.top.bundles.Count() then
+        else if row.kind = "franchiseAll" then
+            indent = 40
+            label = "YOUR FRANCHISES"
+            detail = "Every franchise below at once"
+            state = "REMOVE ALL"
+            if anyFranchiseOff() then state = "ADD ALL"
+            stateColor = "0xFFE500FF"
+        else if row.kind = "franchise" then
+            indent = 40
+            f = row.franchise
+            label = f.name
+            detail = f.countLabel
+            if f.channelNumber <> invalid then detail = detail + " · CH " + f.channelNumber.ToStr()
+            state = "OFF"
+            stateColor = "0xFFFFFF59"
+            if franchiseOn(f) then
+                state = "ON"
+                stateColor = "0xFFE500FF"
+            end if
+        else if row.kind = "subtitles" then
             label = "SUBTITLES"
             detail = subtitleModeExplanation()
             state = subtitleModeLabel()
@@ -116,16 +175,16 @@ sub render()
             stateColor = "0xFFFFFFFF"
             accent = "0xFF6B6B"
         end if
-        if focused then page.AppendChild(newRect(0, y, 1680, 72, accent + "52"))
+        if focused then page.AppendChild(newRect(indent, y, 1680 - indent, 72, accent + "52"))
         if focused then
-            page.AppendChild(newRect(0, y, 8, 72, accent + "FF"))
+            page.AppendChild(newRect(indent, y, 8, 72, accent + "FF"))
         else
-            page.AppendChild(newRect(0, y, 4, 72, accent + "66"))
+            page.AppendChild(newRect(indent, y, 4, 72, accent + "66"))
         end if
         nameColor = "0xFFFFFFBF"
         if focused then nameColor = "0xFFFFFFFF"
-        page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, 30, y + 10))
-        page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", 30, y + 40))
+        page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
+        page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
         if state <> "" then
             stateLabel = newLabel(state, "DMMono-Medium", 24, stateColor, 1260, y + 22)
             stateLabel.width = 380
@@ -150,8 +209,9 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "OK" then
-        if m.focus < m.top.bundles.Count() then
-            id = m.top.bundles[m.focus].id
+        row = m.rows[m.focus]
+        if row.kind = "bundle" then
+            id = m.top.bundles[row.index].id
             kept = []
             found = false
             for each x in m.enabled
@@ -160,8 +220,22 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             if not found then kept.Push(id)
             m.enabled = kept
             m.changed = true
+            buildRows()
+            if m.focus > rowCount() - 1 then m.focus = rowCount() - 1
             render()
-        else if m.focus = m.top.bundles.Count() then
+        else if row.kind = "franchiseAll" then
+            ' setAllFranchises: one explicit choice for every row.
+            turnOn = anyFranchiseOff()
+            for each f in m.top.franchises
+                NxFranchiseRecordChoice(m.choices, f.id, turnOn)
+            end for
+            m.franchisesChanged = true
+            render()
+        else if row.kind = "franchise" then
+            NxFranchiseRecordChoice(m.choices, row.franchise.id, not franchiseOn(row.franchise))
+            m.franchisesChanged = true
+            render()
+        else if row.kind = "subtitles" then
             cycleSubtitleMode()
             render()
         else
@@ -170,9 +244,14 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "back" or key = "left" then
-        if m.changed then
+        if m.changed or m.franchisesChanged then
             reg = CreateObject("roRegistrySection", "guide")
-            reg.Write("bundles", FormatJson(m.enabled))
+            if m.changed then reg.Write("bundles", FormatJson(m.enabled))
+            if m.franchisesChanged then
+                lists = NxFranchiseChoiceLists(m.choices)
+                reg.Write("franchisesOn", FormatJson(lists.enabled))
+                reg.Write("franchisesOff", FormatJson(lists.disabled))
+            end if
             reg.Flush()
             m.top.result = "rebuild"
         else

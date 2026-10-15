@@ -21,7 +21,8 @@ and already pinned to the Apple TV.
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js`: TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | — | not ported; it calls upstream's own hosted services |
-| `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | engine ported, passing off-device; not in the guide (below) |
+| `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
+| `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen. No language picker, as Plex sends one track (below) |
@@ -52,15 +53,24 @@ affect results:
   (`NxFilterChannel`), and item fields once per item (`NxFilterItem`).
   Upstream redoes both on every call.
 
-The franchise builder is ported as an engine only. Upstream's web tuner
-doesn't call it yet (upstream `docs/DEVLOG.md`: wiring waits on its enrichment
-work), so only the Apple TV app turns its groupings into channels, and the
-guide here has no JS to follow for that step. Without enrichment a film has no
-TMDB collection id, so only the dictionary's film titles and name tokens place
-films, and no franchise is found that the dictionary doesn't list. Text is
-walked by code point with letter ranges written out, where upstream uses
-grapheme clusters and `\p{Alphabetic}` (the file header has the details);
-no result in the golden file or the generated edge cases differs.
+Franchise channels follow the Apple TV app, not the web tuner. The web tuner
+doesn't call the franchise builder yet (upstream `docs/DEVLOG.md`: wiring waits
+on its enrichment work), and the maintainer asked for the Roku to follow the
+Apple TV app ([UPSTREAM.md](UPSTREAM.md)). While the FRANCHISES package is on,
+a film series the dictionary gives a classic (CH 100-106) joins that channel's
+pool, The Mandalorian on STAR WARS for example, unless another channel owns the
+item. Every other series the library has gets a switch in Settings under
+FRANCHISES and, when on, a channel from CH 300. STAR TREK and FAST & FURIOUS
+start on and the rest start off, as upstream's do. Each classic has a switch
+too. Not ported: folding a server collection into the franchise it duplicates,
+since server collections aren't ported.
+
+Without enrichment a film has no TMDB collection id, so only the dictionary's
+film titles and name tokens place films, and no franchise is found that the
+dictionary doesn't list. Text is walked by code point with letter ranges
+written out, where upstream uses grapheme clusters and `\p{Alphabetic}` (the
+file header has the details). No result in the golden file or the generated
+edge cases differs.
 
 The filter runs with no TMDB/OMDb enrichment. The web tuner did the same until
 upstream 43f6ee7, which added enrichment through upstream's hosted cache and
@@ -96,8 +106,9 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   `tests/vectors/franchise-golden.json` and read as upstream's
   `nostalgex-franchise-smoke.mjs` reads it. `tests/gen-franchise.mjs` adds
   `tests/vectors/franchise.json` from upstream's builder: non-ASCII titles and
-  tokens, combining marks, full-width digits, and found names that only sort
-  and upper-case right by code point.
+  tokens, combining marks, full-width digits, case mapping across Latin,
+  Greek, Cyrillic, Armenian and full-width scripts, and found names that only
+  sort and upper-case right by code point.
 - `tests/run.sh` runs them in the off-device interpreter. It fails if
   `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
   runs upstream's franchise smoke test at that commit, and notes when the
@@ -187,6 +198,12 @@ throwaway checkout, whatever the clone has checked out.
 - Roku draws subtitles only while the TV-wide caption mode is On. The app
   turns it on while they show and puts it back after, saving the old value
   (`captionModeBefore`) so a launch after leaving with Home restores it.
+- `LCase` on the TV isn't JS `toLowerCase` beyond ASCII. It leaves
+  full-width letters (`Ｓ`) and Roman numerals (`Ⅻ`) alone, maps `Έ` to `ҽ`,
+  and never gives a final `ς`. The off-device interpreter uses JS's, so it
+  hides this. Text that has to match upstream goes through
+  `NxFranchiseLower`.
+- `step` is a reserved word, like `pos`.
 - `roUrlTransfer` is task-only on Roku OS 16: created on the render thread
   it is `invalid` (OS 15 allowed it), so `NxUrlEncode` encodes by hand.
 - System fonts go on a Label's `font` attribute. A `<Font uri="font:…">`

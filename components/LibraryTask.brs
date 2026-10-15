@@ -14,7 +14,7 @@ end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles)
+    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
 end function
 
 sub loadLibrary()
@@ -77,7 +77,7 @@ sub loadLibrary()
         ch = {
             id: def.id, number: def.number, name: NxToStr(def.name), colorHex: NxToStr(def.colorHex),
             minItems: def.minItems, isPremiereChannel: def.isPremiereChannel,
-            timeRestrictions: def.timeRestrictions, enabled: true, pool: []
+            timeRestrictions: def.timeRestrictions, enabled: true, built: false, pool: []
         }
         ' `enabled: def.enabled !== false`; comparing invalid to a Boolean is an error here.
         if type(def.enabled) = "Boolean" or type(def.enabled) = "roBoolean" then ch.enabled = def.enabled
@@ -88,7 +88,8 @@ sub loadLibrary()
             for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
                 matched.Push(row.item)
             end for
-            ch.pool = NxSeededShuffle(matched, nowSec&)
+            ch.pool = matched
+            ch.built = true
             minItems = 50
             if NxTruthy(def.minItems) then minItems = def.minItems
             ch.enabled = ch.pool.Count() >= minItems
@@ -97,19 +98,70 @@ sub loadLibrary()
     end for
     print "library: built "; built; " channels in "; timer.TotalMilliseconds(); " ms"
 
-    ordered = NxGuideOrder(config, channels, bundles, clock.month)
+    ' FRANCHISES, as the Apple TV app has it (the web tuner doesn't call the
+    ' builder): covered franchises join their classic's pool, and each found
+    ' franchise switched on gets a channel from CH 300 that rides on the
+    ' package's switch. Before the shuffle, so every pool shuffles alike.
+    franchiseRows = []
+    foundIDs = []
+    franchiseBundleIDs = []
+    for each bdl in NxList(config.bundles)
+        if bdl.id = NxFranchisesBundleID() then franchiseBundleIDs = NxList(bdl.channelIDs)
+    end for
+    if NxHasValue(bundles, NxFranchisesBundleID()) then
+        timer.Mark()
+        m.top.progress = "Finding franchises…"
+        fr = NxFranchiseStep({
+            channels: channels, items: items,
+            defs: NxFranchiseDefinitions(ParseJson(ReadAsciiFile("pkg:/data/franchises.json"))),
+            choices: NxSavedFranchiseChoices(), bundleChannelIDs: franchiseBundleIDs,
+            manifest: manifest, exclusiveRules: exclusive
+        })
+        for each ch in fr.channels
+            channels.Push(ch)
+            foundIDs.Push(ch.id)
+        end for
+        franchiseRows = fr.rows
+        print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, in "; timer.TotalMilliseconds(); " ms"
+    end if
+    for each ch in channels
+        if ch.built then ch.pool = NxSeededShuffle(ch.pool, nowSec&)
+    end for
+
+    ' Found franchise channels show while the package is on; its own channel
+    ' list stays the seven classics, as upstream's Settings row reads.
+    guideConfig = { bundles: [] }
+    for each bdl in NxList(config.bundles)
+        if bdl.id = NxFranchisesBundleID() and foundIDs.Count() > 0 then
+            ids = []
+            ids.Append(NxList(bdl.channelIDs))
+            ids.Append(foundIDs)
+            guideConfig.bundles.Push({ id: bdl.id, channelIDs: ids, activeMonths: bdl.activeMonths })
+        else
+            guideConfig.bundles.Push(bdl)
+        end if
+    end for
+    ordered = NxGuideOrder(guideConfig, channels, bundles, clock.month)
     out = NxScheduleGuide(ordered, nowSec&)
     bundleList = []
     for each bdl in NxList(config.bundles)
-        bundleList.Push({ id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths })
+        entry = { id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths }
+        ' The sidebar jumps to the first channel shown, found franchises included.
+        if bdl.id = NxFranchisesBundleID() then
+            jump = []
+            jump.Append(entry.channelIDs)
+            jump.Append(foundIDs)
+            entry.jumpIDs = jump
+        end if
+        bundleList.Push(entry)
     end for
-    guide = { channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles }
+    guide = { channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles, franchises: franchiseRows }
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone.
     ' The package list counts too: a new package that is off changes no
     ' channel, but Settings has to show it.
-    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) then
+    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) and FormatJson(guide.franchises) = FormatJson(m.top.guide.franchises) then
         print "library: background refresh matches the saved guide"
     else
         m.top.fromCache = false
@@ -185,6 +237,12 @@ function NxEnabledBundles() as Object
         if type(saved) = "roArray" then return saved
     end if
     return ["nostalgex"]
+end function
+
+' The viewer's franchise switches, saved on the TV (SettingsView writes them).
+function NxSavedFranchiseChoices() as Object
+    reg = CreateObject("roRegistrySection", "guide")
+    return NxFranchiseChoices(ParseJson(reg.Read("franchisesOn")), ParseJson(reg.Read("franchisesOff")))
 end function
 
 sub fail(message as String)

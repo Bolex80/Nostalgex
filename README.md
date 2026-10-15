@@ -74,8 +74,8 @@ push, against a fresh clone of upstream.
 | `components/` | SceneGraph screens (sign-in, guide, settings) and background tasks |
 | `source/schedule/` | The daily schedule builder, ported from upstream |
 | `source/filter/` | The channel filter, ported from upstream |
-| `source/franchise/` | The franchise builder, ported from upstream; not in the guide yet |
-| `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules |
+| `source/franchise/` | The franchise builder, ported from upstream |
+| `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules; franchise channels and their switches |
 | `source/plex/` | Plex sign-in, library loader, playback |
 | `source/subtitles/` | Subtitle settings and language matching, ported from upstream |
 | `source/util/` | Shared helpers |

@@ -686,8 +686,11 @@ sub openSidebar()
     m.sideTargets = [{ name: "SETTINGS", channel: -1, color: "#FFE500" }]
     for each b in m.top.guide.bundles
         if NxHasValue(m.top.guide.enabledBundles, b.id) then
+            ' FRANCHISES jumps to a found franchise when no classic is shown.
+            ids = b.channelIDs
+            if b.jumpIDs <> invalid then ids = b.jumpIDs
             for i = 0 to m.channels.Count() - 1
-                if NxHasValue(b.channelIDs, m.channels[i].id) then
+                if NxHasValue(ids, m.channels[i].id) then
                     m.sideTargets.Push({ name: b.name, channel: i, color: m.channels[i].color })
                     exit for
                 end if
@@ -761,6 +764,9 @@ sub openSettings()
     m.settings = CreateObject("roSGNode", "SettingsView")
     m.settings.bundles = m.top.guide.bundles
     m.settings.enabledBundles = m.top.guide.enabledBundles
+    franchises = m.top.guide.franchises
+    if franchises = invalid then franchises = []
+    m.settings.franchises = franchises
     m.settings.ObserveField("result", "onSettingsResult")
     m.top.AppendChild(m.settings)
     m.settings.callFunc("open", invalid)

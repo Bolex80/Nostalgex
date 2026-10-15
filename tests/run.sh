@@ -58,6 +58,6 @@ if [ -n "$shadow" ]; then
 fi
 
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
-    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/SubtitleTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/subtitles/*.brs 2>&1 | grep -v '^npm warn')
+    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/SubtitleTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/subtitles/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
 grep -q '^ALL TESTS PASSED' <<<"$out"
