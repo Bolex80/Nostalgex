@@ -63,3 +63,13 @@ on 2026-10-14, in the same thread: may the Roku app use upstream's TMDB/OMDb
 relay and shared `media_enrichments` cache as `nostalgex-enrichment.js` does,
 and under which `X-Nostalgex-Client` value? Until they answer, enrichment
 stays unported ([PORTING.md](PORTING.md)).
+
+## Channel ideas: Discussion #29
+
+[Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
+2026-10-14: a year-round horror package (FRIGHT NIGHT, NOSTALGEX HORROR,
+SLASHER, FOUND FOOTAGE, HORROR COMEDY, WORLD HORROR), plus MYSTERY BOX TV in
+CASE FILES, CRINGE TV in PRIME TIME and A24 in NETWORKS. It notes that SCREAM
+is October-only and that an exclusive rule keeps "Halloween" and "Scream"
+titles on SCREAM ADULTS. `channels.json` here stays unchanged until upstream
+answers.
