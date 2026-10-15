@@ -20,7 +20,7 @@ and already pinned to the Apple TV.
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
-| `scripts/nostalgex-enrichment.js`: TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | — | not ported; it calls upstream's own hosted services |
+| `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
 | `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
@@ -65,19 +65,29 @@ start on and the rest start off, as upstream's do. Each classic has a switch
 too. Not ported: folding a server collection into the franchise it duplicates,
 since server collections aren't ported.
 
-Without enrichment a film has no TMDB collection id, so only the dictionary's
-film titles and name tokens place films, and no franchise is found that the
-dictionary doesn't list. Text is walked by code point with letter ranges
+In a build without enrichment a film has no TMDB collection id, so only the
+dictionary's film titles and name tokens place films, and no franchise is
+found that the dictionary doesn't list. Text is walked by code point with letter ranges
 written out, where upstream uses grapheme clusters and `\p{Alphabetic}` (the
 file header has the details). No result in the golden file or the generated
 edge cases differs.
 
-The filter runs with no TMDB/OMDb enrichment. The web tuner did the same until
-upstream 43f6ee7, which added enrichment through upstream's hosted cache and
-relay. Rules that need it behave as on an Apple TV with no enrichment
-record: keyword and network matches don't fire, production companies match
-on Plex's studio alone, and the IMDb gates leave FOREIGN FILMS and CULT
-CLASSICS empty.
+Enrichment follows the web tuner's `nostalgex-enrichment.js`: the
+local cache, then upstream's shared Supabase cache, then TMDB and OMDb
+through upstream's relay, asked as `X-Nostalgex-Client: roku`, which the
+maintainer agreed to ([UPSTREAM.md](UPSTREAM.md)). Records attach as
+`item.enrichment`, which the filter and the franchise builder already read.
+The library load builds the guide from the caches first and rebuilds only if
+the relay or OMDb added anything. Where it differs from upstream, and why, is
+in the header of `source/enrich/Enrichment.brs`.
+
+It is in a build only when `.env` sets `NOSTALGEX_ENRICHMENT=on` with
+`NOSTALGEX_SUPABASE_URL` and `NOSTALGEX_SUPABASE_ANON_KEY`. `scripts/deploy.sh`
+then writes them to `data/enrichment.json` in the zip, never in the repo.
+Without that, rules that need enrichment behave as on an Apple TV with no
+record: keyword and network matches don't fire, production companies match on
+Plex's studio alone, and the IMDb gates leave FOREIGN FILMS and CULT CLASSICS
+empty.
 
 **Cost on device:** about 0.16 ms per item-channel check (186,144 in 29.7 s on
 a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
@@ -109,6 +119,12 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   tokens, combining marks, full-width digits, case mapping across Latin,
   Greek, Cyrillic, Armenian and full-width scripts, and found names that only
   sort and upper-case right by code point.
+- `tests/gen-enrichment.mjs` writes `tests/vectors/enrichment.json` from
+  upstream's enrichment module: TMDB, OMDb and Supabase parsing over odd
+  documents, work items, the OMDb gates from the real channels and the UTC
+  quota clock. `tests/EnrichmentTests.brs` adds the cases of upstream's
+  `nostalgex-enrichment-smoke.mjs` (batching, the caches and TTLs, the OMDb
+  budget and backoff, end to end) over a stub network.
 - `tests/run.sh` runs them in the off-device interpreter. It fails if
   `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
   runs upstream's franchise smoke test at that commit, and notes when the
@@ -164,6 +180,15 @@ throwaway checkout, whatever the clone has checked out.
 - AAs ignore key case unless `SetModeCaseSensitive()` is called. Swift groups
   shows case-sensitively ("The Wire" and "the wire" are two groups), so every
   AA keyed on titles or ratingKeys sets it.
+- Key case in AAs you build: the TV stores an unquoted literal key lowercase
+  (`{ imdbRating: x }` holds `imdbrating`), and the off-device interpreter
+  does the same for a key first set with a dot. Lookups ignore case either
+  way, but `FormatJson` and `Keys()` show it, so where case reaches JSON the
+  port quotes the key (`{ "imdbRating": x }`) or sets `aa["imdbRating"]`.
+- The off-device interpreter's `CSng()` truncates to a whole number. On the
+  TV, a modulus done in Doubles through `Int()` gave wrong values where the
+  same in `LongInteger` was right; keep exact integer arithmetic in
+  `LongInteger`.
 - `Abs()` returns a Float. Array indexes must be `Integer`, not `LongInteger`.
 - The TV's compiler rejects a statement that calls a method on a function's
   result, `F(x).list.Push(y)` (compile error `&h02`, and the app drops back to

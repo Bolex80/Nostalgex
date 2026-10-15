@@ -29,8 +29,19 @@ rm -rf "$stage" out/nostalgex-roku.zip
 mkdir -p "$stage"
 cp -r manifest source components "$stage"/
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" "$stage"/; done
+# Enrichment (source/enrich/Enrichment.brs) is in a build only when .env turns
+# it on and gives the Supabase project; the values go into the zip, never the
+# repo. Without them the app runs with no enrichment, as before.
+rm -f "$stage"/data/enrichment.json
+if [ "${NOSTALGEX_ENRICHMENT:-off}" = on ]; then
+    url=${NOSTALGEX_SUPABASE_URL:-} key=${NOSTALGEX_SUPABASE_ANON_KEY:-}
+    [[ $url =~ ^https://[A-Za-z0-9.-]+/?$ ]] || { echo "NOSTALGEX_ENRICHMENT=on needs NOSTALGEX_SUPABASE_URL (https://<project>.supabase.co)" >&2; exit 1; }
+    [[ $key =~ ^[A-Za-z0-9._-]+$ ]] || { echo "NOSTALGEX_ENRICHMENT=on needs NOSTALGEX_SUPABASE_ANON_KEY" >&2; exit 1; }
+    printf '{"supabaseURL":"%s","anonKey":"%s"}\n' "$url" "$key" >"$stage"/data/enrichment.json
+    echo "build: enrichment on"
+fi
 if [ "$mode" = test ]; then
-    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/SubtitleTests.brs "$stage"/source/
+    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs "$stage"/source/
     mkdir -p "$stage"/tests && cp -r tests/vectors "$stage"/tests/
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs

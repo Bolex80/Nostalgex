@@ -59,11 +59,45 @@ sub loadLibrary()
         items.Append(got)
     end for
     print "library: "; items.Count(); " items in "; timer.TotalMilliseconds(); " ms"
-
-    ' A library load clears the day schedules, as upstream's does.
-    NxClearManifests()
     config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
     manifest = ParseJson(ReadAsciiFile("pkg:/data/channels-memberships.json"))
+
+    ' Enrichment, when this build has it (source/enrich/Enrichment.brs): the
+    ' local and shared caches first. If the relay or OMDb has more to give, a
+    ' guide built from the caches goes up first, unless the saved one is
+    ' already showing, and the guide is rebuilt only if they added anything.
+    opts = {
+        config: NxEnrichmentConfig(), net: NxEnrichmentNet(),
+        cache: NxEnrichFileCache("cachefs:/nostalgex-enrichment.json"),
+        nowSec: NxFilterClock().nowSec, channels: config.channels,
+        backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: NxEnrichTopProgress(m.top)
+    }
+    timer.Mark()
+    m.top.progress = "Reading shared details…"
+    state = NxEnrichFromCaches(items, opts)
+    if not state.skipped then print "library: enrichment caches read in "; timer.TotalMilliseconds(); " ms"
+    built = invalid
+    if NxEnrichHasRemoteWork(state, opts) then
+        if not shown then
+            built = buildGuide(items, config, manifest, false)
+            shown = true
+        end if
+        timer.Mark()
+        added = NxEnrichFromRemote(state, items, opts)
+        print "library: enrichment remote step added "; added; " in "; timer.TotalMilliseconds(); " ms"
+        if added > 0 then built = invalid
+    end if
+    if built = invalid then built = buildGuide(items, config, manifest, shown)
+    keepScheduling(built.ordered, built.guide)
+end sub
+
+' Builds the switched-on channels from the library, schedules them and hands
+' the guide to the render thread, unless `shown` and it matches what is
+' already on screen. Returns { ordered, guide } for keepScheduling.
+function buildGuide(items as Object, config as Object, manifest as Object, shown as Boolean) as Object
+    timer = CreateObject("roTimespan")
+    ' A library load clears the day schedules, as upstream's does.
+    NxClearManifests()
     exclusive = NxFilterExclusiveRules(config.exclusiveRules)
     clock = NxFilterClock()
     nowSec& = clock.nowSec
@@ -168,8 +202,8 @@ sub loadLibrary()
         m.top.guide = guide
         m.top.status = "ready"
     end if
-    keepScheduling(ordered, guide)
-end sub
+    return { ordered: ordered, guide: guide }
+end function
 
 ' What each channel airs today and tomorrow, as buildChannelSchedule
 ' computes it: the hour's time restrictions, then the day's schedule from the

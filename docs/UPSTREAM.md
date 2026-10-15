@@ -73,8 +73,8 @@ on 2026-10-15:
   `X-Nostalgex-Client: roku`. On 2026-10-15 the relay still answered `roku`
   with 403, since `api/tmdb.js` accepts only `tvos`, `web` and `selfhost`. The
   Supabase URL and anon key are build settings upstream, not in its repo, as
-  in its Docker image. Enrichment stays unported until the relay accepts
-  `roku`.
+  in its Docker image. The port's enrichment stays out of builds until the
+  relay accepts `roku` ([PORTING.md](PORTING.md)).
 - **An official app:** they would like to publish it as the official Nostalgex
   app for Roku, under the Nostalgex name with full credit to the repo owner,
   and offered to talk about how to work on it together.

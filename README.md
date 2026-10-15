@@ -48,6 +48,10 @@ there. Debug output is on the TV's port 8085 (`nc <tv> 8085`).
   watch status or anything else in your library.
 - **The saved guide** (`cachefs:`) holds titles and schedules only, and is
   deleted on sign-out.
+- **Enrichment is off unless a build turns it on** (`NOSTALGEX_ENRICHMENT` in
+  `.env`, see [docs/PORTING.md](docs/PORTING.md)). When on, only TMDB and
+  IMDb ids leave the TV, to the Nostalgex relay and its shared cache, as the
+  web tuner sends them. Its local cache is deleted on sign-out too.
 - **Press \* to sign out.** That removes the token, the server list and the
   device ID the app stored.
 
