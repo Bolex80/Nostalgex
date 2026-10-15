@@ -51,7 +51,8 @@ from their filter script is how they want parity checked.
 3. **Logo:** held until where the port lives is settled.
 
 They plan to try it on a Roku and give feedback in the discussion, and invited
-the repo owner to the project Discord.
+the repo owner to the project Discord. The owner keeps it to GitHub, so
+drafts don't offer Discord.
 
 [Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18908210)
 the same day: a separate repo is fine, the builder is ported and passes
