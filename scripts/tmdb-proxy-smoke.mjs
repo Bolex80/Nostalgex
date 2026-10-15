@@ -106,6 +106,14 @@ check("undefined rejected", upstreamRequest(undefined), null);
   check("wrong client header no upstream", calls.length, 0);
 }
 {
+  // The Roku port is a native client: no Origin, so no CORS, just the client filter.
+  const calls = stubTMDB({ status: 200, body: { id: 603 } });
+  const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "roku" } });
+  check("roku client header 200", r.status, 200);
+  check("roku client one upstream call", calls.length, 1);
+  check("roku client needs no allow-origin", r.headers["Access-Control-Allow-Origin"], undefined);
+}
+{
   const calls = stubTMDB({ status: 200, body: { id: 603 } });
   const r = await call({ query: { path: "movie/603" }, headers: { "x-nostalgex-client": "web" } });
   check("web client header 200", r.status, 200);

@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-15 (the relay accepts a Roku client)
+
+**Changed.** `X-Nostalgex-Client: roku` is now accepted by `api/tmdb.js`, alongside
+`tvos`, `web` and `selfhost`. A community Roku port is being built against the same
+`channels.json` and filter rules (discussion #8), and without this it cannot fill the
+channels that need TMDB keywords or IMDb ratings. One line plus a smoke test.
+
+Roku needs nothing else: `roUrlTransfer` is not a browser, so it sends no Origin, gets
+no CORS treatment, and reads the body regardless. The path allowlist, the edge cache
+and the no-logging promise are unchanged, so a Roku client is the same shape of traffic
+as an Apple TV.
+
+**Watch.** OMDb's free tier is 1,000 requests a day across every client together, and a
+backfill has come close to it before. The shared Supabase cache and a 7 day edge cache
+absorb most of it, but a third client population is worth keeping an eye on.
+
 ## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
 
 **Changed.** All on branch `tablet-rail`, unmerged and undeployed.
