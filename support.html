@@ -265,8 +265,9 @@
     <ul>
       <li>Give your server an https address. A free tunnel like <a href="https://tailscale.com/kb/1312/serve">Tailscale Serve</a> or a <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a> gets you one in about two commands, then paste that <code>https://</code> URL in.</li>
       <li>Or just use the Apple TV app, which reaches local <code>http</code>/raw-IP servers directly because native apps don't have this restriction.</li>
+      <li>Or <a href="/self-host">run the tuner on your own server</a>. That copy is served over plain http on your network, so it can reach a plain <code>http</code> Jellyfin or Emby box.</li>
     </ul>
-    <p>A plain http box on your LAN will always work in the Apple TV app and never in a browser tab. That's the one real difference between them.</p>
+    <p>A plain http box on your LAN works in the Apple TV app, and in a browser only if you <a href="/self-host">run the tuner on your own server</a>.</p>
         </section>
 
         <section class="doc-section" id="cors">

@@ -253,7 +253,7 @@
             <label class="connect-label" for="jf-url">Jellyfin server URL</label>
             <!-- selfhost:strip:start -->
             <input class="connect-input" id="jf-url" type="url" inputmode="url" autocomplete="off" placeholder="https://jellyfin.yourdomain.com">
-            <p class="connect-fine-print connect-fine-print--left">Has to be reachable over HTTPS. Plain http:// LAN servers get blocked by your browser here, so use the Apple TV app for those.</p>
+            <p class="connect-fine-print connect-fine-print--left">Has to be reachable over HTTPS. Plain http:// LAN servers get blocked by your browser here, so use the Apple TV app for those, or <a href="/self-host">run the tuner on your own server</a>.</p>
             <!-- selfhost:strip:end -->
             <!-- selfhost:only: <input class="connect-input" id="jf-url" type="url" inputmode="url" autocomplete="off" placeholder="http://192.168.1.20:8096"> -->
             <!-- selfhost:only: <p class="connect-fine-print connect-fine-print--left">The address you use for Jellyfin or Emby on your network, like http://192.168.1.20:8096. If this page is on https, your server has to be on https too.</p> -->
@@ -571,10 +571,10 @@
     // A private address can never answer over https with a valid certificate, so the
     // generic "use an https URL" advice is a dead end. Name the real fix.
     if (/^https?:\/\/(?:10\.|127\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|\[?::1\]?|localhost)/i.test(url)) {
-      return 'THAT IS A LOCAL NETWORK ADDRESS. BROWSERS CANNOT REACH IT FROM A SECURE PAGE. USE THE APPLE TV APP, OR A PUBLIC HTTPS ADDRESS FOR YOUR SERVER';
+      return 'THAT IS A LOCAL NETWORK ADDRESS. BROWSERS CANNOT REACH IT FROM A SECURE PAGE. USE THE APPLE TV APP, A PUBLIC HTTPS ADDRESS, OR RUN THE TUNER ON YOUR OWN SERVER (NOSTALGEX.APP/SELF-HOST)';
     }
     if (/^http:\/\//i.test(url)) {
-      return 'YOUR SERVER USES HTTP. BROWSERS BLOCK THAT ON A SECURE PAGE. USE AN HTTPS URL, OR THE APPLE TV APP FOR A LOCAL SERVER';
+      return 'YOUR SERVER USES HTTP. BROWSERS BLOCK THAT ON A SECURE PAGE. USE AN HTTPS URL, THE APPLE TV APP, OR RUN THE TUNER ON YOUR OWN SERVER (NOSTALGEX.APP/SELF-HOST)';
     }
     return 'COULD NOT REACH THE JELLYFIN SERVER. CHECK THE URL AND THAT IT ANSWERS OVER HTTPS';
   }

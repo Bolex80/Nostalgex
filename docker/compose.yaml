@@ -1,6 +1,6 @@
 # Nostalgex web tuner. Copy this next to your other compose files, then:
 #   docker compose up -d
-# and open http://<this-server's-address>:8080 in any browser on your network.
+# and open http://YOUR-SERVER-IP:8080 in any browser on your network.
 services:
   nostalgex:
     image: ghcr.io/chadmueller/nostalgex:latest

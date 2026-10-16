@@ -57,7 +57,7 @@ Browser app. `web-tuner.html` (routed as `/web-tuner`) is the connect screen; af
 - **Stack:** Vanilla HTML/JS, Vite, Vercel
 - **Backends:** Plex, Jellyfin and Emby (Emby connects through the Jellyfin option).
 
-**Browser limitation, by design of the web, not ours:** the hosted tuner is served over HTTPS, so browsers block mixed content and it cannot reach a server on plain `http://` or on a raw LAN IP. Plex works because plex.direct issues real certificates for local addresses. Jellyfin and Emby need an HTTPS URL with a valid certificate (reverse proxy or tunnel). A local-only server with no HTTPS is reachable from the Apple TV app but not from the hosted site, unless you [run the tuner on your own server](#run-it-on-your-server), where it is plain http too.
+**Browser limitation, by design of the web, not mine:** the hosted tuner is served over HTTPS, so browsers block mixed content and it cannot reach a server on plain `http://` or on a raw LAN IP. Plex works because plex.direct issues real certificates for local addresses. Jellyfin and Emby need an HTTPS URL with a valid certificate (reverse proxy or tunnel). A local-only server with no HTTPS is reachable from the Apple TV app but not from the hosted site, unless you [run the tuner on your own server](#run-it-on-your-server), where it is plain http too.
 
 ### tvOS (`Nostalgex/`)
 Native Apple TV app, free on the App Store, open source. Same channel logic and config, built for the big screen with Siri Remote navigation. Connects to Plex, Jellyfin and Emby, including more than one server at a time. No mixed-content limitation here: a plain-http local server works fine.
@@ -91,7 +91,7 @@ When a video ends naturally on tvOS, the next video starts from the beginning (n
 
 ## Channel Rules
 
-Channels filter your library (Plex, Jellyfin or Emby, normalised to one internal model) using combinations of:
+Channels filter your library (Plex, Jellyfin or Emby, normalized to one internal model) using combinations of:
 - **type**: movie or episode
 - **genres**: include, exclude, requireAll
 - **studios**: Disney, HBO, etc.
@@ -142,12 +142,15 @@ You probably don't need it if you use Plex (the hosted tuner and the Apple TV ap
 docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/chadmueller/nostalgex:latest
 ```
 
-Or with compose (fuller version in [`docker/compose.yaml`](docker/compose.yaml), which also sets `container_name` and `no-new-privileges`), then `docker compose up -d`:
+Port 8080 already taken? Use `-p 8099:8080` and open port 8099 instead.
+
+Or with compose (fuller version in [`docker/compose.yaml`](docker/compose.yaml), which also sets `no-new-privileges`), then `docker compose up -d`:
 
 ```yaml
 services:
   nostalgex:
     image: ghcr.io/chadmueller/nostalgex:latest
+    container_name: nostalgex
     ports:
       - "8080:8080"
     environment:
@@ -162,9 +165,9 @@ Then open `http://YOUR-SERVER-IP:8080` in any browser on your network and connec
 
 **Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag.
 
-**Platforms:** amd64 and arm64 (Synology and Unraid on Intel or AMD, NUCs, Raspberry Pi 4 and 5). No armv7. Runs as a non-root user (uid 101) and works with a read-only root filesystem as long as `/tmp` is writable.
+**Platforms:** amd64 and arm64 (Synology and Unraid on Intel or AMD, NUCs, Raspberry Pi 4 and 5 on a 64-bit OS). No armv7. Runs as a non-root user (uid 101) and works with a read-only root filesystem as long as `/tmp` is writable.
 
-**Where it's been tested:** desktop Chrome, Safari and Firefox, iPhone and iPad Safari, and the TV Bro browser on Google TV. Fire TV Silk, Samsung and LG browsers are untested. Roku has no browser. On Apple TV, use the app. The current table is on the [self-host page](https://www.nostalgex.app/self-host).
+**Where it's been tested:** Chrome, Safari and Firefox on a Mac, iPhone and iPad Safari, and the TV Bro browser on Google TV. Fire TV Silk, Samsung and LG browsers are untested. Roku has no browser. On Apple TV, use the app. The current table is on the [self-host page](https://www.nostalgex.app/self-host).
 
 ### What the container's tuner talks to
 
@@ -174,7 +177,7 @@ Then open `http://YOUR-SERVER-IP:8080` in any browser on your network and connec
 | plex.tv | Plex only: PIN sign-in and finding your server, like every Plex app. | Use Jellyfin or Emby |
 | The shared metadata cache (Supabase) and the nostalgex.app TMDB/OMDb relay | On by default. Nine or more channels need keywords, studios or IMDb ratings to fill (TEEN MOVIES, TRUE CRIME, CULT CLASSICS and others). Only TMDB and IMDb ids leave the browser: no titles, no server address, no credentials. | `NOSTALGEX_ENRICHMENT=off` |
 
-No analytics, no scripts or fonts from a CDN, and no MusicBrainz or Deezer lookups in the image. A value the container doesn't recognise is treated as `off`.
+No analytics, no scripts or fonts from a CDN, and no MusicBrainz or Deezer lookups in the image. A value the container doesn't recognize is treated as `off`.
 
 ### Known limits
 
@@ -186,7 +189,7 @@ No analytics, no scripts or fonts from a CDN, and no MusicBrainz or Deezer looku
 
 ```sh
 docker build -t nostalgex .
-docker run -d -p 8080:8080 nostalgex
+docker run -d --name nostalgex -p 8080:8080 nostalgex
 ```
 
 Enrichment needs the shared cache's address and public anon key at build time: add `--build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_ANON_KEY=...`, or point them at your own Supabase project. Without them it builds with enrichment off. To skip Docker, `npm run build:selfhost` writes the same files to `dist-selfhost/`; any static server works if it serves `.cjs` as JavaScript.

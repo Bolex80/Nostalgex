@@ -288,6 +288,7 @@
     <pre><code>services:
   nostalgex:
     image: ghcr.io/chadmueller/nostalgex:latest
+    container_name: nostalgex
     ports:
       - "8080:8080"
     environment:
@@ -306,7 +307,7 @@
     <h3>Building it yourself</h3>
     <p>The whole thing is in the repo, so you don't have to trust my image:</p>
     <pre><code>docker build -t nostalgex .
-docker run -d -p 8080:8080 nostalgex</code></pre>
+docker run -d --name nostalgex -p 8080:8080 nostalgex</code></pre>
     <p>Enrichment needs the shared cache's address and public anon key at build time: add <code>--build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_ANON_KEY=...</code>, or point them at your own Supabase project. Without them it builds with enrichment off. To skip Docker entirely, <code>npm run build:selfhost</code> writes the same files to <code>dist-selfhost/</code> and any static server will do, as long as it serves <code>.cjs</code> as JavaScript.</p>
         </section>
 
@@ -409,7 +410,7 @@ docker run -d -p 8080:8080 nostalgex</code></pre>
     <p>Serve the tuner and your media server the same way. Both on plain http inside your network is the simple setup and the one this is built for. If you want https, put both behind it.</p>
 
     <h3>No armv7</h3>
-    <p>amd64 and arm64 only. Older Raspberry Pi and Synology models won't pull the image. A Pi 4 or 5 is fine.</p>
+    <p>amd64 and arm64 only. Older Raspberry Pi and Synology models won't pull the image. A Pi 4 or 5 on a 64-bit OS (<code>uname -m</code> says <code>aarch64</code>) is fine.</p>
 
     <h3>Surround audio on TV browsers</h3>
     <p>Some smart TV browsers can't decode surround audio, so a file with a 5.1 track can play silently or not at all. That's the browser, not the tuner. If a channel won't play on a TV, try it on a laptop or a phone first to see whether it's the file or the device, and use the Apple TV app on a TV.</p>
