@@ -2,8 +2,8 @@
 ' over cases transcribed from upstream's FranchiseSettingsTests.swift and
 ' FranchiseNumberingTests.swift (at the commit in data/UPSTREAM). Stock
 ' channels are built from their real channels.json rules through the filter,
-' as the library load builds them. Server-collection folds aren't ported, so
-' those cases aren't here. Returns the failure count.
+' as the library load builds them. The server-collection fold cases are in
+' tests/CollectionTests.brs. Returns the failure count.
 
 function NxRunFranchiseGuideTests(configPath as String, dictionaryPath as String) as Integer
     config = ParseJson(ReadAsciiFile(configPath))

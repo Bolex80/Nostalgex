@@ -104,6 +104,7 @@ push, against a fresh clone of upstream.
 | `source/schedule/` | The daily schedule builder, ported from upstream |
 | `source/filter/` | The channel filter, ported from upstream |
 | `source/franchise/` | The franchise builder, ported from upstream |
+| `source/collections/` | Server collections as channels from CH 500, and their fold into franchises, ported from upstream |
 | `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules; franchise channels and their switches |
 | `source/plex/` | Plex sign-in, library loader, playback |
 | `source/subtitles/` | Subtitle settings and language matching, ported from upstream |
@@ -114,7 +115,7 @@ push, against a fresh clone of upstream.
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |
 | `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
 | `tests/` | Golden vectors from upstream's code, and the runner |
-| `tests/live/` | Live check against a real Plex server (`plex-link.mjs`, `compare.mjs`) |
+| `tests/live/` | Live checks against a real Plex server (`plex-link.mjs`, `compare.mjs`, `collections.mjs`) |
 | `docs/PORTING.md` | What is ported from where, and how parity is proven |
 | `docs/UPSTREAM.md` | Working with the Nostalgex project |
 

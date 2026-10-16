@@ -19,8 +19,9 @@
 '   - Requests run one at a time; upstream fetches five shows' episodes at
 '     once. Its Promise.all keeps their order, so the result is the same.
 '   - MusicBrainz/Deezer enrichment of music videos is not ported yet.
-'   - Items don't carry upstream's `serverID`. Only its server collections
-'     read it, and they aren't ported.
+'   - Items don't carry upstream's `serverID`. Its server collections key
+'     items by server through it; here they use `serverIndex`
+'     (source/collections/Collections.brs).
 
 ' One GET against a server: its home-network address when there is one,
 ' else HTTPS, with up to three tries, since a home network can drop a
@@ -165,6 +166,9 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
         librarySource: librarySource,
         tmdbID: tmdbID,
         artist: invalid,
+        ' The show's key (the episode's grandparentRatingKey), which a
+        ' collection of shows lists in place of its episodes.
+        showKey: NxToStr(show.ratingKey),
         seasonNumber: ep.parentIndex,
         episodeNumber: ep.index,
         videoCodec: codecs.video,
@@ -371,4 +375,18 @@ function NxParseMusicTitle(raw as String) as Object
         end if
     end if
     return { artist: invalid, song: NxStripFeaturing(cleaned, false) }
+end function
+
+' What NxCollectionsFetchPlex reads a server through: getJSON(path) gives
+' { MediaContainer } or invalid, as upstream's getJSON gives the document or
+' throws.
+function NxPlexCollectionsFetcher(server as Object) as Object
+    return {
+        server: server,
+        getJSON: function(path as String) as Dynamic
+            mc = NxPlexGetContainer(m.server, path)
+            if mc = invalid then return invalid
+            return { MediaContainer: mc }
+        end function
+    }
 end function

@@ -24,7 +24,8 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
 | `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
-| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7) | — | not ported |
+| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). Not yet on a TV |
+| `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen. No language picker, as Plex sends one track (below) |
@@ -64,8 +65,30 @@ pool, The Mandalorian on STAR WARS for example, unless another channel owns the
 item. Every other series the library has gets a switch in Settings under
 FRANCHISES and, when on, a channel from CH 300. STAR TREK and FAST & FURIOUS
 start on and the rest start off, as upstream's do. Each classic has a switch
-too. Not ported: folding a server collection into the franchise it duplicates,
-since server collections aren't ported.
+too.
+
+Server collections follow the web tuner's `nostalgex-collections.js`, and
+`tests/vectors/collections.json` holds the port to it. The library load reads
+each server's collections from its movie and TV sections. A collection with
+3 or more films or episodes gets a row under MY COLLECTIONS in Settings. A
+collection of shows counts every episode of each show the library has. Every
+row starts off. A row that is switched on airs from CH 500, alphabetical, up
+to CH 699. A collection channel belongs to no package, as on the web, and
+airs its collection unshuffled. Not ported: Jellyfin and Emby BoxSets, and
+the Apple TV app's split into FRANCHISES and OTHER COLLECTIONS
+(`CollectionClassifier`), which the web tuner doesn't have either.
+
+While the FRANCHISES package is on, a collection that is a franchise the
+package already carries folds into it. It leaves the list and never gets a
+channel. This follows the Apple TV app's `FranchiseCollectionFold`, since
+franchises here do. The web tuner's `foldTarget` takes the stock classics
+only, with the name match, the manifest overlap and 60% of the collection
+already in the pool. The Apple TV app adds the found franchises (CH 300 up,
+switched on or not) and the dictionary: enrichment's TMDB collection ids
+first, then the collection's title. A collection that holds shows folds only
+into a franchise that already airs an episode of each show. Given the stock
+classics and no dictionary, the port answers as `foldTarget`, which the
+vectors check. With the package off, nothing folds.
 
 In a build without enrichment a film has no TMDB collection id, so only the
 dictionary's film titles and name tokens place films, and no franchise is
@@ -165,14 +188,29 @@ web tuner does, so `tests/live/` checks that against a real server:
   schedule at the TV's clock, and diffs the two.
 
 The loader differs from upstream only where no result depends on it. Items
-carry a server index, not the server's token, and no `serverID`, which only
-upstream's server collections read. The display string `meta` is built by the
-guide. Requests run one at a time, in upstream's order. Like upstream, it asks
+carry a server index, not the server's token, and no `serverID`: server
+collections key items by the index instead. The display string `meta` is
+built by the guide. Requests run one at a time, in upstream's order. Like upstream, it asks
 Plex for `includeGuids=1`, which is what gives items a TMDB id for the
 membership manifest, and episodes take their show's id.
 
 `compare.mjs` runs upstream at the commit pinned in `data/UPSTREAM`, from a
 throwaway checkout, whatever the clone has checked out.
+
+`tests/live/collections.mjs` checks server collections without a TV. It loads
+the library with upstream's loader and reads the collections with upstream's
+module, recording every response. It builds the list and channels as the web
+tuner does, with every collection switched on. Then it replays the responses
+through the port in the off-device interpreter (`tests/live/LiveCollections.brs`)
+and diffs the two line for line. The recording goes to
+`out/live-collections.json`. It checks how the port reads the responses and
+the port's collection logic. It does not check the TV's own requests.
+
+First run, 2026-10-16: 67 collections on one server, all in the movie
+library, none holding shows. 26 had 3 or more films. 11 of those folded into
+a classic, and 15 became channels from CH 500. The port matched line for
+line. Collections of shows are checked only by the vectors and the transcribed
+cases until a server has one.
 
 The maintainer's device report (Discussion #8) was checked on both TVs on
 2026-10-16, at `f237f6c`. With 70 channels built from 5,363 items, saving the
@@ -180,8 +218,8 @@ pools used 16% of the app's memory limit, and 35% while the saved guide was also
 showing. Deep links sent over ECP tuned channels 1 to 8 fullscreen. A
 transcoded film joined 70 minutes in had Plex's transcode window at minutes
 70 to 81, not at 0:00. Still unseen: the SERVER rows (both TVs reach one
-server, so the rows don't show), the sign-in code changing after 5 minutes,
-and `*` in the guide.
+server, so the rows don't show) and the sign-in code changing after 5 minutes.
+`*` in the guide was pressed on a TV and did nothing, as intended.
 
 ## BrightScript notes
 

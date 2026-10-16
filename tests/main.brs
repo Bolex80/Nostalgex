@@ -19,6 +19,9 @@ sub Main(args = invalid as Dynamic)
     timer.Mark()
     failures = failures + NxRunEnrichmentTests("pkg:/tests/vectors/enrichment.json")
     print "  enrichment took "; timer.TotalMilliseconds(); " ms"
+    timer.Mark()
+    failures = failures + NxRunCollectionTests("pkg:/tests/vectors/collections.json", "pkg:/data/channels.json", "pkg:/data/franchises.json")
+    print "  collections took "; timer.TotalMilliseconds(); " ms"
     failures = failures + NxRunSubtitleTests()
     failures = failures + NxRunGuideNavTests()
     failures = failures + NxRunDeepLinkTests()

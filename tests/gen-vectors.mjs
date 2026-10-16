@@ -4,7 +4,7 @@
 // the Apple TV Swift. The BrightScript port must reproduce every vector; a
 // divergence is a bug in the port, never a reason to regenerate.
 //
-//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise,enrichment}.json
+//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise,enrichment,collections}.json
 //   node tests/gen-vectors.mjs --check    # fail if the file is stale
 //
 // Upstream clone: $NOSTALGEX_DIR, default ../nostalgex next to this repo.
@@ -21,6 +21,7 @@ import { filterVectors } from "./gen-filter.mjs";
 import { lineupVectors } from "./gen-lineup.mjs";
 import { franchiseVectors } from "./gen-franchise.mjs";
 import { enrichmentVectors } from "./gen-enrichment.mjs";
+import { collectionsVectors } from "./gen-collections.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", "..", "nostalgex"));
@@ -223,6 +224,11 @@ const files = [
     generatedBy: "tests/gen-vectors.mjs (tests/gen-enrichment.mjs)",
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-enrichment.js" },
     ...enrichmentVectors(upstream),
+  }],
+  [join(here, "vectors", "collections.json"), {
+    generatedBy: "tests/gen-vectors.mjs (tests/gen-collections.mjs)",
+    upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-collections.js" },
+    ...(await collectionsVectors(upstream)),
   }],
 ];
 let stale = false;

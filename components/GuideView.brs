@@ -778,6 +778,9 @@ sub openSettings()
     franchises = m.top.guide.franchises
     if franchises = invalid then franchises = []
     m.settings.franchises = franchises
+    collections = m.top.guide.collections
+    if collections = invalid then collections = { rows: [], overCap: 0, scanned: 0, failed: 0 }
+    m.settings.collections = collections
     m.settings.ObserveField("result", "onSettingsResult")
     m.top.AppendChild(m.settings)
     m.settings.callFunc("open", invalid)

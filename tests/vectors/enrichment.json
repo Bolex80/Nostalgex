@@ -2,7 +2,7 @@
  "generatedBy": "tests/gen-vectors.mjs (tests/gen-enrichment.mjs)",
  "upstream": {
   "repo": "https://github.com/chadMueller/Nostalgex",
-  "commit": "43f6ee71a5a1d192b05788a0b6bdb20b4a846f4a",
+  "commit": "4b37674b67dbf2d70bdf6c46491b13c17ede7800",
   "engine": "scripts/nostalgex-enrichment.js"
  },
  "fetchedAt": "2026-10-11T12:00:00.000Z",

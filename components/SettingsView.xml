@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Settings, after the Apple TV app's: channel packages on and off,
-     each franchise under FRANCHISES, which Plex servers to read, subtitles, and signing out of Plex. Choices are saved on the TV; the guide
-     is rebuilt when Settings closes with a package change. -->
+     each franchise under FRANCHISES, the server's collections under MY
+     COLLECTIONS (the web tuner's), which Plex servers to read, subtitles, and signing out of Plex.
+     Choices are saved on the TV; the guide is rebuilt when Settings closes
+     with a package, franchise, collection or server change. -->
 <component name="SettingsView" extends="Group">
   <interface>
     <field id="bundles" type="array" />
     <field id="enabledBundles" type="array" />
     <!-- The franchise list under FRANCHISES, from the last guide build. -->
     <field id="franchises" type="array" />
+    <!-- MY COLLECTIONS from the last guide build: { rows, overCap, scanned, failed }. -->
+    <field id="collections" type="assocarray" />
     <!-- Set when Settings closes: "close", "rebuild" or "signOut". -->
     <field id="result" type="string" alwaysNotify="true" />
     <function name="open" />
@@ -18,6 +22,7 @@
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/CollectionChoices.brs" />
   <script type="text/brightscript" uri="pkg:/components/SettingsView.brs" />
   <children>
     <Rectangle width="1920" height="1080" color="0x0B0B1CFF" />
