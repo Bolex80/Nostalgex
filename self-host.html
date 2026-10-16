@@ -203,10 +203,29 @@
 
   <main id="top">
     <section class="section doc-hero">
-      <div class="container">
-        <h1>Run Nostalgex on your own server</h1>
-        <p>The same web tuner that runs at nostalgex.app, as a small Docker container sitting next to your media server. It serves the tuner over plain http on your own network, which is the one thing the hosted site can't do.</p>
-        <p>That matters if you run Jellyfin or Emby on a plain <code>http://</code> address. Browsers won't let an https page talk to a plain http server, so nostalgex.app can't reach your box no matter what you type into it. Run the tuner yourself and that wall is gone.</p>
+      <div class="container sh-hero">
+        <div class="sh-hero-copy">
+          <h1>Run Nostalgex on your own server</h1>
+          <p>The same web tuner that runs at nostalgex.app, as a small Docker container sitting next to your media server. It serves the tuner over plain http on your own network, which is the one thing the hosted site can't do.</p>
+          <p>That matters if you run Jellyfin or Emby on a plain <code>http://</code> address. Browsers won't let an https page talk to a plain http server, so nostalgex.app can't reach your box no matter what you type into it. Run the tuner yourself and that wall is gone.</p>
+        </div>
+
+        <aside class="sh-quickstart" aria-labelledby="sh-quickstart-heading">
+          <div class="sh-quickstart-head">
+            <svg class="sh-docker-mark" viewBox="0 0 24 18" role="img" aria-label="Docker" focusable="false">
+              <path fill="currentColor" d="M13.6 7.2h2.3v-2h-2.3v2Zm-2.9 0H13v-2h-2.3v2Zm-2.8 0h2.3v-2H7.9v2Zm-2.8 0h2.3v-2H5.1v2Zm2.8-2.6h2.3V2.5H7.9v2.1Zm2.8 0H13V2.5h-2.3v2.1Zm0-2.6H13V0h-2.3v2Zm5.7 5.2H19v-2h-2.6v2Zm7.1 1.2c-.5-.3-1.6-.5-2.5-.3-.1-.9-.6-1.6-1.4-2.3l-.5-.3-.3.5c-.4.6-.6 1.5-.5 2.3 0 .3.1.8.4 1.2-.3.2-.9.4-1.7.4H.6l-.1.4c-.2 1.3 0 2.7.6 3.9.7 1.3 1.8 2.3 3.2 2.8 1.5.5 3.9.8 6.5.3 1.9-.4 3.6-1.1 5.1-2.3 1.2-.9 2.2-2.1 3-3.5h.2c1.6 0 2.6-.6 3.1-1.2.4-.4.6-.8.8-1.3l.1-.4-.4-.2Z"/>
+            </svg>
+            <h2 id="sh-quickstart-heading">Start here</h2>
+          </div>
+          <p class="sh-quickstart-sub">One command. Nothing is installed on your media server.</p>
+          <pre class="sh-cmd"><code>docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/chadmueller/nostalgex:latest</code></pre>
+          <p class="sh-quickstart-then">Then open <code>http://YOUR-SERVER-IP:8080</code> in a browser on the same network.</p>
+          <div class="sh-quickstart-links">
+            <a class="sh-quickstart-cta" href="#run-it">Compose file and the rest of the setup</a>
+            <a href="https://github.com/chadMueller/Nostalgex/pkgs/container/nostalgex" target="_blank" rel="noopener">Image on GHCR</a>
+            <a href="https://github.com/chadMueller/Nostalgex" target="_blank" rel="noopener">Source on GitHub</a>
+          </div>
+        </aside>
       </div>
     </section>
 

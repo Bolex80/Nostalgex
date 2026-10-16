@@ -199,6 +199,45 @@
     });
   }
 
+  /* ---------- Copy buttons on command blocks ----------
+     The self host page is mostly commands people have to retype into a shell.
+     Added here rather than in the markup so a copy button only ever appears
+     when the clipboard API is actually available. */
+  if (navigator.clipboard && window.isSecureContext) {
+    document.querySelectorAll("pre > code").forEach(function (code) {
+      var pre = code.parentElement;
+      if (pre.querySelector(".copy-btn")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "copy-btn";
+      btn.textContent = "COPY";
+      btn.setAttribute("aria-label", "Copy to clipboard");
+      var reset;
+      btn.addEventListener("click", function () {
+        navigator.clipboard.writeText(code.textContent.trim()).then(
+          function () {
+            btn.textContent = "COPIED";
+            btn.classList.add("is-copied");
+            clearTimeout(reset);
+            reset = setTimeout(function () {
+              btn.textContent = "COPY";
+              btn.classList.remove("is-copied");
+            }, 1600);
+          },
+          function () {
+            btn.textContent = "PRESS CTRL C";
+            clearTimeout(reset);
+            reset = setTimeout(function () {
+              btn.textContent = "COPY";
+            }, 2400);
+          },
+        );
+      });
+      pre.classList.add("has-copy");
+      pre.appendChild(btn);
+    });
+  }
+
   /* ---------- FAQ: close others when one opens ---------- */
   var faqs = document.querySelectorAll(".faq-list details");
   faqs.forEach(function (d) {

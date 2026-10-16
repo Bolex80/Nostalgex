@@ -1863,7 +1863,88 @@ a { color: inherit; }
 
 .doc-hero { padding-top: 132px; padding-bottom: 24px; }
 .doc-hero h1 { margin: 0 0 12px; }
-.doc-hero p { color: var(--ink-soft); max-width: 640px; margin: 0; }
+/* Two paragraphs with margin:0 ran together as one block, which read as a
+   single wrapped sentence rather than two thoughts. */
+.doc-hero p { color: var(--ink-soft); max-width: 640px; margin: 0 0 14px; }
+.doc-hero p:last-child { margin-bottom: 0; }
+
+/* Self host hero: the copy filled half the width and left the rest empty, and
+   the one thing a Docker user wants (the command) was four sections down the
+   page. The card puts it in the first screen. */
+.page-selfhost .sh-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 48px;
+  align-items: start;
+}
+.page-selfhost .sh-quickstart {
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper-deep);
+  box-shadow: 5px 5px 0 var(--cyan);
+  padding: 22px 22px 20px;
+}
+.page-selfhost .sh-quickstart-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.page-selfhost .sh-docker-mark {
+  width: 30px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--cyan);
+}
+.page-selfhost .sh-quickstart h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.page-selfhost .sh-quickstart-sub,
+.page-selfhost .sh-quickstart-then {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: none;
+}
+.page-selfhost .sh-quickstart-then { margin: 12px 0 16px; }
+/* The command is longer than the card, and a horizontal scrollbar hides the
+   end of it. Wrap instead: it is there to be read and copied, not scrolled. */
+.page-selfhost .sh-cmd {
+  margin: 0;
+  overflow-x: visible;
+}
+.page-selfhost .sh-cmd code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.page-selfhost .sh-quickstart-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.page-selfhost .sh-quickstart-cta {
+  font-weight: 700;
+  color: var(--pink);
+}
+@media (max-width: 900px) {
+  .page-selfhost .sh-hero {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .page-selfhost .sh-quickstart {
+    box-shadow: 3px 3px 0 var(--cyan);
+    padding: 18px;
+  }
+}
 
 .doc-layout {
   display: grid;
@@ -2559,4 +2640,33 @@ a { color: inherit; }
     color: var(--ink-faint);
   }
   .page-selfhost .sh-table code { white-space: normal; }
+}
+
+/* Copy button, added by app.js to every command block. Sits inside the <pre>,
+   out of the way until the pointer is near it. */
+pre.has-copy { position: relative; }
+pre.has-copy .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 2px solid var(--hairline);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms var(--ease), color 140ms var(--ease), border-color 140ms var(--ease);
+}
+pre.has-copy:hover .copy-btn,
+pre.has-copy .copy-btn:focus-visible { opacity: 1; }
+pre.has-copy .copy-btn:hover { color: var(--pink); border-color: var(--pink); }
+pre.has-copy .copy-btn.is-copied { color: var(--cyan); border-color: var(--cyan); opacity: 1; }
+/* No hover on touch, so the button has to stay visible there. */
+@media (hover: none) {
+  pre.has-copy .copy-btn { opacity: 1; }
 }
