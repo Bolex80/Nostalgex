@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (PR #28: current-main rebase and test sensitivity)
+
+**Shipped.** Updated `fix/web-tune-ownership` for PR #28 on current main `bfb4453`. No app release, installation or deployment.
+
+**Changed.** Rebased the rapid-tune patch and retained the upstream Roku relay, tablet rail, phone drawer and inline-player work. Both sides of the development-log conflict are preserved, including the earlier reconciliation entry. The production tuner is byte-for-byte unchanged from the previous PR head; this follow-up changes tests and this log only.
+
+The race harness now enters through populated `switchChannel` paths, including A to B to A, and exercises the production advancement function. It executes the registered document/native fullscreen callbacks and pointer, touch and key retry callbacks. Rejected play promises leave the fixture paused. Fixture element ids must exist in the production HTML; schedule time, rendering, media and network remain controlled fixtures.
+
+**Measured.** All 25 production-function scenarios pass. Four in-memory negative controls each fail the expected behavioral assertion when request ownership, queued-gesture protection, old-manifest protection or native-fullscreen resume is removed. Missing mutation targets are errors, not successful negative controls. The complete npm suite, including the upstream Roku relay smoke checks, and both hosted and self-host builds pass. The offline native suite passes 698 tests with zero failures; six live/opt-in harness classes were excluded. Both inline tuner scripts parse, the harness passes syntax checks and the diff has no whitespace errors.
+
+**Half-done.** These are mocked DOM/media callback tests, not a real-browser or WebKit acceptance pass. Phone/tablet layout, actual codec playback, CORS and live server cleanup remain unverified. Fresh GitHub Actions will validate the pushed head; the known fork-only Vercel preview gate is unchanged.
+
+**Next.** Review #28 first. The native recovery, playback-information and reporting-controls PRs remain on hold in that order; native recovery needs hardware acceptance and reporting controls need a Settings/defaults decision.
+
 ## 2026-10-15 (the relay accepts a Roku client)
 
 **Changed.** `X-Nostalgex-Client: roku` is now accepted by `api/tmdb.js`, alongside
@@ -63,6 +77,18 @@ before.
 `/self-host` earns a nav or footer link. The iPhone and iPad row should become
 Works or something worse once someone opens it on a real phone, and the TV
 browser row needs a Fire TV before it can say anything at all.
+
+## 2026-10-15 (PR #28: upstream reconciliation)
+
+**Shipped.** Updated `fix/web-tune-ownership` for PR #28. No app release or deployment.
+
+**Changed.** Merged upstream `1ae5dc4` so the tablet control rail is retained alongside rapid-tune ownership. Only the development log conflicted; both the upstream and feature entries are preserved. No ownership behavior was changed during reconciliation.
+
+**Measured.** The complete npm suite, hosted build and self-host build passed on the reconciled tree, including all 17 rapid-tune race scenarios. Native source and bundled channel inputs are unchanged from upstream, so this web-only update did not need a new native run. The staged diff has no whitespace errors.
+
+**Half-done.** Real-browser playback and live server cleanup are still unverified. Fresh GitHub Actions will validate the updated PR head after push.
+
+**Next.** Await upstream review. Combining this with the independent reporting controls remains a separate integration step.
 
 ## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
 
@@ -134,6 +160,49 @@ reporting a coarse pointer keeps the desktop layout.
 **Next.** Chad to look at it on the iPad, in both orientations, and say whether
 portrait's narrower video is the right trade for the controls and the extra
 guide rows. If it is, merge and ship with the next web tuner deploy.
+
+## 2026-10-14 (Web rapid-tune ownership, local review branch)
+
+**Shipped.** Nothing published. This patch is prepared locally on
+`fix/web-tune-ownership` for separate review.
+
+**Changed.** An offline harness reproduced the production race: selecting A then
+B, with PlaybackInfo resolving B then A, left A attached to the player. Subtitle
+responses could likewise append A after B. Each tune now owns a generation,
+request identity, cancellation signal, and captured connection context. Results
+must still own the current selection after asynchronous work before changing the
+player, tracker, or active server session. Returning to the same channel and
+item does not revive an old request.
+
+- Retiring a tune aborts its resolver, destroys its HLS loader, removes native
+  metadata listeners, and cancels failure/stall timers. Queued media, HLS, gesture
+  retry and subtitle callbacks also check ownership before acting.
+- Late resolver results release only their captured server session, including
+  Jellyfin/Emby active encodings. Cleanup does not use mutable connection
+  credentials or a device-wide stop. A reused active session id is protected.
+  Selecting a channel with no program now retires the outgoing playback.
+- Subtitle loads have separate cancellation and generations, including body-read
+  awaits and preference reloads for the same item.
+- Added `npm run test:web-tune-ownership` to the standard test chain. Its 17
+  offline scenarios execute production functions with controlled promises,
+  mocked network/media/DOM, and fetches deliberately ignoring abort signals.
+  All 17 passed. Existing web player smoke passed all 12 assertions; Jellyfin
+  URL smoke passed 26. The new script passed `node --check`, both inline tuner
+  scripts parsed without execution, and `git diff --check` passed. The complete
+  npm suite and both hosted and self-hosted builds also passed. The native
+  source tree and bundled channel inputs are identical to pinned upstream
+  `9dd308b`, whose offline native suite passed 698 tests; no native source
+  change required a new native run for this web-only patch.
+
+**Half-done.** Local branch only. No live Plex, Jellyfin or Emby requests, browser
+media playback, CORS checks, or device testing were performed. Session deletion
+is best effort; when cancellation prevents receiving a server-assigned session
+id, the client cannot explicitly delete that unknown id. Activity-reporting
+features and pause controls are outside this patch.
+
+**Next.** Review the local diff and complete real-browser validation before
+choosing whether to publish. Verify rapid tuning with native HLS and
+HLS.js, subtitles, connection changes, and server-side session cleanup.
 
 ## 2026-10-14 (Docker web tuner: caught up with main, branch)
 
