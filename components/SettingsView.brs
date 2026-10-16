@@ -50,7 +50,7 @@ sub open(unused = invalid as Dynamic)
     reg = NxPlexRegistry()
     m.servers = ParseJson(reg.Read("servers"))
     if type(m.servers) <> "roArray" then m.servers = []
-    m.serversOn = NxServersOn(m.servers, ParseJson(reg.Read("serverChoices")))
+    m.serversOn = NxServersOn(m.servers, NxSavedServerChoices())
     m.serversChanged = false
     buildRows()
     m.top.SetFocus(true)

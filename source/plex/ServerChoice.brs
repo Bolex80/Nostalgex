@@ -36,6 +36,14 @@ function NxServersOn(servers as Object, choices as Dynamic) as Object
     return on
 end function
 
+' The saved choices, or invalid when there are none. An empty read isn't
+' handed to ParseJson, which logs an error for it.
+function NxSavedServerChoices() as Dynamic
+    raw = CreateObject("roRegistrySection", "plex").Read("serverChoices")
+    if raw = "" then return invalid
+    return ParseJson(raw)
+end function
+
 ' What the saved guide and pools are keyed on: the servers that are on.
 function NxServersOnKey(servers as Object, choices as Dynamic) as String
     on = NxServersOn(servers, choices)

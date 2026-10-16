@@ -23,7 +23,7 @@ function NxSavedServersOnKey() as String
     reg = NxPlexRegistry()
     servers = ParseJson(reg.Read("servers"))
     if type(servers) <> "roArray" then return ""
-    return NxServersOnKey(servers, ParseJson(reg.Read("serverChoices")))
+    return NxServersOnKey(servers, NxSavedServerChoices())
 end function
 
 ' The saved pools: each guide channel's pool as the last build filtered it,
@@ -163,7 +163,7 @@ sub loadLibrary()
 
     items = []
     ' Every server keeps its index, on or off, since items carry it.
-    serversOn = NxServersOn(servers, ParseJson(NxPlexRegistry().Read("serverChoices")))
+    serversOn = NxServersOn(servers, NxSavedServerChoices())
     for i = 0 to servers.Count() - 1
         if serversOn[i] then
             m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
