@@ -24,7 +24,7 @@ One backend at a time. Jellyfin and Emby share the MediaBrowser code path; the f
 
 ## Emby
 
-Its own choice on the connect page since branch `web/sleep-info-emby`: **Connect with Emby**, username and password (Emby has no Quick Connect). On nostalgex.app the address has to be https, like Jellyfin; in the Docker container a plain `http://` address works. Settings > SERVER says EMBY SERVER.
+Its own choice on the connect page: **Connect with Emby**, username and password (Emby has no Quick Connect). On nostalgex.app the address has to be https, like Jellyfin; in the Docker container a plain `http://` address works. Settings > SERVER says EMBY SERVER.
 
 What is different from Jellyfin, mirroring `Nostalgex/Nostalgex/Services/EmbyAPIService.swift` (helpers and tests in `scripts/nostalgex-jellyfin-urls.js`):
 
