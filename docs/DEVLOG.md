@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (PR #27 merged after a hardware pass)
+
+**Shipped.** PR #27 by @w6trp is merged to main: native playback recovery belongs to one attempt at a time, and a server reply that arrives after its attempt was superseded only stops its own session. Not in a release yet. It goes out with the next TestFlight build.
+
+**Measured.** Debug build of the merged tree on an Apple TV 4K (3rd generation), against a Plex server on the LAN, with Plex's `/transcode/sessions` polled every 3s.
+
+- Recovery still recovers. Stopping the server transcode from outside the app gave a 20s stall, then the starvation ladder resumed the same item at the same position on a fresh session capped at 1080p. One transcode on the server afterwards.
+- A second forced stop, on the stream that was already capped, advanced to the next scheduled item after an error banner. Same path, same behaviour as main before the merge.
+- 78 channel changes in about three minutes, 39 of them server transcodes, many superseded mid-handshake. Every stop played the selected channel and no late reply replaced the player.
+- Nine transcode sessions were visible at 3s resolution. Five were stopped by the app within 3 to 12 seconds. Three idle stubs (progress 0, speed 0, no duration) were never stopped and Plex reaped each one at its own 180s idle timeout. The ninth was the channel left playing.
+- NostalgexTests on the merged tree: 705 passed, 0 failed, 9 skipped.
+
+**Unverified.** Whether main before the merge leaves the same idle stubs; the same run against the old build would settle it. Jellyfin and Emby recovery under #27 were not exercised on hardware.
+
+**Next.** Trace the idle stubs (most likely a decision or start request that reaches Plex after its stop) once the comparison says whether they are new. PR #26 next, then #25.
+
 ## 2026-10-16 (PR #28: current-main rebase and test sensitivity)
 
 **Shipped.** Updated `fix/web-tune-ownership` for PR #28 on current main `bfb4453`. No app release, installation or deployment.
