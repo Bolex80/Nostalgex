@@ -3,6 +3,26 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-19 (Emby A/V sync fix moved onto build 50)
+
+**Shipped.** Nothing. Branch `fix/emby-avsync-ts` is rebased onto `build-50`, not merged, not in any build. The 2026-10-16 entry below has the cause and the first measurements.
+
+**How it sits with build 50.** Build 50 changed the same PlaybackInfo request: no subtitle stream (`SubtitleStreamIndex` -1, every subtitle profile External), a second request that burns a forced track in the viewer's language (Encode), and the Dolby Vision range list on the HEVC codec profile. The segment format is one more parameter next to those and touches none of them. For an H.264 file the Emby body differs from build 50's in two values, the transcoding profile's `Container` (mp4 to ts) and `VideoCodec` (h264,hevc to h264); for HEVC it is the same body. The forced-subtitle request asks for the same format as the first. Jellyfin is unchanged.
+
+**Measured.** Lab Emby 4.10.1.0, each build's own request body (encoded by the app code), fetched in AVPlayer's order with 400 ms per segment, two encodes per join (the first, then the restart at the join segment). The H.264 + DTS eye-test file joined at 160 s, where the soak test joins:
+
+| Join segment | build 50 | branch |
+|---|---|---|
+| Format | fMP4 | MPEG-TS |
+| First PTS, video / audio | 0.083 / 0.000 s, both from zero | 164.154 / 165.979 s: source time + 10 s, the keyframe before 156 s and 156 s |
+| Beep minus flash | -1916 ms | -8 ms |
+
+The same file joined at 247.3 s: -1832 / -15 ms. The flash-per-second H.264 + DTS file: -1930 / -22 ms at 160 s, -1816 / +1 ms at 247.3 s; in AVPlayer on a Mac, -1833 / +14 ms and -1719 / +36 ms. HEVC + DTS: fMP4 on both, -1916 ms on both, the known limit. Forced subtitles over TS: Emby burned an SRT forced track (subtitles filter) and a PGS forced track (overlay) into libx264 MPEG-TS segments, AC3 copied, every segment 200.
+
+**Tests.** NostalgexTests: 831 run, 819 passed, 0 failed, 12 skipped (build 50 alone: 819 run, 807 passed, 12 skipped). `EmbySegmentContainerTests` gained two: TS changes nothing in the body but the transcoding profile, with and without a burned track; and the forced-subtitle request asks for the same format as the first. `npm test` green.
+
+**Next.** The eye test on the living room Apple TV, Debug 1.0.27 (50) with and without the fix.
+
 ## 2026-10-19 (TIS THE SEASON: the invite from a week before Thanksgiving)
 
 **Shipped.** Nothing yet. Branch `holiday/invite-thanksgiving`, five commits on build-50 (0b1899c), this entry included, not pushed. Apple TV needs an App Store build; the web tuner gets it when main is pushed, and Docker with the next `tuner-v*` tag.
@@ -267,6 +287,45 @@ Also found: a file whose audio track runs far past its video (one film: 97 min o
 - Roku port: the SCREAM lock uses `channelIDs: [132, 415]`, WORLD HORROR and MYSTERY BOX TV are `manifestOnly`, and lock `titleContains` is whole words now.
 - Locks still hide two kinds of item, as before: a music video whose song is titled exactly "Scream", or any Christmas song, is locked to movie channels that never air music videos; a show with Santa as a word in its name is locked to the holiday movie channels. One fix would be that a lock never applies to an item none of its channels can air.
 - Blog posts that say SCREAM "adds four horror channels" want a refresh once the app update is out.
+
+## 2026-10-16 (Emby: sound and picture drift apart after tuning in mid-programme)
+
+**Shipped.** Nothing yet. Branch `fix/emby-avsync-ts`, not merged, not in any build.
+
+**Report.** On Discord: Emby, Apple TV 4K (1st generation), 1.0.26. On some channels the sound and the picture drift apart and never catch up.
+
+**Cause, measured.** Every mid-programme join on Emby restarts the server's encode at the join segment: the app loads the stream and seeks, and Emby starts ffmpeg again there ("Starting transcoding because segmentGap is 39 ... requestedIndex=41"). When the video is copied and the audio is not (DTS, TrueHD, FLAC: anything AVPlayer cannot decode), the copied video starts at the keyframe before the join point and the audio exactly at it. In fMP4 segments both tracks are stamped from zero and the gap is kept only as an edit list in the init segment, which AVPlayer does not apply. The sound then runs early by the distance back to the previous keyframe, up to a whole GOP, until the programme ends. A programme watched from its start is fine, which is why only some channels showed it.
+
+**How it was measured.** A Mac harness plays the same URLs the app requests in AVPlayer, timestamps flash frames through `AVPlayerItemVideoOutput` and beeps through a capture of its own audio mapped to the item's timebase, and reports sound minus picture. Synthetic files with one flash and one beep per second, a test Emby 4.10.1.0, a join at 247.3 s, segment responses held 400 ms to stand in for a real network. The harness reads +25 to +36 ms on a file played from its start, so that band is "in sync".
+
+| Source | fMP4 + seek (today) | TS + seek (branch) |
+|---|---|---|
+| H.264 + DTS 5.1, 2 s GOP | -1720 ms | +35 ms |
+| H.264 + FLAC, 5 s GOP | -731 ms | +24 ms |
+| H.264 + TrueHD 5.1, 10.4 s GOP | about -6.2 s | +24 ms |
+| H.264 + AC3, audio 0.5 s late in the file | -487 ms | +9 ms |
+| MPEG-2 + AC3 (video re-encoded, audio copied) | +511 ms | +24 ms |
+| H.264 + AC3, both copied | -59 to -69 ms | +9 to +19 ms |
+| H.264 + AAC, both copied | -49 ms | +14 ms |
+| MPEG-4 ASP + MP3, AVI (video re-encoded, MP3 copied) | does not open (-11829) | -5 ms |
+
+Emby 4.8.11.0 and 4.9.5.0 in Docker measure the same (H.264 + DTS -1720 / +35 ms, H.264 + FLAC -731 / +24 ms). The hand-built fallback and the 1080p rung on TS: +35 ms. TS played from the start: +36 ms.
+
+**Changed.** Emby HLS is MPEG-TS whenever the video can only come out as H.264, and fMP4 only when it may come out as HEVC, which AVPlayer will not render from TS. TS carries the source timestamps, so the player lines the tracks up itself, restart or not. One decision, `JellyfinPlaybackResolver.embySegmentContainer`, used by all three Emby HLS requests: the PlaybackInfo device profile, the hand-built fallback after a failed direct play, and the 1080p rung. A TS request offers H.264 only, so the server can never put HEVC in it. The join is still a client seek.
+
+**Tests.** `EmbySegmentContainerTests` (10): the decision table, the PlaybackInfo profile, the fallback and capped URLs, the client seek, direct play, and Jellyfin unchanged. NostalgexTests: 792 passed, 0 failed, 10 skipped (opt-in live harnesses). `npm test` green.
+
+**Rejected.**
+- A start time instead of the seek. Emby would accept one: `StartTimeTicks` on PlaybackInfo comes back as `#EXT-X-START`, its segment URLs carry only `PlaySessionId`, and every request answered 200 on 4.8.11.0, 4.9.5.0 and 4.10.1.0. It does not help: AVPlayer fetches init.mp4 first, which starts the encode at zero, and the join segment restarts it anyway (-1723 ms). Even an encode started at the join point before AVPlayer asked for anything played -1784 ms out on fMP4, because the gap is still only in the edit list.
+- Re-encoding the video on a join (`AllowVideoStreamCopy=false`). In sync when the audio is transcoded (+62 to +73 ms), but the gap flips when the audio is copied (H.264 + AC3 +1829 ms, H.264 + AAC about +6.2 s), it costs a full video encode, and Emby 4.10.1.0 cannot transcode 10-bit sources at all.
+
+**Side effects, measured.** With no pacing (the player outrunning the encoder on localhost) the fMP4 join never played: Emby restarted ffmpeg for every segment, 42 restarts in 20 s and 2 frames decoded. TS played the same join in sync with 2 restarts. On a long-GOP file a TS seek can land up to a GOP after the requested time (10.4 s GOP: playback began at 252.2 s for a 247.3 s join).
+
+**Not changed.** Jellyfin: the same fMP4 join is in sync on Jellyfin 12.2.0 (H.264 + DTS +35 ms, H.264 + FLAC +24 ms), so it keeps fMP4. Plex and every direct play are untouched. The web tuner already asks Jellyfin and Emby for TS (H.264, AAC stereo): +35 and +24 ms through AVPlayer on the same Emby, and -2 to -12 ms between PTS in the TS it receives.
+
+**Unverified.** Not run on an Apple TV yet; macOS AVFoundation is close to tvOS for HLS but not the same, and an Apple TV passing AC3 to a receiver adds its own latency. HEVC with a transcoded audio track still streams as fMP4 and still drifts: H.265 + DTS -1720 ms, 10-bit H.265 + TrueHD -1731 ms, on all three Emby versions. EAC3 with Atmos in TS has not been tried. A file whose library entry has no video codec keeps fMP4 on an HEVC-capable device.
+
+**Next.** On an Apple TV 4K (1st generation), the reporter's model: tune into an H.264 MKV with DTS or TrueHD mid-programme on Emby and check by eye. For HEVC, the cheap next step is preferring an AC3/EAC3/AAC track in the viewer's language when the file has one, so the audio is copied and starts with the video.
 
 ## 2026-10-16 (PR #25 merged: Show Now Playing and Mark Watched are separate)
 

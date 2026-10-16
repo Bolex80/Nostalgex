@@ -24,10 +24,17 @@ extension JellyfinPlaybackResolver {
     /// A cold request for segment N starts the transcode at N (measured: segment 11 came
     /// back in 9 ms with its first PTS at 114.58 s), so a client-side seek on the full
     /// playlist is the designed path, and the one Jellyfin's own web player takes.
-    /// Emby goes through here too. Jellyfin's HLS controller is forked from Emby's, with the
-    /// same full-runtime playlist and query string copied onto every segment URL. Measured
-    /// against Emby Server 4.10.1.0 on 2026-10-08: a mid-schedule join started at 47 minutes
-    /// into a 2:50:00 film and held real time.
+    /// Emby goes through here too. Measured against Emby Server 4.10.1.0 on 2026-10-08: a
+    /// mid-schedule join started at 47 minutes into a 2:50:00 film and held real time.
+    ///
+    /// Emby would take the start time: it does not copy the query string onto segment URLs
+    /// (they carry only `PlaySessionId`), and a `StartTimeTicks` on PlaybackInfo comes back
+    /// as `#EXT-X-START` with every request answering 200 on 4.8.11.0, 4.9.5.0 and
+    /// 4.10.1.0 (measured 2026-10-16). It is still not used, because it does not fix what
+    /// the seek gets wrong there: AVPlayer fetches init.mp4 first, which starts the encode
+    /// at zero, and the join segment restarts it, the same as a seek. Even an encode that
+    /// starts at the join point played 1.78 s out of sync on fMP4. What fixes that is the
+    /// segment format; see `embySegmentContainer`.
     static func offsetPlayback(
         _ resolution: PlaybackResolution,
         offsetSeconds: Int
@@ -48,16 +55,18 @@ extension JellyfinPlaybackResolver {
     /// the server for materially less work than the stream that just starved, not to
     /// re-request the same bitrate under a new session id.
     ///
-    /// No start time goes on this URL. The segment handler rejects one, same as the first
-    /// attempt, so the caller seeks instead; `cappedStreamStartsAtOffset` is false on both
-    /// backends to say so.
+    /// No start time goes on this URL, so the caller seeks instead;
+    /// `cappedStreamStartsAtOffset` is false on both backends to say so. Jellyfin refuses a
+    /// start time on segment requests, and on Emby it does not help (see `offsetPlayback`).
+    /// `segmentContainer` is "mp4" for Jellyfin; Emby passes `embySegmentContainer`.
     static func cappedTranscodeURL(
         serverURL: String,
         item: PlexMediaItem,
         accessToken: String,
         deviceID: String,
         sessionID: String,
-        supportsHEVC: Bool
+        supportsHEVC: Bool,
+        segmentContainer: String = "mp4"
     ) -> URL? {
         guard var components = URLComponents(string: "\(serverURL)/Videos/\(item.ratingKey)/master.m3u8") else {
             return nil
@@ -67,14 +76,50 @@ extension JellyfinPlaybackResolver {
             .init(name: "api_key", value: accessToken),
             .init(name: "DeviceId", value: deviceID),
             .init(name: "PlaySessionId", value: sessionID),
-            .init(name: "VideoCodec", value: supportsHEVC ? "h264,hevc" : "h264"),
+            .init(name: "VideoCodec", value: transcodeVideoCodecs(supportsHEVC: supportsHEVC, segmentContainer: segmentContainer)),
             .init(name: "AudioCodec", value: "aac,ac3,eac3,mp3"),
             .init(name: "VideoBitrate", value: "8000000"),
             .init(name: "MaxWidth", value: "1920"),
             .init(name: "TranscodingMaxAudioChannels", value: "6"),
-            .init(name: "SegmentContainer", value: "mp4"),
+            .init(name: "SegmentContainer", value: segmentContainer),
         ]
         return components.url
+    }
+
+    /// Emby only: the HLS segment format to ask for. MPEG-TS whenever the stream's video can
+    /// only come out as H.264, fMP4 only when it may come out as HEVC, which AVPlayer will
+    /// not render from TS.
+    ///
+    /// Why: on Emby, every mid-programme join restarts the encode at the join segment (the
+    /// client seek; asking for the start time up front restarts it too, see
+    /// `offsetPlayback`). When the video is copied and the audio is not (DTS, TrueHD, FLAC
+    /// and other sources AVPlayer cannot decode), the copied video starts at the keyframe
+    /// before the join point and the audio exactly at it. fMP4 stamps both tracks from zero
+    /// and records the gap only in the init segment's edit list, which AVPlayer does not
+    /// apply, so the sound runs early by up to a whole GOP for the rest of the programme
+    /// and never catches up. TS segments carry the source timestamps, so the player lines
+    /// the tracks up itself. Measured on a Mac with AVPlayer against Emby 4.10.1.0
+    /// (2026-10-16), joining at 247 s, sound minus picture: H.264 + DTS (2 s GOP) -1720 ms
+    /// on fMP4, +35 ms on TS; H.264 + FLAC (5 s GOP) -731 / +24 ms; H.264 + TrueHD (10.4 s
+    /// GOP) about -6.2 s / +24 ms; the same files played from the start, +25 to +36 ms.
+    /// Asking Emby not to copy the video was rejected: it puts the gap the other way round
+    /// when the audio is copied (H.264 + AC3, +1829 ms) and fails outright on 10-bit
+    /// sources on Emby 4.10.1.0.
+    ///
+    /// An unknown codec on an HEVC-capable device keeps fMP4, which is what every stream
+    /// used before. HEVC copied into fMP4 still has the offset (H.265 + DTS -1720 ms,
+    /// 10-bit H.265 + TrueHD -1731 ms, on Emby 4.8, 4.9 and 4.10). Jellyfin does not need
+    /// this: the same fMP4 join measured in sync on Jellyfin 12.2.0 (+35 ms, +24 ms).
+    static func embySegmentContainer(videoCodec: String?, supportsHEVC: Bool) -> String {
+        let codec = videoCodec?.lowercased() ?? ""
+        let mayBeHEVC = supportsHEVC && (codec.isEmpty || codec == "hevc" || codec == "h265")
+        return mayBeHEVC ? "mp4" : "ts"
+    }
+
+    /// The video codecs a server stream may carry. TS is H.264 only: offering HEVC there
+    /// would let the server copy HEVC into TS, which plays as sound over a black picture.
+    static func transcodeVideoCodecs(supportsHEVC: Bool, segmentContainer: String) -> String {
+        supportsHEVC && segmentContainer != "ts" ? "h264,hevc" : "h264"
     }
 }
 
@@ -82,8 +127,9 @@ extension JellyfinPlaybackResolver {
 /// what this Apple TV can play so the server makes the right direct-play / remux / transcode
 /// decision instead of us guessing. The two load-bearing rules:
 ///   • HEVC is only an acceptable codec when the device can hardware-decode it.
-///   • Transcoding always targets fMP4 HLS (`Container: "mp4"`), never MPEG-TS — AVPlayer
-///     cannot render HEVC from a TS segment (the original black-screen bug).
+///   • HEVC is only ever streamed as fMP4 HLS (`Container: "mp4"`), never MPEG-TS: AVPlayer
+///     cannot render HEVC from a TS segment (the original black-screen bug). Jellyfin always
+///     gets fMP4; Emby gets TS when the video can only be H.264 (`embySegmentContainer`).
 /// CodecProfiles add the decode limits a codec name does not express; see `deviceProfile`.
 /// SubtitleProfiles stop the server painting subtitles into the picture; see `subtitleProfiles(burning:)`.
 struct JellyfinDeviceProfile: Encodable, Sendable {
@@ -189,14 +235,22 @@ enum JellyfinPlaybackResolver {
     ///
     /// `burningSubtitle` is the forced track to burn in, from `forcedSubtitleToBurn`; nil
     /// asks for no subtitle at all.
+    ///
+    /// `segmentContainer` is the HLS segment format; Jellyfin leaves it at "mp4" and Emby
+    /// passes `embySegmentContainer`, on both the usual request and the one burning a track.
     static func playbackInfoBody(
         mediaSourceId: String,
         supportsHEVC: Bool,
         serverStreamOnly: Bool,
-        burningSubtitle: Int? = nil
+        burningSubtitle: Int? = nil,
+        segmentContainer: String = "mp4"
     ) -> PlaybackInfoBody {
         PlaybackInfoBody(
-            DeviceProfile: deviceProfile(supportsHEVC: supportsHEVC, burningSubtitle: burningSubtitle != nil),
+            DeviceProfile: deviceProfile(
+                supportsHEVC: supportsHEVC,
+                burningSubtitle: burningSubtitle != nil,
+                segmentContainer: segmentContainer
+            ),
             MediaSourceId: mediaSourceId,
             MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
             SubtitleStreamIndex: burningSubtitle ?? noSubtitleStream,
@@ -270,7 +324,11 @@ enum JellyfinPlaybackResolver {
         }?.Index
     }
 
-    static func deviceProfile(supportsHEVC: Bool, burningSubtitle: Bool = false) -> JellyfinDeviceProfile {
+    static func deviceProfile(
+        supportsHEVC: Bool,
+        burningSubtitle: Bool = false,
+        segmentContainer: String = "mp4"
+    ) -> JellyfinDeviceProfile {
         let videoCodecs = supportsHEVC ? "h264,hevc" : "h264"
         return JellyfinDeviceProfile(
             MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
@@ -282,9 +340,10 @@ enum JellyfinPlaybackResolver {
                 .init(Container: "mp4,m4v,mov", mediaType: "Video", VideoCodec: videoCodecs, AudioCodec: audioCodecs),
             ],
             TranscodingProfiles: [
-                // fMP4 HLS, h264 (+hevc when capable), audio forced into AVPlayer-friendly codecs.
-                .init(Container: "mp4", mediaType: "Video", VideoCodec: videoCodecs, AudioCodec: audioCodecs,
-                      Context: "Streaming", MaxAudioChannels: "6", protocolName: "hls"),
+                // HLS, h264 (+hevc when capable and fMP4), audio forced into AVPlayer-friendly codecs.
+                .init(Container: segmentContainer, mediaType: "Video",
+                      VideoCodec: transcodeVideoCodecs(supportsHEVC: supportsHEVC, segmentContainer: segmentContainer),
+                      AudioCodec: audioCodecs, Context: "Streaming", MaxAudioChannels: "6", protocolName: "hls"),
             ],
             CodecProfiles: codecProfiles(supportsHEVC: supportsHEVC),
             SubtitleProfiles: subtitleProfiles(burning: burningSubtitle)

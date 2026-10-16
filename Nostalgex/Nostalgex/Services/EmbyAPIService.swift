@@ -440,7 +440,8 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
     /// `stopTranscode` end this encode on the next channel change.
     func buildTranscodeURL(for item: PlexMediaItem, sessionID: String) -> URL? {
         guard var components = URLComponents(string: "\(serverURL)/Videos/\(item.ratingKey)/master.m3u8") else { return nil }
-        let videoCodecs = Self.deviceSupportsHEVC ? "h264,hevc" : "h264"
+        let segments = segmentContainer(for: item)
+        let videoCodecs = JellyfinPlaybackResolver.transcodeVideoCodecs(supportsHEVC: Self.deviceSupportsHEVC, segmentContainer: segments)
         let audioCodecs = "aac,ac3,eac3,mp3"
         components.queryItems = [
             .init(name: "MediaSourceId", value: item.partKey ?? item.ratingKey),
@@ -452,9 +453,15 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
             .init(name: "VideoBitrate", value: "\(StreamQuality.current.maxBitrateBps)"),
             .init(name: "MaxWidth", value: "\(StreamQuality.current.width)"),
             .init(name: "TranscodingMaxAudioChannels", value: "6"),
-            .init(name: "SegmentContainer", value: "mp4"),
+            .init(name: "SegmentContainer", value: segments),
         ]
         return components.url
+    }
+
+    /// TS unless the stream may be HEVC, so a mid-programme join stays in sync. The one
+    /// decision for every Emby HLS request; see `JellyfinPlaybackResolver.embySegmentContainer`.
+    private func segmentContainer(for item: PlexMediaItem) -> String {
+        JellyfinPlaybackResolver.embySegmentContainer(videoCodec: item.videoCodec, supportsHEVC: Self.deviceSupportsHEVC)
     }
 
     // MARK: - Playback negotiation (PlaybackInfo) + session lifecycle
@@ -483,7 +490,8 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
             mediaSourceId: item.partKey ?? item.ratingKey,
             supportsHEVC: Self.deviceSupportsHEVC,
             serverStreamOnly: serverStreamOnly,
-            burningSubtitle: burningSubtitle
+            burningSubtitle: burningSubtitle,
+            segmentContainer: segmentContainer(for: item)
         )
         guard let encoded = try? JSONEncoder().encode(body) else { return nil }
         req.httpBody = encoded
@@ -541,12 +549,14 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
     func cappedTranscodeURL(for item: PlexMediaItem, offsetSeconds: Int, sessionID: String) -> URL? {
         JellyfinPlaybackResolver.cappedTranscodeURL(
             serverURL: serverURL, item: item, accessToken: accessToken,
-            deviceID: deviceID, sessionID: sessionID, supportsHEVC: Self.deviceSupportsHEVC
+            deviceID: deviceID, sessionID: sessionID, supportsHEVC: Self.deviceSupportsHEVC,
+            segmentContainer: segmentContainer(for: item)
         )
     }
 
-    /// Emby rejects a start time on segment requests, so the capped stream starts at zero
-    /// and the caller seeks. Same as the first attempt.
+    /// The capped stream starts at zero and the caller seeks, same as the first attempt. A
+    /// start time on the URL would not keep the sound in sync; see
+    /// `JellyfinPlaybackResolver.offsetPlayback`.
     var cappedStreamStartsAtOffset: Bool { false }
 
     /// Hand the session id back so the transcode it starts is stopped on the next channel
