@@ -169,8 +169,21 @@
         if (played && played.catch) played.catch(function () {});
       });
     };
-    if (document.readyState === "complete") startHeroVideos();
-    else window.addEventListener("load", startHeroVideos, { once: true });
+    // Waiting for load keeps the video off the critical path, but the load
+    // event waits for every subresource including the analytics script, and a
+    // slow third party should not be able to hold the hero still. Start on
+    // load, or two seconds after the DOM is ready, whichever comes first.
+    var heroStarted = false;
+    var startOnce = function () {
+      if (heroStarted) return;
+      heroStarted = true;
+      startHeroVideos();
+    };
+    if (document.readyState === "complete") startOnce();
+    else {
+      window.addEventListener("load", startOnce, { once: true });
+      setTimeout(startOnce, 2000);
+    }
   }
 
   /* ---------- Inline clips: start when they scroll into view ----------
