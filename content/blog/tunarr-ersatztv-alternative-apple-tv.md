@@ -77,7 +77,7 @@ XDA Developers [tried Nostalgex with a Jellyfin server](https://www.xda-develope
 And here's what you get:
 
 * **Nothing installed on your server.** No container, no service, no FFmpeg build. The app talks to Plex or Jellyfin directly, and it plays the file as is when the Apple TV can handle it.
-* **130+ channels in 14 bundles, already airing.** Saturday morning cartoons, 90s sitcoms, decades, franchises, seasonal stuff. You connect your server and they fill themselves from what you own. This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR.
+* **130+ channels in 14 bundles, already airing.** Saturday morning cartoons, 90s sitcoms, decades, franchises, seasonal stuff. You connect your server and they fill themselves from what you own. This month there's a free SCREAM bundle you can turn on with one button. It adds a set of horror channels, from SCREAM KIDS for the little ones to FRIGHT NIGHT and NOSTALGEX HORROR, and you can keep it on after October.
 * **It's free in the same way Tunarr is free.** MIT licensed, [code on GitHub](https://github.com/chadMueller/Nostalgex), no ads, no account. It needs nothing paid either: no Plex Pass, no subscription.
 * **Plex and Jellyfin.** The Apple TV app can connect to more than one server at once, and Emby support is coming soon.
 

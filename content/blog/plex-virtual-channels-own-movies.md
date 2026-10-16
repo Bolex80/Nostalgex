@@ -74,7 +74,7 @@ The 130+ channels come in 14 bundles, and the ones you see depend on what's in y
 
 ![Nostalgex guide showing Classic Fam Jams, Girls Night, Teen Movies, Retro Toons and Action Adventure channels from one movie library](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/plex-virtual-channels-own-movies/teen-movies-channel-guide.webp)
 
-This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR. SCREAM KIDS is for the little ones, and NOSTALGEX HORROR sticks to 1975 through 1999. If you want a preview of what a night on those feels like, I wrote up [a 90s slasher marathon](/blog/90s-slasher-movies-halloween-marathon).
+This month there's a free SCREAM bundle you can turn on with one button. It adds a set of horror channels, from SCREAM KIDS for the little ones to FRIGHT NIGHT and NOSTALGEX HORROR, and you can keep it on after October. NOSTALGEX HORROR sticks to 1975 through 1999. If you want a preview of what a night on those feels like, I wrote up [a 90s slasher marathon](/blog/90s-slasher-movies-halloween-marathon).
 
 Get Nostalgex free on the [App Store](https://apps.apple.com/app/nostalgex/id6762563534) or try the [web tuner](/web-tuner) tonight.
 
