@@ -155,7 +155,13 @@ a { color: inherit; }
 
 /* ---------- Kickers / headline accents ---------- */
 
-.section-head { max-width: 700px; margin-bottom: 64px; }
+/* 700px wrapped four of the six section headings on the home page even though
+   the container is 1170px, so short display lines broke for no reason. These
+   headings run 22 to 42 characters, well inside a comfortable line at display
+   size, so the cap only needs to stop a heading running the full container.
+   Prose under a heading keeps the tighter measure. */
+.section-head { max-width: 980px; margin-bottom: 64px; }
+.section-head p { max-width: 700px; }
 .section-head h2, .guide-copy h2, .surf-copy h2 {
   font-size: clamp(32px, 4.2vw, 50px);
 }
