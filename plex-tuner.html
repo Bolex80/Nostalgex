@@ -3001,7 +3001,10 @@
       <!-- playsinline is load-bearing on iPhone: without it iOS refuses to run the
            video inline at all, hands playback to the native fullscreen player, and
            pauses on the way out. webkit-playsinline is the same promise for older iOS. -->
-      <video id="plex-video" autoplay muted playsinline webkit-playsinline></video>
+      <!-- The poster is a 1x1 transparent GIF. Android's web view draws a grey
+           box with a large play icon over a video with no poster while the next
+           channel loads; this tells it there is nothing to draw. -->
+      <video id="plex-video" autoplay muted playsinline webkit-playsinline poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video>
 
       <!-- Unmute button -->
       <button class="unmute-btn" id="unmute-btn">CLICK TO UNMUTE &nbsp;/&nbsp; M KEY</button>
