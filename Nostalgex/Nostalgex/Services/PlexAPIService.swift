@@ -150,7 +150,46 @@ struct PlexAPIService: MediaBackend {
             print("[Plex90] Plex returned markup/XML instead of JSON (HTTP \(http.statusCode)). Prefix: \(String(data: data.prefix(240), encoding: .utf8) ?? "?")")
             throw APIError.receivedMarkupInsteadOfJSON(statusCode: http.statusCode)
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        let report = PlexDecodeReport()
+        let decoded = try decodeRepaired(T.self, from: data, report: report)
+        for line in report.logLines(context: Self.logContext(http.url)) {
+            InstallDiagnostics.note(line)
+        }
+        return decoded
+    }
+
+    /// Bytes that are not UTF-8 (a Latin-1 file name Plex copied into a title) fail the
+    /// whole document, so they are repaired first (PlexUTF8Repair). A valid response skips
+    /// the repair and decodes exactly as before.
+    static func decodeRepaired<T: Decodable>(_: T.Type, from data: Data, report: PlexDecodeReport) throws -> T {
+        var data = data
+        if let fixed = PlexUTF8Repair.repair(data) {
+            data = fixed.data
+            report.repairedBytes = fixed.repairedBytes
+        }
+        let decoder = JSONDecoder()
+        decoder.userInfo[.plexDecodeReport] = report
+        return try decoder.decode(T.self, from: data)
+    }
+
+    /// A section page and the sections list, decoded exactly as a scan decodes them.
+    /// Internal so tests can feed fixture JSON through the real models.
+    static func decodeSectionPage(_ data: Data, report: PlexDecodeReport = PlexDecodeReport()) throws -> (totalSize: Int?, items: [PlexRawItem]) {
+        let page = try decodeRepaired(SectionItemsResponse.self, from: data, report: report).MediaContainer
+        return (page.totalSize, page.Metadata ?? [])
+    }
+
+    static func decodeSections(_ data: Data, report: PlexDecodeReport = PlexDecodeReport()) throws -> [PlexSection] {
+        try decodeRepaired(SectionsResponse.self, from: data, report: report).MediaContainer.Directory ?? []
+    }
+
+    /// Path and paging query for a log line. Plex auth rides in headers, but a token in the
+    /// query is stripped all the same.
+    private static func logContext(_ url: URL?) -> String {
+        guard let url, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return "?" }
+        c.queryItems = c.queryItems?.filter { !$0.name.lowercased().contains("token") }
+        let query = c.percentEncodedQuery.map { "?\($0)" } ?? ""
+        return c.path + query
     }
 
     // MARK: - Connection test
@@ -1061,7 +1100,7 @@ struct PlexAPIService: MediaBackend {
         headers.forEach { req.setValue($1, forHTTPHeaderField: $0) }
 
         let (data, _) = try await Self.session.data(for: req)
-        let resources = try JSONDecoder().decode([PlexResource].self, from: data)
+        let resources = try JSONDecoder().decode([PlexResource].self, from: PlexUTF8Repair.prepared(data, context: "plex.tv /api/v2/resources"))
         let servers = resources.filter { $0.provides.contains("server") }
 
         let discovered = await withTaskGroup(of: DiscoveredServer?.self) { group -> [DiscoveredServer] in
@@ -1290,6 +1329,15 @@ private struct SectionItemsResponse: Decodable {
         /// responses). Absent on endpoints that don't paginate (e.g. `/allLeaves`).
         let totalSize: Int?
         let Metadata: [PlexRawItem]?
+
+        private enum CodingKeys: String, CodingKey { case totalSize, Metadata }
+
+        /// An item that fails to decode is skipped and logged; the page still loads.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            totalSize = try c.decodeIfPresent(Int.self, forKey: .totalSize)
+            Metadata = try c.decodeIfPresent([PlexSkippableItem<PlexRawItem>].self, forKey: .Metadata)?.compactMap(\.value)
+        }
     }
 }
 

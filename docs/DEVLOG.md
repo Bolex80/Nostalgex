@@ -3,6 +3,30 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (Plex: a Latin-1 file name no longer fails the whole library)
+
+**Shipped.** Nothing yet. Branch `plex-utf8-repair`, for the next TestFlight build.
+
+**Why.** A Plex user on 1.0.26 (48), tvOS 26.6 and Plex Media Server 1.43.4 could not load their library: LINEUP finished, LIBRARY stopped about halfway through section 1 of 2 with "Your server returned unexpected data" and `NSCocoaErrorDomain 4864`. Rebuilding the Plex database, refreshing metadata, updating Plex and reinstalling the app changed nothing.
+
+**Cause, reproduced.** Measured in Docker on Plex Media Server 1.43.4.10903 and 1.42.2.10156: an unmatched item whose file or folder name holds a byte that is not UTF-8 (an é written in Latin-1, the single byte 0xE9) gets that raw byte copied into the JSON `title`, or into `summary`. The page is then not UTF-8, and JSONDecoder refuses it: "The given data was not valid JSON", `NSCocoaErrorDomain 4864`, underlying 3840, empty coding path, so nothing says which item. A section page (`/library/sections/{key}/all?includeGuids=1`, 500 items, 150 on a slow link) was one strict decode, so that ended the section and the scan. The same byte only in fields the app never reads (the file path, image alt text) does not fail the page, because the decoder converts a string only when it is read.
+
+**Changed.**
+- Every Plex response is checked for valid UTF-8 before decoding. A valid response is decoded untouched. Otherwise each byte that is not part of a well-formed UTF-8 sequence is read as Windows-1252 (0xE9 becomes é, 0x93 and 0x94 become curly quotes), every valid sequence is copied as it is, and the result is decoded. A stray byte is always 0x80 or above, so the repair cannot add a quote, backslash or control character to the JSON. One log line through `InstallDiagnostics` names the request path and page and the number of bytes repaired: `PLEX UTF-8 /library/sections/1/all?...&X-Plex-Container-Start=500: repaired 5 byte(s) that were not UTF-8, read as Windows-1252`.
+- Applied on every Plex read: section pages, the sections list, the episode sweep (`type=4`), `allLeaves`, collections, collection children, `/identity`, plex.tv `resources` (server names) and the Plex Continue Watching read, which used `try?` and would have skipped its cleanup in silence. The PIN requests carry no names and are unchanged.
+- Safety net, per item only: a Metadata item the model cannot decode is skipped and logged with its ratingKey and the path of the field that failed (`PLEX DECODE ...: skipped item ratingKey=202 at MediaContainer.Metadata[1]: expected Array<Any> at MediaContainer.Metadata[1].Media`), and the rest of the page loads. Field decoding is unchanged: no type coercion, because no other shape has been seen on a real server (a test library of 11,787 items and 15 lab edits all decoded with the 1.0.26 models). A broken container or a body that is not JSON still fails as before.
+
+**Measured.**
+- Three synthetic lab pages (`NostalgexTests/Fixtures/`, a file named `Café Society (2016).mp4` written in Latin-1, nothing from a real library) throw 4864 on the strict decode on the tvOS 26.1 simulator, and now decode with every item kept and the title "Café Society", not a replacement character. No model change was needed for that.
+- A 500-item page (542 KB) on a Mac: 6.9 to 7.4 ms to decode in 1.0.26, 7.1 to 7.2 ms on the branch, 7.5 ms with one stray byte repaired. The UTF-8 check alone is 0.03 ms; the repair copy 0.4 ms.
+- NostalgexTests: 745 tests, 736 passed, 0 failed, 9 skipped (opt-in live harnesses), including 15 new (`PlexUTF8RepairTests` 11, `PlexSkippedItemTests` 4). `npm test` green.
+
+**Not changed.** The web tuner. Its scan reads pages with `Response.json()`, which decodes UTF-8 with replacement characters instead of failing: measured on the minimal fixture with Node 26's fetch, which follows the same Fetch spec as browsers, the page parses and the title reads "Caf\uFFFD Society". So its scan does not stop, though the accent is lost.
+
+**Unverified.** Not run against the reporter's own server or on an Apple TV. The repair guesses Windows-1252 for any stray byte; a name written in another single-byte encoding would load, with the wrong accented letter.
+
+**Next.** Ship in the next build and ask the reporter to confirm the library loads.
+
 ## 2026-10-16 (PR #26 merged: playback information on Apple TV)
 
 **Shipped.** Merged to main, not released. PR #26 by @w6trp adds PLAYBACK INFORMATION to the Now Playing panel, at the bottom under the sleep timer. It goes out with the next TestFlight build.

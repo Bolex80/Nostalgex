@@ -227,7 +227,7 @@ struct PlexWatchStateGuard: WatchStateGuarding {
 
     private func entries(_ req: URLRequest?) async -> [Container.Entry]? {
         guard let req, let (status, body) = await transport.send(req), (200...299).contains(status),
-              let decoded = try? JSONDecoder().decode(Container.self, from: body) else { return nil }
+              let decoded = try? JSONDecoder().decode(Container.self, from: PlexUTF8Repair.prepared(body, context: req.url?.path ?? "?")) else { return nil }
         return decoded.MediaContainer.Metadata ?? []
     }
 
