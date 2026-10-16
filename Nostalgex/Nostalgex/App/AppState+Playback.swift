@@ -245,6 +245,7 @@ extension AppState {
     /// and clean up that exact session before returning.
     func invalidatePlaybackAttempt() {
         playbackAttemptGeneration += 1
+        playbackInformation?.invalidateAttempt()
         playbackRecoveryInFlight = false
         playbackResolutionTask?.cancel()
         playbackResolutionTask = nil
@@ -270,8 +271,12 @@ extension AppState {
     /// Shared by the startup watchdog and the starvation monitor. Only one negotiation
     /// owns the current player; a channel change or replacement makes a late reply cleanup-only.
     private func beginServerFallback(for item: PlexMediaItem, position: Int, generation: Int,
-                                     attempt: Int, playerItem: AVPlayerItem, reportWatchdogFailure: Bool = false) {
+                                     attempt: Int, playerItem: AVPlayerItem,
+                                     informationReason: PlaybackInformation.FallbackReason,
+                                     reportWatchdogFailure: Bool = false) {
         guard claimPlaybackRecovery(for: playerItem, generation: generation, attempt: attempt) else { return }
+        beginPlaybackInformationAttempt(generation: generation, attempt: attempt,
+                                        isDirectPlay: false, reason: informationReason)
         let backend = api(for: item.serverID)
         playbackResolutionTask?.cancel()
         playbackResolutionTask = Task { @MainActor [weak self] in
@@ -295,7 +300,9 @@ extension AppState {
             self.activeTranscode = (item.serverID, resolved.resolution.playSessionId)
             self.hlsRequestedOffset = resolved.startsAtOffset ? position : 0
             self.fallbackToTranscode(url: resolved.resolution.url, seekTo: resolved.startsAtOffset ? nil : position,
-                                     generation: generation, allowCappedRetry: true, prepared: true)
+                                     generation: generation, allowCappedRetry: true, prepared: true,
+                                     informationReason: informationReason,
+                                     informationIsDirectPlay: resolved.resolution.isDirectPlay)
         }
     }
 
@@ -581,6 +588,7 @@ extension AppState {
         // next/previousChannel / advanceToNextItem — they all funnel through here).
         stopActiveTranscodeIfNeeded()
 
+        playbackInformation = nil
         guard var item = currentItem else {
             print("[Plex90] gen=\(generation) | No item, going idle")
             playbackState = .idle
@@ -595,6 +603,8 @@ extension AppState {
             currentPartBaseSeconds = position.baseSeconds
             seekOffset = position.offsetSeconds
         }
+
+        beginPlaybackInformation(for: item, generation: generation)
 
         // An item stamped with a server that is not signed in cannot be played by the one
         // that is: its rating key means something else there (on Emby, a Plex key resolved
@@ -734,6 +744,9 @@ extension AppState {
             playerItem.preferredForwardBufferDuration = 5
 
             self.installFreshPlayer(with: playerItem, generation: generation)
+            let informationAttempt = self.beginPlaybackInformationAttempt(
+                generation: generation, attempt: attempt, isDirectPlay: isDirectPlay,
+                reason: isDirectPlay || isDemoMode ? .none : .serverStreamSelected)
 
             // Status observer
             playerItem.publisher(for: \.status)
@@ -750,6 +763,8 @@ extension AppState {
                         // emit the analytics ready signal. Retry / transcode-fallback
                         // paths re-enter readyToPlay for the same channel; they'd
                         // otherwise double-count.
+                        self.markPlaybackInformationReady(for: playerItem, generation: generation,
+                                                          attempt: attempt, attemptID: informationAttempt)
                         self.reportPlaybackReadyIfNeeded(delivery: isDirectPlay ? .directPlay : .transcode)
                         if let seekTo, seekTo > 0 {
                             print("[Plex90] gen=\(generation) | Seeking to \(seekTo)s")
@@ -785,7 +800,8 @@ extension AppState {
                                 self.activeTranscode = (itemServerID, fallbackSession)
                             }
                             if fallbackStartsAtOffset { self.hlsRequestedOffset = self.seekOffset }
-                            self.fallbackToTranscode(url: fallback, seekTo: fallbackStartsAtOffset ? nil : seekTo, generation: generation)
+                            self.fallbackToTranscode(url: fallback, seekTo: fallbackStartsAtOffset ? nil : seekTo,
+                                                    generation: generation, informationReason: .directPlayFailed)
                         } else {
                             // Already transcode or no fallback — retry once. A URL that
                             // carries the offset must not be seeked again on the client.
@@ -830,10 +846,12 @@ extension AppState {
         }
     }
 
-    private func retryLoad(url: URL, seekTo: Int?, generation: Int, isDirectPlay: Bool = false) {
+    private func retryLoad(url: URL, seekTo: Int?, generation: Int, isDirectPlay: Bool) {
         guard loadGeneration == generation else { return }
         invalidatePlaybackAttempt()
         let attempt = playbackAttemptGeneration
+        let informationAttempt = beginPlaybackInformationAttempt(
+            generation: generation, attempt: attempt, isDirectPlay: isDirectPlay, reason: .playerRetry)
         let title = currentItem?.title ?? "Unknown"
         print("[Plex90] gen=\(generation) | RETRY: \"\(title)\" - waiting 300ms")
         cancellables.removeAll()
@@ -860,6 +878,8 @@ extension AppState {
                     switch status {
                     case .readyToPlay:
                         print("[Plex90] gen=\(generation) | RETRY READY: \"\(title)\"")
+                        self.markPlaybackInformationReady(for: playerItem, generation: generation,
+                                                          attempt: attempt, attemptID: informationAttempt)
                         // Retry re-uses whatever delivery the session already had.
                         self.reportPlaybackReadyIfNeeded(delivery: self.currentPlaybackDelivery ?? .transcode)
                         if let seekTo, seekTo > 0 {
@@ -909,10 +929,16 @@ extension AppState {
         }
     }
 
-    private func fallbackToTranscode(url: URL, seekTo: Int?, generation: Int, allowCappedRetry: Bool = true, prepared: Bool = false) {
+    private func fallbackToTranscode(url: URL, seekTo: Int?, generation: Int, allowCappedRetry: Bool = true, prepared: Bool = false,
+                                     informationReason: PlaybackInformation.FallbackReason,
+                                     informationRequest: PlaybackInformation.RecoveryRequest? = nil,
+                                     informationIsDirectPlay: Bool = false) {
         guard loadGeneration == generation else { return }
         invalidatePlaybackAttempt()
         let attempt = playbackAttemptGeneration
+        let informationAttempt = beginPlaybackInformationAttempt(
+            generation: generation, attempt: attempt, isDirectPlay: informationIsDirectPlay,
+            reason: informationReason, recoveryRequest: informationRequest)
         let title = currentItem?.title ?? "Unknown"
         print("[Plex90] gen=\(generation) | TRANSCODE FALLBACK: \"\(title)\"")
         // Analytics: direct play failed and we're moving to the server-side transcoder.
@@ -952,6 +978,8 @@ extension AppState {
                     switch status {
                     case .readyToPlay:
                         print("[Plex90] gen=\(generation) | TRANSCODE READY: \"\(title)\"")
+                        self.markPlaybackInformationReady(for: playerItem, generation: generation,
+                                                          attempt: attempt, attemptID: informationAttempt)
                         // Fallback path is by definition a transcode delivery.
                         self.reportPlaybackReadyIfNeeded(delivery: .transcode)
                         if let seekTo, seekTo > 0 {
@@ -1063,7 +1091,8 @@ extension AppState {
                 Analytics.track(.playbackTranscodeFallback(channelNumber: channel.number, backend: self.analyticsBackend))
             }
             self.beginServerFallback(for: item, position: self.seekOffset, generation: generation,
-                                     attempt: attempt, playerItem: playerItem, reportWatchdogFailure: true)
+                                     attempt: attempt, playerItem: playerItem,
+                                     informationReason: .startupNoPicture, reportWatchdogFailure: true)
             return
         }
         guard self.claimPlaybackRecovery(for: playerItem, generation: generation, attempt: attempt) else { return }
@@ -1082,7 +1111,8 @@ extension AppState {
             let startsAtOffset = backend.cappedStreamStartsAtOffset
             self.hlsRequestedOffset = startsAtOffset ? self.seekOffset : 0
             self.fallbackToTranscode(url: capped, seekTo: startsAtOffset ? nil : self.seekOffset,
-                                     generation: generation, allowCappedRetry: false)
+                                     generation: generation, allowCappedRetry: false,
+                                     informationReason: .startupNoPicture, informationRequest: .compatibility1080p)
             return
         }
         print("[Plex90] gen=\(generation) | WATCHDOG: \(deadline)s deadline, no picture (\(detail)) — advancing to next item")
@@ -1161,7 +1191,7 @@ extension AppState {
             print("[Plex90] gen=\(generation) | STARVED: \"\(title)\" on direct play (\(detail)) — switching to the server stream at \(position)s")
             PlaybackDiagnostics.record(outcome: "starved on direct play → server stream from \(position)s", title: title, detail: detail)
             beginServerFallback(for: item, position: position, generation: generation,
-                                attempt: attempt, playerItem: playerItem)
+                                attempt: attempt, playerItem: playerItem, informationReason: .streamStalled)
             return
         }
         guard claimPlaybackRecovery(for: playerItem, generation: generation, attempt: attempt) else { return }
@@ -1180,7 +1210,8 @@ extension AppState {
             seekOffset = position
             hlsRequestedOffset = startsAtOffset ? position : 0
             fallbackToTranscode(url: capped, seekTo: startsAtOffset ? nil : position,
-                                generation: generation, allowCappedRetry: false)
+                                generation: generation, allowCappedRetry: false,
+                                informationReason: .streamStalled, informationRequest: .compatibility1080p)
             return
         }
         print("[Plex90] gen=\(generation) | STARVED: \"\(title)\" (\(detail)) — nothing smaller to ask for, advancing to next item")
