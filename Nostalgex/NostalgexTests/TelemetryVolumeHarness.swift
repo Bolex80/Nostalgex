@@ -181,8 +181,8 @@ final class TelemetryVolumeHarness: XCTestCase {
         let flips = Int(env["NOSTALGEX_TELEMETRY_FLIPS"] ?? "") ?? 20
         let long = FileManager.default.temporaryDirectory.appendingPathComponent("telemetry-long.mp4")
         let short = FileManager.default.temporaryDirectory.appendingPathComponent("telemetry-short.mp4")
-        try await Self.writeMovie(seconds: 1800, to: long)
-        try await Self.writeMovie(seconds: 4, to: short)
+        try await TestMovie.write(seconds: 1800, to: long)
+        try await TestMovie.write(seconds: 4, to: short)
 
         // Surf: real readyToPlay, real watch time.
         let channels = lineup(count: 40, minutes: 30)
@@ -221,36 +221,5 @@ final class TelemetryVolumeHarness: XCTestCase {
         let boundaryResult = compare(boundaryRecorder.events, title: String(format: "boundaries-%.0fs-4s-programmes", seconds))
         XCTAssertGreaterThan(boundaryResult.raw["playback.ready"] ?? 0, 2)
         XCTAssertLessThanOrEqual(boundaryResult.gated["playback.ready"] ?? 0, 1)
-    }
-
-    /// A silent grey H.264 file at one frame per second.
-    private static func writeMovie(seconds: Int, to url: URL) async throws {
-        if FileManager.default.fileExists(atPath: url.path) { return }
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 64,
-        ])
-        input.expectsMediaDataInRealTime = false
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: 64, kCVPixelBufferHeightKey as String: 64,
-        ])
-        writer.add(input)
-        guard writer.startWriting() else { throw writer.error ?? CocoaError(.fileWriteUnknown) }
-        writer.startSession(atSourceTime: .zero)
-        for frame in 0...seconds {
-            while !input.isReadyForMoreMediaData { try await Task.sleep(for: .milliseconds(2)) }
-            var buffer: CVPixelBuffer?
-            guard let pool = adaptor.pixelBufferPool,
-                  CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer) == kCVReturnSuccess,
-                  let buffer else { throw CocoaError(.fileWriteUnknown) }
-            CVPixelBufferLockBaseAddress(buffer, [])
-            memset(CVPixelBufferGetBaseAddress(buffer), 0x80, CVPixelBufferGetDataSize(buffer))
-            CVPixelBufferUnlockBaseAddress(buffer, [])
-            adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: 1))
-        }
-        input.markAsFinished()
-        await writer.finishWriting()
-        guard writer.status == .completed else { throw writer.error ?? CocoaError(.fileWriteUnknown) }
     }
 }

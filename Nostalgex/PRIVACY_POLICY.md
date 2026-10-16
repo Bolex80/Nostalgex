@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: October 9, 2026
+Effective: October 16, 2026
 
 Nostalgex turns your own Plex, Jellyfin, or Emby library into live TV channels. We do not host, supply, or stream any media. Everything you watch comes off your own server.
 

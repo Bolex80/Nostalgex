@@ -3,6 +3,23 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (playback: a channel where nothing plays stops)
+
+**Changed.** On branch `telemetry/signal-budget`, not merged, not in any build.
+- Each failed programme sends `playback.error` once. The retry and transcode-failed paths sent it twice, as `player_failed` when AVPlayer failed and again from the error card (measured: two per failure on both paths). The card is now the one report, so the code on the wire matches the words on screen. A failure the viewer tunes away from before its card shows still reports once, for the channel it failed on. A starved direct-play stream with no server stream to fall back to used to skip with no report; it now reports `stalled`.
+- A channel where nothing plays used to show the card, skip after 5 seconds, fail, and go round again for as long as the TV was on: a request to the server and a `playback.error` every 5.0 seconds (measured). Now, after 5 failures in a row on one channel with no picture in between, the channel stops. The card says "Nothing on this channel will play right now", gives the last reason, and "Try another channel, or select this one again to retry." The player item and any server transcode are torn down and nothing more is requested until `selectChannel` runs again: the viewer tunes, selects the channel again (selecting the current channel in the guide now retries instead of going full screen), the app returns to the foreground, or a library reload re-selects it.
+- Why 5: one bad file, or a few in a row, still skip and carry on as before. If half a channel played, five failures in a row would come up about one time in 32; with four in five playing, about one in 3,000. Reaching five takes about 20 seconds when there is nothing to request and a few minutes on the slowest failure (a 4K server stream gets 40 seconds before the watchdog gives up).
+- Only a picture confirmed by the startup watchdog resets the count. Reaching ready does not, because a file the device opens but cannot decode reaches ready with a black screen.
+- The count lives in `Services/ChannelFailureRun.swift` and is advanced in one function, `recordFailedItem`, which every failure path calls. The recovery ladder and the attempt ownership checks are unchanged.
+
+**Measured.** `PlaybackFailureRunTests`: a channel of items with no stream stops at the fifth failure, after five requests, and makes none over the next 600 ms. One bad programme among good ones (generated H.264) shows its card and the next programme plays. Four failures and then a playing programme: the watchdog's picture check resets the count at its 15-second deadline. Tuning away, selecting the stopped channel again, or re-selecting it as foreground return does each start a fresh count. Through the analytics gate, five failures with one code send one `playback.error`, and the session summary counts five.
+
+**Web tuner.** Already stops after three failures in a row (`MAX_CONSECUTIVE_FAILURES` in `plex-tuner.html`), so it does not loop. Its count resets only when a frame plays, not on a channel change, so after one channel parks, the next channel's first failure parks it too. Left alone.
+
+**Privacy policy.** Effective date October 16, 2026 in `Nostalgex/PRIVACY_POLICY.md` and `privacy.html`. Move both if the build ships later; `privacy.html` goes live when main is pushed.
+
+**Unverified.** Not run on a physical Apple TV. The stopped card has not been looked at on a TV.
+
 ## 2026-10-16 (app analytics: a signal budget)
 
 **Changed.** On branch `telemetry/signal-budget`, not merged, not in any build. Every analytics event now passes through one gate, `Nostalgex/Analytics/AnalyticsGate.swift`, before it reaches TelemetryDeck. No playback or guide code changed. TelemetryDeck counts every signal, and the app sent them in step with remote presses and hours watched rather than once per device, so the count climbed steeply with the users the 1.0.26 launch brought in.
@@ -32,7 +49,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Open.** `channel.tuned` per channel is down to the first tune of each method per visit; watch time per channel (`playback.stopped`, summed) is the channel popularity number now. `library.load.completed` sends the exact `itemCount`, which is more precise about a library's size than it needs to be; a range would do. The TelemetryDeck app ID is in the public `Info.plist` and shared scheme, so anyone who builds the repo reports into the same app (Debug as test signals, their own Release builds as live ones).
 
-**Next.** Confirm the top signal names on the dashboard, then merge and ship with the next build. The privacy policy text is already updated; its Effective date (both copies) should move to the day that build is released.
+**Next.** Confirm the top signal names on the dashboard, then merge and ship with the next build.
 
 ## 2026-10-16 (PR #26 merged: playback information on Apple TV)
 

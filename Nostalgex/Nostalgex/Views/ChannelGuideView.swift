@@ -80,7 +80,9 @@ struct ChannelGuideView: View {
                                 }
                                 ForEach(Array(appState.channels.enumerated()), id: \.element.id) { index, channel in
                                     Button {
-                                        if appState.currentChannel?.id == channel.id {
+                                        // Selecting the channel that is on goes full screen, unless it
+                                        // stopped after repeated failures: then selecting it retries.
+                                        if appState.currentChannel?.id == channel.id, !appState.channelFailureRun.isStopped {
                                             appState.isFullScreen = true
                                         } else {
                                             appState.tuneChannelFromUser(channel, method: .guide, precomputedSchedule: schedules[channel.id])
