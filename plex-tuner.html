@@ -699,6 +699,19 @@
   }
   .v-btn:hover .v-btn-short { color: #000; }
 
+  /* Sizes are for the 140px rail: 58px a button, 50px inside. The longest value is
+     59:59 (the countdown is capped there), 45px at 9px with no letter spacing. The
+     toolbar prefix outranks the compact and touch paddings further down. */
+  .v-btn-pair { display: flex; gap: 4px; width: 100%; flex-shrink: 0; }
+  .v-toolbar .v-btn-pair .v-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+    justify-content: center;
+  }
+  .v-toolbar .v-btn-pair .v-btn-value { letter-spacing: 0; white-space: nowrap; }
+
   /* ══════════════════════════════════════
      TOUCH TOP BAR (phones and tablets)
   ══════════════════════════════════════ */
@@ -2200,21 +2213,24 @@
      gaps rather than drop a control. Touch pointers are excluded because there
      the rail is the bottom bar, which has its own sizing. */
   /* SLEEP made it eight controls; at 1440x900 that ran 7px over until the gaps came
-     down by a pixel (measured with the rail beside the info panel). */
+     down by a pixel (measured with the rail beside the info panel). The rail is half
+     the window's height, and with eight rows the 900 step needs 893px, the 760 step
+     780px: 1280x800 ran 43px over and 1440x760 7px, so the two tighter steps start
+     higher than their names. */
   @media (pointer: fine) and (min-width: 1025px) and (max-height: 900px) {
     .v-toolbar { padding: 10px 10px; gap: 5px; }
     .v-btn { padding: 8px; gap: 4px; }
     .v-coffee { margin-top: 4px; padding: 9px 8px; gap: 5px; }
     .v-social { margin-top: 4px; padding: 8px; }
   }
-  @media (pointer: fine) and (min-width: 1025px) and (max-height: 760px) {
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 892px) {
     .v-toolbar { padding: 6px 10px; gap: 4px; }
     .v-btn { padding: 6px 8px; }
     .v-coffee { margin-top: 4px; padding: 7px 8px; gap: 4px; }
     .v-coffee svg { width: 26px; height: 26px; }
     .v-social { margin-top: 4px; padding: 6px; }
   }
-  @media (pointer: fine) and (min-width: 1025px) and (max-height: 700px) {
+  @media (pointer: fine) and (min-width: 1025px) and (max-height: 779px) {
     .v-toolbar { padding: 4px 10px; gap: 3px; }
     .v-btn { padding: 4px 8px; gap: 3px; }
     .v-coffee { margin-top: 3px; padding: 6px 8px; gap: 3px; }
@@ -2547,6 +2563,7 @@
       gap: 3px;
       margin-top: 0;
     }
+    .v-btn-pair { display: contents; }
     .v-toolbar .v-btn-label,
     .v-toolbar .v-key { display: none; }
     .v-toolbar .v-btn-short {
@@ -3101,6 +3118,9 @@
       <span class="m-drawer-label">SLEEP TIMER</span>
       <span class="m-drawer-value off" id="dw-sleep-val">OFF</span>
     </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); openPlaybackInfo();" aria-haspopup="dialog">
+      <span class="m-drawer-label">PLAYBACK INFO</span>
+    </button>
     <button class="m-drawer-item" type="button" onclick="closeDrawer(); showConfig();">
       <span class="m-drawer-label">SETTINGS</span>
     </button>
@@ -3161,13 +3181,23 @@
         <span class="v-btn-short">RETRO</span>
         <span class="v-btn-value" id="tb-retro-val">ON</span>
       </button>
-      <!-- Sleep timer. Opens the same small picker as the drawer row. No key: it is
-           set once a night, and every letter near the others is already taken. -->
-      <button class="v-btn" type="button" id="tb-sleep" onclick="openSleepDialog()" aria-haspopup="dialog">
-        <span class="v-btn-label">SLEEP</span>
-        <span class="v-btn-short">SLEEP</span>
-        <span class="v-btn-value off" id="tb-sleep-val">OFF</span>
-      </button>
+      <!-- Sleep timer and playback information share a row: the rail was already full,
+           and a ninth full-width button pushed Instagram out of sight at most desktop
+           and TV sizes. Sleep opens the same small picker as the drawer row; it has no
+           key, since it is set once a night. INFO opens the panel from Settings >
+           PLAYBACK > VIEW. -->
+      <div class="v-btn-pair">
+        <button class="v-btn" type="button" id="tb-sleep" onclick="openSleepDialog()" aria-haspopup="dialog">
+          <span class="v-btn-label">SLEEP</span>
+          <span class="v-btn-short">SLEEP</span>
+          <span class="v-btn-value off" id="tb-sleep-val">OFF</span>
+        </button>
+        <button class="v-btn" type="button" id="tb-info" onclick="togglePlaybackInfo()" aria-haspopup="dialog" aria-label="Playback information">
+          <span class="v-btn-label">INFO</span>
+          <span class="v-btn-short">INFO</span>
+          <span class="v-btn-value v-key">[I]</span>
+        </button>
+      </div>
       <button class="v-btn" onclick="showConfig()">
         <span class="v-btn-label">SETTINGS</span>
         <span class="v-btn-short">SETTINGS</span>
@@ -3621,8 +3651,9 @@
   </span>
 </button>
 
-<!-- PLAYBACK INFORMATION, opened from Settings > PLAYBACK. Read only, refreshed every
-     second while open. Never shows an address, token, session or item id. -->
+<!-- PLAYBACK INFORMATION, opened from the rail (or the I key), the drawer and
+     Settings > PLAYBACK. Read only, refreshed every second while open. Never shows an
+     address, token, session or item id. -->
 <div class="nx-scrim nx-scrim--top" id="pi-scrim" hidden></div>
 <div class="nx-dialog nx-dialog--info" id="pi-panel" role="dialog" aria-modal="true" aria-labelledby="pi-title" hidden>
   <div class="nx-dialog-head">
@@ -3630,7 +3661,7 @@
   </div>
   <p class="pi-note" id="pi-note"></p>
   <dl class="pi-rows" id="pi-rows"></dl>
-  <button class="nx-btn" id="pi-back" type="button" onclick="closePlaybackInfo()" aria-label="Back to settings">BACK</button>
+  <button class="nx-btn" id="pi-back" type="button" onclick="closePlaybackInfo()" aria-label="Close playback information">BACK</button>
 </div>
 
 <script>
@@ -6357,7 +6388,9 @@
   // a second while a timer is armed.
   function renderSleepControls(state = sleepTimer.state()) {
     const ST = NostalgexSleepTimer;
-    const countdown = state.armed ? ST.countdownLabel(state.remainingSeconds) : 'OFF';
+    // Capped at 59:59, so the first second of a 1 HR timer reads 59:59, not 1:00:00,
+    // and the half-width rail button never has to fit hours.
+    const countdown = state.armed ? ST.countdownLabel(Math.min(state.remainingSeconds, 3599)) : 'OFF';
     for (const id of ['tb-sleep-val', 'dw-sleep-val']) {
       const el = document.getElementById(id);
       if (!el) continue;
@@ -6531,7 +6564,7 @@
   }
 
   /* ══════════════════════════════════════
-     PLAYBACK INFORMATION PANEL (Settings > PLAYBACK > VIEW)
+     PLAYBACK INFORMATION PANEL (rail, I key, drawer, Settings > PLAYBACK)
      Parity with the tvOS panel from PR #26. Rows come from playbackInfoRows(); the
      model and its tests are in scripts/nostalgex-playback-info.js.
   ══════════════════════════════════════ */
@@ -6580,6 +6613,9 @@
     const back = playbackInfoReturnFocus && document.contains(playbackInfoReturnFocus) ? playbackInfoReturnFocus : null;
     playbackInfoReturnFocus = null;
     if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+  }
+  function togglePlaybackInfo() {
+    if (isPlaybackInfoOpen()) closePlaybackInfo(); else openPlaybackInfo();
   }
 
   (() => {
@@ -9173,7 +9209,7 @@
     // The two small dialogs sit above everything and keep the keys while they are open.
     // Enter and Space reach the focused button on their own.
     if (isPlaybackInfoOpen()) {
-      if (key === 'Escape' || key === 'Backspace') { closePlaybackInfo(); e.preventDefault(); }
+      if (key === 'Escape' || key === 'Backspace' || key === 'i' || key === 'I') { closePlaybackInfo(); e.preventDefault(); }
       else if (key === 'Tab' || key.startsWith('Arrow')) { document.getElementById('pi-back').focus(); e.preventDefault(); }
       return;
     }
@@ -9386,6 +9422,11 @@
     }
     if (key === 'c' || key === 'C') {
       toggleSubtitles();
+      e.preventDefault();
+      return;
+    }
+    if ((key === 'i' || key === 'I') && !isVideoFullscreen()) {
+      openPlaybackInfo();
       e.preventDefault();
       return;
     }

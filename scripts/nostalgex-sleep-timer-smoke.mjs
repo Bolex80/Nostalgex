@@ -300,7 +300,8 @@ await check("tuner: choosing 30 MIN in the picker arms it, closes the picker and
 await check("tuner: OFF in Settings cancels, and the countdown stops", () => {
   const f = tunerFixture();
   f.el("cfg-sleep-chips").children[3].click();
-  assert.equal(f.el("tb-sleep-val").textContent, "1:00:00");
+  // Capped at 59:59 so the half-width rail button never shows hours.
+  assert.equal(f.el("tb-sleep-val").textContent, "59:59");
   f.el("cfg-sleep-chips").children[0].click();
   assert.equal(f.el("tb-sleep-val").textContent, "OFF");
   assert.equal(f.intervals.size, 0);

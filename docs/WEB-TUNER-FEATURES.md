@@ -43,7 +43,7 @@ What is different from Jellyfin, mirroring `Nostalgex/Nostalgex/Services/EmbyAPI
 Same as the Apple TV app (`SleepTimerLogic` and the SLEEP TIMER rows of the Now Playing panel). Code: `scripts/nostalgex-sleep-timer.js`, wired in the SLEEP TIMER section of `plex-tuner.html`.
 
 - **Choices:** OFF, 15 MIN, 30 MIN, 1 HR.
-- **Where:** SLEEP in the rail (desktop, TV browsers, tablets) and SLEEP TIMER in the phone drawer both open a small picker; Settings > General > PLAYBACK has the same choices inline. The rail and drawer show the time left (`29:41`, `1:00:00`), the picker shows ACTIVE on OFF or the time left on the running choice, as on Apple TV.
+- **Where:** SLEEP in the rail (desktop, TV browsers, tablets) and SLEEP TIMER in the phone drawer both open a small picker; Settings > General > PLAYBACK has the same choices inline. The rail and drawer show the time left (`29:41`; capped at `59:59`, so a 1 HR timer starts there and the half-width rail button never shows hours), the picker shows ACTIVE on OFF or the time left on the running choice, as on Apple TV.
 - **At zero:** a "STILL WATCHING?" prompt with SLEEPING IN 0:20 counting down. Any click, tap or key keeps watching and uses the timer up (the key never reaches the shortcuts, so it can't change channel). Left alone for 20 seconds, playback stops the way tvOS does it: the server is told playback stopped, the video stops, the server's stream is ended, full screen closes and the guide shows. The picture says SLEEP TIMER ENDED / "Pick a channel to start watching again."; picking any channel, including the same one, starts again. Background library refreshes never restart it.
 - Survives channel changes. Not saved: a reload turns it off, like a relaunch on Apple TV. A hidden tab's late timers are caught up when it is visible again.
 - Works with clicks alone (TV Bro on Google TV), touch, mouse and keyboard. In full screen the prompt is drawn inside the full-screen element; iPhone's own player is closed first so the prompt can be seen.
@@ -53,7 +53,7 @@ Same as the Apple TV app (`SleepTimerLogic` and the SLEEP TIMER rows of the Now 
 
 ## Playback information
 
-Same panel as the Apple TV app (PR #26: `PlaybackInformation.swift`). Settings > General > PLAYBACK > Playback information > VIEW. Refreshes every second while open; BACK or Escape closes it. Code: `scripts/nostalgex-playback-info.js`.
+Same panel as the Apple TV app (PR #26: `PlaybackInformation.swift`). INFO in the rail (beside SLEEP, the two share a row), the I key, PLAYBACK INFO in the phone drawer, and Settings > General > PLAYBACK > Playback information > VIEW. Not in full screen: full screen is the browser's own. Refreshes every second while open; BACK, Escape or I closes it. Code: `scripts/nostalgex-playback-info.js`.
 
 | Row | Web tuner value |
 |-----|-----------------|
