@@ -89,6 +89,7 @@ push, against a fresh clone of upstream.
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |
 | `images/` | Home-screen icons and splash: text only, drawn by `scripts/icons.sh` |
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |
+| `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
 | `tests/` | Golden vectors from upstream's code, and the runner |
 | `tests/live/` | Live check against a real Plex server (`plex-link.mjs`, `compare.mjs`) |
 | `docs/PORTING.md` | What is ported from where, and how parity is proven |

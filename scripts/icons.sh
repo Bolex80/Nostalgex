@@ -13,5 +13,6 @@ draw() { # width height pointsize file
         -gravity center -annotate +0+0 "NOSTALGEX" -depth 8 -strip "images/$4"
 }
 draw 540 405 120 icon_fhd.png
-draw 336 210 76 icon_hd.png
+draw 290 218 66 icon_hd.png
 draw 1920 1080 260 splash_fhd.png
+draw 1280 720 174 splash_hd.png

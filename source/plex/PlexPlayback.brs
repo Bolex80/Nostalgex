@@ -27,7 +27,6 @@ end function
 ' HttpHeaders field alone left this TV buffering with no request reaching Plex.
 sub NxPlexApplyAuth(video as Object, token as String)
     video.SetCertificatesFile("common:/certs/ca-bundle.crt")
-    video.InitClientCertificates()
     video.SetHeaders({ "X-Plex-Token": token })
 end sub
 

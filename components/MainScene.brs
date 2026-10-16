@@ -35,9 +35,11 @@ sub onSignInState()
         m.prompt.text = "On your phone or computer, go to plex.tv/link and enter this code:"
         m.code.text = m.signIn.code
         m.hint.text = "The code refreshes every few minutes."
+        signInShown()
     else if state = "discovering" then
         m.prompt.text = "Signed in as " + m.signIn.account + ". Finding your Plex servers…"
         m.hint.text = ""
+        signInDone()
     else if state = "ready" then
         m.prompt.text = m.signIn.message
         m.hint.text = "Press * to sign out of Plex on this TV."
@@ -46,7 +48,32 @@ sub onSignInState()
         ' A saved guide stays up through a network blip.
         m.prompt.text = m.signIn.message
         m.hint.text = "Press * to sign out of Plex on this TV."
+        launchComplete()
     end if
+end sub
+
+' Roku certification times each launch to the AppLaunchComplete beacon, sent
+' once, when the guide or an error that OK retries is first on screen. A
+' plex.tv/link sign-in before that is a login dialog: AppDialogInitiate when
+' its code shows, AppDialogComplete when sign-in finishes, so the time spent
+' at a phone isn't counted as launch time.
+sub signInShown()
+    if m.launched = true or m.inSignIn = true then return
+    m.inSignIn = true
+    m.top.signalBeacon("AppDialogInitiate")
+end sub
+
+sub signInDone()
+    if m.inSignIn <> true then return
+    m.inSignIn = false
+    m.top.signalBeacon("AppDialogComplete")
+end sub
+
+sub launchComplete()
+    if m.launched = true then return
+    signInDone()
+    m.launched = true
+    m.top.signalBeacon("AppLaunchComplete")
 end sub
 
 sub startLibrary(useCache = false as Boolean)
@@ -67,6 +94,7 @@ sub onLibraryStatus()
         if m.guide <> invalid then return
         m.prompt.text = m.library.message
         m.hint.text = "Press OK to try again, or * to sign out of Plex on this TV."
+        launchComplete()
     else if status = "ready" then
         m.prompt.text = ""
         m.hint.text = ""
@@ -79,6 +107,7 @@ sub onLibraryStatus()
         end if
         m.guide.guide = m.library.guide
         if first then m.guide.SetFocus(true)
+        launchComplete()
         if m.scheduleTimer = invalid then
             m.scheduleTimer = CreateObject("roSGNode", "Timer")
             m.scheduleTimer.duration = 30

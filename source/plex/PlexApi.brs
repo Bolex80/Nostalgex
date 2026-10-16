@@ -99,7 +99,6 @@ function NxHttp(method as String, url as String, headers as Object, timeoutMs = 
     xfer.SetMessagePort(port)
     xfer.SetUrl(url)
     xfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
-    xfer.InitClientCertificates()
     xfer.EnablePeerVerification(true)
     xfer.EnableHostVerification(true)
     xfer.RetainBodyOnError(true)

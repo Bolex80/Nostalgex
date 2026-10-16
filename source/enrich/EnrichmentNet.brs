@@ -27,7 +27,6 @@ function NxEnrichNetFetchAll(requests as Object, limit as Integer) as Object
                 xfer.SetMessagePort(port)
                 xfer.SetUrl(req.url)
                 xfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
-                xfer.InitClientCertificates()
                 xfer.EnablePeerVerification(true)
                 xfer.EnableHostVerification(true)
                 xfer.RetainBodyOnError(true)
