@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-16 (web tuner: sleep timer, playback information, and Emby as its own choice)
 
-**Shipped.** Nothing. Branch `web/sleep-info-emby` off main `f939fa2`, not pushed, waiting for a batch test on nostalgex.app and in the Docker container. The tvOS app is untouched.
+**Shipped.** On nostalgex.app and in the Docker image `tuner-v1.0.1`, merged from branch `web/sleep-info-emby`. The tvOS app is untouched.
 
 **Why.** Three Apple TV features the web tuner and the Docker image did not have. And Emby in the browser never worked: the connect page said Emby "connects through the Jellyfin option", but that path asked Emby for `/UserViews`, which is Jellyfin's spelling. Measured on Emby 4.8.11.0, 4.9.5.0 and 4.10.1.0: 404 on all three, so the library load failed the moment it started.
 
@@ -26,7 +26,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-16 (horror all year, four new channels, locks that match whole titles)
 
-**Shipped.** Nothing. Branch `channels/horror-and-friends`, six commits on main `83301ce`, not pushed, waiting for a batch test on an Apple TV and in the web tuner. The channel ideas are @tydude001's, from discussion #29.
+**Shipped.** The web tuner on nostalgex.app since the branch was merged and pushed, and the Docker image `tuner-v1.0.1`. Apple TV still needs an App Store build. The channel ideas are @tydude001's, from discussion #29.
 
 **Why.** tydude asked for horror outside October. On Apple TV a seasonal bundle has stayed on in any month since 1.0.26 (`activeMonths` only decides the October invite and the guide lead), but the web tuner and the Docker image still built a seasonal bundle's channels only in its month, so SCREAM looked October only. tydude also spotted that the SCREAM lock, which keeps the Scream and Halloween films on SCREAM ADULTS, would have to be shared with a SLASHER channel. Looking at the lock showed it matched substrings, which hid unrelated films.
 
