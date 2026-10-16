@@ -107,6 +107,7 @@ export default defineConfig(({ mode }) => {
           'plex-tuner': resolve(__dirname, 'plex-tuner.html'),
           privacy: resolve(__dirname, 'privacy.html'),
           support: resolve(__dirname, 'support.html'),
+          'self-host': resolve(__dirname, 'self-host.html'),
           plex: resolve(__dirname, 'plex.html'),
           jellyfin: resolve(__dirname, 'jellyfin.html'),
           emby: resolve(__dirname, 'emby.html'),
