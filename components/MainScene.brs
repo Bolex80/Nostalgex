@@ -103,6 +103,8 @@ sub onLibraryStatus()
         if first then
             m.guide = CreateObject("roSGNode", "GuideView")
             m.guide.ObserveField("action", "onGuideAction")
+            if m.pendingLink <> invalid then m.guide.deepLink = m.pendingLink
+            m.pendingLink = invalid
             m.top.AppendChild(m.guide)
         end if
         m.guide.guide = m.library.guide
@@ -115,6 +117,16 @@ sub onLibraryStatus()
             m.scheduleTimer.ObserveField("fire", "onScheduleTimer")
             m.scheduleTimer.control = "start"
         end if
+    end if
+end sub
+
+' A deep link goes to the guide, or waits for it while sign-in or the
+' library load runs.
+sub onDeepLink()
+    if m.guide <> invalid then
+        m.guide.deepLink = m.top.deepLink
+    else
+        m.pendingLink = m.top.deepLink
     end if
 end sub
 

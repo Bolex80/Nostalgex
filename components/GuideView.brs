@@ -97,8 +97,19 @@ sub onGuide()
     if previous = invalid then
         m.top.SetFocus(true)
         m.tick.control = "start"
+        ' A launch deep link opens on its channel, fullscreen.
+        linked = NxDeepLinkChannel(m.channels, m.top.deepLink)
+        if linked >= 0 then
+            m.focus = linked
+            keepFocusVisible()
+        end if
         renderGrid()
-        tune(0)
+        if linked >= 0 then
+            tune(linked)
+            setFullscreen(true)
+        else
+            tune(0)
+        end if
         return
     end if
 
@@ -776,6 +787,8 @@ sub onSettingsResult()
     result = m.settings.result
     m.top.RemoveChild(m.settings)
     m.settings = invalid
+    linkWaiting = m.linkAfterSettings = true
+    m.linkAfterSettings = false
     m.top.SetFocus(true)
     m.subs = NxSubtitleSettings()
     applySubtitles()
@@ -783,7 +796,39 @@ sub onSettingsResult()
         stopPrevious()
         m.tick.control = "stop"
         m.top.action = result
+    else if linkWaiting then
+        applyDeepLink()
     end if
+end sub
+
+' ── Deep links ──────────────────────────────────────────────────────────────
+
+' A link that comes before the first guide is read by onGuide. One that comes
+' while Settings is open waits for it to close; if Settings rebuilds the
+' guide, the link is dropped with it.
+sub onDeepLink()
+    if m.channels = invalid then return
+    if m.settings <> invalid then
+        m.linkAfterSettings = true
+        return
+    end if
+    applyDeepLink()
+end sub
+
+sub applyDeepLink()
+    idx = NxDeepLinkChannel(m.channels, m.top.deepLink)
+    if idx < 0 then return
+    if m.sidebarOpen = true then closeSidebar()
+    m.focus = idx
+    m.slotOffset = 0
+    keepFocusVisible()
+    if idx <> m.tuned then
+        tune(idx)
+    else
+        renderGrid()
+        renderInfo()
+    end if
+    setFullscreen(true)
 end sub
 
 ' ── Remote ──────────────────────────────────────────────────────────────────

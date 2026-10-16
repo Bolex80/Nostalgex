@@ -30,6 +30,21 @@ Until there is a store listing, it installs by sideloading:
 A Roku holds one sideloaded app at a time, and installing replaces whatever is
 there. Debug output is on the TV's port 8085 (`nc <tv> 8085`).
 
+## Deep links
+
+A deep link's `contentId` names a channel, by its id or else its guide
+number, and the app tunes it fullscreen. Any `mediaType` is taken, since every
+channel is live; one that names no channel opens the guide as usual. Try one
+over the TV's control port (`source/guide/DeepLink.brs`):
+
+```sh
+curl -d '' "http://<tv>:8060/launch/dev?contentId=7&mediaType=live" # at launch
+curl -d '' "http://<tv>:8060/input?contentId=12&mediaType=live"     # while running
+```
+
+`scripts/sca.sh` runs Roku's Static Channel Analysis, the Channel Store's own
+check, and fails on any error it reports.
+
 ## Security
 
 - **Sign-in is plex.tv's link code.** The TV never sees your Plex password.

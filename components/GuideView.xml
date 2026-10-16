@@ -8,9 +8,13 @@
     <field id="guide" type="assocarray" onChange="onGuide" />
     <!-- For MainScene: "rebuild" after package changes, or "signOut". -->
     <field id="action" type="string" alwaysNotify="true" />
+    <!-- A deep link from MainScene ({ contentId, mediaType }): tune that
+         channel fullscreen. -->
+    <field id="deepLink" type="assocarray" alwaysNotify="true" onChange="onDeepLink" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/DeepLink.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />

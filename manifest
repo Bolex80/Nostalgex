@@ -4,6 +4,7 @@ minor_version=1
 build_version=2
 ui_resolutions=fhd
 rsg_version=1.3
+supports_input_launch=1
 mm_icon_focus_hd=pkg:/images/icon_hd.png
 mm_icon_focus_fhd=pkg:/images/icon_fhd.png
 splash_screen_hd=pkg:/images/splash_hd.png

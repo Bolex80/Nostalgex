@@ -21,5 +21,6 @@ sub Main(args = invalid as Dynamic)
     print "  enrichment took "; timer.TotalMilliseconds(); " ms"
     failures = failures + NxRunSubtitleTests()
     failures = failures + NxRunGuideNavTests()
+    failures = failures + NxRunDeepLinkTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
