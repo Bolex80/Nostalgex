@@ -667,27 +667,29 @@ a { color: inherit; }
   transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
 }
 .step:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--ink); }
+/* The number is a highlight block, the same treatment as "whole point." in the
+   guide heading. It also fixes the contrast problem that coloured text had:
+   the brand colours are built to sit behind dark ink rather than be ink, and
+   as 72px text on the cream card they measured 1.16, 1.66 and 2.86 to 1. Dark
+   ink on the colour clears 4.5:1 in both themes, because --on-accent is fixed
+   dark in both. */
 .step-num {
-  display: block;
+  align-self: flex-start;
   font-family: var(--font-display);
-  font-size: 72px;
+  font-size: 34px;
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--step-accent, var(--pink));
-  margin-bottom: 16px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  background: var(--step-accent, var(--pink));
+  color: var(--on-accent);
+  padding: 2px 12px 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  margin-bottom: 20px;
 }
-/* The brand yellow, cyan and pink are built to sit behind dark ink, not to be
-   ink themselves. On the cream card they measured 1.16, 1.66 and 2.86 to 1,
-   all under the 3:1 a number this size needs, so light mode gets deeper
-   versions of the same hues (4.2, 3.81, 4.92). Dark mode keeps the bright
-   brand colours, which pop against the navy card. */
-.step--yellow { --step-accent: #8a6b00; }
-.step--cyan   { --step-accent: #0b7fa8; }
-.step--pink   { --step-accent: #c2185b; }
-[data-theme="dark"] .step--yellow { --step-accent: var(--yellow); }
-[data-theme="dark"] .step--cyan   { --step-accent: var(--cyan); }
-[data-theme="dark"] .step--pink   { --step-accent: var(--pink); }
+.step--yellow { --step-accent: var(--yellow); }
+.step--cyan   { --step-accent: var(--cyan); }
+.step--pink   { --step-accent: var(--pink); }
 .step h3 {
   font-family: var(--font-display);
   font-weight: 800;
@@ -793,7 +795,7 @@ a { color: inherit; }
   .tile-go { top: 16px; right: 14px; width: 30px; height: 30px; font-size: 15px; }
   .step { border-radius: 12px; box-shadow: 4px 4px 0 var(--ink); padding: 20px 18px 22px; }
   .step:hover { box-shadow: 6px 6px 0 var(--ink); }
-  .step-num { font-size: 58px; margin-bottom: 12px; }
+  .step-num { font-size: 28px; margin-bottom: 14px; }
   .step h3 { font-size: 20px; }
   .step p { font-size: 11.5px; }
   .tile--soon .cta-sticker { right: 12px; }
@@ -1827,7 +1829,6 @@ a { color: inherit; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
   .steps { grid-template-columns: 1fr; gap: 22px; }
   .step { padding: 22px 22px 24px; }
-  .step-num { font-size: 64px; }
   .step-num { margin-bottom: 18px; }
 }
 
