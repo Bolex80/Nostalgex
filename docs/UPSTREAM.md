@@ -160,6 +160,12 @@ library, agreed to `roku/` via PRs and the listing on their account, and said
 the Apple TV look comes next, guide first, then the PRs. It missed the
 follow-up above, posted two hours before it.
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18984628)
+the same day: took the four points as the bar for the Channel Store, said
+where each stands (the rescan not fixed, the first run and transcode start
+not timed, every package on not tried, the look after those), and asked for
+their `saved the pools` line and a converted channel's start time.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
