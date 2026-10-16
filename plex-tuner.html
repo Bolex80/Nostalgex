@@ -540,6 +540,11 @@
   body.retro-mode .video-container {
     animation: crt-on 1.2s ease forwards, retro-flicker 0.15s linear infinite;
   }
+  /* Retro mode is for the picture. Until a channel plays, the video area holds
+     the loading screen, and a 150ms flicker with 80ms scanlines over it made a
+     TV browser's cursor lag and washed its colours out. */
+  body.retro-mode .player-screen:not(.has-channel) .video-container { animation: none; }
+  body.retro-mode .player-screen:not(.has-channel) .retro-overlay { display: none; }
 
   /* CRT screen curvature */
   body.retro-mode .video-container {
@@ -975,22 +980,6 @@
     gap: 24px;
     background: #000;
     z-index: 100;
-  }
-  .connect-crt-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.1) 2px,
-        rgba(0,0,0,0.1) 4px
-      ),
-      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
-    animation: scanlines 0.08s linear infinite, retro-flicker 0.15s linear infinite;
   }
   .plex-logo {
     position: relative;
@@ -3065,6 +3054,7 @@
         <div class="fs-controls" id="fs-controls">
           <button class="fs-ctl" type="button" data-fs="prev" aria-label="Previous channel">CH -</button>
           <button class="fs-ctl" type="button" data-fs="next" aria-label="Next channel">CH +</button>
+          <button class="fs-ctl" type="button" data-fs="sound" aria-label="Sound">SOUND <span id="fs-sound-val">OFF</span></button>
           <button class="fs-ctl" type="button" data-fs="exit" aria-label="Exit full screen">EXIT FULL SCREEN</button>
         </div>
       </div>
@@ -3099,7 +3089,6 @@
 
   <!-- Plex connect screen (direct child of player-screen to avoid stacking context issues) -->
   <div class="plex-connect" id="plex-connect">
-    <div class="connect-crt-overlay"></div>
     <div class="plex-logo">
       <img src="./logo/nostalgex-white.svg" alt="NOSTALGEX">
     </div>
@@ -3937,7 +3926,34 @@
       videoMuted = false;
       document.getElementById('unmute-btn').style.display = 'none';
       updateToolbarSound();
+      rememberSound();
     });
+
+    // Sound comes back on if the viewer left it on. A page that plays by itself
+    // starts muted, and a browser only lets it unmute inside a press (unmuting
+    // outside one pauses the video), so the saved choice waits for the first
+    // click, tap or key. pointerdown is not used: a touch pointerdown is not a
+    // press that lets a page unmute.
+    let soundWanted = false;
+    try { soundWanted = localStorage.getItem('plex90_sound_on') === 'true'; } catch (e) {}
+    if (soundWanted) {
+      const restoreSound = (e) => {
+        document.removeEventListener('click', restoreSound, true);
+        document.removeEventListener('keydown', restoreSound, true);
+        if (!videoMuted) return;
+        // A press on a sound control flips it itself; unmuting here too would
+        // leave it off.
+        if (e.type === 'click' && e.target.closest && e.target.closest('#unmute-btn, [onclick="toggleMute()"], [data-fs="sound"]')) return;
+        if (e.type === 'keydown' && (e.key === 'm' || e.key === 'M')) return;
+        const video = document.getElementById('plex-video');
+        video.muted = false;
+        videoMuted = false;
+        document.getElementById('unmute-btn').style.display = 'none';
+        updateToolbarSound();
+      };
+      document.addEventListener('click', restoreSound, true);
+      document.addEventListener('keydown', restoreSound, true);
+    }
 
     // Reflect the saved retro state across all controls on load
     updateRetroControls();
@@ -4005,6 +4021,7 @@
       if (ctl) {
         if (ctl.dataset.fs === 'prev') prevChannel();
         else if (ctl.dataset.fs === 'next') nextChannel();
+        else if (ctl.dataset.fs === 'sound') toggleMute();
         else if (ctl.dataset.fs === 'exit') { toggleFullscreen(); return; }
       }
       showFsOverlayFor(5000);
@@ -5890,11 +5907,16 @@
     videoMuted = video.muted;
     document.getElementById('unmute-btn').style.display = video.muted ? 'block' : 'none';
     updateToolbarSound();
+    rememberSound();
+  }
+
+  function rememberSound() {
+    try { localStorage.setItem('plex90_sound_on', videoMuted ? 'false' : 'true'); } catch (e) {}
   }
 
   function updateToolbarSound() {
     // The rail and the touch drawer each carry their own copy of the value.
-    for (const id of ['tb-sound-val', 'dw-sound-val']) {
+    for (const id of ['tb-sound-val', 'dw-sound-val', 'fs-sound-val']) {
       const el = document.getElementById(id);
       if (!el) continue;
       el.textContent = videoMuted ? 'OFF' : 'ON';
