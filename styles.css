@@ -155,7 +155,16 @@ a { color: inherit; }
 
 /* ---------- Kickers / headline accents ---------- */
 
-.section-head { max-width: 700px; margin-bottom: 64px; }
+/* No width cap on the heading block. A fixed one in px cannot be right at every
+   viewport: 700px wrapped four of the six home page headings with 400px of
+   empty room beside them, and any replacement number is just a better guess.
+   The container already limits the line, the font size is already fluid, and
+   text-wrap: balance evens out the lines when a heading does have to wrap, so
+   no line is left with a single word. Prose under a heading keeps a tight
+   measure, because that is body copy and long lines there are harder to read. */
+.section-head { margin-bottom: 64px; }
+.section-head h2, .guide-copy h2, .surf-copy h2 { text-wrap: balance; }
+.section-head p { max-width: 700px; }
 .section-head h2, .guide-copy h2, .surf-copy h2 {
   font-size: clamp(32px, 4.2vw, 50px);
 }
@@ -644,32 +653,68 @@ a { color: inherit; }
 }
 
 /* ---------- How it works ---------- */
+/* The steps were thin hairline columns, which read as a footnote under the
+   colour tiles above. They are cards now, on the same border, radius and offset
+   shadow as the tiles, but filled dark so the colour tiles stay the loudest
+   thing on the page. The number carries the colour instead. */
 .steps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--hairline);
+  gap: 28px;
 }
-
 .step {
-  padding: 44px 36px 10px 0;
-  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 26px 28px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--paper-deep);
+  box-shadow: 6px 6px 0 var(--ink);
+  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
 }
-.step + .step { padding-left: 36px; }
-.step:last-child { border-right: 0; padding-right: 0; }
-
+.step:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--ink); }
+/* The number is a highlight block, the same treatment as "whole point." in the
+   guide heading. It also fixes the contrast problem that coloured text had:
+   the brand colours are built to sit behind dark ink rather than be ink, and
+   as 72px text on the cream card they measured 1.16, 1.66 and 2.86 to 1. Dark
+   ink on the colour clears 4.5:1 in both themes, because --on-accent is fixed
+   dark in both. */
 .step-num {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--pink);
-  display: block;
-  margin-bottom: 34px;
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  background: var(--step-accent, var(--pink));
+  color: var(--on-accent);
+  padding: 2px 12px 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  margin-bottom: 20px;
 }
-.step h3 { font-size: 22px; margin-bottom: 14px; }
-.step p { color: var(--ink-soft); font-size: 15.5px; font-weight: 500; }
+.step--yellow { --step-accent: var(--yellow); }
+.step--cyan   { --step-accent: var(--cyan); }
+.step--pink   { --step-accent: var(--pink); }
+.step h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.step p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  line-height: 1.6;
+}
 
 /* ---------- Where to watch: one tile per surface ----------
    Solid colour, a big ink logo, the name and one line. Each tile is a single
@@ -757,6 +802,11 @@ a { color: inherit; }
   .tile-name { margin-top: 18px; font-size: 20px; }
   .tile-line { font-size: 11.5px; }
   .tile-go { top: 16px; right: 14px; width: 30px; height: 30px; font-size: 15px; }
+  .step { border-radius: 12px; box-shadow: 4px 4px 0 var(--ink); padding: 20px 18px 22px; }
+  .step:hover { box-shadow: 6px 6px 0 var(--ink); }
+  .step-num { font-size: 28px; margin-bottom: 14px; }
+  .step h3 { font-size: 20px; }
+  .step p { font-size: 11.5px; }
   .tile--soon .cta-sticker { right: 12px; }
 }
 
@@ -1786,14 +1836,8 @@ a { color: inherit; }
   .surf-grid figure { order: 2; }
 
   .feature-grid { grid-template-columns: repeat(2, 1fr); }
-  .steps { grid-template-columns: 1fr; }
-  .step {
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-    padding: 36px 0 36px;
-  }
-  .step + .step { padding-left: 0; }
-  .step:last-child { border-bottom: 0; }
+  .steps { grid-template-columns: 1fr; gap: 22px; }
+  .step { padding: 22px 22px 24px; }
   .step-num { margin-bottom: 18px; }
 }
 
