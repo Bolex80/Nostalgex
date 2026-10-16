@@ -161,7 +161,7 @@
           "name": "Can I use Emby in the web tuner?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Choose the Jellyfin option on the web tuner and point it at your Emby server's https address."
+            "text": "Yes. Choose Connect with Emby on the web tuner and point it at your Emby server's https address."
           }
         },
         {
@@ -416,7 +416,7 @@
         </div>
         <ul class="tips-list reveal">
             <li><strong>There's no Quick Connect on Emby.</strong> Emby doesn't offer it, so your username and password is the way in.</li>
-            <li><strong>On the web tuner, choose the Jellyfin option.</strong> Emby and Jellyfin share an API, so the web tuner connects to Emby through its Jellyfin sign in. In the Apple TV app, Emby has its own option.</li>
+            <li><strong>On the web tuner, choose Connect with Emby.</strong> It has its own sign in, the same as the Apple TV app. Signed in through the Jellyfin option before? The tuner sees it's Emby and switches you over, so there's nothing to redo.</li>
             <li><strong>The web tuner needs https.</strong> Your Emby server needs an https address with a valid certificate for the browser to reach it. A plain http server on your network works fine in the Apple TV app.</li>
             <li><strong>Behind a reverse proxy?</strong> Allow requests from https://www.nostalgex.app and include the X-Emby-Authorization header in the allowed headers. The <a href="/support#cors">support page has the configs</a>.</li>
             <li><strong>"Could not reach my server"?</strong> Type the scheme, host and port exactly as another client uses them, for example http://192.168.1.20:8096. The connect screen tells you which part failed.</li>
@@ -432,7 +432,7 @@
         </div>
         <div class="reveal">
           <p>The same channels, running in any browser. It is the fastest way to see what this is before installing anything.</p>
-          <p>One caveat worth knowing up front. Browsers block a secure page from talking to a plain http server, so the web tuner needs your Emby server on an https address. If yours is http on the local network, use the Apple TV app instead. It has no such restriction. On the web tuner, Emby connects through the Jellyfin option. <a href="/web-tuner">Open the free web tuner</a>.</p>
+          <p>One caveat worth knowing up front. Browsers block a secure page from talking to a plain http server, so the web tuner needs your Emby server on an https address. If yours is http on the local network, use the Apple TV app instead. It has no such restriction. On the web tuner, pick Connect with Emby. <a href="/web-tuner">Open the free web tuner</a>.</p>
           <div class="cta-row" style="margin-top:26px">
             <a class="btn btn-ink btn-lg" href="/web-tuner">Open the web tuner</a>
           </div>
@@ -457,7 +457,7 @@
           </details>
           <details>
             <summary>Can I use Emby in the web tuner?<span class="faq-marker" aria-hidden="true"></span></summary>
-            <p>Yes. Choose the Jellyfin option on the web tuner and point it at your Emby server's https address.</p>
+            <p>Yes. Choose Connect with Emby on the web tuner and point it at your Emby server's https address.</p>
           </details>
           <details>
             <summary>Can I connect Emby and another server at the same time?<span class="faq-marker" aria-hidden="true"></span></summary>
