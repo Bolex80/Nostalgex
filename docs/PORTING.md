@@ -89,6 +89,15 @@ record: keyword and network matches don't fire, production companies match on
 Plex's studio alone, and the IMDb gates leave FOREIGN FILMS and CULT CLASSICS
 empty.
 
+First run on a TV, 2026-10-15, with the Supabase project from the live web
+tuner's meta tags: of 894 TMDB ids, 880 came from the shared cache and 14
+through the relay as `roku`, none failed, and the remote step took 1.7 s.
+OMDb found 0 candidates for its 2 gated channels, so the relay's `omdb/`
+route is still untried. On a first launch the console prints `ReadAsciiFile:
+file open for read failed` from `NxEnrichFileCache`. That is the firmware
+noting the local cache file doesn't exist yet, and the code treats it as
+empty.
+
 **Cost on device:** about 0.16 ms per item-channel check (186,144 in 29.7 s on
 a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
 the app filters in a Task node, and keeps the last build's guide and pools
