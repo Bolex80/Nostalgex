@@ -215,7 +215,10 @@ cases until a server has one.
 The maintainer's device report (Discussion #8) was checked on both TVs on
 2026-10-16, at `f237f6c`. With 70 channels built from 5,363 items, saving the
 pools used 16% of the app's memory limit, and 35% while the saved guide was also
-showing. Deep links sent over ECP tuned channels 1 to 8 fullscreen. A
+showing. The pools file was 30 MB, too big for `ReadAsciiFile`, because
+`k <> "basePool"` never matched an iterated key (they come back lowercased)
+and every pool was written twice. Fixed, it is 3.5 MB (1.6 MB with 39
+channels), and restoring a day's guide from it took 5.6 s at 34% of the limit. Deep links sent over ECP tuned channels 1 to 8 fullscreen. A
 transcoded film joined 70 minutes in had Plex's transcode window at minutes
 70 to 81, not at 0:00. Still unseen: the SERVER rows (both TVs reach one
 server, so the rows don't show) and the sign-in code changing after 5 minutes.

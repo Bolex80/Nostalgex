@@ -49,8 +49,11 @@ end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
 ' library itself, ran a Roku Stick Plus out of memory with 45 channels on
-' (EXIT_CHANNEL_MEM_LIMIT_FG, Discussion #8). Each item is copied, without
-' its filter cache, only for as long as it takes to format it.
+' (EXIT_CHANNEL_MEM_LIMIT_FG, Discussion #8). Each item is copied only for
+' as long as it takes to format it, without what only the build reads: the
+' filter cache, the enrichment record and the artwork paths. Every episode of
+' a show shares one enrichment record in memory but would get its own copy
+' in the file.
 sub NxSavePools(ordered as Object, guide as Object, month as Integer)
     path = NxPoolCachePath()
     WriteAsciiFile(path, "{""key"":" + FormatJson(NxPoolCacheKey(month, guide.enabledBundles)) + ",""items"":[")
@@ -60,8 +63,12 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
     chans = []
     for each ch in ordered
         saved = {}
+        ' Keys come back lowercased from an AA's iteration, so they're compared
+        ' that way: `k <> "basePool"` never matched, and every channel's pool
+        ' was written out in full a second time (20 MB of a 23 MB file).
         for each k in ch
-            if k <> "pool" and k <> "basePool" then saved[k] = ch[k]
+            lk = LCase(k)
+            if lk <> "pool" and lk <> "basepool" then saved[k] = ch[k]
         end for
         pool = ch.basePool
         if pool = invalid then pool = ch.pool
@@ -75,7 +82,8 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
                 index[id] = n
                 copy = {}
                 for each k in it
-                    if k <> "nxFilter" then copy[k] = it[k]
+                    lk = LCase(k)
+                    if lk <> "nxfilter" and lk <> "enrichment" and lk <> "thumb" and lk <> "art" then copy[k] = it[k]
                 end for
                 text = FormatJson(copy)
                 if n > 0 then text = "," + text
