@@ -1523,8 +1523,9 @@ a { color: inherit; }
    One card, one job: sign in to a media server, then hand off to
    /plex-tuner.html. The .connect-* class names and the #connect-* / #jf-* ids
    are contracts with the inline auth script on that page — the script toggles
-   [style.display] on #connect-default, #connect-jellyfin-intro and
-   #connect-jellyfin, and toggles .active on .connect-waiting / .connect-success.
+   [style.display] on #connect-default, #connect-alt, #connect-jellyfin-intro,
+   #connect-emby-intro, #connect-jellyfin and #connect-emby, and toggles .active
+   on .connect-waiting / .connect-success.
    Rename nothing here without changing the script.
    ========================================================================== */
 .page-connect { display: flex; flex-direction: column; min-height: 100vh; }
@@ -1580,8 +1581,17 @@ a { color: inherit; }
 
 /* The script flips these between display:none and display:block, so they must
    fill the card or the full-width buttons inside them collapse to text width. */
-#connect-default,
-#connect-jellyfin-intro { width: 100%; }
+#connect-default { width: 100%; }
+
+/* Jellyfin and Emby: two text links on one line under the Plex button, wrapping
+   onto two on a narrow phone. */
+.connect-alt {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 36px;
+  width: 100%;
+}
 
 /* Buttons: same offset hard-shadow language as .btn, but the auth script owns
    these class names, so they carry their own rules rather than reusing .btn. */
@@ -1756,7 +1766,7 @@ a { color: inherit; }
 }
 .connect-redirect { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-faint); }
 
-/* ---- Jellyfin form ---- */
+/* ---- Jellyfin and Emby forms ---- */
 .connect-form {
   display: none;                       /* script sets display:block */
   width: 100%;
@@ -1779,7 +1789,8 @@ a { color: inherit; }
 .connect-input:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
 
 #jf-quick-btn { margin-top: 10px; }
-#jf-back-btn { display: block; margin: 12px auto 0; }
+#jf-back-btn,
+#em-back-btn { display: block; margin: 12px auto 0; }
 
 .connect-lede--follow { margin-top: -24px; }
 

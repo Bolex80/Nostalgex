@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
 const tuner = readFileSync(new URL('plex-tuner.html', root), 'utf8');
 const urls = readFileSync(new URL('scripts/nostalgex-jellyfin-urls.js', root), 'utf8');
+const playbackInfoModule = readFileSync(new URL('scripts/nostalgex-playback-info.js', root), 'utf8');
 const htmlIds = new Set([...tuner.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]));
 function between(start, end) {
   const a = tuner.indexOf(start), b = tuner.indexOf(end, a);
@@ -46,6 +47,7 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   }
   const video = {
     paused: true, ended: false, currentTime: 0, style: {}, textTracks: [], error: null,
+    readyState: 0, videoWidth: 0, videoHeight: 0,
     webkitDisplayingFullscreen: fullscreen, fullscreenEntries: 0, fullscreenExits: 0,
     _src: '', get src() { return this._src; }, set src(value) { this._src = value; sources.push(value); },
     get currentSrc() { return this._src; },
@@ -88,7 +90,7 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   const context = {
     console: { log() {}, warn() {}, error() {} }, URL: FixtureURL, URLSearchParams, AbortController,
     Blob: class { constructor(parts) { this.parts = parts; } }, crypto: { randomUUID: () => `generated-${++seq}` },
-    currentChannel: null, mediaBackend: backend, plexServerUrl: 'https://fixture.invalid', plexToken: 'fixture-token', jellyfinUserId: 'fixture-user',
+    currentChannel: null, isDemoMode: false, mediaBackend: backend, plexServerUrl: 'https://fixture.invalid', plexToken: 'fixture-token', jellyfinUserId: 'fixture-user',
     jellyfinAuthHeader: () => `fixture-auth-${context.plexToken}`, getClientId: () => 'fixture-device',
     playbackTracker: null, currentPlayingItem: null, hlsInstance: null, syncPlexActivity: reporting,
     videoMuted: false, consecutivePlaybackFailures: 0,
@@ -126,7 +128,7 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   };
   context.window = context;
   vm.createContext(context);
-  const production = urls
+  const production = urls + playbackInfoModule
     + between('  let activeTranscodeSession = null;', "  let appState = 'connect'")
     + between('  function switchChannel(', '  async function getJellyfinTranscodeUrl(')
     + between('  async function getJellyfinTranscodeUrl(', '  // ── Playback tracking')
@@ -441,6 +443,130 @@ await test('registered document fullscreenchange cancels subtitle work when leav
   assert.equal(f.attached.length, 0);
 });
 
+// ── PLAYBACK INFORMATION inside the real playback code ──────────────────────
+// The panel reads playbackInfoRows(). Each programme has a generation and each try at
+// playing it an attempt; only the attempt that is current may mark it ready.
+const rowValue = (f, id) => (f.context.playbackInfoRows().find(r => r.id === id) || {}).value;
+const playingListeners = f => [...(f.listeners.get('playing') || [])];
+
+async function assertInfoLateCallbackGuard(transformProduction) {
+  const f = fixture({ transformProduction });
+  await f.tune(direct('A'), 1);
+  const lateA = playingListeners(f);
+  assert.equal(lateA.length, 1);
+  const b = f.tune(transcode('B'), 2);
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  lateA.forEach(fn => fn({ type: 'playing' }));   // A's event, delivered after B was tuned
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  assert.equal(rowValue(f, 'presentation'), 'Unknown');
+  f.info(0, 'B'); await b;
+  f.video.videoWidth = 1280; f.video.videoHeight = 720;
+  f.video.emit('playing');
+  assert.equal(rowValue(f, 'delivery'), 'Server stream');
+  assert.equal(rowValue(f, 'presentation'), '1280 × 720');
+  assert.equal(rowValue(f, 'reason'), 'Server streaming was selected for this source.');
+}
+await test('info: an old programme\'s late playing event cannot mark the new one ready', () => assertInfoLateCallbackGuard());
+
+await test('info: direct play fields, then nothing once playback stops', async () => {
+  const f = fixture({ backend: 'emby' });
+  await f.tune(direct('A'), 1);
+  assert.equal(rowValue(f, 'backend'), 'Emby');
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  assert.equal(rowValue(f, 'quality'), 'Up to 120 Mbps');
+  assert.equal(rowValue(f, 'source'), 'Video: H.264 · Audio: AAC');
+  f.video.videoWidth = 1920; f.video.videoHeight = 1080; f.video.emit('playing');
+  assert.equal(rowValue(f, 'delivery'), 'Direct Play');
+  assert.equal(rowValue(f, 'presentation'), '1920 × 1080');
+  assert.equal(rowValue(f, 'reason'), 'No fallback used.');
+  const text = JSON.stringify(f.context.playbackInfoRows());
+  for (const forbidden of ['fixture.invalid', 'fixture-token', 'fixture-user', 'fixture-device', '/Videos/']) {
+    assert.equal(text.includes(forbidden), false, forbidden);
+  }
+  f.context.stopVideo();
+  assert.equal(f.context.playbackInfoRows().length, 0, 'unavailable once nothing is playing');
+});
+
+await test('info: a failed direct play keeps the programme, says why, and ignores the old attempt', async () => {
+  const f = fixture();
+  await f.tune(direct('A'), 1);
+  const oldAttempt = playingListeners(f);
+  f.video.onerror();
+  assert.equal(rowValue(f, 'reason'), 'Direct Play failed. Trying a server stream.');
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  oldAttempt.forEach(fn => fn({ type: 'playing' }));
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  f.info(0, 'A'); await flush();
+  f.video.emit('playing');
+  assert.equal(rowValue(f, 'delivery'), 'Server stream');
+  assert.equal(rowValue(f, 'reason'), 'Direct Play failed. Trying a server stream.');
+});
+
+await test('info: an hls.js retry is a new attempt, and the old ready does not carry over', async () => {
+  const f = fixture({ backend: 'plex', hls: true });
+  await f.tune(transcode('A'), 1);
+  f.video.emit('playing');
+  assert.equal(rowValue(f, 'delivery'), 'Server stream');
+  f.hlsInstances[0].events.error(null, { fatal: true, details: 'fragLoadError', type: 'network' });
+  assert.equal(f.hlsInstances[0].startLoads, 1);
+  assert.equal(rowValue(f, 'delivery'), 'Loading');
+  assert.equal(rowValue(f, 'reason'), 'The player could not open the stream. Retrying it once.');
+  f.video.paused = false; f.video.readyState = 4; f.video.emit('timeupdate');
+  assert.equal(rowValue(f, 'delivery'), 'Server stream', 'a picture that never stopped still counts');
+});
+
+// ── Emby in the real playback code ───────────────────────────────────────
+const bodyOf = request => JSON.parse(request.options.body);
+await test('Emby: the retry after a failed direct play asks PlaybackInfo for a server stream only', async () => {
+  const f = fixture({ backend: 'emby' });
+  await f.tune(direct('A'), 1);
+  f.video.onerror();
+  const body = bodyOf(f.requests[0]);
+  assert.equal(body.EnableDirectPlay, false);
+  assert.equal(body.EnableDirectStream, false);
+  assert.equal(body.MediaSourceId, 'A');
+  assert.match(f.requests[0].url.pathname, /\/Items\/A\/PlaybackInfo$/);
+  assert.equal(f.requests[0].url.searchParams.get('userId'), 'fixture-user');
+});
+await test('Emby: a first-attempt server stream lets Emby decide (no flags)', async () => {
+  const f = fixture({ backend: 'emby' });
+  const a = f.tune(transcode('A'), 1);
+  const body = bodyOf(f.requests[0]);
+  assert.equal('EnableDirectPlay' in body, false);
+  assert.equal('EnableDirectStream' in body, false);
+  f.info(0, 'A'); await a;
+});
+await test('Jellyfin unchanged: the same retry sends the same body as before, no flags', async () => {
+  const f = fixture({ backend: 'jellyfin' });
+  await f.tune(direct('A'), 1);
+  f.video.onerror();
+  const body = bodyOf(f.requests[0]);
+  assert.equal(Object.keys(body).sort().join(), 'DeviceProfile,MaxStreamingBitrate,MediaSourceId,StartTimeTicks');
+});
+await test('Emby: direct play URL, MediaBrowser auth on PlaybackInfo, and the encode is stopped by its own session', async () => {
+  const f = fixture({ backend: 'emby' });
+  await f.tune(direct('A'), 1);
+  assert.equal(f.video.src, 'https://fixture.invalid/Videos/A/stream.mp4?Static=true&MediaSourceId=A&api_key=fixture-token');
+  const b = f.tune(transcode('B'), 2);
+  assert.equal(f.requests[0].options.headers.Authorization, 'fixture-auth-fixture-token');
+  f.info(0, 'B'); await b;
+  f.context.stopVideo();
+  assert.equal(f.cleanups.length, 1);
+  assert.equal(f.cleanups[0].options.method, 'DELETE');
+  assert.equal(f.cleanups[0].url.pathname, '/Videos/ActiveEncodings');
+  assert.equal(f.cleanups[0].url.searchParams.get('playSessionId'), 'session-B');
+});
+await test('Emby: a user change invalidates a pending request, as on Jellyfin', async () => {
+  const f = fixture({ backend: 'emby' }); const a = f.tune(transcode('A')); f.context.jellyfinUserId = 'next-user';
+  f.info(0, 'A'); await a;
+  assert.equal(f.context.currentPlayingItem, null); assert.equal(f.cleanups.length, 1);
+});
+await test('switching backend from Jellyfin to Emby mid-resolve invalidates the old request', async () => {
+  const f = fixture({ backend: 'jellyfin' }); const a = f.tune(transcode('A')); f.context.mediaBackend = 'emby';
+  f.info(0, 'A'); await a;
+  assert.equal(f.context.currentPlayingItem, null); assert.equal(f.cleanups.length, 1);
+});
+
 // In-memory negative controls must fail a specific behavioral assertion, not a
 // missing extraction anchor or fixture exception. Production files are never edited.
 function replaceOnce(source, before, after) {
@@ -468,4 +594,12 @@ await negative('removing the old HLS manifest guard is caught', assertManifestGu
 await negative('removing native fullscreen resume is caught by the registered callback test', assertNativeFullscreenLifecycle,
   source => replaceOnce(source, 'if (video.paused && !video.ended && (video.src || video.currentSrc)) startVideoPlayback(video);',
     '/* negative control: native fullscreen resume omitted */'), 1, 0);
+// Two layers keep a late event off the panel: request ownership, and the programme
+// generation plus attempt the listener registered with. Remove both and the old
+// programme's event marks the new one ready.
+await negative('an unguarded ready listener is caught by the late-callback test', assertInfoLateCallbackGuard,
+  source => replaceOnce(source,
+    '    const mark = () => {\n      if (!ownsPlaybackRequest(request)) return;\n      if (info === playbackInfo && info.markReady(generation, attempt)) stop();\n    };',
+    '    const mark = () => { if (playbackInfo && playbackInfo.markReady(playbackInfo.generation, playbackInfo.attemptId)) stop(); };'),
+  'Loading', 'Server stream');
 console.log(`web tune ownership: ${count - negativeCount} production-function scenarios and ${negativeCount} negative controls passed (offline)`);
