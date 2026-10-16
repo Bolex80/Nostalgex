@@ -20,5 +20,6 @@ sub Main(args = invalid as Dynamic)
     failures = failures + NxRunEnrichmentTests("pkg:/tests/vectors/enrichment.json")
     print "  enrichment took "; timer.TotalMilliseconds(); " ms"
     failures = failures + NxRunSubtitleTests()
+    failures = failures + NxRunGuideNavTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub

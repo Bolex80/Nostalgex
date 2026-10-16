@@ -813,15 +813,12 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         end if
         return false
     end if
-    if key = "down" and m.focus < m.channels.Count() - 1 then
-        m.focus = m.focus + 1
-        keepFocusVisible()
-        renderGrid()
-        renderInfo()
-        return true
-    end if
-    if key = "up" and m.focus > 0 then
-        m.focus = m.focus - 1
+    if key = "up" or key = "down" then
+        ' Down off the last channel wraps to channel one; Up off channel one
+        ' does not (source/guide/GuideNav.brs).
+        idx = NxGuideStep(m.focus, m.channels.Count(), key)
+        if idx < 0 then return false
+        m.focus = idx
         keepFocusVisible()
         renderGrid()
         renderInfo()
