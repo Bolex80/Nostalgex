@@ -24,7 +24,7 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
 | `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
-| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). Not yet on a TV |
+| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). On both TVs (2026-10-16) the load reads 67 collections and lists 26; a CH 500 channel hasn't been seen |
 | `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
@@ -218,7 +218,7 @@ pools used 16% of the app's memory limit, and 35% while the saved guide was also
 showing. The pools file was 30 MB, too big for `ReadAsciiFile`, because
 `k <> "basePool"` never matched an iterated key (they come back lowercased)
 and every pool was written twice. Fixed, it is 3.5 MB (1.6 MB with 39
-channels), and restoring a day's guide from it took 5.6 s at 34% of the limit. Deep links sent over ECP tuned channels 1 to 8 fullscreen. A
+channels), and restoring a day's guide from it took 5.6 s at 34% of the limit. Deep links sent over ECP for channels 1 to 8 tuned seven of them fullscreen; the one for 5 tuned nothing, unexplained. A
 transcoded film joined 70 minutes in had Plex's transcode window at minutes
 70 to 81, not at 0:00. Still unseen: the SERVER rows (both TVs reach one
 server, so the rows don't show) and the sign-in code changing after 5 minutes.
