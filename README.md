@@ -96,7 +96,7 @@ Helping costs nothing too: star the repo, rate the app on the App Store, or tell
 <a id="what-leaves-your-network"></a>
 **Apple TV app:**
 
-- **Your media server.** Direct from the Apple TV to your Plex, Jellyfin or Emby. Sign-in goes straight to the server, and REPORT PLAYBACK only talks to that same server. No credentials are ever sent anywhere else.
+- **Your media server.** Direct from the Apple TV to your Plex, Jellyfin or Emby. Sign-in goes straight to the server, and Show Now Playing and Mark Watched only talk to that same server. No credentials are ever sent anywhere else.
 - **plex.tv** (Plex only). The PIN sign-in flow and server discovery, like every Plex client.
 - **iCloud** (only if you turn on sync). Your lineup and settings, in your own iCloud. Server logins stay on the device.
 - **MusicBrainz.** Public metadata for the music video channels. No key, no account.

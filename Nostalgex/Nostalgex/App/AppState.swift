@@ -79,7 +79,7 @@ class AppState {
     private func reportPlaybackBackgrounded() {
         finishReportingBackgroundTask()
         guard let tracker = playbackTracker else { return }
-        let identifier = syncPlexActivity && !isDemoMode
+        let identifier = tracker.hasReportingWork && !isDemoMode
             ? UIApplication.shared.beginBackgroundTask(withName: "Finish playback report") { [weak self] in
                 self?.finishReportingBackgroundTask()
             }
@@ -450,38 +450,66 @@ class AppState {
         }
     }
 
-    static let syncPlexActivityDefaultsKey = "nostalgex_sync_plex_activity"
+    static let syncPlexActivityDefaultsKey = PlaybackReportingPreferences.legacyKey
+    static let showNowPlayingDefaultsKey = PlaybackReportingPreferences.nowPlayingKey
+    static let markWatchedDefaultsKey = PlaybackReportingPreferences.markWatchedKey
+    let playbackReportingScope = PlaybackReportingControlScope(showNowPlaying: false, markWatched: false)
+    private var applyingPlaybackReportingPair = false
 
-    /// When true, playback is reported to the connected server: Now Playing shows what's
-    /// on and a qualifying watch counts. Off = watch privately.
-    /// Same switch for Plex, Jellyfin, and Emby. Demo never reports.
-    ///
-    /// Defaults OFF. Opt in, don't opt out. When on, channel surfing never leaves items in
-    /// the household's Continue Watching row: Plex reports carry no position, and Jellyfin
-    /// and Emby get each program's prior state back (`PlaybackTracker`).
-    /// Rewatch channels still fill from plays the server already recorded.
-    var syncPlexActivity: Bool = AppState.resolveSyncPlexActivity(
-        stored: UserDefaults.standard.object(forKey: AppState.syncPlexActivityDefaultsKey)
-    ) {
+    /// Both choices default off. An explicit old Report Playback choice migrates
+    /// to both; either new choice, including false, wins over the old value.
+    var showNowPlaying: Bool = PlaybackReportingPreferences.loadAndMigrate(from: .standard).showNowPlaying {
         didSet {
-            UserDefaults.standard.set(syncPlexActivity, forKey: Self.syncPlexActivityDefaultsKey)
-            // Turning off mid-program: abandon the live tracker so the current item stops
-            // reporting immediately; it clears Now Playing (Plex) or restores UserData
-            // (Jellyfin, Emby). Turning on takes effect on the next item. Only the user
-            // changes this: a failed report backs off (`PulseBackoff`), never switches it off.
-            if !syncPlexActivity { playbackTracker?.abandon() }
-            if oldValue != syncPlexActivity {
-                Analytics.track(.settingChanged(key: "sync_plex_activity", value: syncPlexActivity ? "true" : "false"))
+            UserDefaults.standard.set(showNowPlaying, forKey: Self.showNowPlayingDefaultsKey)
+            preferenceSync.record(PreferenceSync.nowPlayingKey, value: showNowPlaying)
+            if oldValue != showNowPlaying {
+                Analytics.track(.settingChanged(key: "show_now_playing", value: showNowPlaying ? "true" : "false"))
             }
-            preferenceSync.record(PreferenceSync.reportPlaybackKey, value: syncPlexActivity)
+            playbackReportingChoiceChanged()
+        }
+    }
+    var markWatched: Bool = PlaybackReportingPreferences.loadAndMigrate(from: .standard).markWatched {
+        didSet {
+            UserDefaults.standard.set(markWatched, forKey: Self.markWatchedDefaultsKey)
+            preferenceSync.record(PreferenceSync.markWatchedKey, value: markWatched)
+            if oldValue != markWatched {
+                Analytics.track(.settingChanged(key: "mark_watched", value: markWatched ? "true" : "false"))
+            }
+            playbackReportingChoiceChanged()
         }
     }
 
-    /// Resolves the stored `syncPlexActivity` preference. The key is only written once the
-    /// user touches the toggle, so an explicit choice (either way) always wins and only
-    /// never-touched installs pick up the OFF default.
-    static func resolveSyncPlexActivity(stored: Any?) -> Bool {
-        (stored as? Bool) ?? false
+    /// Compatibility for debug callers and older clients. New UI never couples the
+    /// choices. The conservative legacy projection is ON only when both are ON.
+    var syncPlexActivity: Bool {
+        get { showNowPlaying && markWatched }
+        set { setPlaybackReporting(showNowPlaying: newValue, markWatched: newValue) }
+    }
+    static func resolveSyncPlexActivity(stored: Any?) -> Bool { (stored as? Bool) ?? false }
+
+    func setPlaybackReporting(showNowPlaying: Bool, markWatched: Bool) {
+        applyingPlaybackReportingPair = true
+        self.showNowPlaying = showNowPlaying
+        self.markWatched = markWatched
+        applyingPlaybackReportingPair = false
+        playbackReportingChoiceChanged()
+    }
+
+    private func playbackReportingChoiceChanged() {
+        guard !applyingPlaybackReportingPair else { return }
+        // Publish the complete pair even when only one row changed. A migrated
+        // true choice may not have reached iCloud under its new key yet.
+        UserDefaults.standard.set(showNowPlaying, forKey: Self.showNowPlayingDefaultsKey)
+        UserDefaults.standard.set(markWatched, forKey: Self.markWatchedDefaultsKey)
+        preferenceSync.record(PreferenceSync.nowPlayingKey, value: showNowPlaying)
+        preferenceSync.record(PreferenceSync.markWatchedKey, value: markWatched)
+        let legacy = showNowPlaying && markWatched
+        UserDefaults.standard.set(legacy, forKey: Self.syncPlexActivityDefaultsKey)
+        preferenceSync.record(PreferenceSync.reportPlaybackKey, value: legacy)
+        playbackReportingScope.update(showNowPlaying: !isDemoMode && showNowPlaying,
+                                      markWatched: !isDemoMode && markWatched)
+        playbackTracker?.updateReporting(showNowPlaying: !isDemoMode && showNowPlaying,
+                                         markWatched: !isDemoMode && markWatched)
     }
 
     /// Global subtitle language (`__system__` = follow Apple TV language).

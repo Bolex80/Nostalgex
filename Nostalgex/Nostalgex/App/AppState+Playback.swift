@@ -621,13 +621,17 @@ extension AppState {
         // turned it on: Plex gets timeline + scrobble, Jellyfin and Emby get the same
         // watch counted on their server. Either way the tracker still accumulates time.
         if !preservingTracker {
-            let reportingOn = !isDemoMode && syncPlexActivity
-            let reportingBackend: (any MediaBackend)? = reportingOn ? api(for: item.serverID) : nil
+            // Keep the backend available even with both choices off so a live
+            // preference change takes effect without retuning or resetting analytics.
+            let reportingBackend: (any MediaBackend)? = isDemoMode ? nil : api(for: item.serverID)
             playbackTracker = PlaybackTracker(
                 item: item,
                 seekOffset: Int(currentPartBaseSeconds) + seekOffset,
                 plexAPI: reportingBackend as? PlexAPIService,
-                watchReporter: reportingBackend as? any WatchActivityReporting
+                watchReporter: reportingBackend as? any WatchActivityReporting,
+                showNowPlaying: !isDemoMode && showNowPlaying,
+                markWatched: !isDemoMode && markWatched,
+                controlScope: playbackReportingScope
             )
             if let tracker = playbackTracker { attachRatingNudgeCounter(to: tracker) }
         }
