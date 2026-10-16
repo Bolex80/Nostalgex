@@ -86,6 +86,29 @@ the credit should appear, and whether it may use the logo. Also reported that
 franchise channels are in, and asked for `roku` on the relay and which
 Supabase URL and anon key Roku builds should use.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18961197)
+on 2026-10-15, on enrichment only; the four official-app questions are still
+open:
+
+- **Relay:** accepts `X-Nostalgex-Client: roku` now (upstream bfb4453). Four
+  read-only TMDB routes (`movie/{id}` and `tv/{id}` with
+  `append_to_response=keywords`, `collection/{id}`, `search/collection`) plus
+  `omdb/{imdbID}`, cached at the edge, nothing logged. `roUrlTransfer` sends
+  no Origin, so no CORS handling is needed.
+- **Cache first:** read the shared Supabase cache with the anon key and hit
+  the relay only on a miss, as the Apple TV app and web tuner do.
+- **OMDb:** the free tier is 1,000 requests a day across every client
+  together, so cache aggressively.
+
+They said the anon key is "already in the repo"; it isn't, upstream's source
+has only placeholders. The URL and key are in the built web tuner, in the
+`nostalgex-supabase-url` and `nostalgex-supabase-anon-key` meta tags of
+`https://www.nostalgex.app/plex-tuner` (project `ljlhreomwcsyhiytqipm`, JWT
+role `anon`).
+
+**Logo:** the owner prefers the port's own logo, icon and splash to the
+Nostalgex logo, so the question asked above is withdrawn on our side.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
