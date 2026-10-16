@@ -193,6 +193,7 @@ function pageScripts(html) {
 
 export function selfhostPlugins({ root, version }) {
   let outDir
+  let wroteBundle = false
   return [
     {
       name: 'nostalgex-selfhost-markers',
@@ -207,6 +208,7 @@ export function selfhostPlugins({ root, version }) {
       name: 'nostalgex-selfhost-vendor',
       configResolved(config) {
         outDir = resolve(config.root, config.build.outDir)
+        wroteBundle = false
       },
       transformIndexHtml: {
         order: 'post',
@@ -214,7 +216,15 @@ export function selfhostPlugins({ root, version }) {
           return rewriteForSelfhost(html, basename(ctx.filename))
         },
       },
+      writeBundle() {
+        wroteBundle = true
+      },
       closeBundle() {
+        // closeBundle runs whether the build succeeded or failed. Throwing here
+        // after a failure replaces the real error with "did not emit
+        // web-tuner.html", which sends you looking in the wrong place: the
+        // actual cause was a missing dependency, reported and then swallowed.
+        if (!wroteBundle) return
         const pages = ['web-tuner.html', 'plex-tuner.html']
         for (const page of pages) {
           if (!existsSync(resolve(outDir, page))) throw new Error(`self-host build did not emit ${page}`)
