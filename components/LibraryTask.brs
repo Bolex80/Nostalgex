@@ -95,6 +95,12 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
     NxAppendText(path, parts)
 end sub
 
+function NxFileKB(path as String) as Integer
+    st = CreateObject("roFileSystem").Stat(path)
+    if st = invalid or st.size = invalid then return -1
+    return st.size \ 1024
+end function
+
 ' Appends the pieces to the file, UTF-8, and empties the list.
 sub NxAppendText(path as String, parts as Object)
     bytes = CreateObject("roByteArray")
@@ -103,11 +109,20 @@ sub NxAppendText(path as String, parts as Object)
     parts.Clear()
 end sub
 
+' A file's text, or "". ReadAsciiFile refuses a pools file this big ("file
+' is too big", 70 channels on a TV), so the bytes are read and turned into
+' text instead.
+function NxReadBigFile(path as String) as String
+    bytes = CreateObject("roByteArray")
+    if not bytes.ReadFile(path) then return ""
+    return bytes.ToAsciiString()
+end function
+
 ' The guide from the saved pools, as { ordered, guide }, or invalid when
 ' there are none for this key.
 function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles as Object) as Dynamic
     if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
-    saved = ParseJson(ReadAsciiFile(NxPoolCachePath()))
+    saved = ParseJson(NxReadBigFile(NxPoolCachePath()))
     if type(saved) <> "roAssociativeArray" then return invalid
     if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
     ordered = []
@@ -384,7 +399,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     timer.Mark()
     NxSavePools(ordered, guide, clock.month)
-    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit"
+    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone.
     ' The package list counts too: a new package that is off changes no
