@@ -14,7 +14,7 @@ Nostalgex is made by Chad Mueller (Muell Haus Inc.). It is not affiliated with P
 
 - [Nostalgex for Plex](https://www.nostalgex.app/plex): sign in with a code at plex.tv/link
 - [Nostalgex for Jellyfin](https://www.nostalgex.app/jellyfin): Quick Connect or username and password
-- [Nostalgex for Emby](https://www.nostalgex.app/emby): username and password; on the web tuner, Emby connects through the Jellyfin option
+- [Nostalgex for Emby](https://www.nostalgex.app/emby): username and password, on Apple TV and on the web tuner
 
 ## Help
 

@@ -25,6 +25,24 @@
 //    client-made id all segments are 200. Jellyfin copies the whole query string onto
 //    segments and plays with or without one (12.2.0). Measured 2026-10-13.
 //
+// EMBY, where it differs from Jellyfin. Mirrors Nostalgex/Nostalgex/Services/EmbyAPIService.swift.
+// Measured 2026-10-16 against Emby Server 4.8.11.0, 4.9.5.0 and 4.10.1.0, and Jellyfin 12.2.0.
+//
+// 4. Libraries are /Users/{id}/Views. /UserViews?userId= is Jellyfin's spelling and answers
+//    404 on all three Emby versions, so the web tuner could never load an Emby library
+//    through its Jellyfin sign-in. Jellyfin keeps /UserViews exactly as before.
+// 5. After a failed direct play, PlaybackInfo needs EnableDirectPlay AND EnableDirectStream
+//    false before Emby hands back a TranscodingUrl. With direct play off alone Emby 4.10.1.0
+//    still says SupportsDirectStream and gives no URL (an 8-bit H.264 + AAC MP4). Same rule as
+//    JellyfinPlaybackResolver.playbackInfoBody on Apple TV. Jellyfin's body is left as it is.
+// 6. Telling them apart: /System/Info/Public on Jellyfin carries ProductName "Jellyfin Server";
+//    Emby has no ProductName and lists LocalAddresses (plural). Emby's sign-in result also has
+//    no User.ServerName, so the server's name comes from the same public info.
+// Same on both, so shared: the MediaBrowser Authorization header (Emby 4.10 accepts it on every
+// call the tuner makes), AuthenticateByName with { Username, Pw }, /Items, PlaybackInfo, the
+// static stream, subtitle VTT, /Users/{id}/... watch state, and DELETE /Videos/ActiveEncodings,
+// which ends an Emby encode within a second on its own (measured).
+//
 // USAGE (browser: plain <script src="scripts/nostalgex-jellyfin-urls.js">,
 // node: `import "./nostalgex-jellyfin-urls.js"`, then globalThis):
 //
@@ -32,6 +50,9 @@
 //   JU.staticStreamUrl({ serverUrl, itemId, mediaSourceId, container, token, audioStreamIndex });
 //   JU.withApiKey(url, token);
 //   JU.fallbackHlsUrl({ serverUrl, itemId, mediaSourceId, token, deviceId, playSessionId });
+//   JU.userViewsPath(backend, userId);
+//   JU.serverStreamOnlyFields(backend, serverStreamOnly);
+//   JU.serverKindFromPublicInfo(json);
 
 (function (global) {
   'use strict';
@@ -89,7 +110,41 @@
       + `&PlaySessionId=${encodeURIComponent(playSessionId)}`, token);
   }
 
-  const api = { isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl };
+  // The two backends that speak this API. Everything in this file applies to both unless a
+  // function says otherwise.
+  function isMediaBrowser(backend) {
+    return backend === 'jellyfin' || backend === 'emby';
+  }
+
+  // Where a user's libraries are listed (see 4 above).
+  function userViewsPath(backend, userId) {
+    const id = encodeURIComponent(userId || '');
+    return backend === 'emby' ? `/Users/${id}/Views` : `/UserViews?userId=${id}`;
+  }
+
+  // Extra PlaybackInfo body fields for the retry after a failed direct play (see 5 above).
+  // Empty for Jellyfin and for a first attempt, so those requests are unchanged.
+  function serverStreamOnlyFields(backend, serverStreamOnly) {
+    if (backend !== 'emby' || !serverStreamOnly) return {};
+    return { EnableDirectPlay: false, EnableDirectStream: false };
+  }
+
+  // 'jellyfin', 'emby', or null when the answer does not say (see 6 above).
+  function serverKindFromPublicInfo(info) {
+    if (!info || typeof info !== 'object') return null;
+    if (typeof info.ProductName === 'string') {
+      return /jellyfin/i.test(info.ProductName) ? 'jellyfin' : null;
+    }
+    if (Array.isArray(info.LocalAddresses) && typeof info.Version === 'string' && typeof info.Id === 'string') {
+      return 'emby';
+    }
+    return null;
+  }
+
+  const api = {
+    isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl,
+    isMediaBrowser, userViewsPath, serverStreamOnlyFields, serverKindFromPublicInfo,
+  };
 
   global.NostalgexJellyfinUrls = api;
   if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {

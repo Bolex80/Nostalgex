@@ -174,7 +174,7 @@ Reporting a container problem? Include your server and its version, the machine 
 <details>
 <summary><strong>Why the web tuner can't reach some servers</strong></summary>
 
-The hosted tuner is served over HTTPS, so browsers block mixed content and it cannot reach a server on plain `http://` or on a raw LAN IP. Plex works because plex.direct issues real certificates for local addresses. Jellyfin and Emby need an HTTPS URL with a valid certificate (reverse proxy or tunnel). Emby connects through the Jellyfin option. A local only server with no HTTPS is reachable from the Apple TV app but not from the hosted site, unless you use the [Docker container](#run-it-on-your-server), where it is plain http too.
+The hosted tuner is served over HTTPS, so browsers block mixed content and it cannot reach a server on plain `http://` or on a raw LAN IP. Plex works because plex.direct issues real certificates for local addresses. Jellyfin and Emby need an HTTPS URL with a valid certificate (reverse proxy or tunnel). A local only server with no HTTPS is reachable from the Apple TV app but not from the hosted site, unless you use the [Docker container](#run-it-on-your-server), where it is plain http too.
 
 </details>
 

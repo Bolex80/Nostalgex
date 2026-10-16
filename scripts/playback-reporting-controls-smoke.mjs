@@ -98,7 +98,9 @@ await test('unavailable storage stays private by default', () => {
   const result = WS.loadReportingPreferences({ getItem() { throw new Error('unavailable'); } });
   assert.equal(result.nowPlaying, false); assert.equal(result.markWatched, false);
 });
-for (const backend of ['plex', 'jellyfin']) {
+// Emby reports through the same /Sessions/Playing and /Users/{id} routes as Jellyfin, never
+// Plex's timeline. Before the Emby option it only ever arrived here labelled 'jellyfin'.
+for (const backend of ['plex', 'jellyfin', 'emby']) {
   for (const nowPlaying of [false, true]) for (const markWatched of [false, true]) {
     await test(`${backend} independent modes now=${nowPlaying} watched=${markWatched}`, async () => {
       const f = fixture({ backend }); const t = f.tracker({ nowPlaying, markWatched });
@@ -112,7 +114,8 @@ for (const backend of ['plex', 'jellyfin']) {
         assert(f.calls.every(c => c.path === '/:/timeline'));
         for (const c of sessions) { assert(!('time' in c.query)); assert(!('duration' in c.query)); }
       }
-      if (backend === 'jellyfin' && nowPlaying && !markWatched) {
+      if (backend !== 'plex') assert(!f.calls.some(c => c.path === '/:/timeline' || c.path === '/:/scrobble'));
+      if (backend !== 'plex' && nowPlaying && !markWatched) {
         const restored = f.calls.findLast(c => c.path.endsWith('/UserData'));
         assert(restored); assert.equal(restored.body.PlayCount, f.prior.PlayCount);
         assert.equal(restored.body.PlaybackPositionTicks, f.prior.PlaybackPositionTicks);
