@@ -6372,7 +6372,9 @@
 
     visibleBundles.forEach((bundle, idx) => {
       const isEnabled = enabledBundleIDs.has(bundle.id);
-      const inSeason = isBundleInSeason(bundle);
+      // A seasonal bundle works in every month; outside its month the row says when
+      // it is spotlighted, like the Apple TV row ("Spotlighted OCT").
+      const spotlight = isBundleInSeason(bundle) ? '' : globalThis.NostalgexLibraryLoad.seasonalSpotlightLabel(bundle);
       const isFocused = idx === bundleFocusIndex;
       const channelCount = bundle.channelIDs.length;
 
@@ -6406,7 +6408,7 @@
             ${escapeHtml(bundle.name)}
           </div>
           <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 1px;">
-            ${escapeHtml(bundle.description || '')}${!inSeason ? ' (OFF SEASON)' : ''}
+            ${escapeHtml(bundle.description || '')}${spotlight ? ` · ${escapeHtml(spotlight)}` : ''}
           </div>
         </div>
         <div style="text-align: right; flex-shrink: 0;">
@@ -7348,7 +7350,6 @@
       bundles,
       enabledBundleIDs,
       allChannelsUnfiltered,
-      isBundleInSeason,
     });
 
     allItemsCache = allItems;
@@ -7510,7 +7511,7 @@
     if (!allItemsCache.length) return 0;
     const LL = globalThis.NostalgexLibraryLoad;
     const poolIDs = LL.staticChannelIDsForPoolBuild({
-      buildAll: false, bundles, enabledBundleIDs, allChannelsUnfiltered, isBundleInSeason,
+      buildAll: false, bundles, enabledBundleIDs, allChannelsUnfiltered,
     });
     const changed = [];
     for (const ch of allChannelsUnfiltered) {

@@ -78,13 +78,18 @@
     return (PHASE_META[phase] || PHASE_META.preparing).hint;
   }
 
+  // Mirrors AppState+Channels.swift `staticChannelIDsForPoolBuild`: every enabled
+  // bundle builds its pools, in any month. A seasonal bundle's `activeMonths` only
+  // decides when it is offered (the invite row) and when it leads the guide
+  // (seasonalLeadIDs in plex-tuner.html). It used to gate this too, so SCREAM or
+  // TIS THE SEASON switched on outside its month came back with zero channels after
+  // a reload, while Apple TV (since 1.0.26) kept them.
   function staticChannelIDsForPoolBuild(ctx) {
     const {
       buildAll,
       bundles: bundleList,
       enabledBundleIDs,
       allChannelsUnfiltered,
-      isBundleInSeason,
     } = ctx;
 
     if (buildAll || !bundleList || bundleList.length === 0) {
@@ -93,11 +98,24 @@
 
     const ids = new Set();
     for (const bundle of bundleList) {
-      if (enabledBundleIDs.has(bundle.id) && isBundleInSeason(bundle)) {
+      if (enabledBundleIDs.has(bundle.id)) {
         for (const id of bundle.channelIDs) ids.add(id);
       }
     }
     return ids;
+  }
+
+  const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+  // The Settings row note for a seasonal bundle outside its month, mirroring
+  // BundleManagerView.swift `seasonalLabel`: "SPOTLIGHTED OCT". Empty for a bundle
+  // without activeMonths. It replaces "(OFF SEASON)", which read as "switched off"
+  // when the bundle works in every month.
+  function seasonalSpotlightLabel(bundle) {
+    const months = bundle && Array.isArray(bundle.activeMonths) ? bundle.activeMonths : null;
+    if (!months || months.length === 0) return '';
+    const names = months.map((m) => MONTH_ABBR[m - 1]).filter(Boolean);
+    return names.length ? `SPOTLIGHTED ${names.join(', ')}` : '';
   }
 
   function progressFraction() {
@@ -284,6 +302,7 @@
     isFirstLibraryLoad,
     markInitialLibraryLoadComplete,
     staticChannelIDsForPoolBuild,
+    seasonalSpotlightLabel,
     refreshStepRail,
     setPhase,
     pulsePhase,
