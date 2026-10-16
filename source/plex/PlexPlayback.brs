@@ -96,6 +96,11 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
         q = q + "&X-Plex-Client-Profile-Extra=" + NxUrlEncode(extra)
         content.url = base + "/video/:/transcode/universal/start.m3u8?" + q
         content.streamFormat = "hls"
+        ' Plex's playlist spans the whole file from 0:00 whatever the offset
+        ' (checked 2026-10-16: offset=1800 gave 5758 one-second segments for
+        ' a 96-minute film), so the player is started at the offset as well;
+        ' without it, playback starts at 0:00.
+        content.PlayStart = offsetSec
         stopUrl = base + "/video/:/transcode/universal/stop?session=" + session
     end if
     return { content: content, stopUrl: stopUrl, route: route }

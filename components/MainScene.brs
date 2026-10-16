@@ -20,6 +20,9 @@ sub startSignIn()
     m.hint.text = ""
     m.signIn = CreateObject("roSGNode", "PlexSignInTask")
     m.signIn.ObserveField("status", "onSignInState")
+    ' Every 5 minutes the task fetches a fresh code while status stays "code",
+    ' so the code is watched on its own.
+    m.signIn.ObserveField("code", "onSignInCode")
     m.signIn.control = "run"
 end sub
 
@@ -50,6 +53,10 @@ sub onSignInState()
         m.hint.text = "Press * to sign out of Plex on this TV."
         launchComplete()
     end if
+end sub
+
+sub onSignInCode()
+    if m.signIn.status = "code" then m.code.text = m.signIn.code
 end sub
 
 ' Roku certification times each launch to the AppLaunchComplete beacon, sent
@@ -170,8 +177,10 @@ end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press then return false
-    if key = "options" then
-        ' Sign out: stop any sign-in in progress and forget everything stored.
+    ' Sign out from the sign-in and error screens only: stop any sign-in in
+    ' progress and forget everything stored. With the guide up, * is the
+    ' guide's own, and sign-out is in Settings, behind a second OK.
+    if key = "options" and m.guide = invalid then
         signOut()
         return true
     end if

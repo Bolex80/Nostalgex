@@ -22,5 +22,6 @@ sub Main(args = invalid as Dynamic)
     failures = failures + NxRunSubtitleTests()
     failures = failures + NxRunGuideNavTests()
     failures = failures + NxRunDeepLinkTests()
+    failures = failures + NxRunServerChoiceTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub

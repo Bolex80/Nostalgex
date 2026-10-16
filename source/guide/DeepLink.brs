@@ -19,7 +19,9 @@ end function
 function NxDeepLinkText(v as Dynamic) as String
     if v = invalid then return ""
     if type(v) = "roString" or type(v) = "String" then return v.Trim()
-    if type(v) = "roInt" or type(v) = "Integer" or type(v) = "LongInteger" or type(v) = "roLongInteger" then return v.ToStr()
+    ' A real Roku hands a number over as roInteger, which the interpreter
+    ' never produces, so any numeric type is taken.
+    if NxIsNumber(v) then return v.ToStr()
     return ""
 end function
 

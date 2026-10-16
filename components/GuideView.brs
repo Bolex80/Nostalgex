@@ -858,6 +858,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         end if
         return false
     end if
+    if key = "options" then
+        ' Never passed up to MainScene, where it signs out.
+        return true
+    end if
     if key = "up" or key = "down" then
         ' Down off the last channel wraps to channel one; Up off channel one
         ' does not (source/guide/GuideNav.brs).

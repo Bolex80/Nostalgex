@@ -7,6 +7,8 @@ sub init()
     m.fonts = {}
     m.changed = false
     m.franchisesChanged = false
+    ' The first OK on SIGN OUT OF PLEX only arms it; a second one signs out.
+    m.signOutArmed = false
 end sub
 
 function fontOf(name as String, size as Integer) as Object
@@ -45,12 +47,19 @@ sub open(unused = invalid as Dynamic)
     m.enabled.Append(m.top.enabledBundles)
     m.subs = NxSubtitleSettings()
     m.choices = NxSavedFranchiseChoices()
+    reg = NxPlexRegistry()
+    m.servers = ParseJson(reg.Read("servers"))
+    if type(m.servers) <> "roArray" then m.servers = []
+    m.serversOn = NxServersOn(m.servers, ParseJson(reg.Read("serverChoices")))
+    m.serversChanged = false
     buildRows()
     m.top.SetFocus(true)
     render()
 end sub
 
-' The row list: { kind: bundle | franchiseAll | franchise | subtitles | signOut }.
+' The row list: { kind: bundle | franchiseAll | franchise | server |
+' subtitles | signOut }. Server rows show only when the account has more
+' than one server.
 ' The franchise rows are the last guide build's, so they show once the
 ' package was on for a build.
 sub buildRows()
@@ -65,6 +74,11 @@ sub buildRows()
             end for
         end if
     end for
+    if m.servers.Count() > 1 then
+        for i = 0 to m.servers.Count() - 1
+            m.rows.Push({ kind: "server", index: i })
+        end for
+    end if
     m.rows.Push({ kind: "subtitles" })
     m.rows.Push({ kind: "signOut" })
 end sub
@@ -161,6 +175,17 @@ sub render()
                 state = "ON"
                 stateColor = "0xFFE500FF"
             end if
+        else if row.kind = "server" then
+            s = m.servers[row.index]
+            label = "SERVER · " + UCase(NxToStr(s.name))
+            detail = "Shared with you"
+            if NxTruthy(s.owned) then detail = "Your server"
+            state = "OFF"
+            stateColor = "0xFFFFFF59"
+            if m.serversOn[row.index] then
+                state = "ON"
+                stateColor = "0xFFE500FF"
+            end if
         else if row.kind = "subtitles" then
             label = "SUBTITLES"
             detail = subtitleModeExplanation()
@@ -170,6 +195,10 @@ sub render()
         else
             label = "SIGN OUT OF PLEX"
             detail = "Forget this TV's Plex sign-in"
+            if m.signOutArmed then
+                label = "PRESS OK AGAIN TO SIGN OUT"
+                detail = "Up, Down or BACK cancels"
+            end if
             state = ""
             stateColor = "0xFFFFFFFF"
             accent = "0xFF6B6B"
@@ -197,6 +226,10 @@ end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press then return false
+    if m.signOutArmed and key <> "OK" then
+        m.signOutArmed = false
+        render()
+    end if
     if key = "down" and m.focus < rowCount() - 1 then
         m.focus = m.focus + 1
         render()
@@ -234,16 +267,40 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             NxFranchiseRecordChoice(m.choices, row.franchise.id, not franchiseOn(row.franchise))
             m.franchisesChanged = true
             render()
+        else if row.kind = "server" then
+            ' The last server on stays on, as upstream's picker keeps one.
+            onCount = 0
+            for each x in m.serversOn
+                if x then onCount = onCount + 1
+            end for
+            if not m.serversOn[row.index] or onCount > 1 then
+                m.serversOn[row.index] = not m.serversOn[row.index]
+                m.serversChanged = true
+                render()
+            end if
         else if row.kind = "subtitles" then
             cycleSubtitleMode()
             render()
-        else
+        else if m.signOutArmed then
             m.top.result = "signOut"
+        else
+            m.signOutArmed = true
+            render()
         end if
         return true
     end if
     if key = "back" or key = "left" then
-        if m.changed or m.franchisesChanged then
+        if m.serversChanged then
+            ' Every server's switch is saved, so a later default can't move it.
+            choices = {}
+            for i = 0 to m.servers.Count() - 1
+                choices[NxToStr(m.servers[i].machineIdentifier)] = m.serversOn[i]
+            end for
+            plex = NxPlexRegistry()
+            plex.Write("serverChoices", FormatJson(choices))
+            plex.Flush()
+        end if
+        if m.changed or m.franchisesChanged or m.serversChanged then
             reg = CreateObject("roRegistrySection", "guide")
             if m.changed then reg.Write("bundles", FormatJson(m.enabled))
             if m.franchisesChanged then

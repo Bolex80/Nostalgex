@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Settings, after the Apple TV app's: channel packages on and off,
-     each franchise under FRANCHISES, subtitles, and signing out of Plex. Choices are saved on the TV; the guide
+     each franchise under FRANCHISES, which Plex servers to read, subtitles, and signing out of Plex. Choices are saved on the TV; the guide
      is rebuilt when Settings closes with a package change. -->
 <component name="SettingsView" extends="Group">
   <interface>
@@ -13,6 +13,8 @@
     <function name="open" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />

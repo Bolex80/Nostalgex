@@ -24,6 +24,9 @@ function NxRunDeepLinkTests() as Integer
     NxCheck(r, "unknown", NxDeepLinkChannel(channels, { contentId: "abc", mediaType: "live" }).ToStr(), "-1")
     NxCheck(r, "no channels", NxDeepLinkChannel(invalid, link).ToStr(), "-1")
     NxCheck(r, "no link", NxDeepLinkChannel(channels, invalid).ToStr(), "-1")
+    NxCheck(r, "integer contentId", NxDeepLinkChannel(channels, NxDeepLinkFrom({ contentId: 300, mediaType: "live" })).ToStr(), "3")
+    NxCheck(r, "boxed contentId", NxDeepLinkChannel(channels, NxDeepLinkFrom({ contentId: box(7), mediaType: "live" })).ToStr(), "2")
+    NxCheck(r, "float contentId", NxDeepLinkChannel(channels, NxDeepLinkFrom({ contentId: 300.0, mediaType: "live" })).ToStr(), "3")
     NxCheck(r, "unset field", NxDeepLinkChannel(channels, {}).ToStr(), "-1")
 
     print "deep link cases: "; r.pass; " passed,"; r.fail; " failed"

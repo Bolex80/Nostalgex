@@ -30,6 +30,13 @@ Until there is a store listing, it installs by sideloading:
 A Roku holds one sideloaded app at a time, and installing replaces whatever is
 there. Debug output is on the TV's port 8085 (`nc <tv> 8085`).
 
+## Servers
+
+Only the Plex servers you own are read at first, since servers friends share
+with you can be most of an account's items and most of a first load. Settings
+lists every server once there is more than one, to switch any of them on or
+off. An account with only shared servers reads all of them.
+
 ## Deep links
 
 A deep link's `contentId` names a channel, by its id or else its guide
@@ -69,7 +76,8 @@ check, and fails on any error it reports.
   `.env`, see [docs/PORTING.md](docs/PORTING.md)). When on, only TMDB and
   IMDb ids leave the TV, to the Nostalgex relay and its shared cache, as the
   web tuner sends them. Its local cache is deleted on sign-out too.
-- **Press \* to sign out.** That removes the token, the server list and the
+- **Sign out in Settings** (SIGN OUT OF PLEX, then OK a second time), or
+  with \* on the sign-in and error screens. That removes the token, the server list and the
   device ID the app stored.
 
 ## Tests

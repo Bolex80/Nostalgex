@@ -18,6 +18,7 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-channel-filter.cjs` (Swift: `AppState+Channels.swift` `filterItems`) | `source/filter/ChannelFilter.brs` | ported, passing on device |
 | `plex-tuner.html`: `getTimeFilteredPool`, bundles, `minItems` | BrightScript | with the guide |
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
+| `plex-tuner.html` server picker (every server on by default) | `source/plex/ServerChoice.brs`, Settings › SERVER rows | differs on purpose: owned servers on by default, as the maintainer asked on [Discussion #8](UPSTREAM.md) (2026-10-16); all of them when none is owned. Cases in `tests/ServerChoiceTests.brs` |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
@@ -219,6 +220,10 @@ throwaway checkout, whatever the clone has checked out.
   after stopping it (HTTP 400), which breaks flipping back to a channel. It
   also refuses a second stream from a device while one runs, so the app stops
   the last stream (and remembers it across launches) before starting the next.
+- Plex's transcode playlist (`start.m3u8?offset=N`) spans the whole file
+  from 0:00 whatever the offset: offset=1800 gave 5758 one-second segments
+  for a 96-minute film (2026-10-16). Transcoded streams need `PlayStart`
+  set to the offset, as direct play does, or they start from 0:00.
 - Plex also fixes its transcode decision for a playback session the first
   time it sees it, so the session ID is per decoding profile. On a TV that
   decodes HEVC, `X-Plex-Client-Profile-Extra` with

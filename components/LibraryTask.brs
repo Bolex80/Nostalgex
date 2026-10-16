@@ -6,7 +6,8 @@ end sub
 
 ' The saved guide: the last build's output, reused only while a fresh build
 ' would give the same thing (same local day and UTC day, since upstream's
-' pool shuffle is seeded by the UTC day, same packages, same app version).
+' pool shuffle is seeded by the UTC day, same packages, same servers on,
+' same app version).
 ' It holds titles and schedules, nothing secret.
 function NxGuideCachePath() as String
     return "cachefs:/nostalgex-guide.json"
@@ -14,7 +15,15 @@ end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
+    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices())) + "|" + NxSavedServersOnKey()
+end function
+
+' The servers on (source/plex/ServerChoice.brs), as the cache keys hold them.
+function NxSavedServersOnKey() as String
+    reg = NxPlexRegistry()
+    servers = ParseJson(reg.Read("servers"))
+    if type(servers) <> "roArray" then return ""
+    return NxServersOnKey(servers, ParseJson(reg.Read("serverChoices")))
 end function
 
 ' The saved pools: each guide channel's pool as the last build filtered it,
@@ -23,19 +32,26 @@ end function
 ' next, so when the saved guide is a day old these are shuffled and
 ' scheduled for today instead, in seconds, and the full build still runs
 ' behind them. Kept while the app version, month (seasonal packages),
-' packages and franchise choices are the same.
+' packages, franchise choices and servers on are the same.
 function NxPoolCachePath() as String
     return "cachefs:/nostalgex-pools.json"
 end function
 
 function NxPoolCacheKey(month as Integer, bundles as Object) as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
+    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices())) + "|" + NxSavedServersOnKey()
 end function
 
+' Written in pieces: one FormatJson of every pooled item, on top of the
+' library itself, ran a Roku Stick Plus out of memory with 45 channels on
+' (EXIT_CHANNEL_MEM_LIMIT_FG, Discussion #8). Each item is copied, without
+' its filter cache, only for as long as it takes to format it.
 sub NxSavePools(ordered as Object, guide as Object, month as Integer)
+    path = NxPoolCachePath()
+    WriteAsciiFile(path, "{""key"":" + FormatJson(NxPoolCacheKey(month, guide.enabledBundles)) + ",""items"":[")
     index = {}
-    items = []
+    count = 0
+    parts = []
     chans = []
     for each ch in ordered
         saved = {}
@@ -49,23 +65,36 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
             id = NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)
             n = index[id]
             if n = invalid then
-                n = items.Count()
+                n = count
+                count = count + 1
                 index[id] = n
                 copy = {}
                 for each k in it
                     if k <> "nxFilter" then copy[k] = it[k]
                 end for
-                items.Push(copy)
+                text = FormatJson(copy)
+                if n > 0 then text = "," + text
+                parts.Push(text)
+                if parts.Count() >= 500 then NxAppendText(path, parts)
             end if
             idx.Push(n)
         end for
         saved.poolIdx = idx
         chans.Push(saved)
     end for
-    WriteAsciiFile(NxPoolCachePath(), FormatJson({
-        key: NxPoolCacheKey(month, guide.enabledBundles), items: items, channels: chans,
-        libraryItems: guide.items, bundles: guide.bundles, franchises: guide.franchises
-    }))
+    parts.Push("],""channels"":" + FormatJson(chans))
+    parts.Push(",""libraryItems"":" + FormatJson(guide.items))
+    parts.Push(",""bundles"":" + FormatJson(guide.bundles))
+    parts.Push(",""franchises"":" + FormatJson(guide.franchises) + "}")
+    NxAppendText(path, parts)
+end sub
+
+' Appends the pieces to the file, UTF-8, and empties the list.
+sub NxAppendText(path as String, parts as Object)
+    bytes = CreateObject("roByteArray")
+    bytes.FromAsciiString(parts.Join(""))
+    bytes.AppendFile(path)
+    parts.Clear()
 end sub
 
 ' The guide from the saved pools, as { ordered, guide }, or invalid when
@@ -133,18 +162,22 @@ sub loadLibrary()
     end if
 
     items = []
+    ' Every server keeps its index, on or off, since items carry it.
+    serversOn = NxServersOn(servers, ParseJson(NxPlexRegistry().Read("serverChoices")))
     for i = 0 to servers.Count() - 1
-        m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
-        got = NxPlexScanServer(servers[i], i, m.top)
-        if got = invalid then
-            if shown then
-                print "library: background refresh couldn't read the library; keeping the saved guide"
+        if serversOn[i] then
+            m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
+            got = NxPlexScanServer(servers[i], i, m.top)
+            if got = invalid then
+                if shown then
+                    print "library: background refresh couldn't read the library; keeping the saved guide"
+                    return
+                end if
+                fail("Couldn't read the library on " + NxToStr(servers[i].name) + ". Press OK to try again.")
                 return
             end if
-            fail("Couldn't read the library on " + NxToStr(servers[i].name) + ". Press OK to try again.")
-            return
+            items.Append(got)
         end if
-        items.Append(got)
     end for
     print "library: "; items.Count(); " items in "; timer.TotalMilliseconds(); " ms"
     config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
@@ -176,6 +209,12 @@ sub loadLibrary()
         if added > 0 then built = invalid
     end if
     if built = invalid then built = buildGuide(items, config, manifest, shown)
+    ' Only the pools are scheduled from here on, for as long as the app runs:
+    ' let the rest of the library and every item's filter cache go.
+    for each it in items
+        it.Delete("nxFilter")
+    end for
+    items = invalid
     keepScheduling(built.ordered, built.guide)
 end sub
 
@@ -284,7 +323,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     timer.Mark()
     NxSavePools(ordered, guide, clock.month)
-    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms"
+    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit"
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone.
     ' The package list counts too: a new package that is off changes no

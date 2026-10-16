@@ -111,6 +111,28 @@ on 2026-10-15 with the first TV run ([PORTING.md](PORTING.md)), asked whether
 Roku builds should read that Supabase project or a separate one, and withdrew
 the logo question: the owner keeps the port's own logo, icon and splash.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18982798)
+on 2026-10-16, after installing it on a Roku Stick Plus (OS 15.3.4). The
+vectors pass on that device, the schedule matches the web tuner, and
+enrichment through the relay works. The official-app questions are settled:
+
+- **Where the code lives:** `roku/` in upstream's repo, with PRs from the
+  repo owner's fork to start.
+- **Who publishes:** the store listing goes on the maintainer's Roku developer
+  account, and the repo owner prepares the builds.
+- **Credit:** to the repo owner, in the app and in the listing.
+- **Supabase:** the web tuner's project. The maintainer confirmed the anon key
+  was never in the repo.
+
+They reported six problems from their device, biggest first: transcoded
+streams start from zero, a memory crash with 45 channels on
+(`EXIT_CHANNEL_MEM_LIMIT_FG` while saving), every server on the account is
+loaded instead of owned ones, the sign-in code never refreshes on screen,
+deep links never match on a real Roku (the id arrives as `roInteger`), and
+`*` in the guide signs out with no confirmation. They want the look as close
+to the Apple TV app as it can get, guide first, from the App Store shots,
+nostalgex.app/screens and `Nostalgex/Nostalgex/Views` (both 1920x1080).
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
