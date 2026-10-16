@@ -22,7 +22,9 @@ with the Nostalgex maintainer.
   ported files keep it.
 - **Upstream clone is read-only.** The local Nostalgex clone's `origin` is the
   maintainer's GitHub, so never push it. Anything for upstream is drafted,
-  checked claim by claim, and shown to the repo owner first. A session posts
+  checked claim by claim, and shown to the repo owner first. Re-read the
+  whole thread, replies under comments included, just before posting: a
+  follow-up the draft never saw went unanswered once. A session posts
   it only when he says to post that draft, and only through
   `scripts/post-upstream.sh` (Discussions on upstream, nothing else), then
   records it in `docs/UPSTREAM.md`. PRs to upstream stay his to open.

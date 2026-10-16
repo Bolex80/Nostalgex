@@ -18,7 +18,7 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-channel-filter.cjs` (Swift: `AppState+Channels.swift` `filterItems`) | `source/filter/ChannelFilter.brs` | ported, passing on device |
 | `plex-tuner.html`: `getTimeFilteredPool`, bundles, `minItems` | BrightScript | with the guide |
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
-| `plex-tuner.html` server picker (every server on by default) | `source/plex/ServerChoice.brs`, Settings › SERVER rows | differs on purpose: owned servers on by default, as the maintainer asked on [Discussion #8](UPSTREAM.md) (2026-10-16); all of them when none is owned. Cases in `tests/ServerChoiceTests.brs` |
+| `ServerPickerView` defaults (`Plex90App.swift`): owned servers on, all of them when none is owned; the web tuner turns every server on | `source/plex/ServerChoice.brs`, Settings › SERVER rows | ported, after the Apple TV app; cases in `tests/ServerChoiceTests.brs` |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
@@ -248,8 +248,12 @@ server, so the rows don't show) and the sign-in code changing after 5 minutes.
 - Key case in AAs you build: the TV stores an unquoted literal key lowercase
   (`{ imdbRating: x }` holds `imdbrating`), and the off-device interpreter
   does the same for a key first set with a dot. Lookups ignore case either
-  way, but `FormatJson` and `Keys()` show it, so where case reaches JSON the
-  port quotes the key (`{ "imdbRating": x }`) or sets `aa["imdbRating"]`.
+  way, but `FormatJson`, `Keys()` and `for each k in aa` show it, so where
+  case reaches JSON the port quotes the key (`{ "imdbRating": x }`) or sets
+  `aa["imdbRating"]`, and a loop compares `LCase(k)` (`k <> "basePool"` never
+  matched, and doubled the saved pools file).
+- `ReadAsciiFile` returns "" with "file is too big" for a 30 MB file;
+  `roByteArray.ReadFile` then `ToAsciiString` read it in under a second.
 - The off-device interpreter's `CSng()` truncates to a whole number. On the
   TV, a modulus done in Doubles through `Int()` gave wrong values where the
   same in `LongInteger` was right; keep exact integer arithmetic in

@@ -1,6 +1,6 @@
-' Runs source/plex/ServerChoice.brs: which servers the guide reads. Owned
-' servers by default is the maintainer's call for the Roku (Discussion #8),
-' with nothing upstream to match. Returns the failure count.
+' Runs source/plex/ServerChoice.brs: which servers the guide reads, after the
+' Apple TV app's ServerPickerView defaults (Plex90App.swift). Hand-written
+' cases. Returns the failure count.
 
 function NxRunServerChoiceTests() as Integer
     r = { pass: 0, fail: 0 }

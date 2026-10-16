@@ -133,13 +133,32 @@ deep links never match on a real Roku (the id arrives as `roInteger`), and
 to the Apple TV app as it can get, guide first, from the App Store shots,
 nostalgex.app/screens and `Nostalgex/Nostalgex/Views` (both 1920x1080).
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18982978)
+12 minutes later, as a reply under that comment, with a seventh problem and
+the bar for the Channel Store. Seventh: turning a package on re-reads the
+whole library from every server (3.5 minutes for them) instead of rebuilding
+from the saved library as the Apple TV app does. The bar, on a normal
+library:
+
+- the guide ready in under 2 minutes on a first run, owned servers only;
+- converted (transcoded) channels starting in under 10 seconds, mid-programme
+  included;
+- no crash with every package on, and no rescan when one is switched;
+- the guide looking like the Apple TV one: layout, fonts and colours.
+
+The Apple TV app's versions to look at: the library saved in chunks
+(`LibrarySnapshotStore.swift`), transcodes started at the offset server side,
+owned servers only. They put every pushed build on their stick and report
+within a day, console log on request.
+
 [Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18984559)
 on 2026-10-16: all six fixed (`f237f6c`, memory also `62dc326`), saying which
 were checked on a TV and which weren't (the server rows, the sign-in code,
 the sign-out confirmation). It reported the saved pools file going from 30 MB
 to 3.5 MB, asked for the `saved the pools` console line from their larger
 library, agreed to `roku/` via PRs and the listing on their account, and said
-the Apple TV look comes next, guide first, then the PRs.
+the Apple TV look comes next, guide first, then the PRs. It missed the
+follow-up above, posted two hours before it.
 
 ## Channel ideas: Discussion #29
 

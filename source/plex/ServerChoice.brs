@@ -1,10 +1,9 @@
 ' Copyright (c) 2026 nostalgex-roku contributors, MIT License.
 '
-' Which of the account's servers the guide reads. Upstream's web tuner and
-' tvOS app take every reachable server; the maintainer asked the Roku to
-' start from owned servers only (Discussion #8, 2026-10-16), since friends'
-' shared servers can be most of an account's items and most of a first load.
-' Settings › SERVERS switches each one, and those choices win.
+' Which of the account's servers the guide reads, as the Apple TV app's
+' ServerPickerView defaults them (Plex90App.swift): owned servers, or all of
+' them when none is owned. The web tuner takes every server. Settings lists
+' each one to switch, and those choices win.
 '
 ' Sign-in keeps every reachable server in the registry's "servers" list, so a
 ' guide item's serverIndex stays valid whichever are on. Choices are a
