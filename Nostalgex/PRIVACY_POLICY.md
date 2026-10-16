@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: October 9, 2026
+Effective: October 16, 2026
 
 Nostalgex turns your own Plex, Jellyfin, or Emby library into live TV channels. We do not host, supply, or stream any media. Everything you watch comes off your own server.
 
@@ -18,7 +18,7 @@ This policy covers two separate things: the Nostalgex app on Apple TV, and the n
 
 Nostalgex sends anonymous usage events to [TelemetryDeck](https://telemetrydeck.com), a privacy-focused analytics service, so we can tell whether the app is working: how often it installs and connects, whether playback starts and stays up, and which settings people actually use. Every event carries a `demo` flag so demo-mode exploration can be filtered out of the real numbers.
 
-This is the complete list of events the app can send.
+This is the complete list of events the app can send. Not every occurrence is sent: within one visit the app sends the first of each kind (for example one playback error per server type and reason code) and adds up the rest as counts on the end-of-visit event below.
 
 **Launch and credentials**
 
@@ -58,13 +58,13 @@ For channels Nostalgex builds from your own collections, `channelType` is `colle
 
 - A channel was tuned to by the user, with the channel number, the backend, the method (`guide`, `mini_strip`, `next`, or `previous`), and the channel identity above. Automatic re-selections (library load, snapshot restore, background refresh, foreground return) never fire this event
 - Playback became ready to play, with the channel number, the backend, whether the stream is direct play or a server-side transcode, and the channel identity above
-- Playback stopped, with the channel number, the backend, the delivery mode, the channel identity above, and the accumulated active watch time (a number of seconds — no titles, no scenes, no timestamps). Fires when the user changes channel, disconnects, backgrounds the app, or the sleep timer stops playback
+- Playback stopped, with the channel number, the backend, the delivery mode, the channel identity above, and the accumulated active watch time (a number of seconds — no titles, no scenes, no timestamps). Sent once per channel stay of at least a minute, with programmes on the same channel added together, when the user changes channel, disconnects, backgrounds the app, or the sleep timer stops playback
 - Playback errored, with the channel number, the backend, and one of a short fixed list of reason codes: `no_playable_source`, `transcoding_unavailable`, `player_failed`, `watchdog_skip`, `stalled`
 - Playback fell back to a server-side transcode after direct play failed, with the channel number and the backend
 
 **Session length**
 
-- The app moved to the background, carrying the number of wall-clock seconds it spent in the foreground since the last launch or return-to-foreground. No screen, activity, or content details — just the length of the visit. Used to measure total time in the app
+- The app moved to the background, carrying the number of wall-clock seconds it spent in the foreground since the last launch or return-to-foreground. No screen, activity, or content details — just the length of the visit. Used to measure total time in the app. It also carries, as ranges (0, 1, 2-5, 6-20, 21-50, 51-200, 201+), how many channel changes, playback starts and playback errors happened in the visit and how many events were counted but not sent, plus which kind of server (Plex, Jellyfin, Emby, or demo) was in use
 
 **Settings and app use**
 

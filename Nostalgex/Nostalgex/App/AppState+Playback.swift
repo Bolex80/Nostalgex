@@ -291,8 +291,14 @@ extension AppState {
                 return
             }
             guard let resolved else {
-                if reportWatchdogFailure { self.emitPlaybackError(.watchdogSkip) }
-                self.advanceToNextItem()
+                // No server stream either. Skips without a card, as it always has, but is
+                // reported and counted like every other failure so a channel of these stops.
+                // A starved stream used to skip here without any report; `stalled` is its code.
+                if self.recordFailedItem(reportWatchdogFailure ? .watchdogSkip : .stalled) {
+                    self.stopChannelAfterRepeatedFailures(last: .transcodingUnavailable(server: self.backendKind.displayName))
+                } else {
+                    self.advanceToNextItem()
+                }
                 return
             }
             self.stopActiveTranscodeIfNeeded()
@@ -390,22 +396,57 @@ extension AppState {
     /// reading, and this is the only place the reason is ever shown.
     private func showErrorThenSkip(_ failure: PlaybackFailure, generation: Int, title: String? = nil,
                                    detail: String? = nil) {
+        let stopsChannel = recordFailedItem(failure.analyticsCode)
         playbackState = .error(failure)
-        emitPlaybackError(failure.analyticsCode)
         noteRatingNudgePlaybackFailure()
         PlaybackDiagnostics.record(
             outcome: failure.diagnosticSummary,
             title: title ?? currentItem?.title ?? "?",
             detail: detail ?? failure.headline
         )
+        if stopsChannel {
+            stopChannelAfterRepeatedFailures(last: failure)
+            return
+        }
         let attempt = playbackAttemptGeneration
         playbackWatchdogTask?.cancel()
         playbackSkipTask?.cancel()
+        let cardSeconds = errorCardSeconds
         playbackSkipTask = Task { @MainActor [weak self] in
-            do { try await Task.sleep(nanoseconds: 5_000_000_000) } catch { return }
+            do { try await Task.sleep(for: .seconds(cardSeconds)) } catch { return }
             guard let self, self.isCurrentPlaybackAttempt(generation: generation, attempt: attempt) else { return }
             self.advanceToNextItem()
         }
+    }
+
+    /// The one place a programme that will not play is reported and counted: one
+    /// `playback.error`, and one more failure on the channel's `ChannelFailureRun`.
+    /// Returns true when the run has reached its limit and the channel should stop.
+    private func recordFailedItem(_ code: AnalyticsPlaybackErrorCode) -> Bool {
+        emitPlaybackError(code)
+        guard let channel = currentChannel else { return false }
+        return channelFailureRun.recordFailure(onChannel: channel.id)
+    }
+
+    /// Ends the error-and-skip loop on a channel where nothing plays. Tears down what the
+    /// next load would have torn down (player item, server transcode, tracker) and starts
+    /// nothing, so no request for this channel reaches the server until `selectChannel`
+    /// runs again: the viewer tunes or re-selects the channel, or the app comes back to
+    /// the foreground.
+    private func stopChannelAfterRepeatedFailures(last failure: PlaybackFailure) {
+        invalidatePlaybackAttempt()
+        cancellables.removeAll()
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        stopActiveTranscodeIfNeeded()
+        emitPlaybackStoppedForActiveSession()
+        let outgoing = playbackTracker
+        playbackTracker = nil
+        outgoing?.stop()
+        let stopped = PlaybackFailure.channelStopped(last: failure)
+        playbackState = .error(stopped)
+        PlaybackDiagnostics.record(outcome: stopped.diagnosticSummary,
+                                   title: currentItem?.title ?? "?", detail: stopped.headline)
     }
 
     /// Ends a load early when the server has already said no.
@@ -524,11 +565,11 @@ extension AppState {
         return PlaybackFailure.classify(backend: backendKind, evidence: evidence)
     }
 
-    /// Convenience for firing `playback.error` from any playback path. No-op when there
-    /// is no active channel (which is the only case where an error signal wouldn't have
-    /// a channel number to send).
-    private func emitPlaybackError(_ code: AnalyticsPlaybackErrorCode) {
-        guard let channel = currentChannel else { return }
+    /// Sends `playback.error`. Called from `recordFailedItem`, and from `autoSkipOnError`
+    /// for a failure the viewer tuned away from before its card showed (`channel` is then
+    /// the one that failed, not the one now on). No-op without a channel.
+    private func emitPlaybackError(_ code: AnalyticsPlaybackErrorCode, channel: Channel? = nil) {
+        guard let channel = channel ?? currentChannel else { return }
         Analytics.track(.playbackError(
             channelNumber: channel.number,
             backend: analyticsBackend,
@@ -910,7 +951,7 @@ extension AppState {
                         guard self.claimPlaybackRecovery(for: playerItem, generation: generation, attempt: attempt) else { return }
                         let msg = playerItem.error?.localizedDescription ?? "Unknown error"
                         print("[Plex90] gen=\(generation) | RETRY FAILED: \"\(title)\" - \(msg)")
-                        self.emitPlaybackError(.playerFailed)
+                        // Reported once, by autoSkipOnError, with the classified code.
                         self.autoSkipOnError(generation: generation, playerItem: playerItem)
                     default:
                         break
@@ -1008,7 +1049,7 @@ extension AppState {
                         guard self.claimPlaybackRecovery(for: playerItem, generation: generation, attempt: attempt) else { return }
                         let msg = playerItem.error?.localizedDescription ?? "Unknown error"
                         print("[Plex90] gen=\(generation) | TRANSCODE FAILED: \"\(title)\" - \(msg)")
-                        self.emitPlaybackError(.playerFailed)
+                        // Reported once, by autoSkipOnError, with the classified code.
                         self.autoSkipOnError(generation: generation, playerItem: playerItem)
                     default:
                         break
@@ -1068,7 +1109,10 @@ extension AppState {
             let progressed = sampleB - sampleA
             let reachedReady = self.playbackState == .playing || playerItem.status == .readyToPlay
             let frames = probe.hasNewPixelBuffer(forItemTime: playerItem.currentTime())
-            guard !PlaybackWatchdog.hasPicture(reachedReady: reachedReady, progressedSeconds: progressed, decodedFrame: frames) else { return }
+            guard !PlaybackWatchdog.hasPicture(reachedReady: reachedReady, progressedSeconds: progressed, decodedFrame: frames) else {
+                self.channelFailureRun.reset()   // a picture: the channel plays
+                return
+            }
             let access = playerItem.accessLog()?.events.last.map { "segments=\($0.numberOfMediaRequests) stalls=\($0.numberOfStalls) bytes=\($0.numberOfBytesTransferred) dropped=\($0.numberOfDroppedVideoFrames) watched=\(String(format: "%.1f", $0.durationWatched))s" } ?? "no access log"
             let errors = playerItem.errorLog()?.events.suffix(3).map { "\($0.errorStatusCode) \(PlaybackDiagnostics.redactSensitiveText($0.errorComment ?? ""))" }.joined(separator: " | ") ?? ""
             let detail = "ready=\(reachedReady), playhead moved \(String(format: "%.1f", progressed))s, frames=\(frames), declared \(Int(playerItem.presentationSize.width))x\(Int(playerItem.presentationSize.height)), rate=\(self.player?.rate ?? -1), status=\(playerItem.status.rawValue), \(access)\(errors.isEmpty ? "" : ", errors: " + errors)"
@@ -1253,6 +1297,7 @@ extension AppState {
     private func autoSkipOnError(generation: Int, playerItem: AVPlayerItem? = nil) {
         guard loadGeneration == generation else { return }
         let attempt = playbackAttemptGeneration
+        let failedChannel = currentChannel
         let title = currentItem?.title ?? "Unknown"
         let reason = playerItem?.error?.localizedDescription ?? "no error on the item"
         print("[Plex90] gen=\(generation) | AUTO-SKIP: \"\(title)\" failed, skipping to next")
@@ -1262,10 +1307,19 @@ extension AppState {
         // one that had, which pushed the classification into .unknown.
         let hadPicture = (playerItem?.currentTime().seconds ?? 0) > 0.5
         playbackResolutionTask = Task { @MainActor [weak self] in
-            guard let self, self.isCurrentPlaybackAttempt(generation: generation, attempt: attempt, playerItem: playerItem) else { return }
+            guard let self else { return }
+            // Tuned away before the card: no card and no count, but still this failure's
+            // one report, for the channel it happened on.
+            guard self.isCurrentPlaybackAttempt(generation: generation, attempt: attempt, playerItem: playerItem) else {
+                self.emitPlaybackError(.playerFailed, channel: failedChannel)
+                return
+            }
             let failure = await self.classifyFailure(for: playerItem, item: self.currentItem,
                                                      hadPicture: hadPicture)
-            guard !Task.isCancelled, self.isCurrentPlaybackAttempt(generation: generation, attempt: attempt, playerItem: playerItem) else { return }
+            guard !Task.isCancelled, self.isCurrentPlaybackAttempt(generation: generation, attempt: attempt, playerItem: playerItem) else {
+                self.emitPlaybackError(failure.analyticsCode, channel: failedChannel)
+                return
+            }
             self.showErrorThenSkip(failure, generation: generation, title: title,
                                    detail: "AVPlayer failed before any watchdog deadline: \(reason)")
         }

@@ -721,6 +721,11 @@ class AppState {
     @ObservationIgnored var playbackResolutionTask: Task<Void, Never>?
     @ObservationIgnored var playbackWatchdogTask: Task<Void, Never>?
     @ObservationIgnored var playbackSkipTask: Task<Void, Never>?
+    /// Programmes on the current channel that failed in a row. Counted in
+    /// `recordFailedItem`, reset by `selectChannel` and by a confirmed picture.
+    @ObservationIgnored var channelFailureRun = ChannelFailureRun()
+    /// How long a failure card stays up before the next programme. Tests shorten it.
+    @ObservationIgnored var errorCardSeconds: Double = 5
     var playbackTracker: PlaybackTracker?
     var dailyRefreshTask: Task<Void, Never>?
     /// Unix seconds when the library was last loaded. Drives 24h rolling cache
