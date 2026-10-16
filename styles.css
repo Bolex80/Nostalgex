@@ -671,6 +671,109 @@ a { color: inherit; }
 .step h3 { font-size: 22px; margin-bottom: 14px; }
 .step p { color: var(--ink-soft); font-size: 15.5px; font-weight: 500; }
 
+/* ---------- Where to watch: one card per surface ----------
+   Each card is a single link. The drawings are inline SVG coloured by the
+   classes below, so they follow the light and dark themes; the TV screens
+   stay navy in both, like the app. */
+.section-screens { padding-bottom: 40px; }
+.screens {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+}
+.screens > li { display: flex; }
+.screen-card {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px 22px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 8px 8px 0 var(--slab, var(--yellow));
+  color: var(--ink);
+  text-decoration: none;
+  transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.screen-card--yellow { --slab: var(--yellow); }
+.screen-card--cyan   { --slab: var(--cyan); }
+.screen-card--pink   { --slab: var(--pink); }
+.screen-card--orange { --slab: var(--orange); }
+.screen-card:hover,
+.screen-card:focus-visible {
+  transform: translate(-3px, -3px);
+  box-shadow: 11px 11px 0 var(--slab, var(--yellow));
+}
+.screen-card:focus-visible { outline: 3px solid var(--ink); outline-offset: 5px; }
+.screen-art {
+  display: block;
+  background: var(--paper-deep);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 10px 8px 6px;
+  margin-bottom: 6px;
+}
+.screen-svg { display: block; width: 100%; height: auto; }
+.screen-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 23px;
+  line-height: 1.1;
+}
+.screen-logo { width: 22px; height: 22px; flex: 0 0 auto; }
+.screen-logo--wide { width: 74px; height: 23px; }
+.section-screens h2 .h2-line { display: block; }
+.screen-copy { flex: 1; color: var(--ink-soft); font-size: 15px; font-weight: 500; line-height: 1.5; }
+.screen-go { font-family: var(--font-mono); font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+.screen-go span { display: inline-block; transition: transform 160ms var(--ease); }
+.screen-card:hover .screen-go span { transform: translateX(4px); }
+
+.sa-body { fill: var(--paper); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.sa-line { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.sa-wire { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 2 5; }
+.sa-dark { fill: #1c1d24; stroke: var(--ink); stroke-width: 3; }
+.sa-screen { fill: #11142b; }
+.sa-y { fill: #ffd91c; }
+.sa-c { fill: #2bc7f5; }
+.sa-p { fill: #f838ac; }
+.sa-hot { fill: #8a7a1c; }
+.sa-row { fill: #2c3160; }
+.sa-row2 { fill: #3a2f5c; }
+.sa-dim { fill: rgba(234, 233, 242, 0.32); }
+.sa-led { fill: #f7f1e3; }
+.sa-go { fill: #3ddc84; }
+.sa-mark { fill: #f7f1e3; }
+.sa-android { fill: #3ddc84; }
+.sa-roku { fill: #6f1ab1; stroke: var(--ink); stroke-width: 2.5; }
+.sa-roku-dk { fill: #4a0f78; }
+.sa-roku-btn { fill: #a678d1; }
+
+@media (max-width: 1100px) {
+  .screens { grid-template-columns: repeat(2, 1fr); gap: 34px 30px; }
+}
+@media (max-width: 600px) {
+  .screens { grid-template-columns: 1fr; gap: 26px; }
+  .screen-card {
+    display: grid;
+    grid-template-columns: 116px 1fr;
+    grid-template-rows: auto 1fr auto;
+    column-gap: 16px;
+    row-gap: 6px;
+    padding: 14px 16px 16px 14px;
+  }
+  .screen-art { grid-row: 1 / span 3; align-self: center; margin: 0; padding: 6px 4px 3px; }
+  .screen-name { font-size: 20px; }
+  .screen-copy { font-size: 14.5px; }
+}
+
 /* ---------- Guide (navy color block) ---------- */
 .section-navy {
   background: var(--navy);
