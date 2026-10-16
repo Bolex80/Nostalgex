@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (PR #26 merged: playback information on Apple TV)
+
+**Shipped.** Merged to main, not released. PR #26 by @w6trp adds PLAYBACK INFORMATION to the Now Playing panel, at the bottom under the sleep timer. It goes out with the next TestFlight build.
+
+**Why.** When someone writes in because a channel won't play, the first questions are which server, whether it is direct play or a server stream, and why it fell back. This puts those answers on the screen while the problem is happening: backend, playback type, quality at tune, any recovery request, player size, source codecs and the fallback reason in plain words. The display model only accepts enums, fixed codec labels and bounded numbers, so no URL, token, server address or raw error text can reach it. Late callbacks are checked against the generation, attempt and current player item, so a channel change cannot paint the old programme's details over the new one.
+
+**Changed from the first version.** Rebased onto #27's recovery flow by its author. The row moved from the PICTURE section to the bottom of the panel, since most people open it for retro and quality. Delivered Codecs and Stream Bitrate were dropped, because nothing fills them yet and rows that always say Unknown read as broken.
+
+**Measured.** NostalgexTests on the merged tree: 730 tests, 721 passed, 0 failed, 9 skipped (opt-in live harnesses), up 25 from #27. Device build for tvOS succeeds. The PR's first CI run never reached the tests: the runner's simulator could not launch the test host.
+
+**Unverified.** The panel on a physical Apple TV: row placement, remote focus, Back returning to the row, VoiceOver.
+
+**Next.** #25 (separating Now Playing reports from watched counts) is the last open PR from @w6trp; it needs a rebase now that #26 and #27 are in.
+
 ## 2026-10-16 (homepage: four ways to watch, README refresh, tuner release notes)
 
 **Shipped.** On nostalgex.app: a "Three ways to tune in. A fourth is on the way." section above How it works, with one tile each for Apple TV, the web tuner, the Docker container and a Roku preview. The hero puts its video straight under the headline on tablets and phones. GitHub release `tuner-v1.0.0` for the container, published as not latest so the repo's Latest badge stays on the Apple TV app (`v1.0.26`).
