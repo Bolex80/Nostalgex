@@ -174,6 +174,15 @@ membership manifest, and episodes take their show's id.
 `compare.mjs` runs upstream at the commit pinned in `data/UPSTREAM`, from a
 throwaway checkout, whatever the clone has checked out.
 
+The maintainer's device report (Discussion #8) was checked on both TVs on
+2026-10-16, at `f237f6c`. With 70 channels built from 5,363 items, saving the
+pools used 16% of the app's memory limit, and 35% while the saved guide was also
+showing. Deep links sent over ECP tuned channels 1 to 8 fullscreen. A
+transcoded film joined 70 minutes in had Plex's transcode window at minutes
+70 to 81, not at 0:00. Still unseen: the SERVER rows (both TVs reach one
+server, so the rows don't show), the sign-in code changing after 5 minutes,
+and `*` in the guide.
+
 ## BrightScript notes
 
 - **64-bit math.** The RNG and premiere hash are unsigned 64-bit in Swift.
