@@ -680,7 +680,13 @@ class AppState {
     /// Lifetime observers (background/foreground) — never cleared by loadCurrentItem.
     private var _lifetimeObservers = Set<AnyCancellable>()
     var loadGeneration: Int = 0
-    var loadDebounceTimer: Timer?
+    /// A channel can replace its player without changing loadGeneration (retry/fallback).
+    /// Every asynchronous completion also belongs to this individual playback attempt.
+    @ObservationIgnored var playbackAttemptGeneration = 0
+    @ObservationIgnored var playbackRecoveryInFlight = false
+    @ObservationIgnored var playbackResolutionTask: Task<Void, Never>?
+    @ObservationIgnored var playbackWatchdogTask: Task<Void, Never>?
+    @ObservationIgnored var playbackSkipTask: Task<Void, Never>?
     var playbackTracker: PlaybackTracker?
     var dailyRefreshTask: Task<Void, Never>?
     /// Unix seconds when the library was last loaded. Drives 24h rolling cache

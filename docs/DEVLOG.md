@@ -3,6 +3,7 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+<<<<<<< HEAD
 ## 2026-10-16 (PR #28: current-main rebase and test sensitivity)
 
 **Shipped.** Updated `fix/web-tune-ownership` for PR #28 on current main `bfb4453`. No app release, installation or deployment.
@@ -89,6 +90,19 @@ browser row needs a Fire TV before it can say anything at all.
 **Half-done.** Real-browser playback and live server cleanup are still unverified. Fresh GitHub Actions will validate the updated PR head after push.
 
 **Next.** Await upstream review. Combining this with the independent reporting controls remains a separate integration step.
+=======
+## 2026-10-15 (PR #27: upstream reconciliation)
+
+**Shipped.** Updated `fix/playback-recovery-ownership` for PR #27. No app release, installation or deployment.
+
+**Changed.** Merged upstream `1ae5dc4` so the tablet control rail is retained. Only the development log conflicted; both the upstream and feature entries are preserved. Native recovery behavior was unchanged during reconciliation, and the PR remains independent of the other playback changes.
+
+**Measured.** The full offline native suite passed 705 tests with zero failures on tvOS Simulator. Six live/opt-in harness classes were excluded. The complete npm suite, hosted build and self-host build passed on the reconciled tree. The staged diff has no whitespace errors.
+
+**Half-done.** Apple TV callback timing, real backend resource usage and live server session teardown remain unverified. Fresh GitHub Actions will validate the updated PR head after push.
+
+**Next.** Await upstream review. Combining the separate playback PRs remains an integration step before release.
+>>>>>>> pr-27
 
 ## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
 
@@ -161,6 +175,7 @@ reporting a coarse pointer keeps the desktop layout.
 portrait's narrower video is the right trade for the controls and the extra
 guide rows. If it is, merge and ship with the next web tuner deploy.
 
+<<<<<<< HEAD
 ## 2026-10-14 (Web rapid-tune ownership, local review branch)
 
 **Shipped.** Nothing published. This patch is prepared locally on
@@ -203,6 +218,36 @@ features and pause controls are outside this patch.
 **Next.** Review the local diff and complete real-browser validation before
 choosing whether to publish. Verify rapid tuning with native HLS and
 HLS.js, subtitles, connection changes, and server-side session cleanup.
+=======
+## 2026-10-14 (playback recovery ownership, local review branch)
+
+**Shipped.** Nothing published or installed. Changes are on
+`fix/playback-recovery-ownership` for review.
+
+**Changed.** Retries and fallback players now have an attempt token in addition
+to the channel load generation. Status events, seek completions, startup
+watchdogs and error probes check the exact player item before acting. Delayed
+loads, negotiations and watchdogs are owned tasks and are cancelled on
+replacement or disconnect. The starvation monitor and startup watchdog share
+one pending server-stream negotiation. A cancelled request that still returns a
+session stops that exact session instead of installing it. Initial-load offset
+state is updated only after the request is still current. The existing
+`resolveServerStream` behavior and retry delays are preserved.
+
+Measured. Seven focused offline tests pass against AppState's production
+recovery callbacks with AVPlayerItem and a controlled backend, including
+repeated starvation verdicts, overlapping watchdog recovery, late replies,
+rapid channel changes, cancelled debounce and preparation. The full offline
+native suite passes 705 tests with zero failures (676 XCTest and 29 Swift
+Testing). Swift syntax and whitespace checks pass. No user credentials or real
+media-server state were used.
+
+**Half-done.** The branch is local and unpublished. Actual Apple TV playback,
+backend resource usage and server session teardown are unverified.
+
+**Next.** Review the patch, then verify rapid surfing and slow-server recovery
+on hardware before publication.
+>>>>>>> pr-27
 
 ## 2026-10-14 (Docker web tuner: caught up with main, branch)
 
