@@ -10,7 +10,7 @@
 
 ![The Nostalgex channel guide on Apple TV, with CH 12 Action Adventure playing The Empire Strikes Back and a grid of channels and showtimes below](docs/images/nostalgex-guide.png)
 
-Nostalgex turns your library into 131 channels in 14 bundles, plus a channel for every film series you own, with a real channel guide. Every channel plays on a set daily schedule, so tuning in feels like live TV. No ads, no account, and it never supplies any media of its own.
+Nostalgex turns your library into 130+ channels in 14 bundles, plus a channel for every film series you own, with a real channel guide. Every channel plays on a set daily schedule, so tuning in feels like live TV. No ads, no account, and it never supplies any media of its own.
 
 <a id="get-it"></a>
 <a id="works-with"></a>
@@ -184,7 +184,7 @@ The hosted tuner is served over HTTPS, so browsers block mixed content and it ca
 <a id="apps"></a>
 <a id="shared-config"></a>
 <a id="channelsjson"></a>
-Both apps read the same channel configuration, `channels.json` (131 channels in 14 bundles). The tvOS app bundles a copy and can also fetch an updated one at runtime. Franchise and collection channels are built on top of that from your own library. See `CHANNELS.md` for a readable breakdown of each channel.
+Both apps read the same channel configuration, `channels.json` (130+ channels in 14 bundles). The Apple TV app ships its own copy, so a channel change reaches it with an app update. The web tuner reads the site's copy on every load, and the Docker image carries the copy it was built with. Franchise and collection channels are built on top of that from your own library. See `CHANNELS.md` for a readable breakdown of each channel.
 
 <a id="schedule-logic"></a>
 Both apps use a daily seeded shuffle. Each channel's pool is shuffled once per day (seeded by date + channel ID), then looped end to end. Your spot in the loop comes from the clock, so tuning in at 2:15 PM always lands at the same place that day. On tvOS, when a video ends the next one starts from the beginning; on first tune in you join mid stream like real TV.

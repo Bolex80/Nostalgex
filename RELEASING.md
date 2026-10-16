@@ -57,9 +57,12 @@ uploaded is still free to reuse, but confirm that in TestFlight rather than assu
    node scripts/render-lineup.mjs   # LINEUP:START/END, from channels.json
    ```
    Note `npm run build` runs the changelog render but **not** the lineup render.
-3. Sanity-check the hand-written channel and bundle counts near the lineup header
-   (`data-lineup-channels`, `data-lineup-bundles`) still match `channels.json`.
-   They are no-JS fallbacks; `app.js` corrects them at runtime.
+3. Channel counts: `render-lineup.mjs` also writes the exact numbers into the
+   no-JS fallbacks near the lineup header (`data-lineup-channels`,
+   `data-lineup-bundles`), and `app.js` recounts at runtime. Prose on the site
+   says "130+ channels" so it does not go stale; `npm run bundles:render:strict`
+   fails if a static page claims more channels than `channels.json` has, or
+   names an exact count that is not the real one.
 4. Push to `main`. Vercel builds and deploys production on its own. No CLI step.
 5. Load nostalgex.app and the web tuner once and confirm nothing 404s.
 

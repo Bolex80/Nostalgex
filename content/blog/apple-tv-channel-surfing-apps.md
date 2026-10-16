@@ -14,7 +14,7 @@ draft: true
 
 # The Best Channel Surfing Apps for Apple TV: Live Channels From Your Plex or Jellyfin Library
 
-> The best channel surfing app for Apple TV depends on your server and your budget. [Nostalgex](/) is free and turns a Plex or Jellyfin library into 131 live channels with a retro guide, with nothing to set up. Coax is the pick if you want to build your own lineups or you run Emby, and Bunny Ears TV has the biggest built in lineup for Plex if you'll pay for extras.
+> The best channel surfing app for Apple TV depends on your server and your budget. [Nostalgex](/) is free and turns a Plex or Jellyfin library into 130+ live channels with a retro guide, with nothing to set up. Coax is the pick if you want to build your own lineups or you run Emby, and Bunny Ears TV has the biggest built in lineup for Plex if you'll pay for extras.
 
 Full disclosure before anything else: I made Nostalgex. That makes me a good source on what it does and a biased one on which app you should pick. So I'm going to try to write the post I'd want to read, and I checked every competitor detail below on the vendor's own App Store page or website on October 9, 2026. Where I couldn't confirm something, I left it out.
 
@@ -54,7 +54,7 @@ That's where Nostalgex fits, and it's why I built it. It's free on the [App Stor
 
 ![Nostalgex guide grid with the Scream Adults channel selected and Scream Kids, Fright Night and Nostalgex Horror around it](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/scream-adults-guide-grid.webp)
 
-You connect your Plex or Jellyfin server ([how it works on Plex](/plex), [how it works on Jellyfin](/jellyfin)) and it builds 131 channels in 14 bundles from your library automatically. You don't pick what goes where. You open the guide and something is already on, halfway through, like cable used to be. This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR. Here's [what a night on those looks like](/blog/90s-slasher-movies-halloween-marathon).
+You connect your Plex or Jellyfin server ([how it works on Plex](/plex), [how it works on Jellyfin](/jellyfin)) and it builds 130+ channels in 14 bundles from your library automatically. You don't pick what goes where. You open the guide and something is already on, halfway through, like cable used to be. This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR. Here's [what a night on those looks like](/blog/90s-slasher-movies-halloween-marathon).
 
 It needs tvOS 18 or later. There's also a free [web tuner](/web-tuner) that runs the same idea in a browser, as long as your server is reachable over https.
 

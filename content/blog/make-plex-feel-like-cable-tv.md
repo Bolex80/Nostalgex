@@ -33,7 +33,7 @@ Plex has its own Live TV section, but it's built around Plex's streaming channel
 - When you tune in, you drop into whatever is airing right now, in the middle of a movie, like real TV.
 - The lineup refreshes through the day from what's in your library.
 
-There are 131 channels in 14 bundles, sorted like the back of a cable bill. NOSTALGEX has things like SAT MORNING CARTOONS, 90S SITCOMS, VHS VAULT, TEEN MOVIES, and BUDDIES (home of our [Friday night buddy cop channel](/blog/best-90s-buddy-cop-movies-channel)). KIDZ ZONE has channels like DIZNEY TOONS. There are decade channels, franchise channels, and seasonal ones too, like SCREAM for October (here's our [Halloween slasher lineup](/blog/90s-slasher-movies-halloween-marathon)) and TIS THE SEASON for December. What actually shows up depends on your library. No westerns, no Westerns channel.
+There are 130+ channels in 14 bundles, sorted like the back of a cable bill. NOSTALGEX has things like SAT MORNING CARTOONS, 90S SITCOMS, VHS VAULT, TEEN MOVIES, and BUDDIES (home of our [Friday night buddy cop channel](/blog/best-90s-buddy-cop-movies-channel)). KIDZ ZONE has channels like DIZNEY TOONS. There are decade channels, franchise channels, and seasonal ones too, like SCREAM for October (here's our [Halloween slasher lineup](/blog/90s-slasher-movies-halloween-marathon)) and TIS THE SEASON for December. What actually shows up depends on your library. No westerns, no Westerns channel.
 
 ## What Nostalgex Is (and Isn't)
 

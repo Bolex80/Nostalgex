@@ -59,7 +59,7 @@ The [Nostalgex for Jellyfin](/jellyfin) page has a look at the guide and the sho
 1. **Install Nostalgex** free from the [App Store](https://apps.apple.com/app/nostalgex/id6762563534) on your Apple TV.
 2. **Choose Jellyfin** when it asks which server you use.
 3. **Sign in with Quick Connect.** The Apple TV shows a code. Open Jellyfin in a browser where you're already signed in, go to Quick Connect, and enter it. No typing a long password with the Siri Remote. You can also type your server address and log in the normal way. Typing just the IP works, since it looks on port 8096 for you.
-4. **Open the guide.** That's it. Your library gets sorted into channels on its own: Saturday morning cartoons, 90s sitcoms, the VHS vault, decades, franchises. There are 131 channels in 14 bundles, and the ones you see depend on what's in your library. No westerns, no westerns channel.
+4. **Open the guide.** That's it. Your library gets sorted into channels on its own: Saturday morning cartoons, 90s sitcoms, the VHS vault, decades, franchises. There are 130+ channels in 14 bundles, and the ones you see depend on what's in your library. No westerns, no westerns channel.
 
 Everything is already playing when you tune in, so you drop into the middle of a movie the way you would have in 1996. You can switch whole bundles on and off in settings, like turning off the kids bundle, but you don't program anything. This month there's a free SCREAM bundle you can turn on with one button. It adds four horror channels: 137 SCREAM KIDS, 138 FRIGHT NIGHT, 139 SCREAM ADULTS and 140 NOSTALGEX HORROR.
 
