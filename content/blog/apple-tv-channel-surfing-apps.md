@@ -40,7 +40,7 @@ It depends on your server and your Apple TV more than anything else, which is wh
 
 | App | Servers | Apple TV needs | Build your own channels | Other screens | Price on the App Store (Oct 9, 2026) |
 |---|---|---|---|---|---|
-| Nostalgex | Plex, Jellyfin | tvOS 18 or later | No, it builds them | Web browser | Free, no in app purchases |
+| Nostalgex | Plex, Jellyfin | tvOS 18 or later | No, it builds them | Web browser | Free, optional tips |
 | Coax | Plex, Jellyfin, Emby | tvOS 18.6 or later | Yes (Lineups) | iPhone, iPad, Mac, Vision Pro | Free download, then $2.99 a month or $29.99 a year after a free week, or $74.99 lifetime |
 | Bunny Ears TV | Plex | tvOS 26 or later | Yes, with Plus | iPhone and iPad, per its website | 26 channels free. Plus is $2.99 a month, $17.99 a year or $29.99 lifetime |
 | TubeTime+ | Plex | tvOS 18 or later | Builds them from your libraries | iPhone, iPad, Mac | Free while in TestFlight beta |
@@ -50,7 +50,7 @@ The sections below go app by app so you can match one to your setup.
 
 ## Is there a free app that turns my Plex library into live TV channels?
 
-That's where Nostalgex fits, and it's why I built it. It's free on the [App Store](https://apps.apple.com/app/nostalgex/id6762563534), open source under the MIT license, and has no ads, no account and no in app purchases. It needs nothing paid on your end either. No Plex Pass, no subscription.
+That's where Nostalgex fits, and it's why I built it. It's free on the [App Store](https://apps.apple.com/app/nostalgex/id6762563534), open source under the MIT license, and needs no account. There's an optional tip jar, and it needs nothing paid on your end. No Plex Pass, no subscription.
 
 ![Nostalgex guide grid with the Scream Adults channel selected and Scream Kids, Fright Night and Nostalgex Horror around it](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/scream-adults-guide-grid.webp)
 
@@ -109,7 +109,7 @@ The nice thing is that none of these touch your server's files, so trying two or
 
 ### Is there a free channel surfing app for Plex on Apple TV?
 
-Yes. Nostalgex is free on the App Store with no ads, no account and no in app purchases. Bunny Ears TV also has a free 26 channel Basic package, and TubeTime+ is free while it's in beta.
+Yes. Nostalgex is free on the App Store and needs no account. Tips are optional. Bunny Ears TV also has a free 26 channel Basic package, and TubeTime+ is free while it's in beta.
 
 ### Which channel surfing apps work with Jellyfin?
 

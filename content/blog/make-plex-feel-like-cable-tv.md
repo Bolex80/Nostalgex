@@ -39,7 +39,7 @@ There are 131 channels in 14 bundles, sorted like the back of a cable bill. NOST
 
 It's a front end for your own server. It does not host, stream, or supply any media. Every frame comes off your machine.
 
-It's also free, with no ads in the app and no Nostalgex account. The Apple TV app, the web tuner, and the channel rules are all open source on GitHub under the MIT license. Sign in and playback happen directly between your device and your server, and the app reads your library without adding, renaming, moving, or deleting anything.
+It's also free, with no Nostalgex account to make. The Apple TV app, the web tuner, and the channel rules are all open source on GitHub under the MIT license. Sign in and playback happen directly between your device and your server, and the app reads your library without adding, renaming, moving, or deleting anything.
 
 And it's plug and play. Connect your server and Nostalgex builds every channel and every schedule from your library on its own. No playlists, no programming, nothing to set up. The movies you already own just start airing.
 
