@@ -133,6 +133,14 @@ deep links never match on a real Roku (the id arrives as `roInteger`), and
 to the Apple TV app as it can get, guide first, from the App Store shots,
 nostalgex.app/screens and `Nostalgex/Nostalgex/Views` (both 1920x1080).
 
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18984559)
+on 2026-10-16: all six fixed (`f237f6c`, memory also `62dc326`), saying which
+were checked on a TV and which weren't (the server rows, the sign-in code,
+the sign-out confirmation). It reported the saved pools file going from 30 MB
+to 3.5 MB, asked for the `saved the pools` console line from their larger
+library, agreed to `roku/` via PRs and the listing on their account, and said
+the Apple TV look comes next, guide first, then the PRs.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
