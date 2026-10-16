@@ -3,6 +3,18 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (homepage: four ways to watch, README refresh, tuner release notes)
+
+**Shipped.** On nostalgex.app: a "Three ways to tune in. A fourth is on the way." section above How it works, with one tile each for Apple TV, the web tuner, the Docker container and a Roku preview. The hero puts its video straight under the headline on tablets and phones. GitHub release `tuner-v1.0.0` for the container, published as not latest so the repo's Latest badge stays on the Apple TV app (`v1.0.26`).
+
+**Changed.**
+- The section started as cards with device drawings. They read as busy and the four cards were hard to tell apart, so it is now solid colour tiles (yellow, cyan, pink) with a large ink logo, a name and one line, and a dashed tile with a Coming sticker for Roku. Docker and Roku joined the footer's not-affiliated line since their marks are on the page.
+- On stacked layouts the hero video sat after the paragraph, both buttons and the note, a full screen down. `.hero-copy` becomes `display: contents` at 1024px and below so the video can be ordered second.
+- The self-host page and README wrote the address as `http://<that-machine>:8080`. Browsers render that, but text extractors and AI readers strip the angle brackets and print `http://:8080`, so it is `YOUR-SERVER-IP` now.
+- README: 1.0.26 and what it rolled up, Emby officially supported, the tip jar (replacing "no in-app purchases"), a shorter Docker quick start pointing at /self-host, iCloud and REPORT PLAYBACK in what leaves your network, an Other platforms section, and the `--` stand-ins replaced.
+
+**Next.** PR #26 waits on @w6trp's rebase onto #27; #25 after it. The Roku port goes onto a real Roku for a sideload test.
+
 ## 2026-10-16 (web tuner from a TV browser, and the container goes public)
 
 **Shipped.** The web tuner changes below, on nostalgex.app and in the first public container image, `ghcr.io/chadmueller/nostalgex` from tag `tuner-v1.0.0`. The `/self-host` page is published.
