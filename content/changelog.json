@@ -1,6 +1,22 @@
 {
   "entries": [
     {
+      "version": "1.0.27",
+      "date": "OCT 2026",
+      "released": false,
+      "title": "Steadier playback, separate reporting switches, and collections of shows",
+      "bullets": [
+        "Your server's collections of TV shows now become channels too, not just collections of movies.",
+        "Report Playback is now two switches: SHOW NOW PLAYING and MARK WATCHED. Use either one on its own. Thanks to @w6trp.",
+        "PLAYBACK INFORMATION at the bottom of the Now Playing panel shows how the current programme is playing and why it fell back, which makes a not-playing report much quicker to sort out. Thanks to @w6trp.",
+        "Channel changes during a stall can no longer let an old stream take over the new channel. Thanks to @w6trp.",
+        "A Plex library with a file or folder name in an old text encoding loads again instead of stopping with an unexpected data error.",
+        "A channel where nothing will play stops after five tries and says so, instead of retrying forever.",
+        "Emby's backup stream works, and stalled Jellyfin and Emby streams recover by asking the server again.",
+        "The app sends far fewer anonymous usage signals."
+      ]
+    },
+    {
       "version": "1.0.26",
       "date": "OCT 2026",
       "released": true,

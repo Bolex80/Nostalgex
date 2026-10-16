@@ -3,6 +3,18 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (PR #25 merged: Show Now Playing and Mark Watched are separate)
+
+**Shipped.** Merged to main, not released. PR #25 by @w6trp splits the one Report Playback switch into SHOW NOW PLAYING and MARK WATCHED, on the Apple TV (Settings > CONNECTION) and in the web tuner (Settings > PLAYBACK).
+
+**Why.** Report Playback did two jobs: putting the channel in the server's Now Playing, and counting a programme as watched. People want one without the other, and counting a surf-past as a watch was the complaint the first version was built to avoid.
+
+**Changed.** Both switches are off for new installs, the same opt-in default as before. An existing Report Playback choice carries over to both, and an explicit new off is kept. Mark Watched counts a programme only when you join in its first 15% and watch at least 75% of it. On Plex, Now Playing alone sends no position or watched updates. On Jellyfin and Emby, if the app cannot read the existing watch state first, it skips reporting for that session rather than writing a zero resume position, which could wipe real progress. Both switches sync through iCloud like the old one. The detail is in `Nostalgex/docs/plex-session-reporting.md`.
+
+**Measured.** NostalgexTests on main with this merged: 749 passed, 0 failed (9 opt-in live harnesses skipped). Web: 24 new reporting-control checks and the watch-state golden cases pass. The README conflict with the reworked README was resolved in the README's favour; the switches are named in its privacy list.
+
+**Unverified.** On a physical Apple TV: the two rows in Settings, the carry-over from an existing Report Playback choice, and a Jellyfin or Emby session where the watch state can't be read.
+
 ## 2026-10-16 (Plex: a Latin-1 file name no longer fails the whole library)
 
 **Shipped.** Nothing yet. Branch `plex-utf8-repair`, for the next TestFlight build.
