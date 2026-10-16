@@ -97,8 +97,8 @@ const EXCLUSIVITY_NOTES = {
   similar/collection noise cannot be claimed — that blocks live-action (Spy Kids)
   AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese
   anime only. Re-run the keyword tuner to apply changes.`,
-  "132": `The Scream and Halloween films, by exact title, so the seasonal channel
-  owns them rather than the year-round horror channels. It used to match any
+  "132,415": `The Scream and Halloween films, by exact title, so SCREAM ADULTS and
+  SLASHER own them rather than the other horror channels. It used to match any
   title containing "scream" or "halloween", which hid Kicking & Screaming and
   Hubie Halloween from every channel they belong on.`,
 };
@@ -191,11 +191,21 @@ const data = JSON.parse(await readFile(CHANNELS_PATH, "utf8"));
 const channels = data.channels || [];
 const byId = new Map(channels.map((c) => [c.id, c]));
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Spotlighted Oct, off until switched on, works in any month" for a seasonal bundle. */
+function seasonNote(activeMonths) {
+  if (!activeMonths?.length) return "";
+  const months = activeMonths.map((m) => MONTHS[m - 1]).filter(Boolean).join(", ");
+  return `Spotlighted ${months}. Off until switched on, then on in any month.`;
+}
+
 const bundles = (data.bundles || [])
   .map((b) => ({
     id: b.id,
     name: b.name,
     description: b.description || "",
+    season: seasonNote(b.activeMonths),
     chans: (b.channelIDs || [])
       .map((id) => byId.get(id))
       .filter(Boolean)
@@ -227,7 +237,8 @@ for (const b of bundles) {
   const nums = b.chans.map((c) => c.number);
   const range = nums.length === 1 ? `CH ${nums[0]}` : `CH ${Math.min(...nums)}–${Math.max(...nums)}`;
   out.push(
-    `| ${cell(b.name)} | \`${b.id}\` | ${b.chans.length} | ${range} | ${cell(b.description)} |`,
+    `| ${cell(b.name)} | \`${b.id}\` | ${b.chans.length} | ${range} | ` +
+      `${cell([b.description, b.season].filter(Boolean).join(". "))} |`,
   );
 }
 out.push("", `Bundled channels: ${bundledCount} of ${channels.length}.`, "");
@@ -288,6 +299,7 @@ for (const b of bundles) {
   const range = nums.length === 1 ? `CH ${nums[0]}` : `CH ${Math.min(...nums)}–${Math.max(...nums)}`;
   out.push(`### ${b.name} · ${range}`, "");
   if (b.description) out.push(`_${b.description}_`, "");
+  if (b.season) out.push(b.season, "");
   out.push(...channelTable(b.chans), "");
 }
 if (orphans.length) {

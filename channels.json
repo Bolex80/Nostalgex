@@ -97,7 +97,10 @@
       "manifestExclusive": true
     },
     {
-      "channelID": 132,
+      "channelIDs": [
+        132,
+        415
+      ],
       "editorialTitles": [
         "Scream",
         "Scream 2",
@@ -316,7 +319,10 @@
         131,
         141,
         132,
-        408
+        408,
+        415,
+        416,
+        417
       ],
       "activeMonths": [
         10
@@ -975,6 +981,154 @@
           "min": 1975,
           "max": 1999
         }
+      }
+    },
+    {
+      "id": 415,
+      "number": 141,
+      "name": "SLASHER",
+      "colorHex": "#C0001A",
+      "category": "seasonal",
+      "minItems": 5,
+      "rules": {
+        "type": "movie",
+        "genres": {
+          "include": [
+            "Horror"
+          ],
+          "exclude": [
+            "Family",
+            "Children",
+            "Kids",
+            "Animation",
+            "Animated"
+          ]
+        },
+        "titleContains": [
+          "Scream",
+          "Halloween",
+          "Friday the 13th",
+          "Nightmare on Elm Street",
+          "Freddy vs",
+          "Freddy's Dead",
+          "Jason X",
+          "Jason Goes to Hell",
+          "Texas Chain Saw",
+          "Texas Chainsaw",
+          "Child's Play",
+          "Chucky",
+          "Terrifier",
+          "Final Destination",
+          "Sleepaway Camp",
+          "I Know What You Did",
+          "I Still Know What You Did",
+          "Urban Legend",
+          "My Bloody Valentine",
+          "Fear Street",
+          "Happy Death Day",
+          "Candyman",
+          "Wrong Turn"
+        ],
+        "titleExcludes": [
+          "Hubie",
+          "Scary Movie",
+          "Hollow Man"
+        ],
+        "keywords": [
+          "slasher",
+          "masked killer",
+          "teen slasher",
+          "final girl"
+        ],
+        "keywordsRequireAnyGenre": [
+          "Horror"
+        ],
+        "keywordGatedGenres": [
+          "Horror"
+        ]
+      }
+    },
+    {
+      "id": 416,
+      "number": 142,
+      "name": "HORROR COMEDY",
+      "colorHex": "#8BC34A",
+      "category": "seasonal",
+      "minItems": 3,
+      "rules": {
+        "type": "movie",
+        "genres": {
+          "include": [
+            "Horror"
+          ],
+          "requireAll": [
+            "Horror",
+            "Comedy"
+          ],
+          "exclude": [
+            "Family",
+            "Children",
+            "Kids",
+            "Animation",
+            "Animated"
+          ]
+        },
+        "contentRatings": [
+          "PG",
+          "PG-13",
+          "R",
+          "NC-17",
+          "TV-14",
+          "TV-MA",
+          "NR"
+        ],
+        "allowUnrated": true
+      }
+    },
+    {
+      "id": 417,
+      "number": 143,
+      "name": "FOUND FOOTAGE",
+      "colorHex": "#5D6D5F",
+      "category": "seasonal",
+      "minItems": 3,
+      "rules": {
+        "type": "movie",
+        "genres": {
+          "include": [
+            "Horror"
+          ],
+          "exclude": [
+            "Family",
+            "Children",
+            "Kids",
+            "Animation",
+            "Animated"
+          ]
+        },
+        "titleContains": [
+          "Blair Witch",
+          "Paranormal Activity",
+          "V/H/S",
+          "Grave Encounters",
+          "Hell House LLC",
+          "Lake Mungo",
+          "The Last Exorcism",
+          "The Taking of Deborah Logan",
+          "Trollhunter",
+          "As Above, So Below"
+        ],
+        "keywords": [
+          "found footage",
+          "found footage horror"
+        ],
+        "keywordsRequireAnyGenre": [
+          "Horror",
+          "Science Fiction"
+        ],
+        "keywordGatedGenres": [
+          "Horror"
+        ]
       }
     },
     {
@@ -4579,6 +4733,7 @@
           "Grudge Match",
           "Hocus Pocus",
           "Hotel Transylvania",
+          "Hubie",
           "Lord of the Rings",
           "Monster House",
           "Nightmare Before Christmas",

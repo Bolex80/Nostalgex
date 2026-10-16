@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 38 · **131 channels** across **14 bundles** · 81 channels whose `id` differs from their `number`.
+**Config version:** 38 · **134 channels** across **14 bundles** · 84 channels whose `id` differs from their `number`.
 
 ---
 
@@ -63,11 +63,11 @@ only name the channel's own defining genre.
 | FRANCHISES | `franchises` | 7 | CH 100–106 | Movie franchise marathons |
 | ARTHOUSE | `arthouse` | 4 | CH 107–110 | Criterion, foreign films, midnight movies, and cult classics |
 | NETWORKS | `streamers` | 11 | CH 119–129 | Channels by streaming service and studio |
-| TIS THE SEASON | `tis-the-season` | 7 | CH 130–136 | Christmas and holiday channels |
-| SCREAM | `seasonal` | 4 | CH 137–140 | Horror, all year's worth, front and centre every October |
+| TIS THE SEASON | `tis-the-season` | 7 | CH 130–136 | Christmas and holiday channels. Spotlighted Dec. Off until switched on, then on in any month. |
+| SCREAM | `seasonal` | 7 | CH 137–143 | Horror, all year's worth, front and centre every October. Spotlighted Oct. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
-Bundled channels: 131 of 131.
+Bundled channels: 134 of 134.
 
 ---
 
@@ -91,7 +91,7 @@ and `scripts/filter-golden.json` pins the cases.
 |---|---|---|
 | CH130 HOLIDAZE (id 130)<br>CH131 SANTA'S LIST (id 409)<br>CH132 NAUGHTY LIST (id 410)<br>CH133 NOSTALGEX CHRISTMAS (id 411)<br>CH134 HALLMARK (id 412) | genres Holiday/Christmas, 19 title words, 49 exact titles | Holiday and Christmas titles belong to the TIS THE SEASON movie channels. Genre match plus a title allowlist plus an editorial allowlist. Die Hard, Die Hard 2 and Lethal Weapon are deliberately NOT on the list — they stay free for year-round action. |
 | id 32 (missing)<br>CH59 ANIME (id 60) | genres Anime, TMDB manifest claim (`manifestExclusive`) | Anime is claimed by genre `Anime` OR by a TMDB-manifest claim (`manifestExclusive`), so manifest-claimed anime is blocked from the other animation channels even when Plex only tags it "Animation". The manifest builder gates these channels with `requireGenres: ["Animation"]` + `requireOriginalLanguage: ["ja"]` + `autoSweepCollections: false` so TMDB similar/collection noise cannot be claimed — that blocks live-action (Spy Kids) AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese anime only. Re-run the keyword tuner to apply changes. |
-| CH139 SCREAM ADULTS (id 132) | 22 exact titles | The Scream and Halloween films, by exact title, so the seasonal channel owns them rather than the year-round horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
+| CH139 SCREAM ADULTS (id 132)<br>CH141 SLASHER (id 415) | 22 exact titles | The Scream and Halloween films, by exact title, so SCREAM ADULTS and SLASHER own them rather than the other horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
 
 ---
 
@@ -284,6 +284,8 @@ _Channels by streaming service and studio_
 
 _Christmas and holiday channels_
 
+Spotlighted Dec. Off until switched on, then on in any month.
+
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
 | 130 | `130` | HOLIDAZE | `#C41E3A` | Movies | 3 | incl Holiday/Christmas, title allowlist (19), editorial always-in (96), Plex rating ≥ 5 |
@@ -294,16 +296,21 @@ _Christmas and holiday channels_
 | 135 | **`413`** ⚠︎ | CHRISTMAS SPECIALS | `#27AE60` | Episodes | 3 | rated TV-PG/PG/TV-14/TV-MA/PG-13/R |
 | 136 | **`414`** ⚠︎ | KIDS CHRISTMAS TV | `#58D68D` | Episodes | 3 | rated TV-Y/TV-Y7/TV-G/G/unrated |
 
-### SCREAM · CH 137–140
+### SCREAM · CH 137–143
 
 _Horror, all year's worth, front and centre every October_
+
+Spotlighted Oct. Off until switched on, then on in any month.
 
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
 | 137 | **`131`** ⚠︎ | SCREAM KIDS | `#FF8C00` | Movies | 3 | no Horror, title allowlist (37), editorial always-in (43), rated G/PG/TV-Y/TV-Y7/TV-G/TV-PG |
 | 138 | **`141`** ⚠︎ | FRIGHT NIGHT | `#8B0000` | Any | 5 | incl Horror |
-| 139 | **`132`** ⚠︎ | SCREAM ADULTS | `#8B0000` | Movies | 3 | incl Horror/Thriller, no Family/Children/Kids/Animation/Animated, title allowlist (53), title blocklist (13), rated R/NC-17/PG-13/TV-MA |
+| 139 | **`132`** ⚠︎ | SCREAM ADULTS | `#8B0000` | Movies | 3 | incl Horror/Thriller, no Family/Children/Kids/Animation/Animated, title allowlist (53), title blocklist (14), rated R/NC-17/PG-13/TV-MA |
 | 140 | **`408`** ⚠︎ | NOSTALGEX HORROR | `#8E44AD` | Movies | 3 | incl Horror, no Family/Children/Kids/Animation/Animated, 1975-1999 |
+| 141 | **`415`** ⚠︎ | SLASHER | `#C0001A` | Movies | 5 | incl Horror, no Family/Children/Kids/Animation/Animated, title allowlist (23), title blocklist (3), kw +4, kw needs genre Horror, kw-gated genre Horror |
+| 142 | **`416`** ⚠︎ | HORROR COMEDY | `#8BC34A` | Movies | 3 | incl Horror, needs ALL Horror + Comedy, no Family/Children/Kids/Animation/Animated, rated PG/PG-13/R/NC-17/TV-14/TV-MA/NR/unrated |
+| 143 | **`417`** ⚠︎ | FOUND FOOTAGE | `#5D6D5F` | Movies | 3 | incl Horror, no Family/Children/Kids/Animation/Animated, title allowlist (10), kw +2, kw needs genre Horror/Science Fiction, kw-gated genre Horror |
 
 ### HIGH ROTATION · CH 200–213
 
@@ -330,7 +337,7 @@ _Music videos by genre_
 
 ## `id` ≠ `number`
 
-81 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
+84 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
 
 | `id` | Airs as | Name |
 |---|---|---|
@@ -401,6 +408,9 @@ _Music videos by genre_
 | `141` | CH138 | FRIGHT NIGHT |
 | `132` | CH139 | SCREAM ADULTS |
 | `408` | CH140 | NOSTALGEX HORROR |
+| `415` | CH141 | SLASHER |
+| `416` | CH142 | HORROR COMEDY |
+| `417` | CH143 | FOUND FOOTAGE |
 | `150` | CH200 | HIGH ROTATION |
 | `151` | CH201 | POP |
 | `152` | CH202 | ROCK'N |

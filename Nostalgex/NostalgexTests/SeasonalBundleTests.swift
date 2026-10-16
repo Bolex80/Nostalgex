@@ -52,4 +52,19 @@ final class SeasonalBundleTests: XCTestCase {
         XCTAssertTrue(scream.toChannelBundle().isInSeason(on: date(10, 20)))
         XCTAssertFalse(holiday.toChannelBundle().isInSeason(on: date(10, 20)))
     }
+
+    /// SCREAM's channels in guide order (the October lead block follows bundle order),
+    /// and the Scream/Halloween lock shared by SCREAM ADULTS and SLASHER.
+    func testShippedScreamLineupAndLock() throws {
+        let url = try XCTUnwrap(Bundle(for: AppState.self).url(forResource: "channels", withExtension: "json"))
+        let result = try XCTUnwrap(ChannelConfigLoader.loadConfig(from: Data(contentsOf: url)))
+        let scream = try XCTUnwrap(result.bundles.first { $0.id == "seasonal" })
+        XCTAssertEqual(scream.channelIDs, [131, 141, 132, 408, 415, 416, 417])
+        let numbers = Dictionary(uniqueKeysWithValues: result.channels.map { ($0.id, $0.number) })
+        XCTAssertEqual(scream.channelIDs.compactMap { numbers[$0] }, Array(137...143))
+        let lock = try XCTUnwrap(result.exclusiveRules.first { $0.channelIDs.contains(132) })
+        XCTAssertEqual(lock.channelIDs, [132, 415])
+        XCTAssertTrue(lock.titleContains.isEmpty, "the SCREAM lock is an exact title list")
+        XCTAssertTrue(lock.editorialTitles.contains("Halloween H20: 20 Years Later"))
+    }
 }

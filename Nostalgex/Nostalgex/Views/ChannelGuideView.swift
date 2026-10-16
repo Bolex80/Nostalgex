@@ -731,7 +731,7 @@ private extension ChannelGuideView {
 
     var seasonalDialogTitle: String {
         guard let offer = appState.seasonalBundleOnOffer else { return "" }
-        return "Add \(offer.name) to your lineup for the rest of the month?"
+        return "Add \(offer.name) to your lineup? It stays on until you switch it off."
     }
 }
 

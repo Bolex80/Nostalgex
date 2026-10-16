@@ -27,7 +27,7 @@
       ]
     },
     {
-      "name": "scream-1996-stays-locked-to-scream-adults",
+      "name": "scream-1996-is-locked-to-scream-adults-and-slasher",
       "item": {
         "title": "Scream",
         "year": 1996,
@@ -39,7 +39,8 @@
         "contentRating": "R"
       },
       "in": [
-        132
+        132,
+        415
       ],
       "out": [
         141,
@@ -60,7 +61,8 @@
         "contentRating": "R"
       },
       "in": [
-        132
+        132,
+        415
       ],
       "out": [
         141
@@ -79,7 +81,8 @@
         "contentRating": "R"
       },
       "in": [
-        132
+        132,
+        415
       ],
       "out": [
         141,
@@ -88,7 +91,7 @@
     },
     {
       "name": "hubie-halloween-is-a-comedy",
-      "about": "Was locked away from every comedy channel by the substring 'halloween'.",
+      "about": "Was locked away from every comedy channel by the substring 'halloween', and SCREAM ADULTS took it by its title word. Neither any more.",
       "item": {
         "title": "Hubie Halloween",
         "year": 2020,
@@ -102,7 +105,9 @@
         51
       ],
       "out": [
-        141
+        141,
+        132,
+        415
       ]
     },
     {
@@ -263,6 +268,287 @@
       "out": [
         51,
         7
+      ]
+    },
+    {
+      "name": "halloween-1978-unenriched-reaches-slasher-by-title",
+      "item": {
+        "title": "Halloween",
+        "year": 1978,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        132,
+        415
+      ],
+      "out": [
+        141,
+        408,
+        416
+      ]
+    },
+    {
+      "name": "friday-the-13th-is-a-slasher-and-not-locked",
+      "item": {
+        "title": "Friday the 13th",
+        "year": 1980,
+        "type": "movie",
+        "genres": [
+          "Horror"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        415,
+        132,
+        141,
+        408
+      ],
+      "out": [
+        416
+      ]
+    },
+    {
+      "name": "slasher-keyword-needs-horror",
+      "about": "TMDB tags Misery 'slasher'. Without the Horror genre the keyword does not count.",
+      "item": {
+        "title": "Misery",
+        "year": 1990,
+        "type": "movie",
+        "genres": [
+          "Drama",
+          "Thriller"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "slasher",
+            "obsession"
+          ]
+        }
+      },
+      "in": [
+        132
+      ],
+      "out": [
+        415
+      ]
+    },
+    {
+      "name": "slasher-keyword-on-plain-horror",
+      "item": {
+        "title": "Urban Legend",
+        "year": 1998,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "slasher",
+            "college"
+          ]
+        }
+      },
+      "in": [
+        415,
+        141,
+        408
+      ],
+      "out": [
+        416
+      ]
+    },
+    {
+      "name": "hollow-man-carries-slasher-but-is-not-one",
+      "item": {
+        "title": "Hollow Man",
+        "year": 2000,
+        "type": "movie",
+        "genres": [
+          "Science Fiction",
+          "Horror"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "slasher",
+            "invisibility"
+          ]
+        }
+      },
+      "in": [
+        141
+      ],
+      "out": [
+        415
+      ]
+    },
+    {
+      "name": "plain-horror-without-a-slasher-keyword-stays-off-slasher",
+      "item": {
+        "title": "The Descent",
+        "year": 2005,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "cave",
+            "claustrophobia"
+          ]
+        }
+      },
+      "in": [
+        141
+      ],
+      "out": [
+        415,
+        416,
+        417
+      ]
+    },
+    {
+      "name": "scary-movie-is-horror-comedy-not-slasher",
+      "item": {
+        "title": "Scary Movie",
+        "year": 2000,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Horror"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "slasher",
+            "parody"
+          ]
+        }
+      },
+      "in": [
+        416,
+        141
+      ],
+      "out": [
+        415
+      ]
+    },
+    {
+      "name": "shaun-of-the-dead-is-horror-comedy",
+      "item": {
+        "title": "Shaun of the Dead",
+        "year": 2004,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Comedy"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        416,
+        141
+      ],
+      "out": [
+        132,
+        415
+      ]
+    },
+    {
+      "name": "kids-horror-comedy-stays-off-horror-comedy",
+      "item": {
+        "title": "A Spooky Cartoon Special",
+        "year": 2023,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Horror"
+        ],
+        "contentRating": "TV-G"
+      },
+      "out": [
+        416
+      ]
+    },
+    {
+      "name": "blair-witch-is-found-footage",
+      "item": {
+        "title": "The Blair Witch Project",
+        "year": 1999,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Mystery"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "found footage",
+            "witch"
+          ]
+        }
+      },
+      "in": [
+        417,
+        141,
+        408
+      ],
+      "out": [
+        415
+      ]
+    },
+    {
+      "name": "found-footage-keyword-without-horror-or-sci-fi",
+      "about": "End of Watch is a cop drama shot partly on handheld cameras; TMDB tags it found footage.",
+      "item": {
+        "title": "End of Watch",
+        "year": 2012,
+        "type": "movie",
+        "genres": [
+          "Crime",
+          "Drama"
+        ],
+        "contentRating": "R",
+        "enrichment": {
+          "keywords": [
+            "found footage",
+            "police"
+          ]
+        }
+      },
+      "out": [
+        417
+      ]
+    },
+    {
+      "name": "paranormal-activity-unenriched-reaches-found-footage-by-title",
+      "item": {
+        "title": "Paranormal Activity",
+        "year": 2009,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Mystery"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        417,
+        141
+      ],
+      "out": [
+        415
       ]
     }
   ]
