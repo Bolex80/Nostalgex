@@ -106,8 +106,10 @@ has only placeholders. The URL and key are in the built web tuner, in the
 `https://www.nostalgex.app/plex-tuner` (project `ljlhreomwcsyhiytqipm`, JWT
 role `anon`).
 
-**Logo:** the owner prefers the port's own logo, icon and splash to the
-Nostalgex logo, so the question asked above is withdrawn on our side.
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18963114)
+on 2026-10-15 with the first TV run ([PORTING.md](PORTING.md)), asked whether
+Roku builds should read that Supabase project or a separate one, and withdrew
+the logo question: the owner keeps the port's own logo, icon and splash.
 
 ## Channel ideas: Discussion #29
 

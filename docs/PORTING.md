@@ -92,6 +92,8 @@ empty.
 First run on a TV, 2026-10-15, with the Supabase project from the live web
 tuner's meta tags: of 894 TMDB ids, 880 came from the shared cache and 14
 through the relay as `roku`, none failed, and the remote step took 1.7 s.
+FOREIGN FILMS appeared on screen. CULT CLASSICS stayed hidden, which is
+`minItems` at work if fewer than three cult-keyword films have 30,000 IMDb votes.
 OMDb found 0 candidates for its 2 gated channels, so the relay's `omdb/`
 route is still untried. On a first launch the console prints `ReadAsciiFile:
 file open for read failed` from `NxEnrichFileCache`. That is the firmware
