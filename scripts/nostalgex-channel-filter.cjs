@@ -95,13 +95,26 @@ function manifestClaimsChannel(item, channelID, manifest) {
 }
 
 /**
- * Mirrors Swift `ExclusiveRule.matches` — editorial title, title substring, genre.
- * Both sides match on the year-stripped title as well as the raw one, so a Plex
- * title carrying a " (YYYY)" suffix is caught either way (Channel.swift:204).
+ * Mirrors Swift `ExclusiveRule.matches` (Models/Channel.swift). Keep them in step;
+ * scripts/filter-golden.json is read by both.
+ *
+ * A lock looks at the item's own title: the film or show name, the song for a
+ * music video, never the artist. Year suffix " (YYYY)" stripped, case ignored.
+ *   - editorialTitles: the exact title (raw or stripped)
+ *   - titleContains: whole words, the same boundary rule as a channel's
+ *     `titleContains` (titleContainsWord). It used to be a raw substring test, so
+ *     "Scream" locked Kicking & Screaming away from every channel it belongs on and
+ *     "Santa" caught Santana. The web also matched the artist, Swift did not.
+ *   - genres: substring of a genre tag, unchanged
  */
-function exclusiveRuleMatches(titleLower, itemGenres, rule) {
-  if ((rule.editorialTitles || []).some((t) => titleLower === t.toLowerCase())) return true;
-  if ((rule.titleContains || []).some((t) => titleLower.includes(t.toLowerCase()))) return true;
+function exclusiveRuleMatches(item, itemGenres, rule) {
+  const raw = String(item.title || "").toLowerCase();
+  const title = stripYearSuffix(raw).trim();
+  if ((rule.editorialTitles || []).some((t) => {
+    const candidate = t.toLowerCase();
+    return title === candidate || raw === candidate;
+  })) return true;
+  if ((rule.titleContains || []).some((t) => titleContainsWord(title, t))) return true;
   const g = rule.genres || [];
   if (g.length && itemGenres.some((ig) => g.some((rg) => ig.includes(rg.toLowerCase())))) return true;
   return false;
@@ -296,7 +309,7 @@ function itemPasses(item, channel, opts = {}) {
   for (const rule of exclusiveRules) {
     const ids = rule.channelIDs || (rule.channelID != null ? [rule.channelID] : []);
     if (ids.includes(channel.id)) continue;
-    if (exclusiveRuleMatches(titleLower, itemGenres, rule)) return false;
+    if (exclusiveRuleMatches(item, itemGenres, rule)) return false;
     if (rule.manifestExclusive && manifest && ids.some((id) => manifestClaimsChannel(item, id, manifest))) {
       return false;
     }
@@ -612,6 +625,7 @@ const api = {
   releaseYear,
   enrichedValue,
   titleContainsWord,
+  exclusiveRuleMatches,
   channelRequiresAnimationGenre,
   itemHasAnimationGenre,
   GENRE_LOCKS: {

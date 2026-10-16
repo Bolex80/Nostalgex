@@ -84,6 +84,35 @@ struct ExclusiveRuleTests {
         #expect(rule.matches(movie("Blade Runner 2049 (2017)")))
     }
 
+    // Title words match whole words, like a channel's titleContains. A substring test
+    // locked Kicking & Screaming away from every channel and caught Santana with "Santa".
+    @Test func titleWordsMatchWholeWordsOnly() {
+        let scream = ExclusiveRule(channelIDs: [132], genres: [], titleContains: ["Scream"],
+                                   editorialTitles: [], manifestExclusive: false)
+        #expect(!scream.matches(movie("Kicking & Screaming (2005)")))
+        #expect(scream.matches(movie("Scream 4")))
+        #expect(!holidazeRule.matches(movie("Santana")))
+        #expect(holidazeRule.matches(movie("The Santa Clause")))
+        let holiday = ExclusiveRule(channelIDs: [130], genres: [], titleContains: ["Holiday"],
+                                    editorialTitles: [], manifestExclusive: false)
+        #expect(!holiday.matches(movie("Holidays (2016)")))
+        #expect(holiday.matches(movie("Holiday Inn")))
+    }
+
+    // A music video's artist is not part of its title, on either platform.
+    @Test func aMusicVideoLockReadsTheSongNotTheArtist() {
+        var video = movie("Smooth")
+        video = PlexMediaItem(
+            id: video.id, title: video.title, artist: "Santana", episodeTitle: nil, seTag: nil,
+            summary: "", year: nil, originallyAvailableAt: nil, contentRating: nil, duration: 4,
+            ratingKey: "1", partKey: nil, container: nil, videoCodec: nil, audioCodec: nil,
+            videoProfile: nil, bitrate: nil, genres: [], rating: 0, userRating: 0, type: .movie,
+            thumb: nil, art: nil, viewCount: 0, addedAt: 0, studio: nil, tmdbID: nil, imdbID: nil,
+            librarySource: .musicVideo
+        )
+        #expect(!holidazeRule.matches(video))
+    }
+
     @Test func titleContainsAndGenreStillMatch() {
         #expect(holidazeRule.matches(movie("The Christmas Chronicles (2018)")))
         #expect(holidazeRule.matches(movie("Some Winter Film", genres: ["Holiday"])))

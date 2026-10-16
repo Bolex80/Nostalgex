@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "about": "Golden vectors for the channel pool filter. Read by BOTH Nostalgex/NostalgexTests/FilterGoldenTests.swift (AppState.filterItems, tvOS) and scripts/nostalgex-filter-golden-smoke.mjs (scripts/nostalgex-channel-filter.cjs, web tuner and Docker; npm run test:filter-golden). Each case is one item run against the SHIPPED channels.json, its exclusiveRules and channels-memberships.json. `in` lists channel ids (not numbers) the item must reach, `out` the ids it must not. Item fields: title, artist (music videos), episodeTitle, year, type (movie|episode), librarySource (movie|tv|musicVideo), genres, contentRating, duration (minutes, default 100), rating, studio, tmdbID (string; only when the case is about a manifest claim), and enrichment ({ keywords, productionCompanies, networks }; absent means not enriched). When a rule changes, change both engines, then update or add a case here.",
+  "cases": [
+    {
+      "name": "kicking-and-screaming-is-not-a-scream-film",
+      "about": "The SCREAM lock matched any title containing 'scream', so this PG comedy was on no channel at all. The lock is an exact title list now.",
+      "item": {
+        "title": "Kicking & Screaming",
+        "year": 2005,
+        "type": "movie",
+        "genres": [
+          "Romance",
+          "Comedy"
+        ],
+        "contentRating": "PG"
+      },
+      "in": [
+        51,
+        52,
+        405,
+        406
+      ],
+      "out": [
+        132,
+        141
+      ]
+    },
+    {
+      "name": "scream-1996-stays-locked-to-scream-adults",
+      "item": {
+        "title": "Scream",
+        "year": 1996,
+        "type": "movie",
+        "genres": [
+          "Crime",
+          "Horror"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        132
+      ],
+      "out": [
+        141,
+        408,
+        51
+      ]
+    },
+    {
+      "name": "scream-2022-with-plex-year-suffix",
+      "item": {
+        "title": "Scream (2022)",
+        "year": 2022,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        132
+      ],
+      "out": [
+        141
+      ]
+    },
+    {
+      "name": "halloween-h20-long-title-is-on-the-list",
+      "item": {
+        "title": "Halloween H20: 20 Years Later",
+        "year": 1998,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        132
+      ],
+      "out": [
+        141,
+        408
+      ]
+    },
+    {
+      "name": "hubie-halloween-is-a-comedy",
+      "about": "Was locked away from every comedy channel by the substring 'halloween'.",
+      "item": {
+        "title": "Hubie Halloween",
+        "year": 2020,
+        "type": "movie",
+        "genres": [
+          "Comedy"
+        ],
+        "contentRating": "PG-13"
+      },
+      "in": [
+        51
+      ],
+      "out": [
+        141
+      ]
+    },
+    {
+      "name": "halloweentown-sequel-reaches-scream-kids",
+      "about": "Not on SCREAM KIDS' exact editorial list, and the old substring lock blocked its title match there.",
+      "item": {
+        "title": "Halloweentown II: Kalabar's Revenge",
+        "year": 2001,
+        "type": "movie",
+        "genres": [
+          "Family",
+          "Fantasy"
+        ],
+        "contentRating": "TV-G"
+      },
+      "in": [
+        131
+      ],
+      "out": [
+        132
+      ]
+    },
+    {
+      "name": "screaming-is-not-scream-music-video",
+      "item": {
+        "title": "Screaming for Vengeance",
+        "artist": "Judas Priest",
+        "year": 1982,
+        "type": "movie",
+        "librarySource": "musicVideo",
+        "genres": [],
+        "duration": 4
+      },
+      "in": [
+        150
+      ],
+      "out": [
+        132
+      ]
+    },
+    {
+      "name": "santana-is-not-santa",
+      "about": "The web matched the holiday lock against artist plus title, so 'Santa' caught every Santana video. Locks read the title only, by whole words.",
+      "item": {
+        "title": "Smooth",
+        "artist": "Santana",
+        "year": 1999,
+        "type": "movie",
+        "librarySource": "musicVideo",
+        "genres": [],
+        "duration": 4
+      },
+      "in": [
+        150
+      ],
+      "out": [
+        130
+      ]
+    },
+    {
+      "name": "holidays-2016-is-a-horror-anthology",
+      "about": "'Holiday' as a substring locked it to the holiday channels, which do not air horror.",
+      "item": {
+        "title": "Holidays",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Horror"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        141
+      ],
+      "out": [
+        130
+      ]
+    },
+    {
+      "name": "a-christmas-story-is-locked-to-holiday",
+      "item": {
+        "title": "A Christmas Story",
+        "year": 1983,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Family"
+        ],
+        "contentRating": "PG",
+        "rating": 7.9
+      },
+      "in": [
+        130
+      ],
+      "out": [
+        3,
+        7
+      ]
+    },
+    {
+      "name": "elf-with-plex-year-suffix-is-locked-to-holiday",
+      "item": {
+        "title": "Elf (2003)",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Family"
+        ],
+        "contentRating": "PG",
+        "rating": 7
+      },
+      "in": [
+        130
+      ],
+      "out": [
+        406,
+        405
+      ]
+    },
+    {
+      "name": "the-santa-clause-is-still-locked-by-the-word-santa",
+      "item": {
+        "title": "The Santa Clause",
+        "year": 1994,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Family",
+          "Fantasy"
+        ],
+        "contentRating": "PG",
+        "rating": 6.6
+      },
+      "in": [
+        130
+      ],
+      "out": [
+        7,
+        93
+      ]
+    },
+    {
+      "name": "plain-horror-is-genre-locked",
+      "item": {
+        "title": "Some Horror Film",
+        "year": 1990,
+        "type": "movie",
+        "genres": [
+          "Horror"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        141,
+        408
+      ],
+      "out": [
+        51,
+        7
+      ]
+    }
+  ]
+}

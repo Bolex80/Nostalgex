@@ -34,7 +34,7 @@ Quick reference for every channel and bundle. Source of truth: \`channels.json\`
 viewers tune to; its \`id\` is the stable key everything else references. They
 drifted apart as channels were renumbered, and today they differ for many
 channels — for example \`id\` 40 is **CH85 TRUE CRIME**, and \`id\` 211 is
-**CH140 CRITERION**. Get it wrong and you edit a different channel than the one
+**CH107 CRITERION**. Get it wrong and you edit a different channel than the one
 you meant.
 
 Which key does what:
@@ -72,12 +72,20 @@ const EXCLUSIVITY_INTRO = `Exclusive rules block a title from EVERY channel exce
 \`id\`s. **Only lock a title to a channel when you are 95%+ sure it belongs
 nowhere else — default to overlap.** Over-locking hides content: locking Die
 Hard into the holiday channel made it vanish from action for eleven months of
-the year.`;
+the year.
+
+A lock reads the item's own title (the song for a music video, never the
+artist), with any " (YYYY)" suffix ignored. \`editorialTitles\` must match the
+whole title exactly. \`titleContains\` matches whole words only, the same rule
+as a channel's \`titleContains\`: "Santa" catches The Santa Clause, not Santana,
+and "Holiday" does not catch Holidays. Both filters implement it
+(\`ExclusiveRule.matches\` in Swift, \`exclusiveRuleMatches\` in the web filter)
+and \`scripts/filter-golden.json\` pins the cases.`;
 
 // Long-form context per exclusive rule, keyed by the sorted channel-id list.
 // Keeps the "why" from the hand-written doc alive after regeneration.
 const EXCLUSIVITY_NOTES = {
-  "130": `Holiday and Christmas titles belong to HOLIDAZE for the season. Genre match
+  "130,409,410,411,412": `Holiday and Christmas titles belong to the TIS THE SEASON movie channels. Genre match
   plus a title allowlist plus an editorial allowlist. Die Hard, Die Hard 2 and
   Lethal Weapon are deliberately NOT on the list — they stay free for year-round
   action.`,
@@ -89,8 +97,10 @@ const EXCLUSIVITY_NOTES = {
   similar/collection noise cannot be claimed — that blocks live-action (Spy Kids)
   AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese
   anime only. Re-run the keyword tuner to apply changes.`,
-  "132": `Halloween horror is claimed by a title allowlist plus the manifest, so the
-  seasonal channel owns it rather than the year-round horror channels.`,
+  "132": `The Scream and Halloween films, by exact title, so the seasonal channel
+  owns them rather than the year-round horror channels. It used to match any
+  title containing "scream" or "halloween", which hid Kicking & Screaming and
+  Hubie Halloween from every channel they belong on.`,
 };
 
 // ── Rule summarising ───────────────────────────────────────────────────────
@@ -240,8 +250,8 @@ if (!rules.length) {
       .join("<br>");
     const matches = [
       rule.genres?.length ? `genres ${list(rule.genres, 4)}` : null,
-      rule.titleContains?.length ? `${rule.titleContains.length} title keywords` : null,
-      rule.editorialTitles?.length ? `${rule.editorialTitles.length} editorial titles` : null,
+      rule.titleContains?.length ? `${rule.titleContains.length} title words` : null,
+      rule.editorialTitles?.length ? `${rule.editorialTitles.length} exact titles` : null,
       rule.manifestExclusive ? "TMDB manifest claim (`manifestExclusive`)" : null,
     ].filter(Boolean).join(", ");
     const note = (EXCLUSIVITY_NOTES[[...ids].sort((a, z) => a - z).join(",")] || "")

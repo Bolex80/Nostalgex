@@ -279,6 +279,15 @@ struct ExclusiveRule {
     /// channels even when Plex tags it "Animation" instead of "Anime".
     let manifestExclusive: Bool
 
+    /// Mirrors `exclusiveRuleMatches` in scripts/nostalgex-channel-filter.cjs; both read
+    /// scripts/filter-golden.json. A lock looks at the item's own title (the song for a
+    /// music video, never the artist), year suffix ignored:
+    /// - `editorialTitles`: the exact title
+    /// - `titleContains`: whole words, the same boundary rule as a channel's
+    ///   `titleContains` (`AppState.titleContainsWordLower`). It used to be a substring
+    ///   test, so "Scream" locked Kicking & Screaming off every channel it belongs on and
+    ///   "Santa" caught Santana.
+    /// - `genres`: substring of a genre tag
     func matches(_ item: PlexMediaItem) -> Bool {
         let titleLower = item.title.lowercased()
         // Plex's TMDB agent routinely stores films as "Elf (2003)". Every other
@@ -297,8 +306,10 @@ struct ExclusiveRule {
             return true
         }
 
-        // Title keyword match
-        if !titleContains.isEmpty && titleContains.contains(where: { titleLower.contains($0.lowercased()) }) {
+        // Title words: whole words only, never a substring of a longer word
+        if !titleContains.isEmpty && titleContains.contains(where: {
+            AppState.titleContainsWordLower(strippedLower, $0.lowercased())
+        }) {
             return true
         }
 

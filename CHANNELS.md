@@ -11,7 +11,7 @@ Quick reference for every channel and bundle. Source of truth: `channels.json`.
 viewers tune to; its `id` is the stable key everything else references. They
 drifted apart as channels were renumbered, and today they differ for many
 channels — for example `id` 40 is **CH85 TRUE CRIME**, and `id` 211 is
-**CH140 CRITERION**. Get it wrong and you edit a different channel than the one
+**CH107 CRITERION**. Get it wrong and you edit a different channel than the one
 you meant.
 
 Which key does what:
@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 37 · **131 channels** across **14 bundles** · 81 channels whose `id` differs from their `number`.
+**Config version:** 38 · **131 channels** across **14 bundles** · 81 channels whose `id` differs from their `number`.
 
 ---
 
@@ -79,11 +79,19 @@ nowhere else — default to overlap.** Over-locking hides content: locking Die
 Hard into the holiday channel made it vanish from action for eleven months of
 the year.
 
+A lock reads the item's own title (the song for a music video, never the
+artist), with any " (YYYY)" suffix ignored. `editorialTitles` must match the
+whole title exactly. `titleContains` matches whole words only, the same rule
+as a channel's `titleContains`: "Santa" catches The Santa Clause, not Santana,
+and "Holiday" does not catch Holidays. Both filters implement it
+(`ExclusiveRule.matches` in Swift, `exclusiveRuleMatches` in the web filter)
+and `scripts/filter-golden.json` pins the cases.
+
 | Locked to | Matches on | Notes |
 |---|---|---|
-| CH130 HOLIDAZE (id 130)<br>CH131 SANTA'S LIST (id 409)<br>CH132 NAUGHTY LIST (id 410)<br>CH133 NOSTALGEX CHRISTMAS (id 411)<br>CH134 HALLMARK (id 412) | genres Holiday/Christmas, 19 title keywords, 49 editorial titles |  |
+| CH130 HOLIDAZE (id 130)<br>CH131 SANTA'S LIST (id 409)<br>CH132 NAUGHTY LIST (id 410)<br>CH133 NOSTALGEX CHRISTMAS (id 411)<br>CH134 HALLMARK (id 412) | genres Holiday/Christmas, 19 title words, 49 exact titles | Holiday and Christmas titles belong to the TIS THE SEASON movie channels. Genre match plus a title allowlist plus an editorial allowlist. Die Hard, Die Hard 2 and Lethal Weapon are deliberately NOT on the list — they stay free for year-round action. |
 | id 32 (missing)<br>CH59 ANIME (id 60) | genres Anime, TMDB manifest claim (`manifestExclusive`) | Anime is claimed by genre `Anime` OR by a TMDB-manifest claim (`manifestExclusive`), so manifest-claimed anime is blocked from the other animation channels even when Plex only tags it "Animation". The manifest builder gates these channels with `requireGenres: ["Animation"]` + `requireOriginalLanguage: ["ja"]` + `autoSweepCollections: false` so TMDB similar/collection noise cannot be claimed — that blocks live-action (Spy Kids) AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese anime only. Re-run the keyword tuner to apply changes. |
-| CH139 SCREAM ADULTS (id 132) | 2 title keywords, 8 editorial titles | Halloween horror is claimed by a title allowlist plus the manifest, so the seasonal channel owns it rather than the year-round horror channels. |
+| CH139 SCREAM ADULTS (id 132) | 22 exact titles | The Scream and Halloween films, by exact title, so the seasonal channel owns them rather than the year-round horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
 
 ---
 
@@ -410,4 +418,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v37 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v38 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
