@@ -14,7 +14,7 @@ draft: true
 
 # The Best Channel Surfing Apps for Apple TV: Live Channels From Your Plex or Jellyfin Library
 
-> The best channel surfing app for Apple TV depends on your server and your budget. [Nostalgex](/) is free and turns a Plex or Jellyfin library into 130+ live channels with a retro guide, with nothing to set up. Coax is the pick if you want to build your own lineups or you run Emby, and Bunny Ears TV has the biggest built in lineup for Plex if you'll pay for extras.
+> The best channel surfing app for Apple TV depends on your server and your budget. [Nostalgex](/) is free and turns a Plex, Jellyfin or Emby library into 130+ live channels with a retro guide, with nothing to set up. Coax is the pick if you want to build your own lineups, and Bunny Ears TV has the biggest built in lineup for Plex if you'll pay for extras.
 
 Full disclosure before anything else: I made Nostalgex. That makes me a good source on what it does and a biased one on which app you should pick. So I'm going to try to write the post I'd want to read, and I checked every competitor detail below on the vendor's own App Store page or website on October 9, 2026. Where I couldn't confirm something, I left it out.
 
@@ -40,7 +40,7 @@ It depends on your server and your Apple TV more than anything else, which is wh
 
 | App | Servers | Apple TV needs | Build your own channels | Other screens | Price on the App Store (Oct 9, 2026) |
 |---|---|---|---|---|---|
-| Nostalgex | Plex, Jellyfin | tvOS 18 or later | No, it builds them | Web browser | Free, optional tips |
+| Nostalgex | Plex, Jellyfin, Emby | tvOS 18 or later | No, it builds them | Web browser | Free, optional tips |
 | Coax | Plex, Jellyfin, Emby | tvOS 18.6 or later | Yes (Lineups) | iPhone, iPad, Mac, Vision Pro | Free download, then $2.99 a month or $29.99 a year after a free week, or $74.99 lifetime |
 | Bunny Ears TV | Plex | tvOS 26 or later | Yes, with Plus | iPhone and iPad, per its website | 26 channels free. Plus is $2.99 a month, $17.99 a year or $29.99 lifetime |
 | TubeTime+ | Plex | tvOS 18 or later | Builds them from your libraries | iPhone, iPad, Mac | Free while in TestFlight beta |
@@ -87,7 +87,7 @@ Totally. If you already run Tunarr, you can open its M3U playlist in an IPTV pla
 
 ## Which app works with Jellyfin on Apple TV?
 
-Of the apps here, Nostalgex and Coax. Coax supports Emby too. Bunny Ears TV, TubeTime+ and analoq are Plex only right now. Nostalgex supports Jellyfin's Quick Connect, so you approve the Apple TV from your phone instead of typing a password with the remote.
+Of the apps here, Nostalgex and Coax. Both cover Plex, Jellyfin and Emby. Bunny Ears TV, TubeTime+ and analoq are Plex only right now. Nostalgex supports Jellyfin's Quick Connect, so you approve the Apple TV from your phone instead of typing a password with the remote.
 
 If you're on Jellyfin and wondering why its own guide is empty, I explained that in [how to get a TV guide for your own Jellyfin library](/blog/jellyfin-tv-guide-own-library).
 
@@ -97,8 +97,8 @@ Here's how I'd break it down if a friend asked:
 
 ![Nostalgex guide grid on Apple TV with Overboard airing on the Girls Night channel](https://pub-98e43e3b886d48018eab8387d373ddb4.r2.dev/site/blog/apple-tv-channel-surfing-apps/girls-night-overboard-grid.webp)
 
-* Want it free, run Jellyfin, or have an older Apple TV on tvOS 18: **Nostalgex**.
-* Want to shape your own lineups, run Emby, or use iPhone and iPad too: **Coax**.
+* Want it free, run Jellyfin or Emby, or have an older Apple TV on tvOS 18: **Nostalgex**.
+* Want to shape your own lineups, or use iPhone and iPad too: **Coax**.
 * All in on Plex, have a newer Apple TV, and want hundreds of channels and radio: **Bunny Ears TV**.
 * Like testing betas: **TubeTime+**.
 * Want open source and don't mind sideloading: **analoq**.
@@ -113,7 +113,7 @@ Yes. Nostalgex is free on the App Store and needs no account. Tips are optional.
 
 ### Which channel surfing apps work with Jellyfin?
 
-Nostalgex and Coax both work with Plex and Jellyfin, and Coax also supports Emby. Bunny Ears TV, TubeTime+ and analoq are Plex only as of October 2026.
+Nostalgex and Coax both work with Plex, Jellyfin and Emby. Bunny Ears TV, TubeTime+ and analoq are Plex only as of October 2026.
 
 ### Do these apps need Plex Pass?
 
