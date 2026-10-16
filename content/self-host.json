@@ -1,0 +1,56 @@
+{
+  "_comment": [
+    "Source of truth for the generated regions of self-host.html, plus the",
+    "/self-host entries in public/sitemap.xml and public/llms.txt.",
+    "Rendered by scripts/render-self-host.mjs, which runs as part of `npm run build`.",
+    "Never hand-edit between the markers in those files; edit this and re-render.",
+    "",
+    "published: false until the image is public on GHCR. While it is false the page",
+    "is noindex, it is left out of the sitemap and llms.txt, and it carries a short",
+    "note saying the image is not published yet. Flip it to true, run npm run build,",
+    "and the page goes live. Nothing else has to change.",
+    "",
+    "devices: the honest state of each surface. Never write Works for something",
+    "nobody has run. status is the short label; state picks the pill colour and must",
+    "be one of ok, unconfirmed, unknown, na."
+  ],
+  "published": false,
+  "devicesUpdated": "2026-10-15",
+  "devices": [
+    {
+      "surface": "Desktop browsers",
+      "detail": "Chrome, Safari and Firefox on a Mac",
+      "status": "Works",
+      "state": "ok",
+      "note": "Tested. This is the surface the tuner is built for."
+    },
+    {
+      "surface": "iPhone and iPad",
+      "detail": "Safari",
+      "status": "Should work",
+      "state": "unconfirmed",
+      "note": "The phone and tablet layout is built and checked in a headless browser, but nobody has run it on a real device yet. If you try it, tell me what happened."
+    },
+    {
+      "surface": "TV browsers",
+      "detail": "Fire TV Silk, Google TV with a sideloaded browser, Samsung and LG",
+      "status": "Untested",
+      "state": "unknown",
+      "note": "No test results at all, good or bad. TV browsers vary a lot and some of them cannot decode surround audio."
+    },
+    {
+      "surface": "Apple TV",
+      "detail": "tvOS",
+      "status": "Use the app",
+      "state": "na",
+      "note": "tvOS has no web browser. The free App Store app does this job properly, with the Siri Remote and no mixed-content rule."
+    },
+    {
+      "surface": "Roku",
+      "detail": "",
+      "status": "No",
+      "state": "na",
+      "note": "Roku has no web browser, so there is nothing to open the tuner in."
+    }
+  ]
+}

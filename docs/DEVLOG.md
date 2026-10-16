@@ -19,6 +19,51 @@ as an Apple TV.
 backfill has come close to it before. The shared Supabase cache and a 7 day edge cache
 absorb most of it, but a third client population is worth keeping an eye on.
 
+## 2026-10-15 (/self-host page, branch)
+
+**Changed.** All on branch `self-host-page`, unmerged and not deployed. Nothing
+about the container itself changed; this is the page that explains it.
+
+- New `/self-host` page (`self-host.html`, rewritten to `/self-host` in
+  `vercel.json`, registered in `vite.config.js` next to the other static pages).
+  It is the human version of the README's "Run it on your server": what the
+  container is for, who does not need it, what you need, the commands, what
+  leaves your network, where it works, and where it does not. The README is for
+  people who already run Docker; this is for someone deciding whether to bother.
+- Every command on the page is byte-for-byte the README's, checked by diffing
+  the page's `<pre><code>` blocks against `README.md`. Three of the four match
+  verbatim; the fourth is the two-line `NOSTALGEX_ENRICHMENT: "off"` snippet,
+  which matches `docker/compose.yaml` and the values `docker/40-config.sh`
+  accepts. The claims about what the container contacts were checked against
+  `scripts/nostalgex-enrichment.js` (only TMDB and IMDb ids go to the relay and
+  Supabase), `docker/nginx.conf`, `Dockerfile` (port 8080, uid 101) and
+  `.github/workflows/docker.yml` (amd64 and arm64, no armv7).
+- The device table is generated. `content/self-host.json` holds the rows and
+  `scripts/render-self-host.mjs` renders them between markers, the same
+  arrangement as `render-changelog.mjs`. It runs in `npm run build` and a
+  `--check` mode runs in `npm test`, so the committed HTML cannot drift from the
+  data. Statuses are deliberately graded: desktop browsers say Works because
+  they were tested; iPhone and iPad say Should work, because the layout is built
+  and checked in a headless browser but has never run on real hardware; TV
+  browsers say Untested, because there are no results at all.
+- On a phone both tables stack into labelled cards instead of scrolling
+  sideways. The third column is the honest column ("not confirmed on hardware
+  yet"), and hiding it behind a horizontal drag defeated the point of the page.
+  Page styles are scoped under `.page-selfhost` in the global stylesheet.
+
+**Half-done.** The page is deliberately not published. `published: false` in
+`content/self-host.json` keeps it `noindex`, keeps it out of `public/sitemap.xml`
+and `public/llms.txt`, and puts a note at the top saying the image is not on GHCR
+yet. It is reachable by URL only: nothing in the nav or the footer links to it.
+Flipping that flag to `true` and running `npm run build` publishes it, which is
+the whole switch. That is meant to happen the day the image goes public, not
+before.
+
+**Next.** Publish the image, flip the flag, and decide separately whether
+`/self-host` earns a nav or footer link. The iPhone and iPad row should become
+Works or something worse once someone opens it on a real phone, and the TV
+browser row needs a Fire TV before it can say anything at all.
+
 ## 2026-10-15 (Web tuner: the control rail comes back on tablets, branch)
 
 **Changed.** All on branch `tablet-rail`, unmerged and undeployed.

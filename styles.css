@@ -2296,3 +2296,162 @@ a { color: inherit; }
 @media (min-width: 720px) {
   .blog-list { grid-template-columns: 1fr; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   SELF-HOST PAGE  (/self-host)
+
+   The Docker guide for the web tuner. It reuses the .doc-* document
+   layout from the support page; everything here is the two tables
+   that page doesn't have, scoped under .page-selfhost so nothing
+   leaks. Colours come from the same variables as the rest of the
+   site, so day and night modes come for free.
+
+   The device table is generated from content/self-host.json by
+   scripts/render-self-host.mjs. Status pills are keyed on state:
+   ok, unconfirmed, unknown, na.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Tables scroll on a phone rather than crushing three columns into
+   nothing. The wrapper is the scroll container, so the border and
+   the shadow stay put while the table moves. */
+.page-selfhost .sh-table-wrap {
+  margin: 0 0 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 5px 5px 0 var(--cyan);
+}
+.page-selfhost .sh-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+.page-selfhost .sh-table thead th {
+  background: var(--paper-deep);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--ink);
+  vertical-align: bottom;
+}
+.page-selfhost .sh-table tbody th,
+.page-selfhost .sh-table tbody td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: top;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+.page-selfhost .sh-table tbody th {
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 150px;
+}
+.page-selfhost .sh-table tbody tr:last-child th,
+.page-selfhost .sh-table tbody tr:last-child td { border-bottom: 0; }
+.page-selfhost .sh-table tbody tr:nth-child(even) th,
+.page-selfhost .sh-table tbody tr:nth-child(even) td { background: var(--paper-deep); }
+.page-selfhost .sh-table code { white-space: nowrap; }
+
+/* The second line in a device row: "Chrome, Safari and Firefox on a Mac". */
+.page-selfhost .sh-device-detail {
+  display: block;
+  margin-top: 3px;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* Status pills. Four states and nothing in between, so a surface is
+   either tested, assumed, unknown, or not a surface at all. */
+.page-selfhost .sh-pill {
+  display: inline-block;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+}
+.page-selfhost .sh-pill--ok { color: var(--cyan); }
+.page-selfhost .sh-pill--unconfirmed { color: var(--yellow); }
+.page-selfhost .sh-pill--unknown { color: var(--pink); }
+.page-selfhost .sh-pill--na { color: var(--ink-faint); }
+/* Yellow on cream is unreadable in day mode; darken just the text. */
+:root[data-theme="light"] .page-selfhost .sh-pill--unconfirmed { color: #8a6b00; }
+
+.page-selfhost .sh-table-stamp {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin: 0 0 14px;
+}
+
+/* The docker run one-liner is wider than a phone or a tablet. Wrap it
+   rather than make people drag a code block sideways to read the end of
+   a command they're about to paste. pre-wrap keeps the text itself
+   exactly as it is, so a copy still gives the right string. */
+@media (max-width: 900px) {
+  .page-selfhost .doc-section pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+/* On a phone a three-column table hides its last column behind a
+   sideways scroll, and on this page that column is the honest part
+   ("not confirmed on hardware yet"). So below 640 each row becomes a
+   stacked card with its own labels and nothing is hidden. The labels
+   come from data-label on each cell; the header row goes away, since
+   every cell now carries its own. */
+@media (max-width: 640px) {
+  .page-selfhost .doc-section pre { font-size: 12px; padding: 14px; }
+
+  .page-selfhost .sh-table-wrap { overflow-x: visible; }
+  .page-selfhost .sh-table { display: block; min-width: 0; }
+  .page-selfhost .sh-table thead { display: none; }
+  .page-selfhost .sh-table tbody,
+  .page-selfhost .sh-table tr { display: block; }
+  .page-selfhost .sh-table tr { padding: 14px 16px; border-bottom: 1px solid var(--hairline); }
+  .page-selfhost .sh-table tr:last-child { border-bottom: 0; }
+  .page-selfhost .sh-table tbody th,
+  .page-selfhost .sh-table tbody td {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+    background: none;
+  }
+  /* Stacked, the zebra belongs to the whole card. Left on the cells it
+     paints ragged bands the width of each cell's text block. */
+  .page-selfhost .sh-table tbody tr:nth-child(even) { background: var(--paper-deep); }
+  .page-selfhost .sh-table tbody tr:nth-child(even) th,
+  .page-selfhost .sh-table tbody tr:nth-child(even) td { background: none; }
+  .page-selfhost .sh-table tbody th { margin-bottom: 10px; }
+  .page-selfhost .sh-table tbody td { margin-bottom: 12px; }
+  .page-selfhost .sh-table tbody td:last-child { margin-bottom: 0; }
+  /* The blank "turn it off" cell shouldn't leave an empty labelled block. */
+  .page-selfhost .sh-table tbody td:empty { display: none; }
+  .page-selfhost .sh-table tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .page-selfhost .sh-table code { white-space: normal; }
+}
