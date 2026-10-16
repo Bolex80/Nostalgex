@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (PR #28: current-main rebase and test sensitivity)
+
+**Shipped.** Updated `fix/web-tune-ownership` for PR #28 on current main `bfb4453`. No app release, installation or deployment.
+
+**Changed.** Rebased the rapid-tune patch and retained the upstream Roku relay, tablet rail, phone drawer and inline-player work. Both sides of the development-log conflict are preserved, including the earlier reconciliation entry. The production tuner is byte-for-byte unchanged from the previous PR head; this follow-up changes tests and this log only.
+
+The race harness now enters through populated `switchChannel` paths, including A to B to A, and exercises the production advancement function. It executes the registered document/native fullscreen callbacks and pointer, touch and key retry callbacks. Rejected play promises leave the fixture paused. Fixture element ids must exist in the production HTML; schedule time, rendering, media and network remain controlled fixtures.
+
+**Measured.** All 25 production-function scenarios pass. Four in-memory negative controls each fail the expected behavioral assertion when request ownership, queued-gesture protection, old-manifest protection or native-fullscreen resume is removed. Missing mutation targets are errors, not successful negative controls. The complete npm suite, including the upstream Roku relay smoke checks, and both hosted and self-host builds pass. The offline native suite passes 698 tests with zero failures; six live/opt-in harness classes were excluded. Both inline tuner scripts parse, the harness passes syntax checks and the diff has no whitespace errors.
+
+**Half-done.** These are mocked DOM/media callback tests, not a real-browser or WebKit acceptance pass. Phone/tablet layout, actual codec playback, CORS and live server cleanup remain unverified. Fresh GitHub Actions will validate the pushed head; the known fork-only Vercel preview gate is unchanged.
+
+**Next.** Review #28 first. The native recovery, playback-information and reporting-controls PRs remain on hold in that order; native recovery needs hardware acceptance and reporting controls need a Settings/defaults decision.
+
 ## 2026-10-15 (the relay accepts a Roku client)
 
 **Changed.** `X-Nostalgex-Client: roku` is now accepted by `api/tmdb.js`, alongside

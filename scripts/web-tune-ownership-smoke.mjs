@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
 const tuner = readFileSync(new URL('plex-tuner.html', root), 'utf8');
 const urls = readFileSync(new URL('scripts/nostalgex-jellyfin-urls.js', root), 'utf8');
+const htmlIds = new Set([...tuner.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]));
 function between(start, end) {
   const a = tuner.indexOf(start), b = tuner.indexOf(end, a);
   assert(a >= 0 && b > a, `production source anchors: ${start}`);
@@ -15,18 +16,50 @@ function between(start, end) {
 }
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
-function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporting = false } = {}) {
+function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporting = false,
+  fullscreen = true, realAdvancement = false, transformProduction = source => source } = {}) {
   const requests = [], cleanups = [], failures = [], trackers = [], hlsInstances = [], sources = [], attached = [], revoked = [];
   const timers = new Map(), listeners = new Map(), gestureListeners = new Map();
-  let seq = 0, timerSeq = 0, playCount = 0, fullscreen = true;
+  const elements = new Map(), scheduleBuilds = [], nextSchedules = new Map(), playSources = [];
+  let seq = 0, timerSeq = 0, playCount = 0;
+  function eventTarget(registry) {
+    const once = new Map();
+    return {
+      addEventListener(name, fn, options = {}) {
+        if (!registry.has(name)) registry.set(name, new Set());
+        registry.get(name).add(fn);
+        if (options.once) {
+          if (!once.has(name)) once.set(name, new Set());
+          once.get(name).add(fn);
+        }
+      },
+      removeEventListener(name, fn) { registry.get(name)?.delete(fn); once.get(name)?.delete(fn); },
+      emit(name) {
+        const event = { type: name, target: this };
+        if (typeof this[`on${name}`] === 'function') this[`on${name}`](event);
+        for (const fn of [...(registry.get(name) || [])]) {
+          if (once.get(name)?.has(fn)) this.removeEventListener(name, fn);
+          fn(event);
+        }
+      },
+    };
+  }
   const video = {
     paused: true, ended: false, currentTime: 0, style: {}, textTracks: [], error: null,
+    webkitDisplayingFullscreen: fullscreen, fullscreenEntries: 0, fullscreenExits: 0,
     _src: '', get src() { return this._src; }, set src(value) { this._src = value; sources.push(value); },
     get currentSrc() { return this._src; },
-    playResult: null, play() { playCount++; this.paused = false; return this.playResult || Promise.resolve(); },
+    // A blocked play stays paused. A rejected promise must not pretend playback began.
+    playResult: null, play() {
+      playCount++; playSources.push(this.src);
+      if (this.playResult) return this.playResult.then(() => { this.paused = false; });
+      this.paused = false;
+      return Promise.resolve();
+    },
     pause() { this.paused = true; }, removeAttribute() { this._src = ''; }, load() {}, canPlayType() { return true; },
-    addEventListener(name, fn) { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name).add(fn); },
-    removeEventListener(name, fn) { listeners.get(name)?.delete(fn); },
+    ...eventTarget(listeners),
+    webkitEnterFullscreen() { this.fullscreenEntries++; this.webkitDisplayingFullscreen = true; this.emit('webkitbeginfullscreen'); },
+    webkitExitFullscreen() { this.fullscreenExits++; this.webkitDisplayingFullscreen = false; this.pause(); this.emit('webkitendfullscreen'); },
     appendChild(track) { attached.push(track); this.textTracks.push(track.track); },
   };
   class Hls {
@@ -44,7 +77,14 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   class FixtureURL extends URL {}
   FixtureURL.createObjectURL = blob => `blob:${blob.parts[0]}`;
   FixtureURL.revokeObjectURL = url => revoked.push(url);
-  const element = { classList: { remove() {}, add() {} }, style: {} };
+  function element(id) {
+    assert(htmlIds.has(id), `fixture element exists in production HTML: ${id}`);
+    if (!elements.has(id)) {
+      const classes = new Set();
+      elements.set(id, { classList: { remove: name => classes.delete(name), add: name => classes.add(name), contains: name => classes.has(name) }, style: {}, textContent: '', innerHTML: '' });
+    }
+    return elements.get(id);
+  }
   const context = {
     console: { log() {}, warn() {}, error() {} }, URL: FixtureURL, URLSearchParams, AbortController,
     Blob: class { constructor(parts) { this.parts = parts; } }, crypto: { randomUUID: () => `generated-${++seq}` },
@@ -54,14 +94,24 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
     videoMuted: false, consecutivePlaybackFailures: 0,
     activeSubtitleTracks: [], activeSubtitleBlobUrls: [], subtitleRequestGeneration: 0, subtitleRequestController: null,
     subtitlesEnabled: subtitles, shouldAutoEnableSubs: () => false, pickSubtitle: subs => subs[0],
-    pickAudioStream: () => null, isVideoFullscreen: () => fullscreen,
+    pickAudioStream: () => null,
+    CHANNELS: [], plexConnected: true, appState: 'connect', retroMode: false,
+    fsOverlayVisible: false, fsOverlayTimer: null,
+    chNum: channel => channel.id, escapeHtml: value => value, itemGuideTitle: item => item.title,
+    // The schedule clock and cosmetic renderers are fixtures; switching and advancing
+    // into playCurrentItem, including their real metadata updates, remain production.
+    buildChannelSchedule(channel) {
+      scheduleBuilds.push(channel.id);
+      if (nextSchedules.has(channel.id)) { channel.schedule = nextSchedules.get(channel.id); nextSchedules.delete(channel.id); }
+    },
+    showNowPlaying() {}, updateInfoPanel() {}, showGuide() {}, renderActiveGuide() {}, updateFsOverlay() {},
     buildSubtitleUrl: item => `https://fixture.invalid/subtitles/${item.ratingKey}`,
     clearVideoError() {}, showVideoError: error => failures.push(error), showPlaybackFailure: error => failures.push(error), classifyPlaybackFailure: details => details,
     document: {
-      getElementById: id => id === 'plex-video' ? video : element,
+      fullscreenElement: null,
+      getElementById: id => id === 'plex-video' ? video : element(id),
       createElement() { return { track: {}, events: {}, removed: false, remove() { this.removed = true; }, addEventListener(name, fn) { this.events[name] = fn; } }; },
-      addEventListener(name, fn) { if (!gestureListeners.has(name)) gestureListeners.set(name, new Set()); gestureListeners.get(name).add(fn); },
-      removeEventListener(name, fn) { gestureListeners.get(name)?.delete(fn); },
+      ...eventTarget(gestureListeners),
     }, Hls,
     setTimeout(fn, delay) { const id = ++timerSeq; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); },
     makePlaybackTracker(item) { const tracker = { item, stops: 0, ready: 0, resumes: 0, pauses: 0, stop() { this.stops++; }, onReady() { this.ready++; }, onResume() { this.resumes++; }, onPause() { this.pauses++; } }; trackers.push(tracker); return tracker; },
@@ -76,22 +126,36 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   };
   context.window = context;
   vm.createContext(context);
-  vm.runInContext(urls
+  const production = urls
     + between('  let activeTranscodeSession = null;', "  let appState = 'connect'")
     + between('  function switchChannel(', '  async function getJellyfinTranscodeUrl(')
     + between('  async function getJellyfinTranscodeUrl(', '  // ── Playback tracking')
     + between('  let pendingPlayRetry = null;', '  function showNowPlaying(')
     + between('  function clearSubtitleTracks(', '  function setAudioLanguage(')
-    + `\nfunction inspectOwnership() { return { activePlaybackRequest, activeTranscodeSession, pendingPlayRetry }; }`, context);
+    + between('  function isVideoFullscreen(', '  // Pause the watch clock when the tab is hidden')
+    + `\nfunction inspectOwnership() { return { activePlaybackRequest, activeTranscodeSession, pendingPlayRetry }; }`;
+  vm.runInContext(transformProduction(production), context);
   let ended = 0;
   // Observe advancement without synthesizing another schedule; failure/timer handlers remain production.
-  context.onItemEnded = () => { ended++; };
+  if (!realAdvancement) context.onItemEnded = () => { ended++; };
   function tune(item, channelId = 1) { context.currentChannel = channelId; return context.playCurrentItem(item, { id: channelId }); }
+  function select(item, channelId = 1) {
+    let channel = context.CHANNELS.find(ch => ch.id === channelId);
+    if (!channel) {
+      channel = { id: channelId, enabled: true, name: `Fixture ${channelId}`, color: '#abc', itemPool: [] };
+      context.CHANNELS.push(channel);
+    }
+    channel.schedule = item ? [item] : [];
+    context.switchChannel(channelId);
+    return flush();
+  }
   function info(index, id, { body = null, ok = true } = {}) {
     requests[index].resolve({ ok, json: () => body ? body.promise : Promise.resolve({ PlaySessionId: `session-${id}`, MediaSources: [{ Id: id, TranscodingUrl: `/Videos/${id}/master.m3u8?PlaySessionId=session-${id}` }] }) });
   }
-  return { context, video, requests, cleanups, failures, trackers, timers, listeners, hlsInstances, sources, attached, revoked, tune, info,
-    setFullscreen(value) { fullscreen = value; }, get playCount() { return playCount; }, get ended() { return ended; } };
+  return { context, video, requests, cleanups, failures, trackers, timers, listeners, hlsInstances, sources, attached, revoked, tune, select, info,
+    element, scheduleBuilds, nextSchedules, playSources, gestureListeners,
+    setFullscreen(value) { context.document.fullscreenElement = null; video.webkitDisplayingFullscreen = value; },
+    get playCount() { return playCount; }, get ended() { return ended; } };
 }
 const transcode = id => ({ ratingKey: id, partKey: id, _forceTranscode: true, title: id });
 const direct = (id, offset = 0) => ({ ratingKey: id, partKey: id, container: 'mp4', videoCodec: 'h264', audioCodec: 'aac', title: id, offsetSeconds: offset });
@@ -240,4 +304,168 @@ await test('Jellyfin user replacement invalidates a pending request even with th
   f.info(0, 'A'); await a;
   assert.equal(f.context.currentPlayingItem, null); assert.equal(f.cleanups.length, 1);
 });
-console.log(`web tune ownership: ${count} production-function scenarios passed (offline)`);
+// These paths enter through the production UI functions and registered callbacks.
+// Fixtures still do not establish browser layout, codec support or WebKit policy.
+async function assertSwitchRace(transformProduction) {
+  const f = fixture({ reporting: true, transformProduction });
+  await f.select(transcode('A'), 1);
+  await f.select(transcode('B'), 2);
+  f.info(1, 'B'); await flush();
+  f.info(0, 'A'); await flush();
+  assert.equal(f.context.currentPlayingItem.ratingKey, 'B');
+  assert.equal(f.context.currentChannel, 2);
+  assert.equal(f.element('np-title').textContent, 'B');
+  assert.match(f.element('np-channel-tag').textContent, /CH 02/);
+  assert.match(f.video.src, /\/B\/master/);
+  assert.deepEqual(f.trackers.map(t => t.item.ratingKey), ['B']);
+  assert.equal(f.context.inspectOwnership().activeTranscodeSession.id, 'session-B');
+  assert.deepEqual(f.cleanups.map(c => c.url.searchParams.get('playSessionId')), ['session-A']);
+}
+await test('populated switchChannel keeps UI, player, tracker and session on B after late A', () => assertSwitchRace());
+
+await test('populated switchChannel A -> B -> A rejects the first A request', async () => {
+  const f = fixture(); const a = transcode('A');
+  await f.select(a, 1); await f.select(transcode('B'), 2); await f.select(a, 1);
+  f.info(2, 'A-new'); await flush();
+  f.info(0, 'A-old'); f.info(1, 'B'); await flush();
+  assert.equal(f.element('np-title').textContent, 'A');
+  assert.equal(f.context.currentChannel, 1);
+  assert.match(f.video.src, /A-new/);
+  assert.equal(f.context.inspectOwnership().activeTranscodeSession.id, 'session-A-new');
+  assert.deepEqual(f.cleanups.map(c => c.url.searchParams.get('playSessionId')), ['session-A-old', 'session-B']);
+});
+
+await test('production onItemEnded advances the current schedule and ignores an outgoing ended callback', async () => {
+  const f = fixture({ realAdvancement: true, reporting: true, fullscreen: false });
+  await f.select(direct('A'), 1);
+  f.video.emit('loadedmetadata'); f.video.emit('playing');
+  const oldEnded = f.video.onended;
+  f.nextSchedules.set(1, [direct('B')]); f.video.emit('ended'); await flush();
+  assert.equal(f.context.currentPlayingItem.ratingKey, 'B');
+  assert.equal(f.element('np-title').textContent, 'B');
+  assert.equal(f.trackers[0].stops, 1);
+  assert.deepEqual(f.scheduleBuilds, [1]);
+  oldEnded(); assert.deepEqual(f.scheduleBuilds, [1]);
+  f.nextSchedules.set(1, [direct('C')]); f.video.emit('ended'); await flush();
+  assert.equal(f.context.currentPlayingItem.ratingKey, 'C');
+  assert.equal(f.element('np-title').textContent, 'C');
+  assert.deepEqual(f.scheduleBuilds, [1, 1]);
+});
+
+await test('a rejected play stays paused and retries once on each supported viewer gesture', async () => {
+  for (const event of ['pointerdown', 'touchend', 'keydown']) {
+    const f = fixture({ fullscreen: false }); await f.select(direct('A'));
+    const blocked = deferred(); f.video.playResult = blocked.promise;
+    f.video.emit('loadedmetadata'); assert.equal(f.video.paused, true);
+    blocked.reject(new Error('fixture NotAllowedError')); await flush();
+    assert.equal(f.video.paused, true);
+    assert.equal(typeof f.context.inspectOwnership().pendingPlayRetry, 'function');
+    f.video.playResult = null; f.context.document.emit(event); await flush();
+    assert.equal(f.playCount, 2); assert.equal(f.video.paused, false);
+    assert.equal(f.context.inspectOwnership().pendingPlayRetry, null);
+    for (const name of ['pointerdown', 'touchend', 'keydown']) {
+      assert.equal(f.gestureListeners.get(name).size, 0);
+      f.context.document.emit(name);
+    }
+    assert.equal(f.playCount, 2);
+  }
+});
+
+async function assertQueuedGestureGuard(transformProduction) {
+  const f = fixture({ transformProduction }); await f.select(direct('A'), 1);
+  const a = deferred(); f.video.playResult = a.promise; f.video.emit('loadedmetadata');
+  a.reject(new Error('fixture A blocked')); await flush();
+  const oldRetry = f.context.inspectOwnership().pendingPlayRetry;
+  assert.equal(typeof oldRetry, 'function');
+  await f.select(direct('B'), 2);
+  const b = deferred(); f.video.playResult = b.promise; f.video.emit('loadedmetadata');
+  b.reject(new Error('fixture B blocked')); await flush();
+  const currentRetry = f.context.inspectOwnership().pendingPlayRetry;
+  const before = f.playCount;
+  // Removal cannot recall an already queued event, so invoke the captured callback.
+  oldRetry();
+  assert.equal(f.playCount, before);
+  assert.equal(f.context.inspectOwnership().pendingPlayRetry, currentRetry);
+  f.video.playResult = null; f.context.document.emit('touchend'); await flush();
+  assert.equal(f.playCount, before + 1);
+  assert.match(f.playSources.at(-1), /\/B\//);
+}
+await test('queued outgoing gesture cannot play B early or disarm its own current retry', () => assertQueuedGestureGuard());
+
+async function assertManifestGuard(transformProduction) {
+  const f = fixture({ hls: true, backend: 'plex', transformProduction });
+  await f.select(transcode('A'), 1); const old = f.hlsInstances[0];
+  await f.select(transcode('B'), 2);
+  old.events.manifest(); assert.equal(f.playCount, 0);
+  f.hlsInstances[1].events.manifest(); assert.equal(f.playCount, 1);
+  assert.equal(old.destroyed, true);
+}
+await test('only the current HLS manifest can start playback through the UI tune path', () => assertManifestGuard());
+
+async function assertNativeFullscreenLifecycle(transformProduction) {
+  const f = fixture({ fullscreen: false, subtitles: true, transformProduction });
+  const withSubs = id => ({ ...direct(id), subtitles: [{ lang: 'en', index: 1 }] });
+  await f.select(withSubs('A'), 1);
+  assert.equal(f.requests.length, 0);
+  f.context.toggleFullscreen();
+  assert.equal(f.video.fullscreenEntries, 1);
+  assert.equal(f.context.isVideoFullscreen(), true);
+  assert.equal(f.requests.length, 1);
+  await f.select(withSubs('B'), 2);
+  assert.equal(f.requests[0].options.signal.aborted, true);
+  f.context.toggleFullscreen();
+  assert.equal(f.video.fullscreenExits, 1);
+  assert.equal(f.context.isVideoFullscreen(), false);
+  assert.equal(f.playCount, 1);
+  assert.equal(f.video.paused, false);
+  assert.match(f.playSources[0], /\/B\//);
+  for (const request of f.requests) request.resolve({ ok: true, text: async () => 'late-vtt' });
+  await flush(); assert.equal(f.attached.length, 0);
+  f.context.stopVideo(); const plays = f.playCount;
+  f.video.emit('webkitendfullscreen'); assert.equal(f.playCount, plays);
+  assert.equal(f.video.src, '');
+}
+await test('registered native fullscreen callbacks resume the current item inline and discard late subtitles', () => assertNativeFullscreenLifecycle());
+
+await test('registered document fullscreenchange cancels subtitle work when leaving fullscreen', async () => {
+  const f = fixture({ fullscreen: false, subtitles: true });
+  const item = { ...direct('A'), subtitles: [{ lang: 'en', index: 1 }] };
+  await f.select(item);
+  f.context.document.fullscreenElement = f.element('video-container');
+  f.context.document.emit('fullscreenchange');
+  assert.equal(f.requests.length, 1);
+  f.context.document.fullscreenElement = null;
+  f.context.document.emit('fullscreenchange');
+  assert.equal(f.requests[0].options.signal.aborted, true);
+  f.requests[0].resolve({ ok: true, text: async () => 'late-vtt' }); await flush();
+  assert.equal(f.attached.length, 0);
+});
+
+// In-memory negative controls must fail a specific behavioral assertion, not a
+// missing extraction anchor or fixture exception. Production files are never edited.
+function replaceOnce(source, before, after) {
+  const targets = source.split(before).length - 1;
+  if (targets !== 1) throw new Error(`negative control needs one production target, found ${targets}`);
+  return source.replace(before, after);
+}
+let negativeCount = 0;
+async function negative(name, scenario, transform, expected, actual) {
+  await test(`negative control: ${name}`, async () => {
+    await assert.rejects(() => scenario(transform), error =>
+      error.code === 'ERR_ASSERTION' && error.operator === 'strictEqual'
+      && error.expected === expected && error.actual === actual);
+  });
+  negativeCount++;
+}
+await negative('bypassing request ownership is caught by the real switchChannel race', assertSwitchRace,
+  source => replaceOnce(source, between('  function ownsPlaybackRequest(', '  function stopTranscodeSession('),
+    '  function ownsPlaybackRequest(request) { return !!request; }\n\n'), 'B', 'A');
+await negative('removing the queued gesture guard is caught before B is played early', assertQueuedGestureGuard,
+  source => replaceOnce(source, 'const retry = () => {\n      if (!ownsPlaybackRequest(request)) return;', 'const retry = () => {'), 2, 3);
+await negative('removing the old HLS manifest guard is caught', assertManifestGuard,
+  source => replaceOnce(source, 'hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {\n        if (!ownsPlaybackRequest(request)) return;',
+    'hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {'), 0, 1);
+await negative('removing native fullscreen resume is caught by the registered callback test', assertNativeFullscreenLifecycle,
+  source => replaceOnce(source, 'if (video.paused && !video.ended && (video.src || video.currentSrc)) startVideoPlayback(video);',
+    '/* negative control: native fullscreen resume omitted */'), 1, 0);
+console.log(`web tune ownership: ${count - negativeCount} production-function scenarios and ${negativeCount} negative controls passed (offline)`);
