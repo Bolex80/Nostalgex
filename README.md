@@ -160,7 +160,7 @@ There are no analytics, no scripts or fonts from a CDN, and no MusicBrainz or De
 
 ### Known limits
 
-- **TV browsers are untested so far.** Desktop browsers are the target. Smart TV browsers vary, and some can't decode surround audio. If it won't play, use a laptop, a phone, or the Apple TV app.
+- **TV browsers:** tested on a Google TV in the TV Bro browser. Its remote drives an on-screen cursor, so everything is a button: UP and DOWN under the guide, CLOSE in Settings, and OK on the picture in full screen for channel, sound and exit. Fire TV Silk, Samsung and LG are untested, and some TV browsers can't decode surround audio. If it won't play, use a laptop, a phone, or the Apple TV app.
 - **No armv7** (older Raspberry Pi and Synology models).
 - **Reverse proxies: serve the tuner and your media server the same way.** If the tuner is behind https and Jellyfin is plain http, the browser blocks Jellyfin again (mixed content). Both on plain http inside your network is the simple setup.
 - Music video genres from MusicBrainz and Deezer are off. Titles and artists still show.
