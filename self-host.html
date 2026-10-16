@@ -6,7 +6,7 @@
 <title>Self-Host Nostalgex: Retro TV Guide for Plex, Jellyfin and Emby in Docker</title>
 <meta name="description" content="Run the Nostalgex web tuner as a Docker container next to your own Plex, Jellyfin or Emby server. Plain http on your network, so a browser can finally reach a local Jellyfin or Emby box.">
 <!-- ROBOTS:START (auto-generated) -->
-<meta name="robots" content="noindex, follow">
+<meta name="robots" content="index, follow">
 <!-- ROBOTS:END (auto-generated) -->
 <link rel="canonical" href="https://www.nostalgex.app/self-host">
 <link rel="icon" type="image/png" sizes="48x48" href="/logo/favicon-48.png">
@@ -224,13 +224,6 @@
 
       <div class="doc-body">
         <!-- PREVIEW-NOTE:START (auto-generated) -->
-        <div class="doc-note">
-          <p><strong>Not published yet.</strong> The image is built and running, but it is not on
-          GitHub Container Registry yet, so the <code>docker pull</code> below will not find it today.
-          This page is here so it is ready the day it goes up. Watch
-          <a href="https://github.com/chadMueller/Nostalgex/releases" target="_blank" rel="noopener">releases</a>
-          or the <a href="https://discord.gg/FgnZcr5bDT" target="_blank" rel="noopener">Discord</a>.</p>
-        </div>
         <!-- PREVIEW-NOTE:END (auto-generated) -->
         <section class="doc-section" id="what">
 <h2>What this is</h2>
@@ -359,13 +352,18 @@ docker run -d -p 8080:8080 nostalgex</code></pre>
             </tr>
             <tr>
               <th scope="row">iPhone and iPad<span class="sh-device-detail">Safari</span></th>
-              <td data-label="Status"><span class="sh-pill sh-pill--unconfirmed">Should work</span></td>
-              <td data-label="What that means">The phone and tablet layout is built and checked in a headless browser, but nobody has run it on a real device yet. If you try it, tell me what happened.</td>
+              <td data-label="Status"><span class="sh-pill sh-pill--ok">Works</span></td>
+              <td data-label="What that means">Tested from the container on a real iPhone and iPad. Plays inline with the phone and tablet layouts, and the controls sit in a menu on the phone.</td>
             </tr>
             <tr>
-              <th scope="row">TV browsers<span class="sh-device-detail">Fire TV Silk, Google TV with a sideloaded browser, Samsung and LG</span></th>
+              <th scope="row">Google TV<span class="sh-device-detail">TV Bro browser</span></th>
+              <td data-label="Status"><span class="sh-pill sh-pill--ok">Works</span></td>
+              <td data-label="What that means">Tested on a Google TV. The remote moves an on-screen cursor and OK clicks, so everything is a button: UP and DOWN under the guide, CLOSE in Settings, and OK on the picture in full screen brings up channel, sound and exit. Back belongs to the browser. Sound starts off; turn it on once and it comes back with your first click next time. Surround audio not tested yet.</td>
+            </tr>
+            <tr>
+              <th scope="row">Other TV browsers<span class="sh-device-detail">Fire TV Silk, Samsung and LG</span></th>
               <td data-label="Status"><span class="sh-pill sh-pill--unknown">Untested</span></td>
-              <td data-label="What that means">No test results at all, good or bad. TV browsers vary a lot and some of them cannot decode surround audio.</td>
+              <td data-label="What that means">No results yet, good or bad. TV browsers vary a lot and some cannot decode surround audio. If you try one, tell me what happened.</td>
             </tr>
             <tr>
               <th scope="row">Apple TV<span class="sh-device-detail">tvOS</span></th>

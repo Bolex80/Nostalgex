@@ -14,7 +14,7 @@
     "nobody has run. status is the short label; state picks the pill colour and must",
     "be one of ok, unconfirmed, unknown, na."
   ],
-  "published": false,
+  "published": true,
   "devicesUpdated": "2026-10-15",
   "devices": [
     {
@@ -27,16 +27,23 @@
     {
       "surface": "iPhone and iPad",
       "detail": "Safari",
-      "status": "Should work",
-      "state": "unconfirmed",
-      "note": "The phone and tablet layout is built and checked in a headless browser, but nobody has run it on a real device yet. If you try it, tell me what happened."
+      "status": "Works",
+      "state": "ok",
+      "note": "Tested from the container on a real iPhone and iPad. Plays inline with the phone and tablet layouts, and the controls sit in a menu on the phone."
     },
     {
-      "surface": "TV browsers",
-      "detail": "Fire TV Silk, Google TV with a sideloaded browser, Samsung and LG",
+      "surface": "Google TV",
+      "detail": "TV Bro browser",
+      "status": "Works",
+      "state": "ok",
+      "note": "Tested on a Google TV. The remote moves an on-screen cursor and OK clicks, so everything is a button: UP and DOWN under the guide, CLOSE in Settings, and OK on the picture in full screen brings up channel, sound and exit. Back belongs to the browser. Sound starts off; turn it on once and it comes back with your first click next time. Surround audio not tested yet."
+    },
+    {
+      "surface": "Other TV browsers",
+      "detail": "Fire TV Silk, Samsung and LG",
       "status": "Untested",
       "state": "unknown",
-      "note": "No test results at all, good or bad. TV browsers vary a lot and some of them cannot decode surround audio."
+      "note": "No results yet, good or bad. TV browsers vary a lot and some cannot decode surround audio. If you try one, tell me what happened."
     },
     {
       "surface": "Apple TV",
