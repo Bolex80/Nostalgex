@@ -67,7 +67,7 @@ A few things that matter to Jellyfin people specifically, because I'm one of you
 
 * It reads your library and never adds, renames, moves or deletes anything.
 * Your server address and token stay in the Apple TV keychain. I never see your username or password.
-* It's free and open source under the MIT license, with no ads and no account. Nothing is paid. No subscriptions, no Plex Pass.
+* It's free and open source under the MIT license, with no account to make. It needs no subscription and no Plex Pass.
 * It direct plays when the Apple TV can decode the file and only falls back to transcoding when it has to. Subtitle and audio language choices stick.
 
 ## Can I use it in a web browser?

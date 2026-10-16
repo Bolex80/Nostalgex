@@ -48,7 +48,7 @@ Use an app that builds the channels itself instead of going through Plex Live TV
 
 That's the gap I built Nostalgex for. If what you're after is the feeling of flipping past a sitcom rerun and landing on a movie you haven't seen in years, this is the easy way to get it. You install it on your Apple TV, sign in with a code at plex.tv/link, and it builds 130+ channels in 14 bundles from what you own. You don't choose what goes on each channel. It sorts things by genre, decade, studio and franchise on its own, so you get stuff like SAT MORNING CARTOONS, 90S SITCOMS, VHS VAULT and BUDDIES (home of our [Friday buddy cop lineup](/blog/best-90s-buddy-cop-movies-channel)). Every channel keeps running even when nobody's watching, so you land in the middle of something like real TV.
 
-It's basically Pluto, except the channels are made of your movies and there are no commercials. It's free, open source under MIT, and has no ads or account. It needs tvOS 18 or later. The [Nostalgex for Plex](/plex) page has the one minute setup.
+It's basically Pluto, except the channels are made of your movies and there are no commercials. It's free, open source under MIT, and needs no account. It needs tvOS 18 or later. The [Nostalgex for Plex](/plex) page has the one minute setup.
 
 Want to compare Coax and Bunny Ears TV too? See [the best channel surfing apps for Apple TV](/blog/apple-tv-channel-surfing-apps).
 

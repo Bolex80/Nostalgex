@@ -10,7 +10,7 @@
 
 ![The Nostalgex channel guide on Apple TV, with CH 12 Action Adventure playing The Empire Strikes Back and a grid of channels and showtimes below](docs/images/nostalgex-guide.png)
 
-Nostalgex turns your library into 130+ channels in 14 bundles, plus a channel for every film series you own, with a real channel guide. Every channel plays on a set daily schedule, so tuning in feels like live TV. No ads, no account, and it never supplies any media of its own.
+Nostalgex turns your library into 130+ channels in 14 bundles, plus a channel for every film series you own, with a real channel guide. Every channel plays on a set daily schedule, so tuning in feels like live TV. No account to make, and it never supplies any media of its own.
 
 <a id="get-it"></a>
 <a id="works-with"></a>
@@ -82,7 +82,7 @@ The App Store went straight from 1.0.23 to 1.0.26, so this rolls up 1.0.24, 1.0.
 <a id="support-the-project"></a>
 ## Tips and supporting the project
 
-Nostalgex is free and it's staying free. If it gives you a good Friday night, you can [buy me a coffee](https://buymeacoffee.com/chadmueller) or leave a tip in the Apple TV app (Settings has Popcorn, TV Dinner and Pizza Night). Tips unlock nothing. They cover the Apple developer fee and keep updates coming. The Sponsor button at the top of this repo goes to Buy Me a Coffee.
+Nostalgex is free. If it gives you a good Friday night, you can [buy me a coffee](https://buymeacoffee.com/chadmueller) or leave a tip in the Apple TV app (Settings has Popcorn, TV Dinner and Pizza Night). Tips are a thank you. They cover the Apple developer fee and keep updates coming. The Sponsor button at the top of this repo goes to Buy Me a Coffee.
 
 Helping costs nothing too: star the repo, rate the app on the App Store, or tell me about a channel that's always empty.
 

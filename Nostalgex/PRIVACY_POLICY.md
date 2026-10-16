@@ -8,7 +8,7 @@ This policy covers two separate things: the Nostalgex app on Apple TV, and the n
 
 ## Summary
 
-- No accounts. No ads. Nothing is sold or rented to anyone.
+- No accounts. Nothing is sold or rented to anyone.
 - Your server address and login token stay on your Apple TV.
 - The app sends a small, fixed list of anonymous usage events so we can tell whether things are working. No names, no library contents, no titles.
 - The website uses two lightweight analytics scripts to count page visits.
