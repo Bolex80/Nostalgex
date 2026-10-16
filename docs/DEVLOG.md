@@ -3,6 +3,18 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (blog screenshot sizes)
+
+**Shipped.** Nothing until this lands on main. The live pages pick it up on the next Vercel deploy.
+
+**Why.** Ten in-post screenshots on the media bucket are full 1280x720 frames now. `scripts/media-sizes.json` still had the old crop heights (412 for the grid crops, 565 for the guide crops, 560 for one TEEN MOVIES frame). The blog build stamps those numbers onto `<img width>` and `<img height>`, so a stale cache would reserve a short box and then jump when the file loaded.
+
+**Changed.** Those ten records now say height 720. Widths left at 1280. No keys were missing. Covers stay 1200x630. No image files added; the files on the bucket already measure 1280x720 (checked four of the ten by Range request). `node scripts/build-blog.mjs` re-ran: four live posts and four drafts all render `width="1280" height="720"` on those figures. The sitemap blog block moved below the channels block, because the script always re-inserts it just before `</urlset>`. URLs and lastmod dates are unchanged.
+
+**Half-done.** Six of the ten images live in draft posts (`apple-tv-channel-surfing-apps`, `jellyfin-tv-guide-own-library`, `make-plex-feel-like-cable-tv`, `plex-virtual-channels-own-movies`). They take the new sizes when those posts publish.
+
+**Next.** Nothing. The other six remote files were not re-fetched this session.
+
 ## 2026-10-16 (web tuner: sleep timer, playback information, and Emby as its own choice)
 
 **Shipped.** On nostalgex.app and in the Docker image `tuner-v1.0.1`, merged from branch `web/sleep-info-emby`. The tvOS app is untouched.
