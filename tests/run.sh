@@ -27,8 +27,9 @@ if [ -d "$upstream/.git" ]; then
     done
     cmp -s "$pin_dir/scripts/franchise-golden.json" tests/vectors/franchise-golden.json ||
         { echo "FAIL tests/vectors/franchise-golden.json differs from upstream ${pinned:0:7}" >&2; exit 1; }
-    # Upstream's own builder must pass its golden file, or the file proves nothing.
-    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs)
+    # Upstream's own builder must pass its golden file, or the file proves nothing,
+    # and its collections module its own smoke test, or the vectors from it don't.
+    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs)
     NOSTALGEX_DIR=$pin_dir node tests/gen-vectors.mjs --check
     if ahead=$(git -C "$upstream" rev-list --count "$pinned..origin/main" 2>/dev/null) && [ "$ahead" -gt 0 ]; then
         echo "note: upstream origin/main is $ahead commits past the pinned ${pinned:0:7} (as of the clone's last fetch)"
@@ -58,6 +59,6 @@ if [ -n "$shadow" ]; then
 fi
 
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
-    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/DeepLinkTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs 2>&1 | grep -v '^npm warn')
+    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
 grep -q '^ALL TESTS PASSED' <<<"$out"

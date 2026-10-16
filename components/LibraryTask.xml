@@ -28,6 +28,8 @@
   <script type="text/brightscript" uri="pkg:/source/franchise/FranchiseBuilder.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/Franchises.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/CollectionChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/Collections.brs" />
   <script type="text/brightscript" uri="pkg:/source/enrich/Enrichment.brs" />
   <script type="text/brightscript" uri="pkg:/source/enrich/EnrichmentNet.brs" />
   <script type="text/brightscript" uri="pkg:/components/LibraryTask.brs" />

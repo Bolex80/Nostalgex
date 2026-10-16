@@ -14,7 +14,12 @@ end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
+    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+end function
+
+'' The viewer's franchise and collection switches, as part of a cache key.
+function NxChoicesKey() as String
+    return FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices())) + "|" + FormatJson(NxCollectionKeyList(NxSavedCollectionKeys()))
 end function
 
 ' The saved pools: each guide channel's pool as the last build filtered it,
@@ -23,14 +28,14 @@ end function
 ' next, so when the saved guide is a day old these are shuffled and
 ' scheduled for today instead, in seconds, and the full build still runs
 ' behind them. Kept while the app version, month (seasonal packages),
-' packages and franchise choices are the same.
+' packages and franchise and collection choices are the same.
 function NxPoolCachePath() as String
     return "cachefs:/nostalgex-pools.json"
 end function
 
 function NxPoolCacheKey(month as Integer, bundles as Object) as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + FormatJson(NxFranchiseChoiceLists(NxSavedFranchiseChoices()))
+    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
 end function
 
 sub NxSavePools(ordered as Object, guide as Object, month as Integer)
@@ -64,7 +69,8 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
     end for
     WriteAsciiFile(NxPoolCachePath(), FormatJson({
         key: NxPoolCacheKey(month, guide.enabledBundles), items: items, channels: chans,
-        libraryItems: guide.items, bundles: guide.bundles, franchises: guide.franchises
+        libraryItems: guide.items, bundles: guide.bundles, franchises: guide.franchises,
+        collections: guide.collections
     }))
 end sub
 
@@ -82,14 +88,16 @@ function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles 
             pool.Push(saved.items[n])
         end for
         ch.Delete("poolIdx")
-        if NxTruthy(ch.built) then pool = NxSeededShuffle(pool, nowSec)
+        ' Collection channels air their collection unshuffled, as the web tuner's do.
+        if NxTruthy(ch.built) and not NxTruthy(ch.collection) then pool = NxSeededShuffle(pool, nowSec)
         ch.pool = pool
         ordered.Push(ch)
     end for
     NxClearManifests()
     guide = {
         channels: NxScheduleGuide(ordered, nowSec), builtAt: nowSec, items: saved.libraryItems,
-        bundles: saved.bundles, enabledBundles: bundles, franchises: saved.franchises
+        bundles: saved.bundles, enabledBundles: bundles, franchises: saved.franchises,
+        collections: saved.collections
     }
     return { ordered: ordered, guide: guide }
 end function
@@ -147,6 +155,26 @@ sub loadLibrary()
         items.Append(got)
     end for
     print "library: "; items.Count(); " items in "; timer.TotalMilliseconds(); " ms"
+
+    ' Server collections (source/collections/Collections.brs), read after the
+    ' library as the web tuner's scan runs after its load. A server whose
+    ' collections can't be read just has none this time.
+    timer.Mark()
+    m.top.progress = "Reading your collections…"
+    collections = { raw: [], serverKeys: {}, failed: 0 }
+    for i = 0 to servers.Count() - 1
+        ' The machine identifier, so a saved switch outlives a new address.
+        key = NxToStr(servers[i].machineIdentifier)
+        if key = "" then key = "plex"
+        collections.serverKeys[i.ToStr()] = key
+        got = NxCollectionsFetchPlex(key, NxPlexCollectionsFetcher(servers[i]), m.top)
+        if got = invalid then
+            collections.failed = collections.failed + 1
+        else
+            collections.raw.Append(got)
+        end if
+    end for
+    print "library: "; collections.raw.Count(); " server collections read ("; collections.failed; " servers failed) in "; timer.TotalMilliseconds(); " ms"
     config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
     manifest = ParseJson(ReadAsciiFile("pkg:/data/channels-memberships.json"))
 
@@ -167,7 +195,7 @@ sub loadLibrary()
     built = invalid
     if NxEnrichHasRemoteWork(state, opts) then
         if not shown then
-            built = buildGuide(items, config, manifest, false)
+            built = buildGuide(items, config, manifest, collections, false)
             shown = true
         end if
         timer.Mark()
@@ -175,14 +203,14 @@ sub loadLibrary()
         print "library: enrichment remote step added "; added; " in "; timer.TotalMilliseconds(); " ms"
         if added > 0 then built = invalid
     end if
-    if built = invalid then built = buildGuide(items, config, manifest, shown)
+    if built = invalid then built = buildGuide(items, config, manifest, collections, shown)
     keepScheduling(built.ordered, built.guide)
 end sub
 
 ' Builds the switched-on channels from the library, schedules them and hands
 ' the guide to the render thread, unless `shown` and it matches what is
 ' already on screen. Returns { ordered, guide } for keepScheduling.
-function buildGuide(items as Object, config as Object, manifest as Object, shown as Boolean) as Object
+function buildGuide(items as Object, config as Object, manifest as Object, collections as Object, shown as Boolean) as Object
     timer = CreateObject("roTimespan")
     ' A library load clears the day schedules, as upstream's does.
     NxClearManifests()
@@ -227,15 +255,17 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
     franchiseRows = []
     foundIDs = []
     franchiseBundleIDs = []
+    fr = invalid
+    defs = []
     for each bdl in NxList(config.bundles)
         if bdl.id = NxFranchisesBundleID() then franchiseBundleIDs = NxList(bdl.channelIDs)
     end for
     if NxHasValue(bundles, NxFranchisesBundleID()) then
         timer.Mark()
         m.top.progress = "Finding franchises…"
+        defs = NxFranchiseDefinitions(ParseJson(ReadAsciiFile("pkg:/data/franchises.json")))
         fr = NxFranchiseStep({
-            channels: channels, items: items,
-            defs: NxFranchiseDefinitions(ParseJson(ReadAsciiFile("pkg:/data/franchises.json"))),
+            channels: channels, items: items, defs: defs,
             choices: NxSavedFranchiseChoices(), bundleChannelIDs: franchiseBundleIDs,
             manifest: manifest, exclusiveRules: exclusive
         })
@@ -246,8 +276,26 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
         franchiseRows = fr.rows
         print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, in "; timer.TotalMilliseconds(); " ms"
     end if
+
+    ' MY COLLECTIONS, as the web tuner has them: each collection switched on
+    ' airs from CH 500, outside every package. One that is a franchise the
+    ' package already carries folds into it instead, as on the Apple TV.
+    timer.Mark()
+    cl = NxCollectionsStep({
+        channels: channels, raw: collections.raw, items: items, serverKeys: collections.serverKeys,
+        manifest: manifest, enabledKeys: NxSavedCollectionKeys(),
+        franchise: fr, franchiseBundleIDs: franchiseBundleIDs, defs: defs
+    })
+    collectionIDs = []
+    for each ch in cl.channels
+        channels.Push(ch)
+        collectionIDs.Push(ch.id)
+    end for
+    print "library: collections: "; cl.rows.Count(); " listed, "; cl.folded.Count(); " folded into franchises, "; collectionIDs.Count(); " channels, "; cl.overCap; " past CH 699, in "; timer.TotalMilliseconds(); " ms"
     for each ch in channels
-        if ch.built then
+        ' Collection channels air their collection unshuffled, as the web
+        ' tuner's do.
+        if ch.built and not NxTruthy(ch.collection) then
             ch.basePool = ch.pool
             ch.pool = NxSeededShuffle(ch.pool, nowSec&)
         end if
@@ -266,7 +314,15 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
             guideConfig.bundles.Push(bdl)
         end if
     end for
-    ordered = NxGuideOrder(guideConfig, channels, bundles, clock.month)
+    ' Collection channels belong to no package; the web tuner shows them
+    ' whenever they are built. Here they ride on a package that is always on.
+    guideBundles = []
+    guideBundles.Append(bundles)
+    if collectionIDs.Count() > 0 then
+        guideConfig.bundles.Push({ id: "nx-collections", channelIDs: collectionIDs })
+        guideBundles.Push("nx-collections")
+    end if
+    ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock.month)
     out = NxScheduleGuide(ordered, nowSec&)
     bundleList = []
     for each bdl in NxList(config.bundles)
@@ -280,7 +336,10 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
         end if
         bundleList.Push(entry)
     end for
-    guide = { channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles, franchises: franchiseRows }
+    guide = {
+        channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
+        franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, scanned: collections.raw.Count(), failed: collections.failed }
+    }
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     timer.Mark()
     NxSavePools(ordered, guide, clock.month)
@@ -289,7 +348,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, shown
     ' screen alone.
     ' The package list counts too: a new package that is off changes no
     ' channel, but Settings has to show it.
-    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) and FormatJson(guide.franchises) = FormatJson(m.top.guide.franchises) then
+    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) and FormatJson(guide.franchises) = FormatJson(m.top.guide.franchises) and FormatJson(guide.collections) = FormatJson(m.top.guide.collections) then
         print "library: background refresh matches the saved guide"
     else
         m.top.fromCache = false

@@ -7,6 +7,7 @@ sub init()
     m.fonts = {}
     m.changed = false
     m.franchisesChanged = false
+    m.collectionsChanged = false
 end sub
 
 function fontOf(name as String, size as Integer) as Object
@@ -45,14 +46,16 @@ sub open(unused = invalid as Dynamic)
     m.enabled.Append(m.top.enabledBundles)
     m.subs = NxSubtitleSettings()
     m.choices = NxSavedFranchiseChoices()
+    m.collectionKeys = NxSavedCollectionKeys()
     buildRows()
     m.top.SetFocus(true)
     render()
 end sub
 
-' The row list: { kind: bundle | franchiseAll | franchise | subtitles | signOut }.
-' The franchise rows are the last guide build's, so they show once the
-' package was on for a build.
+' The row list: { kind: bundle | franchiseAll | franchise | collectionsInfo |
+' collection | subtitles | signOut }. The franchise rows are the last guide
+' build's, so they show once the package was on for a build. MY COLLECTIONS
+' follows the packages, as on the web tuner.
 sub buildRows()
     m.rows = []
     for i = 0 to m.top.bundles.Count() - 1
@@ -65,6 +68,13 @@ sub buildRows()
             end for
         end if
     end for
+    c = m.top.collections
+    if c <> invalid then
+        if NxNumberOr0(c.scanned) > 0 or NxNumberOr0(c.failed) > 0 then m.rows.Push({ kind: "collectionsInfo" })
+        for each row in NxList(c.rows)
+            m.rows.Push({ kind: "collection", collection: row })
+        end for
+    end if
     m.rows.Push({ kind: "subtitles" })
     m.rows.Push({ kind: "signOut" })
 end sub
@@ -78,6 +88,25 @@ function franchiseOn(f as Object) as Boolean
     if m.choices.enabled.DoesExist(f.id) then return true
     if m.choices.disabled.DoesExist(f.id) then return false
     return f.enabled
+end function
+
+function collectionOn(row as Object) as Boolean
+    return m.collectionKeys.DoesExist(row.id)
+end function
+
+' The web tuner's status line under MY COLLECTIONS.
+function collectionsStatus() as String
+    c = m.top.collections
+    rows = NxList(c.rows)
+    if NxNumberOr0(c.failed) > 0 and rows.Count() = 0 then return "COULD NOT READ COLLECTIONS FROM YOUR SERVER"
+    if rows.Count() = 0 then return "NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES"
+    onAir = 0
+    for each row in rows
+        if row.enabled then onAir = onAir + 1
+    end for
+    s = onAir.ToStr() + "/" + rows.Count().ToStr() + " ON AIR"
+    if NxNumberOr0(c.overCap) > 0 then s = s + " · " + c.overCap.ToStr() + " SWITCHED ON PAST CH 699, NOT ON AIR"
+    return s
 end function
 
 function anyFranchiseOff() as Boolean
@@ -161,6 +190,24 @@ sub render()
                 state = "ON"
                 stateColor = "0xFFE500FF"
             end if
+        else if row.kind = "collectionsInfo" then
+            label = "MY COLLECTIONS"
+            detail = collectionsStatus()
+            if m.collectionsChanged then detail = "Changes air when you go back to the guide"
+            state = ""
+            stateColor = "0xFFFFFFFF"
+        else if row.kind = "collection" then
+            indent = 40
+            cr = row.collection
+            label = cr.title
+            detail = cr.detail
+            if cr.channelNumber <> invalid then detail = detail + " · CH " + cr.channelNumber.ToStr()
+            state = "OFF"
+            stateColor = "0xFFFFFF59"
+            if collectionOn(cr) then
+                state = "ON"
+                stateColor = "0xFFE500FF"
+            end if
         else if row.kind = "subtitles" then
             label = "SUBTITLES"
             detail = subtitleModeExplanation()
@@ -234,6 +281,14 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             NxFranchiseRecordChoice(m.choices, row.franchise.id, not franchiseOn(row.franchise))
             m.franchisesChanged = true
             render()
+        else if row.kind = "collection" then
+            ' toggleCollection: switch one on and it airs from CH 500.
+            id = row.collection.id
+            if m.collectionKeys.DoesExist(id) then m.collectionKeys.Delete(id) else m.collectionKeys[id] = true
+            m.collectionsChanged = true
+            render()
+        else if row.kind = "collectionsInfo" then
+            ' A heading; nothing to switch.
         else if row.kind = "subtitles" then
             cycleSubtitleMode()
             render()
@@ -243,7 +298,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "back" or key = "left" then
-        if m.changed or m.franchisesChanged then
+        if m.changed or m.franchisesChanged or m.collectionsChanged then
             reg = CreateObject("roRegistrySection", "guide")
             if m.changed then reg.Write("bundles", FormatJson(m.enabled))
             if m.franchisesChanged then
@@ -252,6 +307,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
                 reg.Write("franchisesOff", FormatJson(lists.disabled))
             end if
             reg.Flush()
+            if m.collectionsChanged then NxSaveCollectionKeys(m.collectionKeys)
             m.top.result = "rebuild"
         else
             m.top.result = "close"

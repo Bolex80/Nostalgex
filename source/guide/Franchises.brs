@@ -15,9 +15,9 @@
 ' FranchiseSettingsTests.swift and FranchiseNumberingTests.swift
 ' (tests/FranchiseGuideTests.brs).
 '
-' Not ported: folding server collections into franchises, because server
-' collections aren't ported (docs/PORTING.md). Differences that don't change
-' which channels air:
+' Folding server collections into franchises is in
+' source/collections/Collections.brs. Differences that don't change which
+' channels air:
 '
 ' - Settings sorts by NxFranchiseNaturalLess, a case-insensitive compare with
 '   digit runs compared as numbers. Swift's localizedStandardCompare does the

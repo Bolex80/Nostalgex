@@ -70,7 +70,7 @@ export async function servers(token) {
       try {
         const id = await https(`${c.uri}/identity`, { token: r.accessToken, timeoutMs: 5000 });
         if (id.status === 200) {
-          out.push({ name: r.name, url: c.uri, token: r.accessToken, connections: r.connections || [] });
+          out.push({ name: r.name, machineIdentifier: r.clientIdentifier || "", url: c.uri, token: r.accessToken, connections: r.connections || [] });
           break;
         }
       } catch { /* next connection */ }
