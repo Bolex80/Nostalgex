@@ -348,7 +348,7 @@ struct SettingsPageView: View {
     /// RATE plus the three tips as one row of four equal tiles.
     @ViewBuilder
     private var supportGrid: some View {
-        Text("Nostalgex is free forever. Tips help keep it maintained.")
+        Text("Tips help keep Nostalgex maintained.")
             .font(.custom("DMMono-Regular", size: 20))
             .foregroundStyle(.white.opacity(0.7))
             .fixedSize(horizontal: false, vertical: true)
