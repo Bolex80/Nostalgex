@@ -16,8 +16,9 @@
 '   - Items also carry the chosen version's videoCodec and audioCodec, for
 '     the player's direct-play decision, and episodes their season and episode
 '     numbers, for the info panel. No rule reads them.
-'   - Requests run one at a time; upstream fetches five shows' episodes at
-'     once. Its Promise.all keeps their order, so the result is the same.
+'   - Shows' episodes are fetched five at a time, as upstream's are, and kept
+'     in show order as its Promise.all keeps them; other requests run one at
+'     a time. A failed fetch gets three tries here.
 '   - MusicBrainz/Deezer enrichment of music videos is not ported yet.
 '   - Items don't carry upstream's `serverID`. Its server collections key
 '     items by server through it; here they use `serverIndex`
@@ -28,8 +29,7 @@
 ' request. Returns the MediaContainer, or invalid. Sets err.auth when the
 ' server rejected the token.
 function NxPlexGetContainer(server as Object, path as String, err = invalid as Dynamic, timeoutMs = 15000 as Integer) as Dynamic
-    base = NxToStr(server.uri)
-    if NxTruthy(server.lanUri) then base = server.lanUri
+    base = NxPlexBase(server)
     for attempt = 1 to 3
         res = NxPlexServerGet(base + path, NxToStr(server.accessToken), timeoutMs)
         if res.code = 401 or res.code = 403 or (res.code >= 200 and res.code <= 299) then exit for
@@ -40,10 +40,26 @@ function NxPlexGetContainer(server as Object, path as String, err = invalid as D
         if err <> invalid then err.auth = true
         return invalid
     end if
+    return NxPlexContainerOf(res)
+end function
+
+' The server's home-network address when there is one, else its HTTPS one.
+function NxPlexBase(server as Object) as String
+    if NxTruthy(server.lanUri) then return server.lanUri
+    return NxToStr(server.uri)
+end function
+
+' A response's MediaContainer, or invalid unless it answered 2xx with one.
+function NxPlexContainerOf(res as Object) as Dynamic
     if res.code < 200 or res.code > 299 then return invalid
     if type(res.json) <> "roAssociativeArray" then return invalid
     if type(res.json.MediaContainer) <> "roAssociativeArray" then return invalid
     return res.json.MediaContainer
+end function
+
+function NxMinInt(a as Integer, b as Integer) as Integer
+    if a < b then return a
+    return b
 end function
 
 ' Every item in a section, 300 at a time, as fetchPlexSectionPaged. invalid
@@ -70,15 +86,45 @@ function NxPlexSectionItems(server as Object, key as String) as Dynamic
     return all
 end function
 
+' Port of LibraryChangeSignature.signature: each section's updatedAt and
+' contentChangedAt (scannedAt is left out, since a scheduled scan bumps it
+' when nothing changed). invalid when a section carries neither, so an
+' unobservable library is never called unchanged.
+function NxLibrarySignature(serverKey as String, sections as Object) as Dynamic
+    parts = []
+    for each s in sections
+        if type(s) <> "roAssociativeArray" then return invalid
+        if s.updatedAt = invalid and s.contentChangedAt = invalid then return invalid
+        u = "0"
+        if s.updatedAt <> invalid then u = NxToStr(s.updatedAt)
+        c = "0"
+        if s.contentChangedAt <> invalid then c = NxToStr(s.contentChangedAt)
+        parts.Push(NxToStr(s.key) + "=u" + u + "/c" + c)
+    end for
+    if parts.Count() = 0 then return invalid
+    parts.Sort()
+    return serverKey + ":" + parts.Join(",")
+end function
+
+' The server's library signature now, from one small request; invalid when
+' it can't be read or observed.
+function NxPlexServerSignature(server as Object) as Dynamic
+    mc = NxPlexGetContainer(server, "/library/sections")
+    if mc = invalid then return invalid
+    return NxLibrarySignature(NxToStr(server.machineIdentifier), NxList(mc.Directory))
+end function
+
 ' All of a server's playable items. `progress`, if given, is a node whose
 ' `progress` string field shows how far the scan has got. Returns invalid
 ' when the server rejected the token or its section list failed, as
-' upstream's scan throws.
-function NxPlexScanServer(server as Object, serverIndex as Integer, progress = invalid as Dynamic) as Dynamic
+' upstream's scan throws. `info`, if given, gets the library's `signature`
+' as the scan found it (NxLibrarySignature).
+function NxPlexScanServer(server as Object, serverIndex as Integer, progress = invalid as Dynamic, info = invalid as Dynamic) as Dynamic
     err = { auth: false }
     mc = NxPlexGetContainer(server, "/library/sections", err)
     if mc = invalid then return invalid
     sections = NxList(mc.Directory)
+    if info <> invalid then info.signature = NxLibrarySignature(NxToStr(server.machineIdentifier), sections)
     mvSection = CreateObject("roRegex", "music.?video|^music$|^mv[s]?$", "i")
     musicGenre = CreateObject("roRegex", "music", "i")
 
@@ -91,24 +137,38 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
         else
             isMusicVideoSection = mvSection.IsMatch(title.Trim())
             if section.type = "show" then
-                shown = 0
-                for each show in items
-                    showGenres = NxTags(show.Genre)
-                    ' Episodes take the show's TMDB id, as on tvOS: allLeaves
-                    ' carries no show Guid list.
-                    showTmdb = NxParseTmdbIdFromPlex(show, false)
-                    leaves = NxPlexGetContainer(server, "/library/metadata/" + NxToStr(show.ratingKey) + "/allLeaves")
-                    if leaves <> invalid then
-                        for each ep in NxList(leaves.Metadata)
-                            it = NxPlexEpisodeItem(ep, show, showGenres, showTmdb, isMusicVideoSection)
-                            if it <> invalid then
-                                it.serverIndex = serverIndex
-                                out.Push(it)
-                            end if
-                        end for
-                    end if
-                    shown = shown + 1
-                    if progress <> invalid then progress.progress = title + ": " + shown.ToStr() + " of " + items.Count().ToStr() + " shows"
+                ' Episodes are fetched five shows at a time, as upstream's
+                ' BATCH_SIZE, and kept in show order. A show whose fetch
+                ' failed gets the usual three tries on its own.
+                batch = 25
+                for b = 0 to items.Count() - 1 step batch
+                    shows = []
+                    urls = []
+                    for s = b to NxMinInt(b + batch, items.Count()) - 1
+                        shows.Push(items[s])
+                        urls.Push(NxPlexBase(server) + "/library/metadata/" + NxToStr(items[s].ratingKey) + "/allLeaves")
+                    end for
+                    answers = NxPlexServerGetMany(urls, NxToStr(server.accessToken), 5)
+                    for s = 0 to shows.Count() - 1
+                        show = shows[s]
+                        showGenres = NxTags(show.Genre)
+                        ' Episodes take the show's TMDB id, as on tvOS: allLeaves
+                        ' carries no show Guid list.
+                        showTmdb = NxParseTmdbIdFromPlex(show, false)
+                        leaves = NxPlexContainerOf(answers[s])
+                        if leaves = invalid then leaves = NxPlexGetContainer(server, "/library/metadata/" + NxToStr(show.ratingKey) + "/allLeaves")
+                        if leaves <> invalid then
+                            for each ep in NxList(leaves.Metadata)
+                                it = NxPlexEpisodeItem(ep, show, showGenres, showTmdb, isMusicVideoSection)
+                                if it <> invalid then
+                                    it.serverIndex = serverIndex
+                                    out.Push(it)
+                                end if
+                            end for
+                        end if
+                    end for
+                    answers = invalid
+                    if progress <> invalid then progress.progress = title + ": " + NxMinInt(b + batch, items.Count()).ToStr() + " of " + items.Count().ToStr() + " shows"
                 end for
             else
                 for each raw in items

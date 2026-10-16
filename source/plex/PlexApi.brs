@@ -149,6 +149,75 @@ function NxPlexServerGet(url as String, token as String, timeoutMs = 15000 as In
     return { code: msg.GetResponseCode(), json: json }
 end function
 
+' Several GETs to one Plex server, up to `width` in flight at once, under the
+' same rules as NxPlexServerGet. Returns { code, json } per URL, in order.
+function NxPlexServerGetMany(urls as Object, token as String, width as Integer, timeoutMs = 15000 as Integer) as Object
+    out = []
+    for each u in urls
+        out.Push({ code: -1, json: invalid })
+    end for
+    port = CreateObject("roMessagePort")
+    live = {}
+    nextIdx = 0
+    pending = 0
+    while nextIdx < urls.Count() or pending > 0
+        while pending < width and nextIdx < urls.Count()
+            xfer = NxPlexTransfer(urls[nextIdx], token)
+            if xfer = invalid then
+                out[nextIdx] = { code: 0, json: invalid }
+            else
+                xfer.SetMessagePort(port)
+                if xfer.AsyncGetToString() then
+                    live[xfer.GetIdentity().ToStr()] = { xfer: xfer, index: nextIdx }
+                    pending = pending + 1
+                end if
+            end if
+            nextIdx = nextIdx + 1
+        end while
+        if pending = 0 then exit while
+        msg = Wait(timeoutMs, port)
+        if type(msg) = "roUrlEvent" then
+            id = msg.GetSourceIdentity().ToStr()
+            job = live[id]
+            if job <> invalid then
+                live.Delete(id)
+                pending = pending - 1
+                body = msg.GetString()
+                json = invalid
+                if body <> "" then json = ParseJson(body)
+                out[job.index] = { code: msg.GetResponseCode(), json: json }
+            end if
+        else if msg = invalid then
+            ' Nothing answered in time: what's still out timed out.
+            for each id in live
+                live[id].xfer.AsyncCancel()
+                out[live[id].index] = { code: -28, json: invalid }
+            end for
+            live.Clear()
+            pending = 0
+        end if
+    end while
+    return out
+end function
+
+' A transfer for one Plex GET, or invalid when the URL is refused: HTTPS with
+' verification, or plain HTTP to a private address only.
+function NxPlexTransfer(url as String, token as String) as Dynamic
+    xfer = CreateObject("roUrlTransfer")
+    if LCase(Left(url, 8)) = "https://" then
+        xfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
+        xfer.EnablePeerVerification(true)
+        xfer.EnableHostVerification(true)
+        xfer.RetainBodyOnError(true)
+    else if LCase(Left(url, 7)) <> "http://" or not NxIsPrivateHost(NxUrlHost(url)) then
+        print "nxhttp: refused plain HTTP to a non-private address"
+        return invalid
+    end if
+    xfer.SetUrl(url)
+    xfer.SetHeaders(NxPlexHeaders(token))
+    return xfer
+end function
+
 function NxPlexVideoRequest(url as String, token as String, timeoutMs = 5000 as Integer) as Integer
     return NxPlexServerGet(url, token, timeoutMs).code
 end function

@@ -161,13 +161,14 @@ sub loadLibrary()
     if m.top.useCache then
         clock0 = NxFilterClock()
         raw = ""
-        if CreateObject("roFileSystem").Exists(NxGuideCachePath()) then raw = ReadAsciiFile(NxGuideCachePath())
+        if CreateObject("roFileSystem").Exists(NxGuideCachePath()) then raw = NxReadBigFile(NxGuideCachePath())
         if raw <> "" then
             saved = ParseJson(raw)
             if type(saved) = "roAssociativeArray" then
                 if saved.key = NxGuideCacheKey(clock0.nowSec, NxEnabledBundles()) and type(saved.guide) = "roAssociativeArray" then
                     m.top.fromCache = true
                     m.top.guide = saved.guide
+                    m.shownGuide = saved.guide
                     m.top.status = "ready"
                     shown = true
                     print "library: showing the saved guide after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
@@ -180,6 +181,7 @@ sub loadLibrary()
             if fromPools <> invalid then
                 m.top.fromCache = true
                 m.top.guide = fromPools.guide
+                m.shownGuide = fromPools.guide
                 m.top.status = "ready"
                 shown = true
                 print "library: showing the saved pools, scheduled for today, after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
@@ -192,47 +194,81 @@ sub loadLibrary()
         return
     end if
 
+    ' The saved library (source/plex/LibrarySnapshot.brs): a rebuild after a
+    ' switch in Settings takes each server from it, and so does any load while
+    ' a server's library signature is unchanged and its save under a day old,
+    ' as the Apple TV app's refreshLibraryIfChanged skips the scan. A server
+    ' read this time is saved again once the guide is up.
+    snapDir = NxSnapshotDir()
+    snap = NxSnapshotReadMeta(snapDir)
+    nowSec& = NxFilterClock().nowSec
+    ' Every server keeps its index, on or off, since items carry it, and its
+    ' machine identifier keys its collections and its save.
+    keys = []
+    collections = { raw: [], serverKeys: {}, failed: 0 }
+    for i = 0 to servers.Count() - 1
+        key = NxToStr(servers[i].machineIdentifier)
+        if key = "" then key = "plex"
+        keys.Push(key)
+        collections.serverKeys[i.ToStr()] = key
+    end for
     items = []
-    ' Every server keeps its index, on or off, since items carry it.
+    scanned = []
     serversOn = NxServersOn(servers, NxSavedServerChoices())
     for i = 0 to servers.Count() - 1
         if serversOn[i] then
-            m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
-            got = NxPlexScanServer(servers[i], i, m.top)
-            if got = invalid then
-                if shown then
-                    print "library: background refresh couldn't read the library; keeping the saved guide"
+            saved = invalid
+            if type(snap.servers[keys[i]]) = "roAssociativeArray" then
+                fresh = m.top.rebuild
+                if not fresh then
+                    m.top.progress = "Checking your library on " + NxToStr(servers[i].name) + "…"
+                    fresh = NxSnapshotFresh(snap.servers[keys[i]], NxPlexServerSignature(servers[i]), nowSec&)
+                end if
+                if fresh then saved = NxSnapshotLoadServer(snapDir, snap, keys[i], i)
+            end if
+            if saved <> invalid then
+                items.Append(saved.items)
+                if saved.collections <> invalid then
+                    collections.raw.Append(saved.collections)
+                else
+                    collections.failed = collections.failed + 1
+                end if
+                print "library: "; saved.items.Count(); " items from the saved library, server "; i
+            else
+                m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
+                info = { signature: invalid }
+                got = NxPlexScanServer(servers[i], i, m.top, info)
+                if got = invalid then
+                    if shown then
+                        print "library: background refresh couldn't read the library; keeping the saved guide"
+                        return
+                    end if
+                    fail("Couldn't read the library on " + NxToStr(servers[i].name) + ". Press OK to try again.")
                     return
                 end if
-                fail("Couldn't read the library on " + NxToStr(servers[i].name) + ". Press OK to try again.")
-                return
+                items.Append(got)
+                scanned.Push({ index: i, key: keys[i], signature: info.signature, collections: invalid })
             end if
-            items.Append(got)
         end if
     end for
-    print "library: "; items.Count(); " items in "; timer.TotalMilliseconds(); " ms"
+    print "library: "; items.Count(); " items in "; timer.TotalMilliseconds(); " ms ("; scanned.Count(); " servers scanned)"
 
     ' Server collections (source/collections/Collections.brs), read after the
-    ' library as the web tuner's scan runs after its load. A server whose
-    ' collections can't be read just has none this time.
+    ' library as the web tuner's scan runs after its load, for the servers
+    ' just scanned. A server whose collections can't be read just has none
+    ' this time.
     timer.Mark()
-    m.top.progress = "Reading your collections…"
-    collections = { raw: [], serverKeys: {}, failed: 0 }
-    for i = 0 to servers.Count() - 1
-        ' The machine identifier, so a saved switch outlives a new address.
-        key = NxToStr(servers[i].machineIdentifier)
-        if key = "" then key = "plex"
-        collections.serverKeys[i.ToStr()] = key
-        if serversOn[i] then
-            got = NxCollectionsFetchPlex(key, NxPlexCollectionsFetcher(servers[i]), m.top)
-            if got = invalid then
-                collections.failed = collections.failed + 1
-            else
-                collections.raw.Append(got)
-            end if
+    if scanned.Count() > 0 then m.top.progress = "Reading your collections…"
+    for each s in scanned
+        got = NxCollectionsFetchPlex(s.key, NxPlexCollectionsFetcher(servers[s.index]), m.top)
+        if got = invalid then
+            collections.failed = collections.failed + 1
+        else
+            collections.raw.Append(got)
+            s.collections = got
         end if
     end for
-    print "library: "; collections.raw.Count(); " server collections read ("; collections.failed; " servers failed) in "; timer.TotalMilliseconds(); " ms"
+    print "library: "; collections.raw.Count(); " server collections ("; collections.failed; " servers failed) in "; timer.TotalMilliseconds(); " ms"
     config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
     manifest = ParseJson(ReadAsciiFile("pkg:/data/channels-memberships.json"))
 
@@ -262,6 +298,12 @@ sub loadLibrary()
         if added > 0 then built = invalid
     end if
     if built = invalid then built = buildGuide(items, config, manifest, collections, shown)
+    timer.Mark()
+    for each s in scanned
+        NxSnapshotSaveServer(snapDir, snap, s.key, items, s.index, s.collections, s.signature, nowSec&)
+    end for
+    NxSnapshotForgetServers(snapDir, snap, keys)
+    if scanned.Count() > 0 then print "library: saved the library in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit"
     ' Only the pools are scheduled from here on, for as long as the app runs:
     ' let the rest of the library and every item's filter cache go.
     for each it in items
@@ -412,11 +454,15 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' screen alone.
     ' The package list counts too: a new package that is off changes no
     ' channel, but Settings has to show it.
-    if shown and FormatJson(guide.channels) = FormatJson(m.top.guide.channels) and FormatJson(guide.bundles) = FormatJson(m.top.guide.bundles) and FormatJson(guide.franchises) = FormatJson(m.top.guide.franchises) and FormatJson(guide.collections) = FormatJson(m.top.guide.collections) then
+    ' Compared with the task's own copy: each read of m.top.guide copies the
+    ' whole guide out of the node.
+    old = m.shownGuide
+    if shown and old <> invalid and FormatJson(guide.channels) = FormatJson(old.channels) and FormatJson(guide.bundles) = FormatJson(old.bundles) and FormatJson(guide.franchises) = FormatJson(old.franchises) and FormatJson(guide.collections) = FormatJson(old.collections) then
         print "library: background refresh matches the saved guide"
     else
         m.top.fromCache = false
         m.top.guide = guide
+        m.shownGuide = guide
         m.top.status = "ready"
     end if
     return { ordered: ordered, guide: guide }

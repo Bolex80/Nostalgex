@@ -414,6 +414,11 @@ end sub
 ' 400), so the running one is stopped first and the channel starts when the
 ' stop has gone through.
 sub tune(idx as Integer)
+    ' From the press to the picture, stop included: the maintainer's bar is
+    ' under 10 s for a converted channel, mid-programme too.
+    ' A retry keeps the clock running.
+    if m.retrying <> true then m.tuneClock = CreateObject("roTimespan")
+    m.retrying = false
     if m.stopUrl <> invalid and m.stopUrl <> "" then
         m.pendingTune = idx
         stopPrevious()
@@ -448,7 +453,8 @@ sub startTune(idx as Integer)
     NxPlexApplyAuth(m.video, NxPlexStreamToken(b))
     m.video.content = stream.content
     m.video.control = "play"
-    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route
+    m.tuneFormat = stream.content.streamFormat
+    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; t - b.startSec; " s into the airing"
 end sub
 
 sub onBuffering()
@@ -496,6 +502,10 @@ sub onVideoState()
     state = m.video.state
     print "player: "; state
     if state = "playing" then
+        if m.tuneClock <> invalid then
+            print "player: picture after "; m.tuneClock.TotalMilliseconds(); " ms ("; m.tuneFormat; ")"
+            m.tuneClock = invalid
+        end if
         m.retried = false
         m.top.FindNode("haze").visible = false
         applySubtitles()
@@ -520,6 +530,7 @@ end sub
 
 sub onRetry()
     print "player: retrying"
+    m.retrying = true
     tune(m.tuned)
 end sub
 

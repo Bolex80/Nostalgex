@@ -73,6 +73,9 @@ end sub
 sub signInDone()
     if m.inSignIn <> true then return
     m.inSignIn = false
+    ' The first run's clock: the maintainer's bar is the guide up within 2
+    ' minutes of signing in.
+    m.signedInClock = CreateObject("roTimespan")
     m.top.signalBeacon("AppDialogComplete")
 end sub
 
@@ -83,9 +86,10 @@ sub launchComplete()
     m.top.signalBeacon("AppLaunchComplete")
 end sub
 
-sub startLibrary(useCache = false as Boolean)
+sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean)
     m.library = CreateObject("roSGNode", "LibraryTask")
     m.library.useCache = useCache
+    m.library.rebuild = rebuild
     m.library.ObserveField("progress", "onLibraryProgress")
     m.library.ObserveField("status", "onLibraryStatus")
     m.library.control = "run"
@@ -99,6 +103,7 @@ sub onLibraryStatus()
     status = m.library.status
     if status = "error" then
         if m.guide <> invalid then return
+        m.signedInClock = invalid
         m.prompt.text = m.library.message
         m.hint.text = "Press OK to try again, or * to sign out of Plex on this TV."
         launchComplete()
@@ -107,6 +112,10 @@ sub onLibraryStatus()
         m.hint.text = ""
         m.top.FindNode("title").visible = false
         first = m.guide = invalid
+        if first and m.signedInClock <> invalid then
+            print "library: guide on screen "; m.signedInClock.TotalSeconds(); " s after sign-in"
+            m.signedInClock = invalid
+        end if
         if first then
             m.guide = CreateObject("roSGNode", "GuideView")
             m.guide.ObserveField("action", "onGuideAction")
@@ -159,7 +168,7 @@ sub onGuideAction()
         signOut()
     else if action = "rebuild" then
         m.prompt.text = "Rebuilding your channels…"
-        startLibrary(true)
+        startLibrary(true, true)
     end if
 end sub
 
@@ -167,8 +176,9 @@ sub signOut()
     if m.signIn <> invalid then m.signIn.control = "stop"
     dropGuide()
     NxPlexClearAuth()
-    ' The saved guide and pools and the enrichment cache (which TMDB ids the
-    ' library has) are this account's library; they go with the sign-in.
+    ' The saved guide, pools and library and the enrichment cache (which TMDB
+    ' ids the library has) are this account's library; they go with the sign-in.
+    NxSnapshotClear(NxSnapshotDir())
     DeleteFile("cachefs:/nostalgex-guide.json")
     DeleteFile("cachefs:/nostalgex-pools.json")
     DeleteFile("cachefs:/nostalgex-enrichment.json")

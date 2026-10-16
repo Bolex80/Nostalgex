@@ -34,8 +34,22 @@ and already pinned to the Apple TV.
 Start-up follows upstream's cached-library path. The last build's guide is
 saved on the TV and shown at once when a fresh build would give the same
 result: same local day, same UTC day (the pool shuffle's seed), same packages
-and same app version. The library is then re-read in the background, and the
-guide is swapped only if it changed. The build task stays running with the
+and same app version. The library is then refreshed in the background, and
+the guide is swapped only if it changed.
+
+The library itself is saved too, after the Apple TV app's
+`LibrarySnapshotStore.swift` (`source/plex/LibrarySnapshot.brs`): each
+server's items and collections in 2,000-item chunk files under
+`cachefs:/nostalgex-library/`, with the meta file written last so a save cut
+off part way leaves the last one readable. Switching a package, franchise,
+collection or server in Settings rebuilds the channels from it and reads only
+a server it doesn't have (Discussion #8, item 7). A launch's background
+refresh asks each server for its section list first and skips the scan while
+the library signature (`LibraryChangeSignature.swift`: each section's
+`updatedAt` and `contentChangedAt`) is unchanged and the save is under a day
+old, as the Apple TV app's `refreshLibraryIfChanged` does. Saved items drop
+the filter cache, the enrichment record and the artwork paths, which nothing
+after the scan reads. Sign-out deletes them with the rest. The build task stays running with the
 pools and re-checks schedules every 30 seconds, as upstream's
 `rebuildAllSchedules` does, so time restrictions and day changes re-pack as
 they would upstream.
@@ -190,7 +204,8 @@ web tuner does, so `tests/live/` checks that against a real server:
 The loader differs from upstream only where no result depends on it. Items
 carry a server index, not the server's token, and no `serverID`: server
 collections key items by the index instead. The display string `meta` is
-built by the guide. Requests run one at a time, in upstream's order. Like upstream, it asks
+built by the guide. Shows' episodes are fetched five at a time, as
+upstream's are, and kept in show order; other requests run one at a time. Like upstream, it asks
 Plex for `includeGuids=1`, which is what gives items a TMDB id for the
 membership manifest, and episodes take their show's id.
 
