@@ -155,12 +155,15 @@ a { color: inherit; }
 
 /* ---------- Kickers / headline accents ---------- */
 
-/* 700px wrapped four of the six section headings on the home page even though
-   the container is 1170px, so short display lines broke for no reason. These
-   headings run 22 to 42 characters, well inside a comfortable line at display
-   size, so the cap only needs to stop a heading running the full container.
-   Prose under a heading keeps the tighter measure. */
-.section-head { max-width: 980px; margin-bottom: 64px; }
+/* No width cap on the heading block. A fixed one in px cannot be right at every
+   viewport: 700px wrapped four of the six home page headings with 400px of
+   empty room beside them, and any replacement number is just a better guess.
+   The container already limits the line, the font size is already fluid, and
+   text-wrap: balance evens out the lines when a heading does have to wrap, so
+   no line is left with a single word. Prose under a heading keeps a tight
+   measure, because that is body copy and long lines there are harder to read. */
+.section-head { margin-bottom: 64px; }
+.section-head h2, .guide-copy h2, .surf-copy h2 { text-wrap: balance; }
 .section-head p { max-width: 700px; }
 .section-head h2, .guide-copy h2, .surf-copy h2 {
   font-size: clamp(32px, 4.2vw, 50px);
