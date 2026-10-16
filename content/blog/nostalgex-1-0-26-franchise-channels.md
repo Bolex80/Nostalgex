@@ -81,7 +81,7 @@ Yes. The [web tuner at nostalgex.app](https://www.nostalgex.app/web-tuner) now w
 
 ## Is Nostalgex still free?
 
-Yes. Nostalgex is free and open source under the MIT licence. There is now a small tip jar in Settings with three options: Popcorn, TV Dinner and Pizza Night. Tips unlock nothing. Every feature stays free for everyone. If Nostalgex has given you a few good nights in front of the TV and you want to say thanks, that is what it is there for.
+Yes. Nostalgex is free and open source under the MIT licence. There is now a small tip jar in Settings with three options: Popcorn, TV Dinner and Pizza Night. A tip is just a thank you. If Nostalgex has given you a few good nights in front of the TV and you want to say thanks, that is what it is there for.
 
 ## Thanks
 
