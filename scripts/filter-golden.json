@@ -550,6 +550,377 @@
       "out": [
         415
       ]
+    },
+    {
+      "name": "the-wailing-is-world-horror",
+      "about": "WORLD HORROR is manifestOnly: the claim comes from discover-world-horror.mjs (TMDB original language not English).",
+      "item": {
+        "title": "The Wailing",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Mystery"
+        ],
+        "contentRating": "NR",
+        "tmdbID": "293670"
+      },
+      "in": [
+        418,
+        141
+      ],
+      "out": [
+        51
+      ]
+    },
+    {
+      "name": "train-to-busan-is-world-horror",
+      "item": {
+        "title": "Train to Busan",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "NR",
+        "tmdbID": "396535"
+      },
+      "in": [
+        418,
+        141
+      ]
+    },
+    {
+      "name": "english-horror-is-not-world-horror",
+      "item": {
+        "title": "The Conjuring",
+        "year": 2013,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Thriller"
+        ],
+        "contentRating": "R",
+        "tmdbID": "138843"
+      },
+      "in": [
+        141,
+        132
+      ],
+      "out": [
+        418
+      ]
+    },
+    {
+      "name": "world-horror-needs-a-tmdb-id",
+      "item": {
+        "title": "The Wailing",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Mystery"
+        ],
+        "contentRating": "NR"
+      },
+      "in": [
+        141
+      ],
+      "out": [
+        418
+      ]
+    },
+    {
+      "name": "lost-is-mystery-box-tv",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Lost",
+        "year": 2004,
+        "genres": [
+          "Mystery",
+          "Drama"
+        ],
+        "contentRating": "TV-14",
+        "tmdbID": "4607"
+      },
+      "in": [
+        419
+      ]
+    },
+    {
+      "name": "lost-in-space-is-not-mystery-box-tv",
+      "about": "Why MYSTERY BOX TV goes by TMDB id and not by title.",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Lost in Space",
+        "year": 2018,
+        "genres": [
+          "Drama",
+          "Science Fiction"
+        ],
+        "contentRating": "TV-PG",
+        "tmdbID": "75758"
+      },
+      "out": [
+        419
+      ]
+    },
+    {
+      "name": "a-film-called-lost-is-not-mystery-box-tv",
+      "item": {
+        "title": "Lost",
+        "year": 2004,
+        "type": "movie",
+        "genres": [
+          "Mystery",
+          "Thriller"
+        ],
+        "contentRating": "R"
+      },
+      "out": [
+        419
+      ]
+    },
+    {
+      "name": "from-tagged-horror-still-reaches-mystery-box-tv",
+      "about": "Plex can tag FROM Horror. The channel includes Horror so the horror genre lock lets its curated shows through; manifestOnly means nothing else gets in.",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "FROM",
+        "year": 2022,
+        "genres": [
+          "Drama",
+          "Horror"
+        ],
+        "contentRating": "TV-MA",
+        "tmdbID": "124364"
+      },
+      "in": [
+        419
+      ]
+    },
+    {
+      "name": "dark-matter-is-not-dark",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Dark Matter",
+        "year": 2024,
+        "genres": [
+          "Science Fiction",
+          "Drama"
+        ],
+        "contentRating": "TV-MA",
+        "tmdbID": "196322"
+      },
+      "out": [
+        419
+      ]
+    },
+    {
+      "name": "the-office-is-cringe-tv",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "The Office",
+        "year": 2005,
+        "genres": [
+          "Comedy"
+        ],
+        "contentRating": "TV-14",
+        "tmdbID": "2316"
+      },
+      "in": [
+        420,
+        50
+      ]
+    },
+    {
+      "name": "nathan-for-you-tagged-documentary-is-cringe-tv",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Nathan for You",
+        "year": 2013,
+        "genres": [
+          "Comedy",
+          "Documentary"
+        ],
+        "contentRating": "TV-14"
+      },
+      "in": [
+        420
+      ]
+    },
+    {
+      "name": "a-mockumentary-sitcom-is-not-cringe-tv",
+      "about": "TMDB's mockumentary keyword covers Modern Family and Parks and Recreation, so it is not one of CRINGE TV's keywords.",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Modern Family",
+        "year": 2009,
+        "genres": [
+          "Comedy",
+          "Drama"
+        ],
+        "contentRating": "TV-PG",
+        "enrichment": {
+          "keywords": [
+            "mockumentary",
+            "family"
+          ]
+        }
+      },
+      "out": [
+        420
+      ]
+    },
+    {
+      "name": "cringe-keyword-on-a-comedy",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Hello Strangers",
+        "year": 2020,
+        "genres": [
+          "Comedy"
+        ],
+        "contentRating": "TV-14",
+        "enrichment": {
+          "keywords": [
+            "socially awkward",
+            "dating"
+          ]
+        }
+      },
+      "in": [
+        420
+      ]
+    },
+    {
+      "name": "cringe-keyword-needs-comedy",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Some Docuseries",
+        "year": 2020,
+        "genres": [
+          "Documentary"
+        ],
+        "contentRating": "TV-14",
+        "enrichment": {
+          "keywords": [
+            "awkward"
+          ]
+        }
+      },
+      "out": [
+        420
+      ]
+    },
+    {
+      "name": "a-plain-sitcom-is-not-cringe-tv",
+      "item": {
+        "type": "episode",
+        "librarySource": "tv",
+        "duration": 30,
+        "title": "Friends",
+        "year": 1994,
+        "genres": [
+          "Comedy",
+          "Romance"
+        ],
+        "contentRating": "TV-14"
+      },
+      "in": [
+        50
+      ],
+      "out": [
+        420
+      ]
+    },
+    {
+      "name": "a24-by-studio-including-horror",
+      "about": "A studio channel skips the genre locks, so A24 horror airs on A24 with SCREAM switched off. Same as the other studio channels.",
+      "item": {
+        "title": "Hereditary",
+        "year": 2018,
+        "type": "movie",
+        "genres": [
+          "Horror",
+          "Mystery"
+        ],
+        "contentRating": "R",
+        "studio": "A24"
+      },
+      "in": [
+        421,
+        141
+      ],
+      "out": [
+        51
+      ]
+    },
+    {
+      "name": "a24-by-production-company",
+      "item": {
+        "title": "Moonlight",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Drama"
+        ],
+        "contentRating": "R",
+        "studio": "Plan B Entertainment",
+        "enrichment": {
+          "productionCompanies": [
+            "A24",
+            "Plan B Entertainment",
+            "PASTEL"
+          ]
+        }
+      },
+      "in": [
+        421,
+        51
+      ]
+    },
+    {
+      "name": "not-a24",
+      "item": {
+        "title": "Arrival",
+        "year": 2016,
+        "type": "movie",
+        "genres": [
+          "Science Fiction",
+          "Drama"
+        ],
+        "contentRating": "PG-13",
+        "studio": "Paramount",
+        "enrichment": {
+          "productionCompanies": [
+            "Paramount Pictures",
+            "FilmNation Entertainment"
+          ]
+        }
+      },
+      "out": [
+        421
+      ]
     }
   ]
 }

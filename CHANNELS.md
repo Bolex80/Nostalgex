@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 38 · **134 channels** across **14 bundles** · 84 channels whose `id` differs from their `number`.
+**Config version:** 38 · **138 channels** across **14 bundles** · 88 channels whose `id` differs from their `number`.
 
 ---
 
@@ -54,20 +54,20 @@ only name the channel's own defining genre.
 |---|---|---|---|---|
 | NOSTALGEX | `nostalgex` | 19 | CH 1–19 | The 80s and 90s. All retro, all the time |
 | KIDZ ZONE | `kids` | 15 | CH 20–34 | Disney, Nickelodeon, Pixar, and more |
-| PRIME TIME | `essentials` | 15 | CH 40–54 | Everyday favorites and feel-good viewing |
+| PRIME TIME | `essentials` | 16 | CH 40–55 | Everyday favorites and feel-good viewing |
 | MARQUEE | `premium` | 11 | CH 59–69 | Premium channels |
 | ADVENTURELAND | `adventureland` | 9 | CH 70–78 | Epic quests, disasters, and adrenaline |
 | OVERTIME | `sports` | 3 | CH 80–82 | Movies, shows, and docs |
-| CASE FILES | `truecrime` | 5 | CH 85–89 | True crime, thrillers & mystery |
+| CASE FILES | `truecrime` | 6 | CH 84–89 | True crime, thrillers & mystery |
 | DECADES | `decades` | 7 | CH 90–96 | Movies and shows sorted by decade |
 | FRANCHISES | `franchises` | 7 | CH 100–106 | Movie franchise marathons |
 | ARTHOUSE | `arthouse` | 4 | CH 107–110 | Criterion, foreign films, midnight movies, and cult classics |
-| NETWORKS | `streamers` | 11 | CH 119–129 | Channels by streaming service and studio |
+| NETWORKS | `streamers` | 12 | CH 118–129 | Channels by streaming service and studio |
 | TIS THE SEASON | `tis-the-season` | 7 | CH 130–136 | Christmas and holiday channels. Spotlighted Dec. Off until switched on, then on in any month. |
-| SCREAM | `seasonal` | 7 | CH 137–143 | Horror, all year's worth, front and centre every October. Spotlighted Oct. Off until switched on, then on in any month. |
+| SCREAM | `seasonal` | 8 | CH 137–144 | Horror, all year's worth, front and centre every October. Spotlighted Oct. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
-Bundled channels: 134 of 134.
+Bundled channels: 138 of 138.
 
 ---
 
@@ -145,7 +145,7 @@ _Disney, Nickelodeon, Pixar, and more_
 | 33 | **`218`** ⚠︎ | DREAMWORKS | `#2ECC71` | Any | 5 | studios DreamWorks Animation/Pacific Data Images, rated G/PG/PG-13/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
 | 34 | **`400`** ⚠︎ | TOON TOWN | `#FF9F1C` | Movies | 5 | kw +1, rated G/PG/PG-13/unrated |
 
-### PRIME TIME · CH 40–54
+### PRIME TIME · CH 40–55
 
 _Everyday favorites and feel-good viewing_
 
@@ -166,6 +166,7 @@ _Everyday favorites and feel-good viewing_
 | 52 | **`404`** ⚠︎ | HISTORY & BIO | `#A0522D` | Movies | 5 | incl History/Biography, no Documentary/Docuseries/Animation/Animated |
 | 53 | **`402`** ⚠︎ | R RATED COMEDY | `#E84393` | Movies | 5 | incl Comedy, no Animation/Family/Children/Kids, title blocklist (6), 1995-2029, rated R |
 | 54 | **`403`** ⚠︎ | PREMIERES | `#F72585` | Any | 1 | incl Action/Adventure/Animation/Anime/Biography/Cartoon +23 more, added ≤ 14 d ago |
+| 55 | **`420`** ⚠︎ | CRINGE TV | `#F7DC6F` | Episodes | 3 | incl Comedy/Documentary, title allowlist (20), kw +9, kw needs genre Comedy, kw-gated genre Comedy/Documentary |
 
 ### MARQUEE · CH 59–69
 
@@ -211,12 +212,13 @@ _Movies, shows, and docs_
 | 81 | `81` | OVERTIME TV | `#2ECC71` | Episodes | 3 | incl Sport/Sports, title allowlist (1) |
 | 82 | `82` | SPORTS DOCS | `#27AE60` | Any | 3 | incl Documentary, needs ALL Sport |
 
-### CASE FILES · CH 85–89
+### CASE FILES · CH 84–89
 
 _True crime, thrillers & mystery_
 
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
+| 84 | **`419`** ⚠︎ | MYSTERY BOX TV | `#2E4053` | Episodes | 3 | **TMDB manifest only**, incl Mystery/Horror |
 | 85 | **`40`** ⚠︎ | TRUE CRIME | `#7B241C` | Any | 1 | incl Documentary/Docuseries, needs ALL Documentary, kw +17, kw-gated genre Documentary/Docuseries |
 | 86 | **`41`** ⚠︎ | CRIME FLICKS | `#A93226` | Movies | 5 | incl Crime, no Documentary, kw +7, kw needs genre Crime |
 | 87 | **`42`** ⚠︎ | THRILLERS | `#5B2C6F` | Movies | 5 | incl Thriller, no Horror/Documentary, kw +7, kw needs genre Thriller/Crime |
@@ -262,12 +264,13 @@ _Criterion, foreign films, midnight movies, and cult classics_
 | 109 | **`213`** ⚠︎ | MIDNIGHT | `#1A0A2E` | Movies | 3 | kw +9 |
 | 110 | **`214`** ⚠︎ | CULT CLASSICS | `#6C1C8A` | Movies | 3 | kw +5, **IMDb votes ≥ 30,000** |
 
-### NETWORKS · CH 119–129
+### NETWORKS · CH 118–129
 
 _Channels by streaming service and studio_
 
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
+| 118 | **`421`** ⚠︎ | A24 | `#E5E5E5` | Movies | 3 | studios A24, prodCo A24 |
 | 119 | **`120`** ⚠︎ | HBO | `#8B5CF6` | Any | 5 | studios HBO/HBO Films/HBO Max, networks HBO/Max/HBO Max, title allowlist (52) |
 | 120 | **`121`** ⚠︎ | APPLE TV+ | `#5AC8FA` | Any | 3 | studios Apple TV+/Apple/Apple Studios, networks Apple TV+, title allowlist (80) |
 | 121 | **`122`** ⚠︎ | NETFLIX | `#E50914` | Any | 3 | studios Netflix/Netflix Animation/Netflix Studios +2 more, networks Netflix, title allowlist (40), editorial always-in (4) |
@@ -296,7 +299,7 @@ Spotlighted Dec. Off until switched on, then on in any month.
 | 135 | **`413`** ⚠︎ | CHRISTMAS SPECIALS | `#27AE60` | Episodes | 3 | rated TV-PG/PG/TV-14/TV-MA/PG-13/R |
 | 136 | **`414`** ⚠︎ | KIDS CHRISTMAS TV | `#58D68D` | Episodes | 3 | rated TV-Y/TV-Y7/TV-G/G/unrated |
 
-### SCREAM · CH 137–143
+### SCREAM · CH 137–144
 
 _Horror, all year's worth, front and centre every October_
 
@@ -311,6 +314,7 @@ Spotlighted Oct. Off until switched on, then on in any month.
 | 141 | **`415`** ⚠︎ | SLASHER | `#C0001A` | Movies | 5 | incl Horror, no Family/Children/Kids/Animation/Animated, title allowlist (23), title blocklist (3), kw +4, kw needs genre Horror, kw-gated genre Horror |
 | 142 | **`416`** ⚠︎ | HORROR COMEDY | `#8BC34A` | Movies | 3 | incl Horror, needs ALL Horror + Comedy, no Family/Children/Kids/Animation/Animated, rated PG/PG-13/R/NC-17/TV-14/TV-MA/NR/unrated |
 | 143 | **`417`** ⚠︎ | FOUND FOOTAGE | `#5D6D5F` | Movies | 3 | incl Horror, no Family/Children/Kids/Animation/Animated, title allowlist (10), kw +2, kw needs genre Horror/Science Fiction, kw-gated genre Horror |
+| 144 | **`418`** ⚠︎ | WORLD HORROR | `#6A1B9A` | Movies | 3 | **TMDB manifest only**, incl Horror, no Family/Children/Kids/Animation/Animated |
 
 ### HIGH ROTATION · CH 200–213
 
@@ -337,7 +341,7 @@ _Music videos by genre_
 
 ## `id` ≠ `number`
 
-84 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
+88 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
 
 | `id` | Airs as | Name |
 |---|---|---|
@@ -365,6 +369,7 @@ _Music videos by genre_
 | `404` | CH52 | HISTORY & BIO |
 | `402` | CH53 | R RATED COMEDY |
 | `403` | CH54 | PREMIERES |
+| `420` | CH55 | CRINGE TV |
 | `60` | CH59 | ANIME |
 | `61` | CH60 | MUSICALS |
 | `55` | CH61 | GAME SHOWS |
@@ -378,6 +383,7 @@ _Music videos by genre_
 | `217` | CH69 | SKETCH COMEDY |
 | `65` | CH77 | SUPERHERO MOVIES |
 | `219` | CH78 | SPY GAMES |
+| `419` | CH84 | MYSTERY BOX TV |
 | `40` | CH85 | TRUE CRIME |
 | `41` | CH86 | CRIME FLICKS |
 | `42` | CH87 | THRILLERS |
@@ -387,6 +393,7 @@ _Music videos by genre_
 | `212` | CH108 | FOREIGN FILMS |
 | `213` | CH109 | MIDNIGHT |
 | `214` | CH110 | CULT CLASSICS |
+| `421` | CH118 | A24 |
 | `120` | CH119 | HBO |
 | `121` | CH120 | APPLE TV+ |
 | `122` | CH121 | NETFLIX |
@@ -411,6 +418,7 @@ _Music videos by genre_
 | `415` | CH141 | SLASHER |
 | `416` | CH142 | HORROR COMEDY |
 | `417` | CH143 | FOUND FOOTAGE |
+| `418` | CH144 | WORLD HORROR |
 | `150` | CH200 | HIGH ROTATION |
 | `151` | CH201 | POP |
 | `152` | CH202 | ROCK'N |

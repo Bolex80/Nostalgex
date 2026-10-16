@@ -181,6 +181,7 @@
       "name": "CASE FILES",
       "description": "True crime, thrillers & mystery",
       "channelIDs": [
+        419,
         40,
         41,
         42,
@@ -207,7 +208,8 @@
         210,
         404,
         402,
-        403
+        403,
+        420
       ]
     },
     {
@@ -298,6 +300,7 @@
       "name": "NETWORKS",
       "description": "Channels by streaming service and studio",
       "channelIDs": [
+        421,
         120,
         121,
         122,
@@ -322,7 +325,8 @@
         408,
         415,
         416,
-        417
+        417,
+        418
       ],
       "activeMonths": [
         10
@@ -1129,6 +1133,30 @@
         "keywordGatedGenres": [
           "Horror"
         ]
+      }
+    },
+    {
+      "id": 418,
+      "number": 144,
+      "name": "WORLD HORROR",
+      "colorHex": "#6A1B9A",
+      "category": "seasonal",
+      "minItems": 3,
+      "rules": {
+        "type": "movie",
+        "manifestOnly": true,
+        "genres": {
+          "include": [
+            "Horror"
+          ],
+          "exclude": [
+            "Family",
+            "Children",
+            "Kids",
+            "Animation",
+            "Animated"
+          ]
+        }
       }
     },
     {
@@ -3014,6 +3042,24 @@
         "keywordsRequireAnyGenre": [
           "Crime"
         ]
+      }
+    },
+    {
+      "id": 419,
+      "number": 84,
+      "name": "MYSTERY BOX TV",
+      "colorHex": "#2E4053",
+      "category": "truecrime",
+      "minItems": 3,
+      "rules": {
+        "type": "episode",
+        "manifestOnly": true,
+        "genres": {
+          "include": [
+            "Mystery",
+            "Horror"
+          ]
+        }
       }
     },
     {
@@ -5228,6 +5274,23 @@
       }
     },
     {
+      "id": 421,
+      "number": 118,
+      "name": "A24",
+      "colorHex": "#E5E5E5",
+      "category": "streamers",
+      "minItems": 3,
+      "rules": {
+        "type": "movie",
+        "studios": [
+          "A24"
+        ],
+        "productionCompanies": [
+          "A24"
+        ]
+      }
+    },
+    {
       "id": 402,
       "number": 53,
       "name": "R RATED COMEDY",
@@ -5307,6 +5370,63 @@
             "Western"
           ]
         }
+      }
+    },
+    {
+      "id": 420,
+      "number": 55,
+      "name": "CRINGE TV",
+      "colorHex": "#F7DC6F",
+      "category": "essentials",
+      "minItems": 3,
+      "rules": {
+        "type": "episode",
+        "genres": {
+          "include": [
+            "Comedy",
+            "Documentary"
+          ]
+        },
+        "titleContains": [
+          "The Office",
+          "Extras",
+          "Curb Your Enthusiasm",
+          "Peep Show",
+          "Nathan for You",
+          "The Rehearsal",
+          "How To with John Wilson",
+          "The Comeback",
+          "I Think You Should Leave",
+          "Jury Duty",
+          "Alan Partridge",
+          "Summer Heights High",
+          "Hello Ladies",
+          "The Larry Sanders Show",
+          "Tim and Eric",
+          "The Chair Company",
+          "Who Is America",
+          "Da Ali G Show",
+          "The Inbetweeners",
+          "Flight of the Conchords"
+        ],
+        "keywords": [
+          "cringe",
+          "cringe comedy",
+          "awkwardness",
+          "awkward",
+          "awkward situation",
+          "socially awkward",
+          "embarrassment",
+          "uncomfortable",
+          "anti-humor"
+        ],
+        "keywordsRequireAnyGenre": [
+          "Comedy"
+        ],
+        "keywordGatedGenres": [
+          "Comedy",
+          "Documentary"
+        ]
       }
     }
   ]
