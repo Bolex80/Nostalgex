@@ -540,6 +540,11 @@
   body.retro-mode .video-container {
     animation: crt-on 1.2s ease forwards, retro-flicker 0.15s linear infinite;
   }
+  /* Retro mode is for the picture. Until a channel plays, the video area holds
+     the loading screen, and a 150ms flicker with 80ms scanlines over it made a
+     TV browser's cursor lag and washed its colours out. */
+  body.retro-mode .player-screen:not(.has-channel) .video-container { animation: none; }
+  body.retro-mode .player-screen:not(.has-channel) .retro-overlay { display: none; }
 
   /* CRT screen curvature */
   body.retro-mode .video-container {
@@ -975,22 +980,6 @@
     gap: 24px;
     background: #000;
     z-index: 100;
-  }
-  .connect-crt-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.1) 2px,
-        rgba(0,0,0,0.1) 4px
-      ),
-      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
-    animation: scanlines 0.08s linear infinite, retro-flicker 0.15s linear infinite;
   }
   .plex-logo {
     position: relative;
@@ -1717,6 +1706,42 @@
     color: rgba(0,255,255,0.35);
   }
 
+  /* Pointer-only ways to do what the keyboard does. A TV browser's remote moves
+     a cursor and sends OK as a tap; no arrow key, Escape or letter ever reaches
+     the page (measured in TV Bro on Google TV). */
+  .grid-page-btns { display: none; gap: 12px; justify-content: center; }
+  .grid-footer .grid-page-btns span { color: inherit; }
+  .grid-page, .fs-ctl, .config-close {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    background: rgba(0,0,0,0.8);
+    border: 2px solid var(--cyan);
+    border-radius: 0;
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+  .grid-page:hover, .fs-ctl:hover, .config-close:hover,
+  .grid-page:focus-visible, .fs-ctl:focus-visible, .config-close:focus-visible {
+    background: var(--cyan); color: #000; outline: none;
+  }
+  .fs-controls { display: flex; gap: 14px; margin-top: 16px; }
+  .fs-ctl { font-size: 11px; padding: 14px 20px; }
+  .fs-overlay.visible .fs-controls { pointer-events: auto; }
+  .config-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    z-index: 2;
+  }
+  /* A phone's centred logo is wide enough to run under the button, so start
+     the panel below it. */
+  @media (max-width: 560px) and (orientation: portrait) {
+    .config-overlay { padding-top: 68px; }
+    .config-panel { max-height: calc(100vh - 96px); }
+  }
+
   /* ══════════════════════════════════════
      CHANNEL CONFIG OVERLAY
   ══════════════════════════════════════ */
@@ -2191,6 +2216,34 @@
     .v-coffee { margin-top: 3px; padding: 6px 8px; gap: 3px; }
     .v-coffee svg { width: 22px; height: 22px; }
     .v-social { margin-top: 3px; padding: 5px; }
+  }
+
+  /* TV browsers. A browser on a TV (TV Bro on Google TV, for one) reports a
+     mouse pointer and a small viewport, so it gets the desktop layout at about
+     twice the size it was drawn for: four guide rows, the rail cut off below
+     APPLE TV, the channel tag riding into the corner logo. Scale the whole page
+     so it lays out like a desktop window about 1440px wide. zoom also scales
+     100vw/100vh, so the body is sized back up to fill the screen. Measured in
+     Chrome 155 at 960x540 and 1280x720. Touch screens never match. */
+  @media (pointer: fine) and (orientation: landscape) and (max-width: 1280px) and (max-height: 720px) {
+    html { zoom: 0.875; }
+    body { width: calc(100vw / 0.875); height: calc(100vh / 0.875); }
+    .config-panel { width: min(1100px, calc(95vw / 0.875)); max-height: calc(85vh / 0.875); }
+  }
+  @media (pointer: fine) and (orientation: landscape) and (max-width: 1099px) and (max-height: 620px) {
+    html { zoom: 0.6667; }
+    body { width: calc(100vw / 0.6667); height: calc(100vh / 0.6667); }
+    .config-panel { width: min(1100px, calc(95vw / 0.6667)); max-height: calc(85vh / 0.6667); }
+    .v-toolbar { padding: 6px 10px; gap: 4px; }
+    .v-btn { padding: 6px 8px; }
+    .v-coffee { margin-top: 4px; padding: 7px 8px; gap: 4px; }
+    .v-coffee svg { width: 26px; height: 26px; }
+    .v-social { margin-top: 4px; padding: 6px; }
+  }
+  @media (pointer: fine) and (orientation: landscape) and (max-width: 1280px) and (max-height: 720px) {
+    .grid-key-hints { display: none; }
+    .grid-page-btns { display: flex; }
+    .grid-footer { padding: 6px 16px; }
   }
 
   /* ══════════════════════════════════════
@@ -2948,7 +3001,10 @@
       <!-- playsinline is load-bearing on iPhone: without it iOS refuses to run the
            video inline at all, hands playback to the native fullscreen player, and
            pauses on the way out. webkit-playsinline is the same promise for older iOS. -->
-      <video id="plex-video" autoplay muted playsinline webkit-playsinline></video>
+      <!-- The poster is a 1x1 transparent GIF. Android's web view draws a grey
+           box with a large play icon over a video with no poster while the next
+           channel loads; this tells it there is nothing to draw. -->
+      <video id="plex-video" autoplay muted playsinline webkit-playsinline poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video>
 
       <!-- Unmute button -->
       <button class="unmute-btn" id="unmute-btn">CLICK TO UNMUTE &nbsp;/&nbsp; M KEY</button>
@@ -2998,6 +3054,12 @@
         <div class="fs-overlay-title" id="fs-overlay-title"></div>
         <div class="fs-overlay-bar"><div class="fs-overlay-progress" id="fs-overlay-progress"></div></div>
         <div class="fs-overlay-time" id="fs-overlay-time"></div>
+        <div class="fs-controls" id="fs-controls">
+          <button class="fs-ctl" type="button" data-fs="prev" aria-label="Previous channel">CH -</button>
+          <button class="fs-ctl" type="button" data-fs="next" aria-label="Next channel">CH +</button>
+          <button class="fs-ctl" type="button" data-fs="sound" aria-label="Sound">SOUND <span id="fs-sound-val">OFF</span></button>
+          <button class="fs-ctl" type="button" data-fs="exit" aria-label="Exit full screen">EXIT FULL SCREEN</button>
+        </div>
       </div>
 
       <!-- Clock -->
@@ -3030,7 +3092,6 @@
 
   <!-- Plex connect screen (direct child of player-screen to avoid stacking context issues) -->
   <div class="plex-connect" id="plex-connect">
-    <div class="connect-crt-overlay"></div>
     <div class="plex-logo">
       <img src="./logo/nostalgex-white.svg" alt="NOSTALGEX">
     </div>
@@ -3067,7 +3128,11 @@
     </div>
     <div class="grid-body" id="grid-body"></div>
     <div class="grid-footer">
-      <span>[ENTER]</span> TUNE IN  <span>[UP/DOWN]</span> BROWSE
+      <div class="grid-key-hints"><span>[ENTER]</span> TUNE IN  <span>[UP/DOWN]</span> BROWSE</div>
+      <div class="grid-page-btns">
+        <button class="grid-page" type="button" data-dir="-1" aria-label="Scroll the guide up">&#9650; UP</button>
+        <button class="grid-page" type="button" data-dir="1" aria-label="Scroll the guide down">&#9660; DOWN</button>
+      </div>
     </div>
   </div>
 
@@ -3076,6 +3141,7 @@
 
 <!-- CHANNEL CONFIG OVERLAY -->
 <div class="config-overlay" id="config-overlay">
+  <button class="config-close" type="button" onclick="hideConfig()" aria-label="Close settings">CLOSE</button>
   <div class="config-panel">
     <div class="config-header">
       <img src="./logo/nostalgex-white.svg" alt="Nostalgex">
@@ -3863,7 +3929,34 @@
       videoMuted = false;
       document.getElementById('unmute-btn').style.display = 'none';
       updateToolbarSound();
+      rememberSound();
     });
+
+    // Sound comes back on if the viewer left it on. A page that plays by itself
+    // starts muted, and a browser only lets it unmute inside a press (unmuting
+    // outside one pauses the video), so the saved choice waits for the first
+    // click, tap or key. pointerdown is not used: a touch pointerdown is not a
+    // press that lets a page unmute.
+    let soundWanted = false;
+    try { soundWanted = localStorage.getItem('plex90_sound_on') === 'true'; } catch (e) {}
+    if (soundWanted) {
+      const restoreSound = (e) => {
+        document.removeEventListener('click', restoreSound, true);
+        document.removeEventListener('keydown', restoreSound, true);
+        if (!videoMuted) return;
+        // A press on a sound control flips it itself; unmuting here too would
+        // leave it off.
+        if (e.type === 'click' && e.target.closest && e.target.closest('#unmute-btn, [onclick="toggleMute()"], [data-fs="sound"]')) return;
+        if (e.type === 'keydown' && (e.key === 'm' || e.key === 'M')) return;
+        const video = document.getElementById('plex-video');
+        video.muted = false;
+        videoMuted = false;
+        document.getElementById('unmute-btn').style.display = 'none';
+        updateToolbarSound();
+      };
+      document.addEventListener('click', restoreSound, true);
+      document.addEventListener('keydown', restoreSound, true);
+    }
 
     // Reflect the saved retro state across all controls on load
     updateRetroControls();
@@ -3916,6 +4009,26 @@
         e.preventDefault();
       }
     }, true);
+
+    // Guide paging for pointer-only remotes (shown at TV sizes).
+    document.querySelectorAll('.grid-page').forEach(btn => btn.addEventListener('click', () => {
+      const body = document.getElementById('grid-body');
+      body.scrollBy({ top: Number(btn.dataset.dir) * body.clientHeight * 0.8, behavior: 'smooth' });
+    }));
+
+    // Full screen: a click or an OK press on the picture brings up the info bar
+    // with channel and exit buttons, since a cursor remote has no arrow keys.
+    document.getElementById('video-container').addEventListener('click', (e) => {
+      if (!isVideoFullscreen()) return;
+      const ctl = e.target.closest('.fs-ctl');
+      if (ctl) {
+        if (ctl.dataset.fs === 'prev') prevChannel();
+        else if (ctl.dataset.fs === 'next') nextChannel();
+        else if (ctl.dataset.fs === 'sound') toggleMute();
+        else if (ctl.dataset.fs === 'exit') { toggleFullscreen(); return; }
+      }
+      showFsOverlayFor(5000);
+    });
 
     // Wire up grid row clicks
     document.getElementById('grid-body').addEventListener('click', (e) => {
@@ -5755,6 +5868,10 @@
     } else {
       // Left fullscreen — remove subtitle tracks.
       clearSubtitleTracks();
+      // The info bar lives inside the video, so it would sit over the small picture.
+      if (fsOverlayTimer) clearTimeout(fsOverlayTimer);
+      fsOverlayVisible = false;
+      document.getElementById('fs-overlay').classList.remove('visible');
     }
   });
 
@@ -5793,11 +5910,16 @@
     videoMuted = video.muted;
     document.getElementById('unmute-btn').style.display = video.muted ? 'block' : 'none';
     updateToolbarSound();
+    rememberSound();
+  }
+
+  function rememberSound() {
+    try { localStorage.setItem('plex90_sound_on', videoMuted ? 'false' : 'true'); } catch (e) {}
   }
 
   function updateToolbarSound() {
     // The rail and the touch drawer each carry their own copy of the value.
-    for (const id of ['tb-sound-val', 'dw-sound-val']) {
+    for (const id of ['tb-sound-val', 'dw-sound-val', 'fs-sound-val']) {
       const el = document.getElementById(id);
       if (!el) continue;
       el.textContent = videoMuted ? 'OFF' : 'ON';
@@ -6123,6 +6245,18 @@
         el.classList.remove('visible');
       }, 5000);
     }
+  }
+
+  function showFsOverlayFor(ms) {
+    const el = document.getElementById('fs-overlay');
+    fsOverlayVisible = true;
+    el.classList.add('visible');
+    updateFsOverlay();
+    if (fsOverlayTimer) clearTimeout(fsOverlayTimer);
+    fsOverlayTimer = setTimeout(() => {
+      fsOverlayVisible = false;
+      el.classList.remove('visible');
+    }, ms);
   }
 
   function updateFsOverlay() {

@@ -3,6 +3,29 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-16 (web tuner from a TV browser, and the container goes public)
+
+**Shipped.** The web tuner changes below, on nostalgex.app and in the first public container image, `ghcr.io/chadmueller/nostalgex` from tag `tuner-v1.0.0`. The `/self-host` page is published.
+
+**Why.** The container was run on a Google TV in TV Bro. A test page on the TV measured what the browser gives a page: a 960x540 viewport at pixel ratio 2, `pointer: fine`, and a remote that moves an on-screen cursor and sends OK as a touch click. No arrow key, Escape or Back reached the page; Back only shows and hides the browser's own buttons. So the tuner drew its desktop layout at twice the size it was designed for, and everything that needed a key was out of reach.
+
+**Changed.** All in the shared page, so the hosted tuner and the container stay identical.
+
+- Small landscape screens with a mouse pointer scale the page (`zoom` 0.875 up to 1280x720, 0.6667 up to 1099x620) so it lays out like a desktop window about 1440px wide. `zoom` scales viewport units too, so the body and the settings panel are sized back up. At 960x540: the rail fits through Instagram, the channel tag clears the corner logo, the guide shows 7 rows instead of 4. Phones and tablets (`pointer: coarse`) and desktop windows above 1280x720 are unchanged, measured.
+- Settings has a CLOSE button. It had no clickable exit at all, including on phones and tablets.
+- In full screen, a click or OK on the picture shows the info bar with CH -, CH +, SOUND and EXIT FULL SCREEN.
+- At TV sizes the guide footer's key hints become UP and DOWN page buttons. Cursor edge-scrolling scrolls whatever is under the cursor, and the top of the screen is the video, so the guide could scroll down but never back up.
+- Sound remembers the viewer's choice. The page still starts muted, and a saved "on" comes back on the first click or key, the earliest a browser allows. A first press on a sound control is left to that control.
+- The connect screen's scanline overlay is gone and retro mode's flicker and scanlines run only once a channel plays. The connect screen had five looping animations, two of them full screen at 80ms and 150ms, and the loading screen flickered whole every 150ms. On the TV the cursor lagged and colours washed out. The picture's retro look is unchanged.
+- The video has a 1x1 transparent poster. Android's web view otherwise paints a grey box with a large play icon over the video between channels.
+- The connect page scales the same way, so both Connect buttons are above the fold at 960x540.
+
+**Measured.** Click-only runs in Chrome at 960x540 against a real Plex server: Settings opens and closes, the guide pages down and back to the top, full screen fills the screen, CH + and CH - change channel, EXIT leaves, no page errors. Sound memory checked in four cases with the video never pausing. `npm test` green; both CSPs allow the `data:` poster. On the TV itself: layout, rail clicks, full screen controls and the guide buttons confirmed by eye.
+
+**Unverified.** Surround audio on the TV. Fire TV Silk, Samsung and LG browsers. An arm64 server running the image.
+
+**Next.** A real Android TV app is the fix for the remaining TV-browser limits; the web tuner will not get Back or the D-pad from TV Bro. The container now follows the web tuner: tag `tuner-vX.Y.Z` when a batch of tuner changes is worth shipping to self-hosters.
+
 ## 2026-10-16 (PR #27 merged after a hardware pass)
 
 **Shipped.** PR #27 by @w6trp is merged to main: native playback recovery belongs to one attempt at a time, and a server reply that arrives after its attempt was superseded only stops its own session. Not in a release yet. It goes out with the next TestFlight build.
