@@ -122,7 +122,7 @@ Never commit real keys. `.gitignore` already covers `.env`, `Secrets.plist` and 
 
 ## Run it on your server
 
-The web tuner also ships as a small Docker image. Run it next to Plex, Jellyfin or Emby, then open `http://<your-server>:8080` in any browser on your network. The page itself is plain http on your network, so it can reach a plain `http://` Jellyfin or Emby server, which the https site at nostalgex.app can't. Same tuner, same channels, nothing to sign up for.
+The web tuner also ships as a small Docker image. Run it next to Plex, Jellyfin or Emby, then open `http://YOUR-SERVER-IP:8080` in any browser on your network. The page itself is plain http on your network, so it can reach a plain `http://` Jellyfin or Emby server, which the https site at nostalgex.app can't. Same tuner, same channels, nothing to sign up for.
 
 ```sh
 docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/chadmueller/nostalgex:latest

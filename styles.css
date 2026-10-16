@@ -1771,12 +1771,16 @@ a { color: inherit; }
   .section { padding: 88px 0; }
 
   .hero-grid { grid-template-columns: 1fr; }
-  .hero-copy {
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-    padding: 80px 0 64px;
-  }
-  .hero-shot { padding: 72px 0 80px; }
+  /* Stacked, the video sits right under the headline, so the first screen
+     shows the guide before the paragraph. .hero-copy steps out of the way
+     (display: contents) so its children can be ordered around the video. */
+  .hero-copy { display: contents; }
+  .hero h1 { order: 1; padding-top: 72px; }
+  .hero-shot { order: 2; padding: 40px 0 12px; }
+  .hero-sub { order: 3; }
+  .cta-block { order: 4; }
+  .hero-note { order: 5; padding-bottom: 72px; }
+  .doodle-arrow { display: none; }
 
   .guide-grid, .surf-grid { grid-template-columns: 1fr; gap: 56px; }
   .surf-grid figure { order: 2; }
