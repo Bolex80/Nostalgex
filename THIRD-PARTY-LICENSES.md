@@ -14,3 +14,6 @@ The same two fonts the Nostalgex Apple TV app bundles, from
 
 Portions are ported from [Nostalgex](https://github.com/chadMueller/Nostalgex),
 copyright Chad Mueller / Muell Haus Inc., MIT License. See [LICENSE](LICENSE).
+
+The Nostalgex wordmark in `images/` (`logo.png`, the icons and splash) is
+upstream's brand, from its `logo/png/`, used at the maintainer's request.

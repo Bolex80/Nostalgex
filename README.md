@@ -111,7 +111,7 @@ push, against a fresh clone of upstream.
 | `source/util/` | Shared helpers |
 | `data/` | Upstream's channel config and franchise dictionary, vendored unchanged (`data/UPSTREAM`) |
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |
-| `images/` | Home-screen icons and splash: text only, drawn by `scripts/icons.sh` |
+| `images/` | Home-screen icons, splash and in-app logo: the Nostalgex wordmark, drawn by `scripts/icons.sh` from upstream's `logo/` |
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |
 | `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
 | `tests/` | Golden vectors from upstream's code, and the runner |

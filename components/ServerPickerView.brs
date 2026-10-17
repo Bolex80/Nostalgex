@@ -72,14 +72,19 @@ end sub
 
 sub renderLeft()
     g = m.top.FindNode("left")
-    g.AppendChild(newLabel("NOSTALGEX", "VT323-Regular", 96, "0xF9E503FF", 0, 0))
-    g.AppendChild(newLabel("CHOOSE YOUR LIBRARIES", "DMMono-Medium", 40, "0xFFFFFFE6", 0, 140))
-    body = newLabel("Your account can reach more than one Plex server. Pick which libraries Nostalgex should build channels from. You can change this later in Settings.", "DMMono-Regular", 22, "0xFFFFFF73", 0, 218)
+    ' The brand wordmark, 440 wide as upstream's (scripts/icons.sh).
+    logo = CreateObject("roSGNode", "Poster")
+    logo.uri = "pkg:/images/logo.png"
+    logo.width = 440
+    logo.height = 58
+    g.AppendChild(logo)
+    g.AppendChild(newLabel("CHOOSE YOUR LIBRARIES", "DMMono-Medium", 40, "0xFFFFFFE6", 0, 86))
+    body = newLabel("Your account can reach more than one Plex server. Pick which libraries Nostalgex should build channels from. You can change this later in Settings.", "DMMono-Regular", 22, "0xFFFFFF73", 0, 164)
     body.width = 560
     body.wrap = true
     body.lineSpacing = 4
     g.AppendChild(body)
-    g.translation = [100, 540 - 180]
+    g.translation = [100, 540 - 150]
 end sub
 
 function continueIndex() as Integer

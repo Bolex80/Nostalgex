@@ -31,7 +31,6 @@ sub init()
     m.fullscreen = false
     m.fonts = {}
 
-    styleLabel("logo", "VT323-Regular", 64, "0xF9E503FF")
     styleLabel("graceTitle", "DMMono-Medium", 34, "0xFFFFFFFF")
     styleLabel("graceCount", "DMMono-Regular", 23, "0xFFFFFFD9")
     styleLabel("graceHint", "DMMono-Regular", 19, "0xFFFFFFA6")

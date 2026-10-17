@@ -56,7 +56,8 @@
     </Animation>
     <Group id="panel">
       <Rectangle width="1180" height="555" color="0x0B0B1CFF" />
-      <Label id="logo" text="NOSTALGEX" translation="[40,52]" />
+      <!-- TunerView's NavBar logo: the brand wordmark (scripts/icons.sh). -->
+      <Poster id="logo" uri="pkg:/images/logo.png" translation="[40,54]" width="363" height="48" />
       <!-- TunerView's nav item: Up from the top row focuses it. -->
       <Label id="navSettings" text="SETTINGS" translation="[924,64]" width="200" horizAlign="right" />
       <Group id="info" translation="[40,204]">

@@ -98,7 +98,7 @@ sub render()
 
     ' The stack, top to bottom, 28 apart, centred on the screen as a whole.
     gap = 28
-    h = 120 + 20 + gap + 56 + gap + 42
+    h = 66 + 20 + gap + 56 + gap + 42
     if t.firstRun then h = h + 30 + gap
     detail = UCase(NxToStr(t.progress))
     if st.id = "channels" and t.bar >= 0 then detail = ""
@@ -107,8 +107,14 @@ sub render()
     if t.bar >= 0 then h = h + 44 + gap
     y = (1080 - h) / 2
 
-    g.AppendChild(centred("NOSTALGEX", "VT323-Regular", 120, "0xF9E503FF", y))
-    y = y + 120 + 20 + gap
+    ' The brand wordmark, 500 wide as upstream's (scripts/icons.sh).
+    logo = CreateObject("roSGNode", "Poster")
+    logo.uri = "pkg:/images/logo.png"
+    logo.width = 500
+    logo.height = 66
+    logo.translation = [710, y]
+    g.AppendChild(logo)
+    y = y + 66 + 20 + gap
     if t.firstRun then
         g.AppendChild(centred("First setup can take a few minutes to scan and build channels.", "DMMono-Regular", 22, "0xFFFFFF8C", y))
         y = y + 30 + gap
