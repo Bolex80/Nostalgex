@@ -167,8 +167,9 @@ not timed, every package on not tried, the look after those), and asked for
 their `saved the pools` line and a converted channel's start time.
 
 [Reported the bar](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18987342)
-on 2026-10-16, at `008da95`: no rescan on a switch (0.9 s, from the saved
-library), the default lineup's first run 38 s after sign-in, six converted
+on 2026-10-16, at `008da95`, leading (after an edit) with the default
+lineup's first run, 38 s after sign-in; then no rescan on a switch (0.9 s,
+from the saved library), six converted
 channels 1.8 to 13.2 s (the slow one waiting on Plex, unconfirmed), every
 package on without a crash, and the guide ported from the Apple TV views with
 RETRO MODE on by default. It named the two misses (that channel, and 131 s
