@@ -18,7 +18,8 @@ background.
 
 ## Install (developer mode)
 
-Until there is a store listing, it installs by sideloading:
+Until there is a store listing, it installs by sideloading. The port lives in
+`roku/` of the Nostalgex repo; paths below are relative to that folder.
 
 1. Enable developer mode on the TV once: press Home ×3, Up ×2, Right, Left,
    Right, Left, Right on the remote, then set a developer password. The TV
@@ -90,15 +91,14 @@ engine (see [docs/PORTING.md](docs/PORTING.md)):
 ```sh
 tests/run.sh               # off-device, in the RokuCommunity brs interpreter
 scripts/deploy.sh --test   # on every TV in ROKU_HOSTS; the one that counts
-node tests/gen-vectors.mjs # regenerate after following a new upstream commit
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `tests/run.sh` on every
-push to the [GitHub copy](https://github.com/tydude001/nostalgex-roku),
-against a fresh clone of upstream. Actions is off on Gitea, so a commit that
-has only reached Gitea hasn't been through CI.
+Both generate `tests/vectors/` (git-ignored) from this repo's own JS engine
+and data first, so there is nothing to regenerate by hand. The `roku` job in
+the repo's `.github/workflows/ci.yml` runs `tests/run.sh` whenever `roku/`,
+the shared data or the engine files the vectors come from change.
 
-The live checks compare the port with upstream's code on a real Plex server.
+The live checks compare the port with the repo's own code on a real Plex server.
 They need this computer linked to Plex once, which saves `PLEX_TOKEN` and
 `PLEX_CLIENT_ID` to `.env`:
 
@@ -129,9 +129,10 @@ check, and fails on any error it reports.
 | `source/enrich/` | TMDB and IMDb enrichment through the Nostalgex relay, off unless a build turns it on |
 | `source/subtitles/` | Subtitle settings and language matching, ported from upstream |
 | `source/util/` | Shared helpers |
-| `data/` | Upstream's channel config and franchise dictionary, vendored unchanged (`data/UPSTREAM`) |
+| `data/` | Symlinks to the repo root's `channels.json`, `channels-memberships.json` and `franchises.json`, the files the Apple TV app and web tuner read |
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |
 | `images/` | Home-screen icons, splash and in-app logo, and the guide's overlays in `images/look/` |
+| `scripts/stage.sh` | Assemble the package (shared data copied in from the repo root); used by `deploy.sh` and `sca.sh` |
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |
 | `scripts/icons.sh` | Draws the icons, splash and logo: the Nostalgex wordmark, from upstream's `logo/` |
 | `scripts/look-images.py` | Draws `images/look/` (scanlines, vignette, focus outline, static) from the Apple TV app's drawing code |

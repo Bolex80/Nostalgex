@@ -13,7 +13,7 @@ and already pinned to the Apple TV.
 
 | Upstream | Here | State |
 |----------|------|-------|
-| `channels.json`, `channels-memberships.json` | `data/`, unchanged | vendored; commit in `data/UPSTREAM` |
+| `channels.json`, `channels-memberships.json` | `data/`, unchanged | symlinks to the repo root; `scripts/stage.sh` copies the files into the package |
 | `scripts/nostalgex-daily-manifest.js` (Swift: `SchedulePoolOrdering.swift`, `DailyManifestScheduler.swift`) | `source/schedule/DailyManifest.brs` | ported, passing on device |
 | `scripts/nostalgex-channel-filter.cjs` (Swift: `AppState+Channels.swift` `filterItems`) | `source/filter/ChannelFilter.brs` | ported, passing on device |
 | `plex-tuner.html`: `getTimeFilteredPool`, bundles, `minItems` | BrightScript | with the guide |
@@ -226,8 +226,8 @@ against the JS "byte for byte". Its channel filter diverged on 22 channels, and
 upstream asked for filter golden vectors before deciding where the fork would
 live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the start:
 
-- `tests/gen-vectors.mjs` runs upstream's own engine from the clone
-  (`$NOSTALGEX_DIR`, default `../nostalgex`) and writes
+- `tests/gen-vectors.mjs` runs upstream's own engine from the repo the port
+  lives in (`roku/..`; `$NOSTALGEX_DIR` overrides it) and writes
   `tests/vectors/schedule.json`. It carries upstream's Swift-made vectors
   verbatim, refusing to run if the JS no longer agrees with them, and adds
   its own: the RNG on its own, premiere slots (non-ASCII keys included), every
@@ -247,7 +247,7 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   reads it, does: the old locks fail two of its cases (Santana on HIGH
   ROTATION, "Holidays (2016)" on FRIGHT NIGHT).
 - Franchises are checked against upstream's own golden file,
-  `scripts/franchise-golden.json`, vendored unchanged as
+  `scripts/franchise-golden.json`, copied unchanged by `gen-vectors.mjs` to
   `tests/vectors/franchise-golden.json` and read as upstream's
   `nostalgex-franchise-smoke.mjs` reads it. `tests/gen-franchise.mjs` adds
   `tests/vectors/franchise.json` from upstream's builder: non-ASCII titles and
@@ -261,20 +261,21 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   `nostalgex-enrichment-smoke.mjs` (batching, the caches and TTLs, the OMDb
   budget and backoff, end to end) over a stub network.
 - `tests/gen-mediabrowser.mjs` lifts `fetchJellyfinLibraryFromServer` out
-  of the pinned `plex-tuner.html` and runs it with `fetch` stubbed over the
+  of the repo's `plex-tuner.html` and runs it with `fetch` stubbed over the
   saved server answers in `tests/fixtures/mediabrowser-server.json`, writing
   `tests/vectors/mediabrowser.json`: the requests and items the port's scan
   must match.
-- `tests/run.sh` runs them in the off-device interpreter. It fails if
-  `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
-  runs upstream's franchise smoke test at that commit, and notes when the
-  clone's `origin/main` has moved past it. `tests/tools/check-includes.py`
-  fails it when a component calls an `Nx` function none of its scripts load,
-  which BrightScript only finds when the call runs.
+- `tests/run.sh` runs upstream's franchise, filter-golden, collections and
+  season smoke tests, regenerates every vector from the same tree as
+  `data/`, then runs them in the off-device interpreter. Nothing is pinned: a
+  change to the engine or the data that the port doesn't follow fails the
+  run, and the `roku` CI job. `tests/tools/check-includes.py` fails it when a
+  component calls an `Nx` function none of its scripts load, which
+  BrightScript only finds when the call runs.
 - `scripts/deploy.sh --test` runs the same suite on each TV in `ROKU_HOSTS`.
   **The TV run is the one that counts**, for the reason below.
-- A divergence is a bug here, never a fix to the vectors. Regenerating is only
-  for following a new upstream commit.
+- A divergence is a bug here, never a fix to the vectors. The vectors are
+  never edited or committed; they always come from upstream's code.
 
 ## Checked live, against the real server
 
@@ -299,8 +300,8 @@ upstream's are, and kept in show order; other requests run one at a time. Like u
 Plex for `includeGuids=1`, which is what gives items a TMDB id for the
 membership manifest, and episodes take their show's id.
 
-`compare.mjs` runs upstream at the commit pinned in `data/UPSTREAM`, from a
-throwaway checkout, whatever the clone has checked out.
+`compare.mjs` runs upstream from the repo the port lives in (`roku/..`), the
+same tree `data/` links to.
 
 `tests/live/collections.mjs` checks server collections without a TV. It loads
 the library with upstream's loader and reads the collections with upstream's

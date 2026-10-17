@@ -1,33 +1,38 @@
-# CLAUDE.md — nostalgex-roku repo
+# CLAUDE.md: roku/ in the Nostalgex repo
 
 Roku port (BrightScript + SceneGraph) of Nostalgex, the retro channel guide for
-Plex. [README.md](README.md) covers what it is and how to sideload.
-[docs/PORTING.md](docs/PORTING.md) covers what comes from upstream and how
-parity is proven. [docs/UPSTREAM.md](docs/UPSTREAM.md) covers the relationship
-with the Nostalgex maintainer.
+Plex. It lives at `roku/` in the Nostalgex repo; the repo root's CLAUDE.md
+applies here too. Its scripts run from anywhere (`roku/tests/run.sh`); each
+one changes into `roku/` first. [README.md](README.md) covers what it is and
+how to sideload. [docs/PORTING.md](docs/PORTING.md) covers what comes from
+upstream and how parity is proven. [docs/UPSTREAM.md](docs/UPSTREAM.md) covers
+the relationship with the Nostalgex maintainer.
 
 ## Rules that are decisions, not oversights
 
-- **Faithful port, upstream is the source of truth.** `channels.json` is
-  vendored unchanged. Schedule and filter behaviour must match upstream's
-  golden vectors, and a mismatch is a bug here. Don't "improve" channel logic
-  in this repo; propose it upstream.
-- **Public.** Every push reaches GitHub within seconds through a push mirror,
-  every branch included. Nothing about one install enters the repo: TV
-  addresses and the developer password go in `.env` (git-ignored). A pre-push
-  denylist gate refuses personal and network details.
+- **Faithful port, upstream is the source of truth.** `data/` links to the
+  repo root's `channels.json`, `channels-memberships.json` and
+  `franchises.json`; never copy them into `roku/`. Schedule and filter
+  behaviour must match the golden vectors, which `tests/run.sh` generates
+  from the root's JS engine on every run, and a mismatch is a bug in the
+  port. Don't "improve" channel logic under `roku/`; change it at the root
+  (engine, Swift and data together) in its own pull request.
+- **Public.** The repo is public, and so is every branch of a fork. Nothing
+  about one install enters it: TV addresses and the developer password go in
+  `roku/.env` (git-ignored). `.secrets-allow` lists the known false positives
+  of the pre-push secrets gate, by line hash.
 - **Nothing personal, not even on a branch.** Additions for one person's setup
   go in a separate repo that pulls this one in unchanged.
 - **Keep the MIT notice.** `LICENSE` carries upstream's copyright line, and
   ported files keep it.
-- **Upstream clone is read-only.** The local Nostalgex clone's `origin` is the
-  maintainer's GitHub, so never push it. Anything for upstream is drafted,
-  checked claim by claim, and shown to the repo owner first. Re-read the
-  whole thread, replies under comments included, just before posting: a
-  follow-up the draft never saw went unanswered once. A session posts
-  it only when he says to post that draft, and only through
-  `scripts/post-upstream.sh` (Discussions on upstream, nothing else), then
-  records it in `docs/UPSTREAM.md`. PRs to upstream stay his to open.
+- **Changes reach main through pull requests the maintainer merges.** Never
+  push to `chadMueller/Nostalgex`. Anything posted publicly (a Discussion, a
+  comment, a PR) is drafted, checked claim by claim, and shown to the person
+  the session works for first. Re-read the whole thread, replies under
+  comments included, just before posting: a follow-up the draft never saw
+  went unanswered once. A session posts only when told to post that draft;
+  `scripts/post-upstream.sh` is the port author's tool for Discussions, and
+  what it posts is recorded in `docs/UPSTREAM.md`.
 - **One kind of server at a time.** A TV is signed in to Plex, or to one
   Jellyfin or Emby server, as the Apple TV app holds one backend
   ([docs/JELLYFIN-EMBY.md](docs/JELLYFIN-EMBY.md)).
