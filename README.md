@@ -25,7 +25,7 @@ Until there is a store listing, it installs by sideloading:
    reboots.
 2. `cp .env.example .env` and fill in `ROKU_HOSTS` and `ROKU_DEV_PASSWORD`.
 3. `scripts/deploy.sh` zips the app, installs it on every TV in `ROKU_HOSTS`
-   and launches it.
+   and launches it (`ROKU_HOSTS=<tv-ip> scripts/deploy.sh` for one TV).
 
 A Roku holds one sideloaded app at a time, and installing replaces whatever is
 there. Debug output is on the TV's port 8085 (`nc <tv> 8085`).
