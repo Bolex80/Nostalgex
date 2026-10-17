@@ -36,6 +36,7 @@ A stale build shows an older version number or a different channel name. Regener
 | `api/` | Vercel serverless (e.g. newsletter `subscribe`) |
 | `vercel.json` | Headers / routing; **web only** |
 | `Nostalgex/` | Xcode project + Swift sources + assets |
+| `roku/` | Roku app (BrightScript), a contributed port under its own MIT license (`roku/LICENSE`). Reads the root's `channels.json`, `channels-memberships.json` and `franchises.json` through symlinks in `roku/data/`. Not part of the site build: a push that only touches `roku/` skips the Vercel deploy (`scripts/vercel-ignore-build.sh`). Tests: the `roku` job in `ci.yml`. See `roku/README.md` |
 
 The nested folder `Nostalgex/Nostalgex/` (app target inside the project) is normal for Xcode; **web files still live at the repo root.**
 
