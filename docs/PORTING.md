@@ -268,6 +268,24 @@ transcoded film joined 70 minutes in had Plex's transcode window at minutes
 server, so the rows don't show) and the sign-in code changing after 5 minutes.
 `*` in the guide was pressed on a TV and did nothing, as intended.
 
+The Channel Store bar, on the bedroom TV (43S45, Roku OS 16.0.4), 2026-10-16
+at `6f05937` with 5,363 items on one server:
+
+- **No rescan on a switch:** with the saved library there, a package switch
+  read it in 0.9 s and asked the server nothing (a full read is 11 s, plus
+  6 s of collections). A relaunch read it in 2.8 s after one section-list
+  request. Once, the saved library and the enrichment cache were both gone
+  between a relaunch and a switch, so that switch scanned: Roku may empty
+  `cachefs:` whenever it wants the space. Six transcoded channels had been
+  tuned in between.
+- **Every package on:** 133 channels built in 123 s, franchises 13.6 s;
+  saving the pools peaked at 22% of the app's memory limit (3.7 MB file). No
+  crash.
+- **Converted channels, joined mid-programme:** picture 1.8, 3.0, 3.5, 6.5,
+  9.4 and 13.2 s after the press. The 13.2 s one spent 12.75 s in Roku's own
+  VODStart, waiting for Plex's segments, not in the app.
+- **First run:** not timed yet; it needs a fresh plex.tv/link sign-in.
+
 ## BrightScript notes
 
 - **64-bit math.** The RNG and premiere hash are unsigned 64-bit in Swift.
@@ -346,6 +364,9 @@ server, so the rows don't show) and the sign-in code changing after 5 minutes.
   hides this. Text that has to match upstream goes through
   `NxFranchiseLower`.
 - `step` is a reserved word, like `pos`.
+- `cachefs:` is a cache: on a 43S45 it was emptied between two runs of the
+  app, saved library and enrichment cache together. Everything kept there
+  must be rebuildable.
 - `roUrlTransfer` is task-only on Roku OS 16: created on the render thread
   it is `invalid` (OS 15 allowed it), so `NxUrlEncode` encodes by hand.
 - System fonts go on a Label's `font` attribute. A `<Font uri="font:…">`
