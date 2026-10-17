@@ -18,7 +18,11 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-channel-filter.cjs` (Swift: `AppState+Channels.swift` `filterItems`) | `source/filter/ChannelFilter.brs` | ported, passing on device |
 | `plex-tuner.html`: `getTimeFilteredPool`, bundles, `minItems` | BrightScript | with the guide |
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
-| `ServerPickerView` defaults (`Plex90App.swift`): owned servers on, all of them when none is owned; the web tuner turns every server on | `source/plex/ServerChoice.brs`, Settings › SERVER rows | ported, after the Apple TV app; cases in `tests/ServerChoiceTests.brs` |
+| `ServerPickerView` (`Plex90App.swift`): CHOOSE YOUR LIBRARIES after sign-in when the account lists more than one server; owned servers on, all of them when none is owned | `components/ServerPickerView.*`, `source/plex/ServerChoice.brs`, Settings › CONNECTION | ported; cases in `tests/ServerChoiceTests.brs`. Not yet seen on a TV (one-server account). Unlike upstream, no server is checked before it, as the maintainer asked |
+| `PlexAPIService.bestReachableURI`: one verified address per server, best of local, remote, relay | `source/plex/ServerResolve.brs` | ported for the servers on, every address at once, an answer counting only if `/identity` names that server; saved, not re-checked on later launches. Cases in `tests/ServerResolveTests.brs` |
+| `LoadingView`, `LibraryLoadStepRail`, `LibraryLoadPhase` (`Plex90App.swift`) | `components/LoadingView.*`, phases from `components/LibraryTask.brs` | ported; Collections is always a step, as every scan reads them |
+| `SettingsPageView` order and `CollectionAccordionHeaderRow` (`BundleManagerView.swift`); `toggleBundle`, `rebuildLineupAfterBundleChange` (`AppState+Channels.swift`) | `components/SettingsView.*`, `rebuildForBundles` in `components/LibraryTask.brs` | ported; no rating, tips, stream quality or language rows. A package switch builds only its own channels, behind Settings; its pools matched a full rebuild's on the 43S45 |
+| `PlayerView`, `MiniChannelStrip`, `NowPlayingPanel`, `SleepGracePrompt`, `SleepTimerLogic` | `components/GuideView.brs`, `components/MiniStripView.*`, `components/NowPlayingView.*`, `source/guide/SleepTimer.brs` | ported (differences below); sleep-timer cases in `tests/SleepTimerTests.brs` |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
@@ -43,9 +47,11 @@ The library itself is saved too, after the Apple TV app's
 `LibrarySnapshotStore.swift` (`source/plex/LibrarySnapshot.brs`): each
 server's items and collections in 2,000-item chunk files under
 `cachefs:/nostalgex-library/`, with the meta file written last so a save cut
-off part way leaves the last one readable. Switching a package, franchise,
-collection or server in Settings rebuilds the channels from it and reads only
-a server it doesn't have (Discussion #8, item 7). A launch's background
+off part way leaves the last one readable. A package switched in Settings is
+built from it at once, behind Settings, reusing every pool already in the
+guide; a franchise, collection or server switch rebuilds the channels from it
+on leaving Settings, reading only a server it doesn't have (Discussion #8,
+item 7). A launch's background
 refresh asks each server for its section list first and skips the scan while
 the library signature (`LibraryChangeSignature.swift`: each section's
 `updatedAt` and `contentChangedAt`) is unchanged and the save is under a day
@@ -304,6 +310,12 @@ at `6f05937` with 5,363 items on one server:
   102.6 s after sign-in on the 55R617, down from 131.3 s: library read 57.7 s
   (one request timed out and was retried), collections 4.0 s, 61 channels
   built 26.7 s, franchises 0.7 s.
+- **Server check, at `db64ce2`, on the 43S45:** 51 ms after a plex.tv/link
+  sign-in, guide on screen 24.2 s after it; the library was still saved, so
+  not a first run.
+- **Package switch, at `fb27b56`, on the 43S45:** an 8-channel package built
+  in 9.4 s on and 4.7 s off, behind Settings, its pools fingerprint equal to a
+  full rebuild's both ways.
 
 ## BrightScript notes
 
