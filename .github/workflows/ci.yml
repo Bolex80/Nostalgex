@@ -21,6 +21,7 @@ jobs:
       tvos: ${{ steps.filter.outputs.tvos }}
       config: ${{ steps.filter.outputs.config }}
       docker: ${{ steps.filter.outputs.docker }}
+      roku: ${{ steps.filter.outputs.roku }}
     steps:
       - uses: actions/checkout@v4
 
@@ -84,6 +85,23 @@ jobs:
               - 'scripts/tuner-version.mjs'
               - 'package.json'
               - 'package-lock.json'
+            # The Roku port, plus everything its golden vectors are generated
+            # from (roku/tests/gen-*.mjs): the shared data and the JS engine.
+            roku:
+              - '.github/workflows/ci.yml'
+              - 'roku/**'
+              - 'channels.json'
+              - 'channels-memberships.json'
+              - 'franchises.json'
+              - 'plex-tuner.html'
+              - 'scripts/nostalgex-daily-manifest.js'
+              - 'scripts/nostalgex-channel-filter.cjs'
+              - 'scripts/nostalgex-franchise-builder.js'
+              - 'scripts/nostalgex-enrichment.js'
+              - 'scripts/nostalgex-collections.js'
+              - 'scripts/franchise-golden.json'
+              - 'scripts/nostalgex-franchise-smoke.mjs'
+              - 'scripts/nostalgex-collections-smoke.mjs'
 
   channel-engine:
     name: Channel engine (rule parity, schedule order, docs)
@@ -183,6 +201,30 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: docker logs on || true
+
+  roku:
+    name: Roku port (golden vectors, off-device)
+    needs: changes
+    if: ${{ needs.changes.outputs.roku == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # roku/tests/run.sh regenerates the golden vectors from this checkout's
+      # JS engine and data, then runs the BrightScript port against them in the
+      # RokuCommunity brs interpreter. No npm install: it needs node and npx
+      # only. The interpreter is a first check; roku/scripts/deploy.sh --test
+      # on a TV is the one that counts.
+      - name: Golden vectors (off-device)
+        run: |
+          node --version
+          roku/tests/run.sh
 
   tvos-unit-tests:
     name: tvOS unit tests (NostalgexTests)
