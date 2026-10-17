@@ -68,7 +68,7 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
         ' was written out in full a second time (20 MB of a 23 MB file).
         for each k in ch
             lk = LCase(k)
-            if lk <> "pool" and lk <> "basepool" then saved[k] = ch[k]
+            if lk <> "pool" and lk <> "basepool" and lk <> "filtered" then saved[k] = ch[k]
         end for
         pool = ch.basePool
         if pool = invalid then pool = ch.pool
@@ -341,7 +341,7 @@ end sub
 ' Builds the switched-on channels from the library, schedules them and hands
 ' the guide to the render thread, unless `shown` and it matches what is
 ' already on screen. Returns { ordered, guide } for keepScheduling.
-function buildGuide(items as Object, config as Object, manifest as Object, collections as Object, shown as Boolean) as Object
+function buildGuide(items as Object, config as Object, manifest as Object, collections as Object, shown as Boolean, reuse = invalid as Dynamic) as Object
     timer = CreateObject("roTimespan")
     ' A library load clears the day schedules, as upstream's does.
     NxClearManifests()
@@ -355,6 +355,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     setPhase("channels")
     channels = []
     built = 0
+    reused = 0
     for each def in config.channels
         ch = {
             id: def.id, number: def.number, name: NxToStr(def.name), colorHex: NxToStr(def.colorHex),
@@ -368,11 +369,22 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             m.top.progress = "Building channels: " + built.ToStr() + " of " + poolIds.Count().ToStr()
             m.top.bar = (built - 1) / poolIds.Count()
             m.top.barCaption = "Channel " + built.ToStr() + " of " + poolIds.Count().ToStr()
-            matched = []
-            for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
-                matched.Push(row.item)
-            end for
-            ch.pool = matched
+            matched = invalid
+            if reuse <> invalid then matched = reuse[def.id.ToStr()]
+            if matched = invalid then
+                matched = []
+                for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
+                    matched.Push(row.item)
+                end for
+            else
+                reused = reused + 1
+            end if
+            ' The filter's own result, kept apart from what the franchise step
+            ' adds, so a package switched on later reuses it (rebuildForBundles).
+            ch.filtered = []
+            ch.filtered.Append(matched)
+            ch.pool = []
+            ch.pool.Append(matched)
             ch.built = true
             minItems = 50
             if NxTruthy(def.minItems) then minItems = def.minItems
@@ -380,7 +392,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         end if
         channels.Push(ch)
     end for
-    print "library: built "; built; " channels in "; timer.TotalMilliseconds(); " ms"
+    print "library: built "; built; " channels ("; reused; " kept from the last build) in "; timer.TotalMilliseconds(); " ms"
     setPhase("finishing")
     m.top.progress = ""
 
@@ -459,6 +471,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         guideBundles.Push("nx-collections")
     end if
     ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock.month)
+    print "library: pools fingerprint "; NxPoolsFingerprint(ordered); " ("; ordered.Count(); " channels)"
     out = NxScheduleGuide(ordered, nowSec&)
     bundleList = []
     for each bdl in NxList(config.bundles)
@@ -527,10 +540,38 @@ end function
 sub keepScheduling(ordered as Object, guide as Object)
     port = CreateObject("roMessagePort")
     m.top.ObserveField("reschedule", port)
+    m.top.ObserveField("bundleRequest", port)
+    ' A switch saved while this load was still running was missed by the
+    ' observer above: build for it now. Either way Settings hears which
+    ' packages the guide holds.
+    built = FormatJson(guide.enabledBundles)
+    if FormatJson(NxEnabledBundles()) <> built then
+        got = rebuildForBundles(ordered)
+        if got <> invalid then
+            ordered = got.ordered
+            guide = got.guide
+            built = FormatJson(guide.enabledBundles)
+        else
+            built = "rebuild"
+        end if
+    end if
+    m.top.bundleBuilt = built
     last = FormatJson(guide.channels)
     while true
         msg = Wait(0, port)
-        if type(msg) = "roSGNodeEvent" then
+        if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then
+            ' Several switches while one builds: the saved packages are read
+            ' afresh each time, so the last build covers them all.
+            got = rebuildForBundles(ordered)
+            if got <> invalid then
+                ordered = got.ordered
+                guide = got.guide
+                last = FormatJson(guide.channels)
+                m.top.bundleBuilt = FormatJson(guide.enabledBundles)
+            else
+                m.top.bundleBuilt = "rebuild"
+            end if
+        else if type(msg) = "roSGNodeEvent" then
             channels = NxScheduleGuide(ordered, CreateObject("roDateTime").AsSeconds())
             now = FormatJson(channels)
             if now <> last then
@@ -543,6 +584,80 @@ sub keepScheduling(ordered as Object, guide as Object)
         end if
     end while
 end sub
+
+' A package switched on or off in Settings, as upstream's
+' rebuildLineupAfterBundleChange: only channels that weren't built last time
+' are filtered, from the saved library (source/plex/LibrarySnapshot.brs) and
+' the enrichment caches; every other channel keeps its filtered pool. The
+' franchise, collection, order and schedule steps run as in a full build.
+' Returns { ordered, guide }, or invalid when a server on has no saved
+' library (Settings then rebuilds the whole guide, as before).
+function rebuildForBundles(prev as Object) as Dynamic
+    timer = CreateObject("roTimespan")
+    servers = ParseJson(NxPlexRegistry().Read("servers"))
+    if type(servers) <> "roArray" or servers.Count() = 0 then return invalid
+    serversOn = NxServersOn(servers, NxSavedServerChoices())
+    snapDir = NxSnapshotDir()
+    snap = NxSnapshotReadMeta(snapDir)
+    items = []
+    collections = { raw: [], serverKeys: {}, failed: 0 }
+    for i = 0 to servers.Count() - 1
+        key = NxToStr(servers[i].machineIdentifier)
+        if key = "" then key = "plex"
+        collections.serverKeys[i.ToStr()] = key
+        if serversOn[i] and NxToStr(servers[i].uri) <> "" then
+            if type(snap.servers[key]) <> "roAssociativeArray" then return invalid
+            saved = NxSnapshotLoadServer(snapDir, snap, key, i)
+            if saved = invalid then return invalid
+            items.Append(saved.items)
+            if saved.collections <> invalid then
+                collections.raw.Append(saved.collections)
+            else
+                collections.failed = collections.failed + 1
+            end if
+        end if
+    end for
+    config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
+    manifest = ParseJson(ReadAsciiFile("pkg:/data/channels-memberships.json"))
+    opts = {
+        config: NxEnrichmentConfig(), net: NxEnrichmentNet(),
+        cache: NxEnrichFileCache("cachefs:/nostalgex-enrichment.json"),
+        nowSec: NxFilterClock().nowSec, channels: config.channels,
+        backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: invalid
+    }
+    NxEnrichFromCaches(items, opts)
+    reuse = {}
+    for each ch in prev
+        if ch.filtered <> invalid then reuse[ch.id.ToStr()] = ch.filtered
+    end for
+    print "library: package change: "; items.Count(); " items from the saved library in "; timer.TotalMilliseconds(); " ms"
+    built = buildGuide(items, config, manifest, collections, true, reuse)
+    for each it in items
+        it.Delete("nxFilter")
+    end for
+    print "library: package change built in "; timer.TotalMilliseconds(); " ms"
+    return built
+end function
+
+' SHA-1 of each guide channel's id and its pool's items before the shuffle,
+' first 12 hex digits: a package built on its own must match a full build of
+' the same packages. Item keys only; no titles or addresses.
+function NxPoolsFingerprint(ordered as Object) as String
+    d = CreateObject("roEVPDigest")
+    d.Setup("sha1")
+    for each ch in ordered
+        pool = ch.basePool
+        if pool = invalid then pool = ch.pool
+        keys = [NxToStr(ch.id)]
+        for each it in pool
+            keys.Push(NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex))
+        end for
+        b = CreateObject("roByteArray")
+        b.FromAsciiString(keys.Join(",") + Chr(10))
+        d.Update(b)
+    end for
+    return Left(d.Final(), 12)
+end function
 
 ' What the guide and player need from one airing; nothing secret.
 function NxGuideBlock(b as Object) as Object

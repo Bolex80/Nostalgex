@@ -3,8 +3,9 @@
      the Plex servers to read and signing out, RETRO MODE and subtitles,
      channel packages with each franchise under FRANCHISES, then the server's
      collections under MY COLLECTIONS, folded closed.
-     Choices are saved on the TV; the guide is rebuilt when Settings closes
-     with a package, franchise, collection or server change. -->
+     Choices are saved on the TV. A package switch is built at once, behind
+     Settings, building only that package's channels; a franchise,
+     collection or server change rebuilds the guide when Settings closes. -->
 <component name="SettingsView" extends="Group">
   <interface>
     <field id="bundles" type="array" />
@@ -15,7 +16,12 @@
     <field id="collections" type="assocarray" />
     <!-- Set when Settings closes: "close", "rebuild" or "signOut". -->
     <field id="result" type="string" alwaysNotify="true" />
+    <!-- Set when a package switch has been saved, to have it built now. -->
+    <field id="bundleChange" type="boolean" alwaysNotify="true" />
+    <!-- The library task's answer: the packages built, as JSON, or "rebuild". -->
+    <field id="bundleBuilt" type="string" alwaysNotify="true" onChange="onBundleBuilt" />
     <function name="open" />
+    <function name="refreshRows" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />

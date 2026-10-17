@@ -7,11 +7,66 @@ sub init()
     m.listTop = 100
     m.listH = 800
     m.fonts = {}
-    m.changed = false
     m.franchisesChanged = false
     ' The first OK on SIGN OUT OF PLEX only arms it; a second one signs out.
     m.signOutArmed = false
     m.collectionsChanged = false
+    ' Packages switched on whose channels are still being built: { id: true }.
+    ' A package switch is saved and built at once, behind Settings, as
+    ' upstream's toggleBundle; needRebuild is set when that couldn't be done
+    ' and the whole guide has to be rebuilt on the way out instead.
+    m.building = {}
+    m.needRebuild = false
+    m.dots = ""
+    m.dotTimer = CreateObject("roSGNode", "Timer")
+    m.dotTimer.duration = 0.4
+    m.dotTimer.repeat = true
+    m.dotTimer.ObserveField("fire", "onDots")
+end sub
+
+sub onDots()
+    if m.building.Count() = 0 then
+        m.dotTimer.control = "stop"
+        return
+    end if
+    if Len(m.dots) >= 3 then m.dots = "" else m.dots = m.dots + "."
+    render()
+end sub
+
+' The library task's answer to a package switch (LibraryTask.bundleBuilt):
+' the packages the guide now holds, or "rebuild".
+sub onBundleBuilt()
+    v = m.top.bundleBuilt
+    if v = "rebuild" then
+        m.needRebuild = true
+        m.building = {}
+    else
+        built = ParseJson(v)
+        if type(built) = "roArray" then
+            for each id in m.building.Keys()
+                if NxHasValue(built, id) then m.building.Delete(id)
+            end for
+        end if
+    end if
+    render()
+end sub
+
+' The guide was rebuilt while Settings is open: rows follow its franchise and
+' collection lists, and focus stays on the same row.
+sub refreshRows(unused = invalid as Dynamic)
+    keep = m.rows[m.focus]
+    buildRows()
+    for i = 0 to rowCount() - 1
+        r = m.rows[i]
+        if r.kind = keep.kind and NxToStr(r.index) = NxToStr(keep.index) then
+            if r.kind <> "franchise" or r.franchise.id = keep.franchise.id then
+                m.focus = i
+                exit for
+            end if
+        end if
+    end for
+    if m.focus > rowCount() - 1 or not focusable(m.rows[m.focus]) then m.focus = nextFocusable(-1, 1)
+    render()
 end sub
 
 function fontOf(name as String, size as Integer) as Object
@@ -286,6 +341,13 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
             state = "ON"
             stateColor = "0xFFE500FF"
         end if
+        if on and m.building.DoesExist(b.id) then
+            n = b.channelIDs.Count()
+            detail = "Finding " + n.ToStr() + " channel"
+            if n <> 1 then detail = detail + "s"
+            detail = detail + " in your library"
+            state = "BUILDING" + m.dots
+        end if
     else if row.kind = "franchiseAll" then
         indent = 40
         label = "YOUR FRANCHISES"
@@ -409,9 +471,20 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             for each x in m.enabled
                 if x = id then found = true else kept.Push(x)
             end for
+            ' The last package on stays on, as upstream's toggleBundle keeps one.
+            if found and kept.Count() = 0 then return true
             if not found then kept.Push(id)
             m.enabled = kept
-            m.changed = true
+            ' Saved now and built behind Settings: only the switched-on
+            ' package's channels are built, and the guide updates when done.
+            reg = CreateObject("roRegistrySection", "guide")
+            reg.Write("bundles", FormatJson(m.enabled))
+            reg.Flush()
+            if not found then
+                m.building[id] = true
+                m.dotTimer.control = "start"
+            end if
+            m.top.bundleChange = true
             buildRows()
             if m.focus > rowCount() - 1 then m.focus = rowCount() - 1
             render()
@@ -469,9 +542,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             plex.Write("serverChoices", FormatJson(choices))
             plex.Flush()
         end if
-        if m.changed or m.franchisesChanged or m.collectionsChanged or m.serversChanged then
+        if m.needRebuild or m.franchisesChanged or m.collectionsChanged or m.serversChanged then
             reg = CreateObject("roRegistrySection", "guide")
-            if m.changed then reg.Write("bundles", FormatJson(m.enabled))
             if m.franchisesChanged then
                 lists = NxFranchiseChoiceLists(m.choices)
                 reg.Write("franchisesOn", FormatJson(lists.enabled))

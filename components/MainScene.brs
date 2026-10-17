@@ -136,6 +136,7 @@ end sub
 
 sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean)
     m.library = CreateObject("roSGNode", "LibraryTask")
+    m.library.ObserveField("bundleBuilt", "onBundleBuilt")
     m.library.useCache = useCache
     m.library.rebuild = rebuild
     m.library.ObserveField("phase", "onLibraryPhase")
@@ -180,6 +181,7 @@ sub onLibraryStatus()
         if first then
             m.guide = CreateObject("roSGNode", "GuideView")
             m.guide.ObserveField("action", "onGuideAction")
+            m.guide.ObserveField("bundleRequest", "onBundleRequest")
             if m.pendingLink <> invalid then m.guide.deepLink = m.pendingLink
             m.pendingLink = invalid
             m.top.AppendChild(m.guide)
@@ -205,6 +207,20 @@ sub onDeepLink()
     else
         m.pendingLink = m.top.deepLink
     end if
+end sub
+
+' A package switched in Settings: the running library task builds for it
+' behind Settings and says when (LibraryTask.bundleRequest).
+sub onBundleRequest()
+    if m.library = invalid then
+        m.guide.bundleBuilt = "rebuild"
+        return
+    end if
+    m.library.bundleRequest = true
+end sub
+
+sub onBundleBuilt()
+    if m.guide <> invalid then m.guide.bundleBuilt = m.library.bundleBuilt
 end sub
 
 sub onScheduleTimer()

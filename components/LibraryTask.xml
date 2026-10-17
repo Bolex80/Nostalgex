@@ -27,6 +27,12 @@
     <field id="rebuild" type="boolean" value="false" />
     <!-- True while the guide on screen is the saved one. -->
     <field id="fromCache" type="boolean" value="false" />
+    <!-- Set (any value) after Settings saved a package switch: the guide is
+         rebuilt for the saved packages, building only the channels it lacks.
+         bundleBuilt then holds the packages built, as JSON, or "rebuild"
+         when that couldn't be done without a full load. -->
+    <field id="bundleRequest" type="boolean" alwaysNotify="true" />
+    <field id="bundleBuilt" type="string" alwaysNotify="true" />
     <!-- Set (any value) to re-check schedules against the clock. -->
     <field id="reschedule" type="boolean" alwaysNotify="true" />
   </interface>

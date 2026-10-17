@@ -126,6 +126,7 @@ sub onGuide()
         return
     end if
     refreshOffer()
+    refreshSettings()
     if previous = invalid then
         m.top.SetFocus(true)
         m.tick.control = "start"
@@ -1200,8 +1201,27 @@ sub openSettings()
     if collections = invalid then collections = { rows: [], overCap: 0, scanned: 0, failed: 0 }
     m.settings.collections = collections
     m.settings.ObserveField("result", "onSettingsResult")
+    m.settings.ObserveField("bundleChange", "onSettingsBundleChange")
     m.top.AppendChild(m.settings)
     m.settings.callFunc("open", invalid)
+end sub
+
+sub onSettingsBundleChange()
+    m.top.bundleRequest = true
+end sub
+
+sub onBundleBuilt()
+    if m.settings <> invalid then m.settings.bundleBuilt = m.top.bundleBuilt
+end sub
+
+' A guide built while Settings is open: its franchise and collection lists
+' go to Settings, so FRANCHISES switched on lists its franchises at once.
+sub refreshSettings()
+    if m.settings = invalid then return
+    m.settings.enabledBundles = m.top.guide.enabledBundles
+    if m.top.guide.franchises <> invalid then m.settings.franchises = m.top.guide.franchises
+    if m.top.guide.collections <> invalid then m.settings.collections = m.top.guide.collections
+    m.settings.callFunc("refreshRows", invalid)
 end sub
 
 sub onSettingsResult()
