@@ -14,9 +14,11 @@
 '
 ' - NxFranchiseDefinitions works out each definition's title keys once. Upstream
 '   recomputes them for every item, and a Roku has thousands of episodes.
-'   NxFranchiseBuild also remembers the dictionary match per TV title, because
-'   every episode of a show has the same title and the match depends on nothing
-'   else.
+'   NxFranchiseBuild also remembers the dictionary match, and the found
+'   franchise match, per TV title, because every episode of a show has the
+'   same title and neither match depends on anything else.
+' - NxFranchiseTitleKey takes two regex replacements for an ASCII title,
+'   which give the key the character walk gives, without the walk.
 ' - Text is walked a code point at a time. Upstream walks grapheme clusters;
 '   NxFranchiseGraphemes joins combining marks onto the character before them,
 '   which is the same split for any title Plex is likely to hold.
@@ -291,9 +293,18 @@ end function
 ' whitespace one space; apostrophes never split a word. Upstream's
 ' explicitTitleKey.
 function NxFranchiseTitleKey(raw as Dynamic) as String
+    s = NxFranchiseNormalizedTitle(raw)
+    g = GetGlobalAA()
+    if g.nxNonAscii = invalid then g.nxNonAscii = CreateObject("roRegex", "[^\x00-\x7F]", "")
+    if not g.nxNonAscii.IsMatch(s) then
+        ' ASCII, already lowercased: letters and digits are [a-z0-9], an
+        ' apostrophe goes, and any other run is one space, none at the ends.
+        s = NxRx("franchiseApostrophe", "'").ReplaceAll(s, "")
+        return NxRx("franchiseSeparators", "[^a-z0-9]+").ReplaceAll(s, " ").Trim()
+    end if
     out = ""
     pendingSpace = false
-    for each ch in NxFranchiseGraphemes(NxFranchiseNormalizedTitle(raw))
+    for each ch in NxFranchiseGraphemes(s)
         if NxFranchiseIsLetterOrNumber(ch) then
             if pendingSpace and out <> "" then out = out + " "
             pendingSpace = false
@@ -604,7 +615,7 @@ function NxFranchiseBuild(opts as Object) as Object
     for each key in order
         b = buckets[key]
         if b.definition = invalid then
-            entry = { key: key, low: NxFranchiseMinID(b) }
+            entry = { key: key, low: NxFranchiseMinID(b), nameLower: NxFranchiseLower(b.name) }
             k = found.Count()
             while k > 0 and found[k - 1].low > entry.low
                 k = k - 1
@@ -617,6 +628,8 @@ function NxFranchiseBuild(opts as Object) as Object
     '    else a found franchise whose name the show title contains.
     tvMatch = {}
     tvMatch.SetModeCaseSensitive()
+    tvFound = {}
+    tvFound.SetModeCaseSensitive()
     for each tv in tvItems
         title = NxToStr(tv.title)
         if tvMatch.DoesExist(title) then
@@ -630,14 +643,20 @@ function NxFranchiseBuild(opts as Object) as Object
             b = NxFranchiseBucket(buckets, order, "dict:" + def.canonicalName, def.canonicalName, def)
             b.tvItems.Push(tv)
         else
-            titleLower = NxFranchiseNormalizedTitle(tv.title)
-            for each fk in found
-                b = buckets[fk.key]
-                if NxFranchiseContainsToken(titleLower, NxFranchiseLower(b.name)) then
-                    b.tvItems.Push(tv)
-                    exit for
-                end if
-            end for
+            if tvFound.DoesExist(title) then
+                foundKey = tvFound[title]
+            else
+                foundKey = ""
+                titleLower = NxFranchiseNormalizedTitle(tv.title)
+                for each fk in found
+                    if NxFranchiseContainsToken(titleLower, fk.nameLower) then
+                        foundKey = fk.key
+                        exit for
+                    end if
+                end for
+                tvFound[title] = foundKey
+            end if
+            if foundKey <> "" then buckets[foundKey].tvItems.Push(tv)
         end if
     end for
 

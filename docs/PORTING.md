@@ -292,6 +292,9 @@ at `6f05937` with 5,363 items on one server:
   before and 11.4 s after, from the saved library on the 43S45. Off-device,
   `tests/bench/` over the same 5,363 items built all 131 channels 3.7x faster,
   every pool identical. The franchise step (about 15 s) is now the larger part.
+- **Franchise step:** off-device, `tests/bench/run.sh franchise` over the same
+  library ran it 24x faster (189.3 s to 7.7 s), all 27 franchises, their
+  movies and shows, and every stock pool identical. Not yet timed on a TV.
 
 ## BrightScript notes
 
