@@ -79,6 +79,9 @@ sub runSignIn()
     end for
     reg = NxPlexRegistry()
     reg.Write("servers", FormatJson(found))
+    ' More than one: the viewer picks which first (MainScene, ServerPickerView).
+    ' Kept until they do, so quitting at the picker brings it back.
+    if found.Count() > 1 then reg.Write("needsPick", "1")
     reg.Flush()
 
     m.top.message = "Signed in as " + m.top.account + "."

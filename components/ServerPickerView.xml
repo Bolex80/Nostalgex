@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CHOOSE YOUR LIBRARIES: after sign-in, when the account lists more than
+     one Plex server, as upstream's ServerPickerView (App/Plex90App.swift).
+     Shown before any server is checked, so the time spent here is the
+     viewer's, and only the servers picked are checked afterwards. -->
+<component name="ServerPickerView" extends="Group">
+  <interface>
+    <!-- [{ name, machineIdentifier, owned }], from the saved server list. -->
+    <field id="servers" type="array" onChange="render" />
+    <!-- Set once, on CONTINUE: { machineIdentifier: Boolean } for every server. -->
+    <field id="choices" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ServerPickerView.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x000000FF" />
+    <Group id="left" />
+    <Group id="list" />
+    <Group id="cont" />
+  </children>
+</component>

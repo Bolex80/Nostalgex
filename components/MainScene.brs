@@ -3,14 +3,16 @@
 ' Start-up: when this TV is already signed in, the saved guide goes up at
 ' once (LibraryTask, useCache) while sign-in is rechecked and the library is
 ' re-read in the background, as upstream shows its cached library first.
-' Otherwise: sign in, then load.
+' Otherwise: sign in, pick the libraries when the account has more than one
+' server (ServerPickerView), then load.
 
 sub init()
     m.prompt = m.top.FindNode("prompt")
     m.code = m.top.FindNode("code")
     m.hint = m.top.FindNode("hint")
     m.top.SetFocus(true)
-    if NxPlexLoadToken() <> "" and NxPlexRegistry().Read("servers") <> "" then startLibrary(true)
+    reg = NxPlexRegistry()
+    if NxPlexLoadToken() <> "" and reg.Read("servers") <> "" and reg.Read("needsPick") = "" then startLibrary(true)
     startSignIn()
 end sub
 
@@ -54,13 +56,54 @@ sub onSignInState()
     else if state = "ready" then
         m.prompt.text = m.signIn.message
         m.hint.text = "Press * to sign out of Plex on this TV."
-        if m.library = invalid then startLibrary(true)
+        if NxPlexRegistry().Read("needsPick") <> "" then
+            showPicker()
+        else if m.library = invalid then
+            startLibrary(true)
+        end if
     else if state = "error" then
         ' A saved guide stays up through a network blip.
         m.prompt.text = m.signIn.message
         m.hint.text = "Press * to sign out of Plex on this TV."
         launchComplete()
     end if
+end sub
+
+sub showPicker()
+    if m.picker <> invalid then return
+    servers = ParseJson(NxPlexRegistry().Read("servers"))
+    if type(servers) <> "roArray" then servers = []
+    list = []
+    for each s in servers
+        list.Push({ name: NxToStr(s.name), machineIdentifier: NxToStr(s.machineIdentifier), owned: NxTruthy(s.owned) })
+    end for
+    m.pickerClock = CreateObject("roTimespan")
+    m.picker = CreateObject("roSGNode", "ServerPickerView")
+    m.picker.ObserveField("choices", "onPicked")
+    m.top.AppendChild(m.picker)
+    m.picker.servers = list
+    launchComplete()
+end sub
+
+' The choices are saved as Settings saves them, and only the servers picked
+' are then checked and read.
+sub onPicked()
+    reg = NxPlexRegistry()
+    reg.Write("serverChoices", FormatJson(m.picker.choices))
+    reg.Delete("needsPick")
+    reg.Flush()
+    closePicker()
+    print "library: libraries picked after "; m.pickerClock.TotalMilliseconds(); " ms at the picker; the sign-in clock starts again here"
+    if m.signedInClock <> invalid then m.signedInClock = CreateObject("roTimespan")
+    m.prompt.text = "Connecting to your servers…"
+    startLibrary(true)
+end sub
+
+sub closePicker()
+    if m.picker = invalid then return
+    m.top.RemoveChild(m.picker)
+    m.picker = invalid
+    m.top.SetFocus(true)
 end sub
 
 sub onSignInCode()
@@ -179,6 +222,7 @@ end sub
 
 sub signOut()
     if m.signIn <> invalid then m.signIn.control = "stop"
+    closePicker()
     dropGuide()
     NxPlexClearAuth()
     ' The saved guide, pools and library and the enrichment cache (which TMDB
