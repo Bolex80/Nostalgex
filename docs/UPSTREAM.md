@@ -176,6 +176,13 @@ RETRO MODE on by default. It named the two misses (that channel, and 131 s
 for a 70-channel lineup) and the look's three deliberate differences, and
 asked for their `guide on screen` and `picture after` console lines.
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18998165)
+on 2026-10-17, at `5a0cead`: a FRANCHISES first run in 103 s on the
+55R617, 61 channels against the earlier 70 in 131 s, from a 3.7x faster
+channel build and a 24x faster franchise step, both with identical results.
+It said 58 s of it was a library read slowed by one retried request, and
+asked for their `built … channels` and `guide on screen` lines.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
