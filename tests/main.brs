@@ -27,6 +27,7 @@ sub Main(args = invalid as Dynamic)
     failures = failures + NxRunTuneQueueTests()
     failures = failures + NxRunDeepLinkTests()
     failures = failures + NxRunServerChoiceTests()
+    failures = failures + NxRunServerResolveTests()
     failures = failures + NxRunSnapshotTests()
     failures = failures + NxRunSeasonalTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"

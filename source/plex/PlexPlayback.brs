@@ -10,7 +10,8 @@
 '
 ' Security: the token goes in a request header, never in the URL, so it can't
 ' leak through a logged URL. Video uses the server's home-network address when
-' sign-in found one (private addresses only, see NxPlexPickLanVideo), else
+' one answered as that server (private addresses only, see
+' source/plex/ServerResolve.brs), else
 ' HTTPS with certificates checked. Nothing here
 ' reports playback back to Plex (no timeline, no scrobble): the app reads
 ' your library and never changes it.

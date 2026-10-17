@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Signs in to Plex with a plex.tv/link code, then finds the account's
-     servers and a working HTTPS connection to each. No field carries a token;
+     servers. Their addresses are checked later, by the library task, for the
+     servers that are on. No field carries a token;
      tokens stay in the registry (see source/plex/PlexApi.brs). -->
 <component name="PlexSignInTask" extends="Task">
   <interface>

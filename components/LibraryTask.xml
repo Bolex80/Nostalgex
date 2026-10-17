@@ -25,6 +25,7 @@
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/ServerResolve.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexLibrary.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
   <script type="text/brightscript" uri="pkg:/source/filter/ChannelFilter.brs" />

@@ -5,11 +5,12 @@
 '
 ' Security rules for everything in this file:
 '   - HTTPS, with certificates verified, to plex.tv. To the Plex server, the
-'     server's plain-HTTP home-network address when sign-in found one
-'     (NxPlexPickLanVideo), else HTTPS: on networks like the developer's, the
-'     public route stalls video and drops library reads, and the secure
-'     in-house address doesn't resolve. That address must be private
-'     (NxIsPrivateHost); the token then crosses the home network only.
+'     server's plain-HTTP home-network address when one answered as that
+'     server (source/plex/ServerResolve.brs), else HTTPS: on networks like
+'     the developer's, the public route stalls video and drops library
+'     reads, and the secure in-house address doesn't resolve. That address
+'     must be private (NxIsPrivateHost); the token then crosses the home
+'     network only.
 '   - The token lives only in this app's registry section. It is never
 '     printed: the debug console (port 8085) is readable by anyone on the
 '     network. Print the status, never a URL or header that carries a token.
@@ -285,35 +286,6 @@ function NxPlexServers(token as String) as Dynamic
     return out
 end function
 
-' A plain-HTTP address for video on the home network, built from the
-' server's local connection (plex.tv lists it as HTTPS; its raw address and
-' port are what plain HTTP needs). Only a private address qualifies, and only
-' if it answers /identity, which needs no token, so none is sent while
-' checking. "" if none.
-function NxPlexPickLanVideo(server as Object) as String
-    for each c in server.connections
-        if type(c) = "roAssociativeArray" and NxTruthy(c.local) and not NxTruthy(c.relay) then
-            host = NxToStr(c.address)
-            uri = "http://" + host + ":" + NxToStr(c.port)
-            if NxIsPrivateHost(host) and NxIsNumber(c.port) then
-                xfer = CreateObject("roUrlTransfer")
-                port = CreateObject("roMessagePort")
-                xfer.SetMessagePort(port)
-                xfer.SetUrl(uri + "/identity")
-                if xfer.AsyncGetToString() then
-                    msg = Wait(3000, port)
-                    if type(msg) = "roUrlEvent" then
-                        if msg.GetResponseCode() = 200 then return uri
-                    else
-                        xfer.AsyncCancel()
-                    end if
-                end if
-            end if
-        end if
-    end for
-    return ""
-end function
-
 ' True for RFC 1918 IPv4 addresses: 10/8, 172.16/12, 192.168/16.
 function NxIsPrivateHost(host as String) as Boolean
     parts = host.Split(".")
@@ -327,32 +299,4 @@ function NxIsPrivateHost(host as String) as Boolean
     if a = 192 and b = 168 then return true
     if a = 172 and b >= 16 and b <= 31 then return true
     return false
-end function
-
-' The server's first HTTPS connection that answers /identity: direct before
-' relay, local before remote, as upstream orders them. Plain-HTTP
-' connections are skipped. Returns the base URI, or "" if none answered.
-function NxPlexPickConnection(server as Object) as String
-    ranked = []
-    kinds = ["local", "remote", "relay (local)", "relay"]
-    for each rank in [0, 1, 2, 3]
-        for each c in server.connections
-            if type(c) = "roAssociativeArray" and c.protocol = "https" and NxIsString(c.uri) then
-                r = 0
-                if NxTruthy(c.relay) then r = r + 2
-                if not NxTruthy(c.local) then r = r + 1
-                if r = rank then ranked.Push({ uri: c.uri, kind: kinds[r] })
-            end if
-        end for
-    end for
-    for each c in ranked
-        res = NxHttp("GET", c.uri + "/identity", NxPlexHeaders(server.accessToken), 5000)
-        if res.code = 200 then
-            print "plex: connected by the "; c.kind; " HTTPS route"
-            server.connectionKind = c.kind
-            return c.uri
-        end if
-        print "plex: the "; c.kind; " HTTPS route didn't answer"
-    end for
-    return ""
 end function

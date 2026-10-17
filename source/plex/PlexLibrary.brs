@@ -26,7 +26,9 @@
 
 ' One GET against a server: its home-network address when there is one,
 ' else HTTPS, with up to three tries, since a home network can drop a
-' request. Returns the MediaContainer, or invalid. Sets err.auth when the
+' request. Two failures on the home-network address drop it for the rest of
+' the load (on the server object only: the next load starts from the saved
+' address again). Returns the MediaContainer, or invalid. Sets err.auth when the
 ' server rejected the token.
 function NxPlexGetContainer(server as Object, path as String, err = invalid as Dynamic, timeoutMs = 15000 as Integer) as Dynamic
     base = NxPlexBase(server)
@@ -34,7 +36,13 @@ function NxPlexGetContainer(server as Object, path as String, err = invalid as D
         res = NxPlexServerGet(base + path, NxToStr(server.accessToken), timeoutMs)
         if res.code = 401 or res.code = 403 or (res.code >= 200 and res.code <= 299) then exit for
         print "plex: a library request failed ("; res.code; "), try "; attempt; " of 3"
-        if attempt = 2 and base <> NxToStr(server.uri) then base = NxToStr(server.uri)
+        if attempt = 2 and base <> NxToStr(server.uri) then
+            ' The home-network address stays dropped for the rest of this load,
+            ' so each later request doesn't spend two tries on it first.
+            base = NxToStr(server.uri)
+            server.lanUri = ""
+            print "plex: the home-network address failed twice; using HTTPS for the rest of this load"
+        end if
     end for
     if res.code = 401 or res.code = 403 then
         if err <> invalid then err.auth = true

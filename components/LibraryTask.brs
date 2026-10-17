@@ -215,8 +215,28 @@ sub loadLibrary()
     items = []
     scanned = []
     serversOn = NxServersOn(servers, NxSavedServerChoices())
+    m.top.progress = "Connecting to your servers…"
+    missing = NxPlexResolveSaved(servers, serversOn)
+    usable = 0
     for i = 0 to servers.Count() - 1
-        if serversOn[i] then
+        if serversOn[i] and NxToStr(servers[i].uri) <> "" then usable = usable + 1
+    end for
+    if usable = 0 then
+        if shown then
+            print "library: background refresh reached no server; keeping the saved guide"
+            return
+        end if
+        if missing = invalid then
+            fail("Can't reach plex.tv to find your servers. Check the TV's internet connection, then press OK to try again.")
+        else
+            fail("None of your Plex servers answered over a secure (HTTPS) connection. In Plex, set Settings > Network > Secure connections to Preferred. Press OK to try again.")
+        end if
+        return
+    end if
+    for i = 0 to servers.Count() - 1
+        ' A server with no address is left out this time; it's tried again on
+        ' the next load.
+        if serversOn[i] and NxToStr(servers[i].uri) <> "" then
             saved = invalid
             if type(snap.servers[keys[i]]) = "roAssociativeArray" then
                 fresh = m.top.rebuild

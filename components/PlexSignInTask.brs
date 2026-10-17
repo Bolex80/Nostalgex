@@ -46,6 +46,16 @@ sub runSignIn()
     if account = invalid or account = "" then account = NxPlexAccountName(token)
     if NxIsString(account) then m.top.account = account
 
+    ' A TV that already has its servers keeps them: their addresses were
+    ' checked when they were first used, and the Apple TV app doesn't probe
+    ' again on later launches either.
+    if NxPlexRegistry().Read("servers") <> "" then
+        m.top.message = "Signed in as " + m.top.account + "."
+        m.top.status = "ready"
+        print "plex: signed in; using the saved servers"
+        return
+    end if
+
     m.top.status = "discovering"
     servers = NxPlexServers(token)
     if servers = invalid then
@@ -57,35 +67,23 @@ sub runSignIn()
         return
     end if
 
-    ' Keep each reachable server's HTTPS address and access token, for the
-    ' library loader. They go in the registry, not on a node field.
+    ' Every server on the account, owned first, as upstream lists them. No
+    ' address is checked here: only the servers picked go on to be checked,
+    ' all at once (source/plex/ServerResolve.brs). The list goes in the
+    ' registry, not on a node field, since it holds access tokens.
     found = []
-    names = []
-    unreachable = []
-    for each s in servers
-        uri = NxPlexPickConnection(s)
-        if uri <> "" then
-            lanUri = NxPlexPickLanVideo(s)
-            if lanUri <> "" then print "plex: video will use the home-network address"
-            found.Push({ name: s.name, machineIdentifier: s.machineIdentifier, owned: s.owned, uri: uri, lanUri: lanUri, accessToken: s.accessToken })
-            names.Push(s.name)
-        else
-            unreachable.Push(s.name)
-        end if
+    for each owned in [true, false]
+        for each s in servers
+            if s.owned = owned then found.Push({ name: s.name, machineIdentifier: s.machineIdentifier, owned: s.owned, accessToken: s.accessToken, uri: "", lanUri: "", checked: false })
+        end for
     end for
-    if found.Count() = 0 then
-        fail("Found " + servers.Count().ToStr() + " Plex server(s), but none answered over a secure (HTTPS) connection. In Plex, set Settings > Network > Secure connections to Preferred. Press OK to try again.")
-        return
-    end if
     reg = NxPlexRegistry()
     reg.Write("servers", FormatJson(found))
     reg.Flush()
 
-    msg = "Connected to " + names.Join(", ") + " over HTTPS."
-    if unreachable.Count() > 0 then msg = msg + " Not reachable securely: " + unreachable.Join(", ") + "."
-    m.top.message = msg
+    m.top.message = "Signed in as " + m.top.account + "."
     m.top.status = "ready"
-    print "plex: signed in; servers reachable over HTTPS: "; found.Count(); ", unreachable: "; unreachable.Count()
+    print "plex: signed in; servers on the account: "; found.Count()
 end sub
 
 sub fail(message as String)
