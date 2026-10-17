@@ -57,6 +57,17 @@ function NxRunServerResolveTests() as Integer
     NxCheck(r, "none settles", NxBoolStr(o.settled), "true")
     NxCheck(r, "none uri", o.uri, "")
 
+    ' Two remote addresses: one answering settles it while the other waits.
+    two = [
+        { protocol: "https", uri: "https://remote-a.plex.direct:32400", local: false, relay: false },
+        { protocol: "https", uri: "https://remote-b.plex.direct:32400", local: false, relay: false }
+    ]
+    c = NxResolveCandidates(two)
+    c[1].status = "ok"
+    o = NxResolveOutcome(c, 400, 3000, false)
+    NxCheck(r, "sibling settles", NxBoolStr(o.settled), "true")
+    NxCheck(r, "sibling uri", o.uri, "https://remote-b.plex.direct:32400")
+
     NxCheck(r, "no connections", NxResolveCandidates([]).Count().ToStr(), "0")
 
     NxCheck(r, "identity match", NxBoolStr(NxIdentityMatches({ MediaContainer: { machineIdentifier: "abc" } }, "abc")), "true")

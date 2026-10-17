@@ -32,7 +32,7 @@ function NxResolveCandidates(connections as Object) as Object
                 r = 0
                 if NxTruthy(c.relay) then r = r + 2
                 if not NxTruthy(c.local) then r = r + 1
-                if r = rank then out.Push({ use: "uri", url: c.uri, kind: kinds[r], local: r = 0, status: "" })
+                if r = rank then out.Push({ use: "uri", url: c.uri, kind: kinds[r], rank: r, local: r = 0, status: "" })
             end if
         end for
     end for
@@ -53,23 +53,31 @@ function NxResolveCandidates(connections as Object) as Object
 end function
 
 ' What the candidates say so far: { settled, uri, kind, lanUri }. Settled
-' once nothing still waiting could change the answer. A waiting candidate
-' counts as failed once over (local addresses after graceMs, the rest when
-' expired is true).
+' once nothing still waiting could change the answer: addresses of the same
+' kind are equally good, so one that answered isn't held up by a sibling
+' still waiting, only by a better kind. A waiting candidate counts as failed
+' once over (local addresses after graceMs, the rest when expired is true).
 function NxResolveOutcome(cands as Object, elapsedMs as Integer, graceMs as Integer, expired as Boolean) as Object
     out = { settled: false, uri: "", kind: "", lanUri: "" }
     uriSettled = true
-    for each c in cands
-        if c.use = "uri" and out.uri = "" then
-            st = NxResolveStatus(c, elapsedMs, graceMs, expired)
-            if st = "ok" then
-                out.uri = c.url
-                out.kind = c.kind
-            else if st = "" then
-                ' A better address may still answer; stop looking further down.
-                uriSettled = false
-                exit for
+    for rank = 0 to 3
+        waiting = false
+        for each c in cands
+            if c.use = "uri" and c.rank = rank and out.uri = "" then
+                st = NxResolveStatus(c, elapsedMs, graceMs, expired)
+                if st = "ok" then
+                    out.uri = c.url
+                    out.kind = c.kind
+                else if st = "" then
+                    waiting = true
+                end if
             end if
+        end for
+        if out.uri <> "" then exit for
+        if waiting then
+            ' A better kind may still answer; worse ones wait for it.
+            uriSettled = false
+            exit for
         end if
     end for
     lanSettled = true
