@@ -1,6 +1,7 @@
 #!/bin/bash
-# Zip the channel and sideload it to every TV in ROKU_HOSTS (from .env), then
-# launch it. Each TV holds one sideloaded channel; installing replaces it.
+# Zip the channel and sideload it to every TV in ROKU_HOSTS (from .env, or the
+# command line: ROKU_HOSTS=<tv-ip> scripts/deploy.sh), then launch it.
+# Each TV holds one sideloaded channel; installing replaces it.
 #
 #   scripts/deploy.sh          the app
 #   scripts/deploy.sh --test   a test build: tests/main.brs replaces the app's
@@ -20,8 +21,11 @@ case "${1:-}" in
 esac
 wait_s=${TEST_TIMEOUT:-600} # seconds to wait for a TV's test result
 [ -f .env ] || { echo "no .env — copy .env.example" >&2; exit 1; }
+# A ROKU_HOSTS given on the command line wins over .env's, to install to one TV.
+hosts_override=${ROKU_HOSTS:-}
 # shellcheck source=/dev/null
 . ./.env
+[ -n "$hosts_override" ] && ROKU_HOSTS=$hosts_override
 : "${ROKU_HOSTS:?set ROKU_HOSTS in .env}" "${ROKU_DEV_PASSWORD:?set ROKU_DEV_PASSWORD in .env}"
 
 stage=out/stage

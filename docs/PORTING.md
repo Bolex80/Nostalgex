@@ -284,7 +284,10 @@ at `6f05937` with 5,363 items on one server:
 - **Converted channels, joined mid-programme:** picture 1.8, 3.0, 3.5, 6.5,
   9.4 and 13.2 s after the press. The 13.2 s one spent 12.75 s in Roku's own
   VODStart, waiting for Plex's segments, not in the app.
-- **First run:** not timed yet; it needs a fresh plex.tv/link sign-in.
+- **First run, the default lineup (NOSTALGEX only, 19 channels):** guide on
+  screen 37.7 s after a plex.tv/link sign-in, at `8974f6e`: library read 7.7 s
+  (5,363 items), collections 4.7 s, channels built 16.8 s. A larger lineup,
+  70 channels with FRANCHISES on, took 131.3 s on the 55R617.
 
 ## BrightScript notes
 
