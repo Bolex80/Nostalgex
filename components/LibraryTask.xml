@@ -9,6 +9,14 @@
     <!-- loading | ready | error. "ready" can come twice: saved guide, then fresh. -->
     <field id="status" type="string" value="" />
     <field id="progress" type="string" value="" />
+    <!-- The loading screen's step rail, as upstream's LibraryLoadPhase:
+         preparing | library | collections | metadata | channels | finishing.
+         bar is 0 to 1, or -1 for none; barCaption goes under it. firstRun:
+         no library saved yet, so the screen warns that it takes a while. -->
+    <field id="phase" type="string" value="" />
+    <field id="bar" type="float" value="-1" />
+    <field id="barCaption" type="string" value="" />
+    <field id="firstRun" type="boolean" value="false" />
     <field id="message" type="string" value="" />
     <field id="guide" type="assocarray" />
     <!-- Show the saved guide first when it is still what a fresh build would

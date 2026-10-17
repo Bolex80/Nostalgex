@@ -156,6 +156,7 @@ end function
 
 sub loadLibrary()
     m.top.status = "loading"
+    setPhase("preparing")
     timer = CreateObject("roTimespan")
     shown = false
     if m.top.useCache then
@@ -201,6 +202,7 @@ sub loadLibrary()
     ' read this time is saved again once the guide is up.
     snapDir = NxSnapshotDir()
     snap = NxSnapshotReadMeta(snapDir)
+    m.top.firstRun = type(snap.servers) <> "roAssociativeArray" or snap.servers.Count() = 0
     nowSec& = NxFilterClock().nowSec
     ' Every server keeps its index, on or off, since items carry it, and its
     ' machine identifier keys its collections and its save.
@@ -215,6 +217,7 @@ sub loadLibrary()
     items = []
     scanned = []
     serversOn = NxServersOn(servers, NxSavedServerChoices())
+    setPhase("library")
     m.top.progress = "Connecting to your servers…"
     missing = NxPlexResolveSaved(servers, serversOn)
     usable = 0
@@ -278,6 +281,7 @@ sub loadLibrary()
     ' just scanned. A server whose collections can't be read just has none
     ' this time.
     timer.Mark()
+    setPhase("collections")
     if scanned.Count() > 0 then m.top.progress = "Reading your collections…"
     for each s in scanned
         got = NxCollectionsFetchPlex(s.key, NxPlexCollectionsFetcher(servers[s.index]), m.top)
@@ -303,6 +307,7 @@ sub loadLibrary()
         backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: NxEnrichTopProgress(m.top)
     }
     timer.Mark()
+    setPhase("metadata")
     m.top.progress = "Reading shared details…"
     state = NxEnrichFromCaches(items, opts)
     if not state.skipped then print "library: enrichment caches read in "; timer.TotalMilliseconds(); " ms"
@@ -347,6 +352,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     poolIds = NxPoolChannelIds(config, bundles, clock.month)
 
     timer.Mark()
+    setPhase("channels")
     channels = []
     built = 0
     for each def in config.channels
@@ -360,6 +366,8 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         if poolIds.DoesExist(def.id.ToStr()) then
             built = built + 1
             m.top.progress = "Building channels: " + built.ToStr() + " of " + poolIds.Count().ToStr()
+            m.top.bar = (built - 1) / poolIds.Count()
+            m.top.barCaption = "Channel " + built.ToStr() + " of " + poolIds.Count().ToStr()
             matched = []
             for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
                 matched.Push(row.item)
@@ -373,6 +381,8 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         channels.Push(ch)
     end for
     print "library: built "; built; " channels in "; timer.TotalMilliseconds(); " ms"
+    setPhase("finishing")
+    m.top.progress = ""
 
     ' FRANCHISES, as the Apple TV app has it (the web tuner doesn't call the
     ' builder): covered franchises join their classic's pool, and each found
@@ -575,6 +585,13 @@ function NxEnabledBundles() as Object
     end if
     return ["nostalgex"]
 end function
+
+' A new step on the loading screen's rail; the last step's bar goes with it.
+sub setPhase(phase as String)
+    m.top.bar = -1
+    m.top.barCaption = ""
+    m.top.phase = phase
+end sub
 
 sub fail(message as String)
     m.top.message = message

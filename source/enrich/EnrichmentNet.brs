@@ -90,6 +90,11 @@ function NxEnrichTopProgress(top as Object) as Object
             else
                 m.top.progress = "Fetching details: " + done.ToStr() + " of " + total.ToStr()
             end if
+            ' Upstream's "Metadata n/t" bar; no bar until there is a total.
+            if total > 0 then
+                m.top.bar = done / total
+                m.top.barCaption = "Metadata " + done.ToStr() + "/" + total.ToStr()
+            end if
         end sub
     }
 end function

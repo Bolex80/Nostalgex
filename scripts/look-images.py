@@ -9,6 +9,8 @@ SwiftUI drawing code (upstream Nostalgex/Nostalgex/Views):
   PlayerView.swift       osd.png (ChannelOSD's gradient)
   bolt.png and gear.png are drawn here: SF Symbols can't be bundled. star.png
   stands in for the meta row's "★", which none of the bundled fonts has.
+  App/Plex90App.swift    step_ring.png, step_dot.png, step_check.png
+                         (LibraryLoadStepRail: Roku draws no circles)
 
 White art is tinted on the TV with a Poster's blendColor. Run it again after
 changing it; the PNGs are committed. Needs Pillow.
@@ -209,6 +211,34 @@ def star():
     return img.resize((16, 16), Image.LANCZOS)
 
 
+def step_ring():
+    # LibraryLoadStepRail's 28 pt circle, a 2 pt stroke inside it, white.
+    s = 8
+    n = 28 * s
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse([0, 0, n - 1, n - 1], outline=(255, 255, 255, 255), width=2 * s)
+    return img.resize((28, 28), Image.LANCZOS)
+
+
+def step_dot():
+    # The active step's 10 pt dot, white.
+    s = 8
+    n = 10 * s
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse([0, 0, n - 1, n - 1], fill=(255, 255, 255, 255))
+    return img.resize((10, 10), Image.LANCZOS)
+
+
+def step_check():
+    # A complete step's 12 pt bold checkmark, white, on a 14 px square.
+    s = 8
+    n = 14 * s
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    pts = [(2.2 * s, 7.4 * s), (5.6 * s, 10.6 * s), (11.8 * s, 3.4 * s)]
+    ImageDraw.Draw(img).line(pts, fill=(255, 255, 255, 255), width=round(2.4 * s), joint="curve")
+    return img.resize((14, 14), Image.LANCZOS)
+
+
 # ── Snow (StaticScreenView.swift) and the OSD gradient ─────────────────────
 
 def snow(seed, w=740, h=556):
@@ -245,6 +275,9 @@ save(capsule(28), "capsule.9.png")
 save(bolt(), "bolt.png")
 save(gear(), "gear.png")
 save(star(), "star.png")
+save(step_ring(), "step_ring.png")
+save(step_dot(), "step_dot.png")
+save(step_check(), "step_check.png")
 for i in range(3):
     save(snow(i), "snow_%d.png" % i)
 save(osd(), "osd.png")

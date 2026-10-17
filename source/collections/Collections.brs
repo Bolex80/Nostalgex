@@ -554,7 +554,11 @@ function NxCollectionsFetchPlex(serverKey as String, fetcher as Object, progress
         end if
         data = docs[i mod batch]
         done = done + 1
-        if progress <> invalid then progress.progress = "Reading collections: " + done.ToStr() + " of " + list.Count().ToStr()
+        if progress <> invalid then
+            progress.progress = "Reading collections: " + done.ToStr() + " of " + list.Count().ToStr()
+            progress.bar = done / list.Count()
+            progress.barCaption = "Collection " + done.ToStr() + " of " + list.Count().ToStr()
+        end if
         if type(data) = "roAssociativeArray" then
             childKeys = []
             if type(data.MediaContainer) = "roAssociativeArray" then

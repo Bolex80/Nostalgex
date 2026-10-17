@@ -138,24 +138,37 @@ sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean)
     m.library = CreateObject("roSGNode", "LibraryTask")
     m.library.useCache = useCache
     m.library.rebuild = rebuild
-    m.library.ObserveField("progress", "onLibraryProgress")
+    m.library.ObserveField("phase", "onLibraryPhase")
     m.library.ObserveField("status", "onLibraryStatus")
     m.library.control = "run"
 end sub
 
-sub onLibraryProgress()
-    if m.guide = invalid then m.prompt.text = m.library.progress
+' The progress screen (LoadingView) goes up once the load is under way and
+' there is no guide to show; the saved guide, when there is one, comes first.
+sub onLibraryPhase()
+    if m.guide <> invalid or m.loading <> invalid or m.library.phase = "" then return
+    m.loading = CreateObject("roSGNode", "LoadingView")
+    m.top.AppendChild(m.loading)
+    m.loading.task = m.library
+end sub
+
+sub closeLoading()
+    if m.loading = invalid then return
+    m.top.RemoveChild(m.loading)
+    m.loading = invalid
 end sub
 
 sub onLibraryStatus()
     status = m.library.status
     if status = "error" then
         if m.guide <> invalid then return
+        closeLoading()
         m.signedInClock = invalid
         m.prompt.text = m.library.message
         m.hint.text = "Press OK to try again, or * to sign out of Plex on this TV."
         launchComplete()
     else if status = "ready" then
+        closeLoading()
         m.prompt.text = ""
         m.hint.text = ""
         m.top.FindNode("title").visible = false
@@ -201,6 +214,7 @@ end sub
 sub dropGuide()
     if m.library <> invalid then m.library.control = "stop"
     m.library = invalid
+    closeLoading()
     if m.guide <> invalid then
         m.top.RemoveChild(m.guide)
         m.guide = invalid

@@ -123,7 +123,8 @@ function NxPlexServerSignature(server as Object) as Dynamic
 end function
 
 ' All of a server's playable items. `progress`, if given, is a node whose
-' `progress` string field shows how far the scan has got. Returns invalid
+' `progress` string field shows how far the scan has got, and `bar` and
+' `barCaption` how far through a section's shows. Returns invalid
 ' when the server rejected the token or its section list failed, as
 ' upstream's scan throws. `info`, if given, gets the library's `signature`
 ' as the scan found it (NxLibrarySignature).
@@ -176,7 +177,11 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
                         end if
                     end for
                     answers = invalid
-                    if progress <> invalid then progress.progress = title + ": " + NxMinInt(b + batch, items.Count()).ToStr() + " of " + items.Count().ToStr() + " shows"
+                    if progress <> invalid then
+                        progress.progress = title + ": " + NxMinInt(b + batch, items.Count()).ToStr() + " of " + items.Count().ToStr() + " shows"
+                        progress.bar = NxMinInt(b + batch, items.Count()) / items.Count()
+                        progress.barCaption = NxMinInt(b + batch, items.Count()).ToStr() + " of " + items.Count().ToStr() + " shows"
+                    end if
                 end for
             else
                 for each raw in items
@@ -186,7 +191,10 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
                         out.Push(it)
                     end if
                 end for
-                if progress <> invalid then progress.progress = title + ": " + items.Count().ToStr() + " items"
+                if progress <> invalid then
+                    progress.progress = title + ": " + items.Count().ToStr() + " items"
+                    progress.bar = -1
+                end if
             end if
         end if
     end for
