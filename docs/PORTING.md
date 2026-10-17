@@ -288,6 +288,10 @@ at `6f05937` with 5,363 items on one server:
   screen 37.7 s after a plex.tv/link sign-in, at `8974f6e`: library read 7.7 s
   (5,363 items), collections 4.7 s, channels built 16.8 s. A larger lineup,
   70 channels with FRANCHISES on, took 131.3 s on the 55R617.
+- **Channel build, at `3c1e79f`:** the same 39-channel lineup built in 35.3 s
+  before and 11.4 s after, from the saved library on the 43S45. Off-device,
+  `tests/bench/` over the same 5,363 items built all 131 channels 3.7x faster,
+  every pool identical. The franchise step (about 15 s) is now the larger part.
 
 ## BrightScript notes
 
