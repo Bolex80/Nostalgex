@@ -183,6 +183,22 @@ channel build and a 24x faster franchise step, both with identical results.
 It said 58 s of it was a library read slowed by one retried request, and
 asked for their `built … channels` and `guide on screen` lines.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19003344)
+on 2026-10-17, from `5a0cead` on their Stick Plus (11,684 owned items plus 3
+shared servers): guide on screen 114.5 s after sign-in with 19 channels, the
+build 12 s, most of the rest checking the shared servers' local addresses one
+at a time. Converted channels gave a picture in 2.1 to 2.5 s, direct play 0.3
+to 1.9 s. Bug 7 is fixed (a package switched on from the saved library in 2 s),
+and the code refresh and sign-out changes work. The `link` test case fails only
+on the text compare, because the Roku lowercases `contentid`. They asked for
+Apple TV behaviour next: the onboarding order (library picker before the
+progress rail, no server checks before it, no local-address retries during
+playback), the Settings order with My Collections folded, a package switched
+on in place with a spinner on its row, the full-screen controls of
+`PlayerView.swift`, a fix for a stale tune setting the title overlay after
+quick Up/Down flips, and the logo PNGs from upstream's `logo/`. Every package
+on is to be tried on the next build.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
