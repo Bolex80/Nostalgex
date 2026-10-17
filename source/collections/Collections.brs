@@ -499,7 +499,9 @@ end function
 ' [{ id: "<serverKey>:<ratingKey>", title, childKeys, serverKey }], or
 ' invalid when the section list fails (upstream throws). A section whose
 ' collections fail is skipped, and a collection whose children fail is
-' dropped. fetcher.getJSON(path) returns the parsed document or invalid.
+' dropped. fetcher.getJSON(path) returns the parsed document or invalid;
+' fetcher.getMany(paths), when it has one, returns them all in order, which
+' lets the Plex fetcher keep several requests in flight.
 function NxCollectionsFetchPlex(serverKey as String, fetcher as Object, progress = invalid as Dynamic) as Dynamic
     doc = fetcher.getJSON("/library/sections")
     if type(doc) <> "roAssociativeArray" then return invalid
@@ -532,8 +534,25 @@ function NxCollectionsFetchPlex(serverKey as String, fetcher as Object, progress
     end for
     out = []
     done = 0
-    for each c in list
-        data = fetcher.getJSON("/library/collections/" + NxToStr(c.ratingKey) + "/children")
+    batch = 25
+    docs = []
+    for i = 0 to list.Count() - 1
+        c = list[i]
+        if i mod batch = 0 then
+            paths = []
+            for j = i to i + batch - 1
+                if j < list.Count() then paths.Push("/library/collections/" + NxToStr(list[j].ratingKey) + "/children")
+            end for
+            if fetcher.getMany <> invalid then
+                docs = fetcher.getMany(paths)
+            else
+                docs = []
+                for each path in paths
+                    docs.Push(fetcher.getJSON(path))
+                end for
+            end if
+        end if
+        data = docs[i mod batch]
         done = done + 1
         if progress <> invalid then progress.progress = "Reading collections: " + done.ToStr() + " of " + list.Count().ToStr()
         if type(data) = "roAssociativeArray" then

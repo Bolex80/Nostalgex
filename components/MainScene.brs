@@ -35,6 +35,7 @@ sub onSignInState()
     else if state = "code" then
         ' The saved sign-in was rejected: nothing saved stays on screen.
         dropGuide()
+        m.codeShown = true
         m.prompt.text = "On your phone or computer, go to plex.tv/link and enter this code:"
         m.code.text = m.signIn.code
         m.hint.text = "The code refreshes every few minutes."
@@ -42,6 +43,13 @@ sub onSignInState()
     else if state = "discovering" then
         m.prompt.text = "Signed in as " + m.signIn.account + ". Finding your Plex servers…"
         m.hint.text = ""
+        ' The first run's clock, after a code was entered on a phone (a first
+        ' launch or a sign-out): the maintainer's bar is the guide up within
+        ' 2 minutes of signing in.
+        if m.codeShown = true then
+            m.codeShown = false
+            m.signedInClock = CreateObject("roTimespan")
+        end if
         signInDone()
     else if state = "ready" then
         m.prompt.text = m.signIn.message
@@ -73,9 +81,6 @@ end sub
 sub signInDone()
     if m.inSignIn <> true then return
     m.inSignIn = false
-    ' The first run's clock: the maintainer's bar is the guide up within 2
-    ' minutes of signing in.
-    m.signedInClock = CreateObject("roTimespan")
     m.top.signalBeacon("AppDialogComplete")
 end sub
 
@@ -113,7 +118,7 @@ sub onLibraryStatus()
         m.top.FindNode("title").visible = false
         first = m.guide = invalid
         if first and m.signedInClock <> invalid then
-            print "library: guide on screen "; m.signedInClock.TotalSeconds(); " s after sign-in"
+            print "library: guide on screen "; m.signedInClock.TotalMilliseconds(); " ms after sign-in"
             m.signedInClock = invalid
         end if
         if first then

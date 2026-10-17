@@ -446,12 +446,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
         franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, scanned: collections.raw.Count(), failed: collections.failed }
     }
-    WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
-    timer.Mark()
-    NxSavePools(ordered, guide, clock.month)
-    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
     ' Only hand over a refresh that differs, so an unchanged library leaves the
-    ' screen alone.
+    ' screen alone. Before the saves, so a first run's guide doesn't wait on
+    ' them.
     ' The package list counts too: a new package that is off changes no
     ' channel, but Settings has to show it.
     ' Compared with the task's own copy: each read of m.top.guide copies the
@@ -465,6 +462,10 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         m.shownGuide = guide
         m.top.status = "ready"
     end if
+    WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
+    timer.Mark()
+    NxSavePools(ordered, guide, clock.month)
+    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
     return { ordered: ordered, guide: guide }
 end function
 

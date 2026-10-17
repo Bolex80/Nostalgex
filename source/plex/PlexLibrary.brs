@@ -447,6 +447,22 @@ function NxPlexCollectionsFetcher(server as Object) as Object
             mc = NxPlexGetContainer(m.server, path)
             if mc = invalid then return invalid
             return { MediaContainer: mc }
+        end function,
+        ' Five at a time, as the episodes are; one that failed gets the usual
+        ' three tries on its own.
+        getMany: function(paths as Object) as Object
+            urls = []
+            for each path in paths
+                urls.Push(NxPlexBase(m.server) + path)
+            end for
+            answers = NxPlexServerGetMany(urls, NxToStr(m.server.accessToken), 5)
+            out = []
+            for i = 0 to paths.Count() - 1
+                mc = NxPlexContainerOf(answers[i])
+                if mc = invalid then mc = NxPlexGetContainer(m.server, paths[i])
+                if mc = invalid then out.Push(invalid) else out.Push({ MediaContainer: mc })
+            end for
+            return out
         end function
     }
 end function

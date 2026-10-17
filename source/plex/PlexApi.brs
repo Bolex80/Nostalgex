@@ -153,7 +153,7 @@ end function
 ' same rules as NxPlexServerGet. Returns { code, json } per URL, in order.
 function NxPlexServerGetMany(urls as Object, token as String, width as Integer, timeoutMs = 15000 as Integer) as Object
     out = []
-    for each u in urls
+    for i = 1 to urls.Count()
         out.Push({ code: -1, json: invalid })
     end for
     port = CreateObject("roMessagePort")
