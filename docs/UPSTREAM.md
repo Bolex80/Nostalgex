@@ -199,6 +199,19 @@ on in place with a spinner on its row, the full-screen controls of
 quick Up/Down flips, and the logo PNGs from upstream's `logo/`. Every package
 on is to be tried on the next build.
 
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19007810)
+on 2026-10-17, leading with all six in `791f31e` and the server checks no
+longer holding up the first run: servers listed at sign-in, CHOOSE YOUR
+LIBRARIES when there is more than one, only the picked ones checked, all at
+once and by identity, then the step rail (51 ms and 24.2 s here, not a first
+run). Then the Settings order, a package built in place (fingerprints equal
+to a full rebuild), full screen as PlayerView with the sleep timer, the
+latest-press fix and the wordmark. It named what one server can't show (the
+picker, several servers, three of the logo's screens), noted their Apple TV
+app still uses the old bolt logo, fixed `link` (`02cc134`), and asked them
+to sign out and in on `02cc134` for the `checked`, `libraries picked` and
+`guide on screen` lines, and every package on.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
