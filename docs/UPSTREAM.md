@@ -198,3 +198,6 @@ on 2026-10-15. They liked SLASHER and FOUND FOOTAGE most and will post back
 once they have worked out which channels fit as a package. Horror will be
 available outside October as a bundle that can be switched on or off, and so
 will the Christmas bundle.
+
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/29#discussioncomment-19002764)
+on 2026-10-17: built in, and in their next release.
