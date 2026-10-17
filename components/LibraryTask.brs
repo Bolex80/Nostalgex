@@ -516,14 +516,33 @@ end sub
 ' What the guide and player need from one airing; nothing secret.
 function NxGuideBlock(b as Object) as Object
     it = b.item
-    return {
+    out = {
         startSec: b.startSec, endSec: b.endSec,
         ratingKey: NxToStr(it.ratingKey), line: NxGuideTitle(it), title: NxToStr(it.title),
         episodeTitle: NxToStr(it.episodeTitle), seasonNumber: it.seasonNumber, episodeNumber: it.episodeNumber,
         summary: NxToStr(it.summary), year: NxToStr(it.year), partKey: it.partKey,
         container: it.container, videoCodec: it.videoCodec, audioCodec: it.audioCodec,
-        serverIndex: it.serverIndex
+        serverIndex: it.serverIndex, contentRating: NxToStr(it.contentRating), rating: 0,
+        type: NxToStr(it.type)
     }
+    if NxIsNumber(it.rating) then out.rating = it.rating
+    ' Music videos also show their artist and genres (PlexMediaItem+MusicDisplay.swift).
+    if it.librarySource = "musicVideo" then
+        out.music = true
+        out.artist = NxToStr(it.artist)
+        out.genreLine = NxMusicGenreLine(it.genres)
+    end if
+    return out
+end function
+
+' musicGenreDisplay: up to four genres, less the generic music ones.
+function NxMusicGenreLine(genres as Dynamic) as String
+    useful = []
+    for each g in NxList(genres)
+        l = LCase(NxToStr(g))
+        if l <> "" and Instr(1, l, "music video") = 0 and l <> "music" and l <> "musical" and useful.Count() < 4 then useful.Push(NxToStr(g))
+    end for
+    return useful.Join(" · ")
 end function
 
 ' Switched-on bundles: saved on the TV, upstream's default until changed.

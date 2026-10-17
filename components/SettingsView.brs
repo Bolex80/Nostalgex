@@ -42,7 +42,8 @@ function newRect(x as Float, y as Float, w as Float, h as Float, color as String
 end function
 
 ' Rows: every package, with the franchise list under FRANCHISES while it is
-' on (upstream's BundleManagerView), then subtitles, then sign-out.
+' on (upstream's BundleManagerView), then RETRO MODE and subtitles (its
+' PLAYBACK section), then sign-out.
 sub open(unused = invalid as Dynamic)
     m.enabled = []
     m.enabled.Append(m.top.enabledBundles)
@@ -60,7 +61,7 @@ sub open(unused = invalid as Dynamic)
 end sub
 
 ' The row list: { kind: bundle | franchiseAll | franchise | collectionsInfo |
-' collection | server | subtitles | signOut }. The franchise rows are the last
+' collection | server | retro | subtitles | signOut }. The franchise rows are the last
 ' guide build's, so they show once the package was on for a build. MY
 ' COLLECTIONS follows the packages, as on the web tuner. Server rows show only
 ' when the account has more than one server.
@@ -88,6 +89,7 @@ sub buildRows()
             m.rows.Push({ kind: "server", index: i })
         end for
     end if
+    m.rows.Push({ kind: "retro" })
     m.rows.Push({ kind: "subtitles" })
     m.rows.Push({ kind: "signOut" })
 end sub
@@ -232,6 +234,15 @@ sub render()
                 state = "ON"
                 stateColor = "0xFFE500FF"
             end if
+        else if row.kind = "retro" then
+            label = "RETRO MODE"
+            detail = "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio"
+            state = "OFF"
+            stateColor = "0xFFFFFF59"
+            if NxRetroMode() then
+                state = "ON"
+                stateColor = "0xFFE500FF"
+            end if
         else if row.kind = "subtitles" then
             label = "SUBTITLES"
             detail = subtitleModeExplanation()
@@ -332,6 +343,9 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
                 m.serversChanged = true
                 render()
             end if
+        else if row.kind = "retro" then
+            NxSaveRetroMode(not NxRetroMode())
+            render()
         else if row.kind = "subtitles" then
             cycleSubtitleMode()
             render()

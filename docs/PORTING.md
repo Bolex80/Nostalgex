@@ -29,7 +29,9 @@ and already pinned to the Apple TV.
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen. No language picker, as Plex sends one track (below) |
-| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView | `components/GuideView.*` | recreated to its measurements; DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash (`scripts/icons.sh`) are text; the maintainer holds the artwork until it is settled where the port lives ([UPSTREAM.md](UPSTREAM.md)) |
+| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The port keeps its own text logo, home-screen icons and splash (`scripts/icons.sh`), by the owner's choice ([UPSTREAM.md](UPSTREAM.md)) |
+| RETRO MODE (`AppState.retroMode`, on by default; `BundleManagerView`) | `source/guide/RetroMode.brs`, Settings › RETRO MODE | ported: the guide's video cropped to 4:3 under the CRT overlay, full screen under it less the scanlines |
+| `SeasonalPrompt.swift`, `SeasonalInviteRow` | `source/guide/SeasonalPrompt.brs`, the row above channel one | ported; cases transcribed from `SeasonalPromptTests.swift` |
 
 Start-up follows upstream's cached-library path. The last build's guide is
 saved on the TV and shown at once when a fresh build would give the same
@@ -144,6 +146,33 @@ a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
 the app filters in a Task node, and keeps the last build's guide and pools
 between launches (`components/LibraryTask.brs`): a day-old guide is
 rescheduled from the saved pools in seconds while the full build runs behind.
+
+## The guide's look
+
+The guide follows the Apple TV app's views at upstream f51e72b, measured at
+1920x1080, where both draw 1:1. Since c2f32e6 upstream changed nothing on
+that screen except its App Store rating banner, which a Roku has no use for.
+What SceneGraph can't draw is an image from `scripts/look-images.py`: the
+rounded outlines and their glow, tinted per channel with `blendColor`, the
+badges' rounded frames, the CRT scanlines, vignette and tracking glitch, the
+tuning snow and the OSD's gradient. The bolt, gear and star are drawn there
+too, since SF Symbols can't be bundled and no bundled font has a star.
+SwiftUI's letter spacing (`.tracking`) is a Label per character, which works
+because both fonts are monospace.
+
+RETRO MODE's 4:3 crop: Roku's Video only letterboxes, so in the guide it is
+sized 16:9 at the box's height, centred on the box, with the panel drawn over
+its left overflow and the right running off the screen. A 4:3 file fills the
+box exactly.
+
+Two differences are on purpose:
+
+- On the Apple TV the grid's header overflows (220 + 12 + 4 x (425 + 14) =
+  1988 px), which centres the rows about 30 px right of where
+  ChannelGuideView's comments put them. The port keeps rows and header lined
+  up at the 220 px column.
+- In full screen, Up and Down change channel, as on a TV. The Apple TV's
+  mini channel strip and Now Playing panel aren't ported.
 
 ## Parity is proven, not eyeballed
 
