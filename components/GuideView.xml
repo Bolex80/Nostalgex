@@ -20,6 +20,7 @@
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/TuneQueue.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SleepTimer.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/DeepLink.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/RetroMode.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
@@ -92,6 +93,18 @@
     <!-- The seasonal invite's question (ChannelGuideView's confirmationDialog). -->
     <Group id="prompt" visible="false" />
     <Label id="ccToast" visible="false" translation="[1460,60]" width="400" horizAlign="right" />
+    <!-- The sleep timer's STILL WATCHING? prompt (SleepGracePrompt). -->
+    <Group id="grace" visible="false">
+      <Rectangle width="1920" height="1080" color="0x000000CC" />
+      <Rectangle translation="[580,420]" width="760" height="240" color="0x0D0D12FF" />
+      <Rectangle translation="[580,420]" width="760" height="1" color="0xFFFFFF47" />
+      <Rectangle translation="[580,659]" width="760" height="1" color="0xFFFFFF47" />
+      <Rectangle translation="[580,420]" width="1" height="240" color="0xFFFFFF47" />
+      <Rectangle translation="[1339,420]" width="1" height="240" color="0xFFFFFF47" />
+      <Label id="graceTitle" text="STILL WATCHING?" translation="[580,464]" width="760" horizAlign="center" />
+      <Label id="graceCount" text="" translation="[580,524]" width="760" horizAlign="center" />
+      <Label id="graceHint" text="PRESS ANY BUTTON TO KEEP WATCHING" translation="[580,580]" width="760" horizAlign="center" />
+    </Group>
     <Label id="notice" translation="[1200,500]" width="700" wrap="true" color="0xFF6B6BFF" />
   </children>
 </component>

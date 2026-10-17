@@ -32,6 +32,9 @@ sub init()
     m.fonts = {}
 
     styleLabel("logo", "VT323-Regular", 64, "0xF9E503FF")
+    styleLabel("graceTitle", "DMMono-Medium", 34, "0xFFFFFFFF")
+    styleLabel("graceCount", "DMMono-Regular", 23, "0xFFFFFFD9")
+    styleLabel("graceHint", "DMMono-Regular", 19, "0xFFFFFFA6")
     styleLabel("navSettings", "DMMono-Medium", 24, "0xFFFFFF80")
     styleLabel("title", "DMMono-Medium", 38, "0xFFFFFFFF")
     styleLabel("artist", "DMMono-Regular", 22, "0xFFFFFFB3")
@@ -605,6 +608,8 @@ function musicLine(b as Object) as String
 end function
 
 sub onTick()
+    checkSleep()
+    if m.np <> invalid and m.sleepEnd <> invalid then m.np.state = npState()
     renderInfo()
     if m.fullscreen then updateOsdTime()
     t = nowSec()
@@ -665,6 +670,7 @@ sub startTune(idx as Integer)
     m.video.content = stream.content
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat
+    m.tuneRoute = stream.route
     print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; t - b.startSec; " s into the airing"
 end sub
 
@@ -743,6 +749,10 @@ sub onRetry()
 end sub
 
 sub setFullscreen(on as Boolean)
+    if not on then
+        closeStrip()
+        closeNowPlaying()
+    end if
     m.fullscreen = on
     m.top.FindNode("panel").visible = not on
     m.top.FindNode("grid").visible = not on
@@ -940,6 +950,193 @@ end sub
 
 sub onToastTimer()
     m.top.FindNode("ccToast").visible = false
+end sub
+
+' ── Mini channel strip (Up in full screen) ──────────────────────────────────
+
+sub openStrip()
+    if m.strip <> invalid or m.tuned < 0 then return
+    t = nowSec()
+    list = []
+    for i = 0 to m.channels.Count() - 1
+        ch = m.channels[i]
+        b = blockAt(ch, t)
+        if i = m.tuned and m.playing <> invalid then b = m.playing
+        line = ""
+        if b <> invalid then line = musicLine(b)
+        list.Push({ number: ch.number, name: ch.name, color: colorOf(ch.color, "FF"), line: line })
+    end for
+    ' The strip has the bottom of the screen; the OSD would sit under it.
+    onOsdTimer()
+    m.strip = CreateObject("roSGNode", "MiniStripView")
+    m.strip.channels = list
+    m.strip.current = m.tuned
+    m.strip.ObserveField("picked", "onStripPicked")
+    m.strip.ObserveField("closed", "closeStrip")
+    m.top.AppendChild(m.strip)
+    m.strip.callFunc("open", invalid)
+end sub
+
+sub onStripPicked()
+    idx = m.strip.picked
+    closeStrip()
+    m.focus = idx
+    keepFocusVisible()
+    if idx <> m.tuned then tune(idx)
+    showOsd()
+end sub
+
+sub closeStrip()
+    if m.strip = invalid then return
+    m.top.RemoveChild(m.strip)
+    m.strip = invalid
+    m.top.SetFocus(true)
+end sub
+
+' ── Now Playing panel (Down in full screen) ─────────────────────────────────
+
+sub openNowPlaying()
+    if m.np <> invalid or m.tuned < 0 then return
+    m.np = CreateObject("roSGNode", "NowPlayingView")
+    m.np.state = npState()
+    m.np.ObserveField("action", "onNpAction")
+    m.np.ObserveField("closed", "closeNowPlaying")
+    m.top.AppendChild(m.np)
+    m.np.callFunc("open", invalid)
+end sub
+
+sub closeNowPlaying()
+    if m.np = invalid then return
+    m.top.RemoveChild(m.np)
+    m.np = invalid
+    m.top.SetFocus(true)
+end sub
+
+' What the panel shows, from the tuned channel, the player and the settings.
+function npState() as Object
+    ch = m.channels[m.tuned]
+    b = m.playing
+    st = {
+        number: ch.number, name: ch.name, color: colorOf(ch.color, "FF"),
+        nowLine: "", rating: "", upNext: "",
+        hasSubs: m.hasSubs, ccOn: m.subs.always, autoOn: m.subs.foreign,
+        audio: [], retro: NxRetroMode(), sleepMinutes: 0, sleepLeft: -1, info: []
+    }
+    if b <> invalid then
+        st.nowLine = musicLine(b)
+        if not NxTruthy(b.music) and b.year <> "" then st.nowLine = b.title + "  " + b.year
+        st.rating = NxToStr(b.contentRating)
+        nxt = blockAfter(ch, b)
+        if nxt <> invalid then st.upNext = musicLine(nxt)
+        kind = "Direct play"
+        if m.tuneFormat = "hls" then kind = "Converted by Plex (transcode)"
+        st.info.Push({ label: "Stream", value: kind })
+        st.info.Push({ label: "Format", value: NxToStr(m.tuneFormat) })
+        st.info.Push({ label: "Route", value: NxToStr(m.tuneRoute) })
+        st.info.Push({ label: "File", value: UCase(NxToStr(b.container)) + " · " + UCase(NxToStr(b.videoCodec)) + " · " + UCase(NxToStr(b.audioCodec)) })
+        st.info.Push({ label: "Player", value: NxToStr(m.video.state) })
+    end if
+    tracks = NxList(m.video.availableAudioTracks)
+    for i = 0 to tracks.Count() - 1
+        t = tracks[i]
+        name = NxToStr(t.Name)
+        if name = "" then name = UCase(NxToStr(t.Language))
+        if name = "" then name = "Track " + (i + 1).ToStr()
+        st.audio.Push({ name: name, active: NxToStr(t.Track) = NxToStr(m.video.currentAudioTrack) })
+    end for
+    if m.sleepEnd <> invalid then
+        st.sleepMinutes = m.sleepMinutes
+        ' Seconds as an Integer: nowSec is a LongInteger.
+        st.sleepLeft = (m.sleepEnd - nowSec()).ToStr().ToInt()
+    end if
+    return st
+end function
+
+sub onNpAction()
+    a = m.np.action
+    if a = "cc" then
+        if m.hasSubs then
+            m.subs.always = not m.subs.always
+            NxSaveSubtitleSettings(m.subs)
+            applySubtitles()
+        end if
+    else if a = "auto" then
+        m.subs.foreign = not m.subs.foreign
+        NxSaveSubtitleSettings(m.subs)
+        applySubtitles()
+    else if Left(a, 6) = "audio:" then
+        tracks = NxList(m.video.availableAudioTracks)
+        n = Mid(a, 7).ToInt()
+        if n < tracks.Count() then m.video.audioTrack = tracks[n].Track
+    else if a = "retro" then
+        NxSaveRetroMode(not NxRetroMode())
+        applyRetro()
+    else if Left(a, 6) = "sleep:" then
+        startSleep(Mid(a, 7).ToInt())
+    end if
+    m.np.state = npState()
+end sub
+
+' ── Sleep timer (AppState+Playback's), with its STILL WATCHING? prompt ─────
+
+' Arms the timer for `minutes`; 0 turns it off. It runs across channel
+' changes and in the guide too.
+sub startSleep(minutes as Integer)
+    closeGrace()
+    if minutes <= 0 then
+        m.sleepEnd = invalid
+        m.sleepMinutes = 0
+        return
+    end if
+    m.sleepMinutes = minutes
+    m.sleepEnd = nowSec() + minutes * 60
+end sub
+
+' Every second: the timer reaching zero shows the prompt for 20 s; the
+' prompt running out stops playback and returns to the guide.
+sub checkSleep()
+    if m.graceEnd <> invalid then
+        left = (m.graceEnd - nowSec()).ToStr().ToInt()
+        if left <= 0 then
+            expireSleep()
+        else
+            m.top.FindNode("graceCount").text = "SLEEPING IN " + NxSleepCountdown(left)
+        end if
+    else if m.sleepEnd <> invalid and nowSec() >= m.sleepEnd then
+        beginGrace()
+    end if
+end sub
+
+sub beginGrace()
+    m.sleepEnd = invalid
+    m.graceEnd = nowSec() + 20
+    closeStrip()
+    closeNowPlaying()
+    m.top.FindNode("graceCount").text = "SLEEPING IN " + NxSleepCountdown(20)
+    m.top.FindNode("grace").visible = true
+    m.top.SetFocus(true)
+end sub
+
+sub keepAwake()
+    closeGrace()
+    m.sleepMinutes = 0
+end sub
+
+sub closeGrace()
+    m.graceEnd = invalid
+    m.top.FindNode("grace").visible = false
+end sub
+
+' Not a sign-out: the stream stops, its transcode is released, and the guide
+' comes back, as expireSleepTimer.
+sub expireSleep()
+    closeGrace()
+    m.sleepMinutes = 0
+    print "player: sleep timer ran out; stopping"
+    stopPrevious()
+    m.video.control = "stop"
+    m.playing = invalid
+    setFullscreen(false)
 end sub
 
 ' Full screen's channel OSD, bottom left, for 8 s (PlayerView's ChannelOSD
@@ -1279,21 +1476,41 @@ end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press or m.channels = invalid then return false
+    ' STILL WATCHING?: any button keeps watching, as SleepGracePrompt.
+    if m.graceEnd <> invalid then
+        keepAwake()
+        return true
+    end if
     if m.promptOpen = true then return promptKey(key)
     if m.sidebarOpen = true then return sidebarKey(key)
     if m.fullscreen then
-        if key = "back" or key = "OK" then
+        ' PlayerView's remote: Left/Right change channel with the OSD, Up the
+        ' mini channel strip, Down the Now Playing panel, Back the guide (an
+        ' open overlay handles its own Back). OK and Play flash the OSD:
+        ' this is live TV, nothing pauses.
+        if key = "back" then
             setFullscreen(false)
             return true
         end if
-        if key = "up" or key = "down" then
-            ' Channel up/down while watching, as on a TV.
+        if key = "left" or key = "right" then
             d = 1
-            if key = "up" then d = -1
+            if key = "left" then d = -1
             idx = (m.tuned + d + m.channels.Count()) mod m.channels.Count()
             m.focus = idx
             keepFocusVisible()
             tune(idx)
+            showOsd()
+            return true
+        end if
+        if key = "up" then
+            openStrip()
+            return true
+        end if
+        if key = "down" then
+            openNowPlaying()
+            return true
+        end if
+        if key = "OK" or key = "play" then
             showOsd()
             return true
         end if
@@ -1356,7 +1573,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "OK" then
-        if m.focus = m.tuned then setFullscreen(true) else tune(m.focus)
+        ' A channel the sleep timer stopped starts again.
+        if m.focus = m.tuned and m.playing <> invalid then setFullscreen(true) else tune(m.focus)
         return true
     end if
     if key = "play" then

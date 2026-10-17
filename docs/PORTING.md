@@ -28,7 +28,7 @@ and already pinned to the Apple TV.
 | `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
 | Playback | BrightScript | Roku's Video node over Plex; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
-| `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen. No language picker, as Plex sends one track (below) |
+| `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen, and a row of the Now Playing panel. No language picker, as Plex sends one track (below) |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The port keeps its own text logo, home-screen icons and splash (`scripts/icons.sh`), by the owner's choice ([UPSTREAM.md](UPSTREAM.md)) |
 | RETRO MODE (`AppState.retroMode`, on by default; `BundleManagerView`) | `source/guide/RetroMode.brs`, Settings › RETRO MODE | ported: the guide's video cropped to 4:3 under the CRT overlay, full screen under it less the scanlines |
 | `SeasonalPrompt.swift`, `SeasonalInviteRow` | `source/guide/SeasonalPrompt.brs`, the row above channel one | ported; cases transcribed from `SeasonalPromptTests.swift` |
@@ -171,8 +171,12 @@ Two differences are on purpose:
   1988 px), which centres the rows about 30 px right of where
   ChannelGuideView's comments put them. The port keeps rows and header lined
   up at the 220 px column.
-- In full screen, Up and Down change channel, as on a TV. The Apple TV's
-  mini channel strip and Now Playing panel aren't ported.
+- Full screen follows PlayerView's remote: Left and Right change channel,
+  Up opens the mini channel strip, Down the Now Playing panel, Back closes
+  either, then returns to the guide. The panel has CC, auto subtitles, the
+  audio tracks, RETRO MODE, the sleep timer and playback information; it
+  leaves out stream quality, the language pickers and OPEN IN PLEX, which
+  have nothing to act on here. OK flashes the OSD rather than leaving.
 
 ## Parity is proven, not eyeballed
 
