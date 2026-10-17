@@ -25,6 +25,7 @@ sub init()
     m.trackedWidth = {}
     m.advance = {}
     m.tuned = -1
+    m.tuneQueue = NxTuneQueue()
     m.slotOffset = 0
     m.playing = invalid
     m.fullscreen = false
@@ -615,19 +616,25 @@ end sub
 
 ' Plex refuses a second transcode for the same device while one runs (HTTP
 ' 400), so the running one is stopped first and the channel starts when the
-' stop has gone through.
+' stop has gone through. Only the latest press starts (source/guide/TuneQueue.brs).
 sub tune(idx as Integer)
     ' From the press to the picture, stop included: the maintainer's bar is
     ' under 10 s for a converted channel, mid-programme too.
     ' A retry keeps the clock running.
     if m.retrying <> true then m.tuneClock = CreateObject("roTimespan")
     m.retrying = false
-    if m.stopUrl <> invalid and m.stopUrl <> "" then
-        m.pendingTune = idx
-        stopPrevious()
+    action = NxTuneAsk(m.tuneQueue, idx, m.stopUrl <> invalid and m.stopUrl <> "")
+    if action = "start" then
+        startTune(idx)
         return
     end if
-    startTune(idx)
+    ' While it waits, the screen already shows the channel asked for, so the
+    ' OSD and the next Up or Down go from it, not from the one stopping.
+    m.tuned = idx
+    m.playing = blockAt(m.channels[idx], nowSec())
+    renderInfo()
+    renderGrid()
+    if action = "stop" then stopPrevious()
 end sub
 
 sub startTune(idx as Integer)
@@ -681,11 +688,8 @@ end sub
 
 sub onStopDone()
     if m.stopTask.state <> "stop" then return
-    if m.pendingTune <> invalid then
-        idx = m.pendingTune
-        m.pendingTune = invalid
-        startTune(idx)
-    end if
+    idx = NxTuneStopped(m.tuneQueue)
+    if idx >= 0 then startTune(idx)
 end sub
 
 ' The running transcode's stop address (no token in it), kept across
@@ -1211,6 +1215,7 @@ sub onSettingsResult()
     applySubtitles()
     applyRetro()
     if result = "rebuild" or result = "signOut" then
+        NxTuneDrop(m.tuneQueue)
         stopPrevious()
         m.tick.control = "stop"
         m.top.action = result
@@ -1447,6 +1452,7 @@ function promptKey(key as String) as Boolean
             reg = CreateObject("roRegistrySection", "guide")
             reg.Write("bundles", FormatJson(enabled))
             reg.Flush()
+            NxTuneDrop(m.tuneQueue)
             stopPrevious()
             m.tick.control = "stop"
             m.top.action = "rebuild"

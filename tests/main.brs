@@ -24,6 +24,7 @@ sub Main(args = invalid as Dynamic)
     print "  collections took "; timer.TotalMilliseconds(); " ms"
     failures = failures + NxRunSubtitleTests()
     failures = failures + NxRunGuideNavTests()
+    failures = failures + NxRunTuneQueueTests()
     failures = failures + NxRunDeepLinkTests()
     failures = failures + NxRunServerChoiceTests()
     failures = failures + NxRunSnapshotTests()
