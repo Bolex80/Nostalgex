@@ -11,7 +11,10 @@
 ' One structural difference, for speed only: upstream lowercases a channel's
 ' rule lists and an item's fields on every call. Here NxFilterChannel and
 ' NxFilterItem do that once, because a Roku filters thousands of items into
-' ~130 channels at startup.
+' ~130 channels at startup. For the same reason, an item's genre locks and
+' its exclusive-rule matches are worked out once and kept with it, a channel's
+' rule flags once when it is compiled, and the title patterns run only on the
+' path that reads them. None of that changes which rule decides.
 '
 ' The clock is an argument. Upstream reads the wall clock for the current year
 ' and the releasedWithinMonths cutoff; here the caller passes a context from
@@ -41,7 +44,11 @@ function NxFilterExclusiveRules(rawRules as Dynamic) as Object
     for each r in NxList(rawRules)
         ids = NxList(r.channelIDs)
         if ids.Count() = 0 and r.channelID <> invalid then ids = [r.channelID]
+        g = GetGlobalAA()
+        if g.nxRuleSeq = invalid then g.nxRuleSeq = 0
+        g.nxRuleSeq = g.nxRuleSeq + 1
         out.Push({
+            uid: "x" + g.nxRuleSeq.ToStr(),
             ids: ids,
             genresLower: NxLowerList(r.genres),
             titleContainsLower: NxLowerList(r.titleContains),
@@ -72,6 +79,7 @@ function NxFilterChannel(channel as Object) as Object
         titleExcludesRx: NxWordPatterns(r.titleExcludes),
         episodeTitleRx: NxWordPatterns(r.episodeTitleContains),
         editorialLower: NxLowerList(r.editorialOverrides),
+        editorialSet: NxSet(NxLowerList(r.editorialOverrides)),
         studiosLower: NxLowerList(r.studios),
         prodCoLower: NxLowerList(r.productionCompanies),
         networksLower: NxLowerList(r.networks),
@@ -102,6 +110,24 @@ function NxFilterChannel(channel as Object) as Object
     c.allowsTalkShow = c.isStudioChannel or NxAnyIn(c.includeLower, locks.talkShow)
     c.isExplicitReality = NxAnyIn(c.includeLower, locks.reality)
     c.isTitleCurated = c.hasTitleRule and not c.hasKeywordRule and not c.hasNetworkRule and not c.hasProdCoRule and not c.hasStudioRule
+
+    ' The rule flags itemPasses reads, read once here.
+    c.hasSource = NxTruthy(r.source)
+    c.hasType = NxTruthy(r.type)
+    c.manifestOnly = NxTruthy(r.manifestOnly)
+    c.hasYearRange = type(r.yearRange) = "roAssociativeArray"
+    c.allowUnrated = NxTruthy(r.allowUnrated)
+    c.watchedOnly = NxTruthy(r.watchedOnly)
+    c.unwatchedOnly = NxTruthy(r.unwatchedOnly)
+    c.rewatched = NxTruthy(r.rewatched)
+    c.hasImdbRatingMin = NxIsNumber(r.imdbRatingMin)
+    c.hasImdbVotesMin = NxIsNumber(r.imdbVotesMin)
+    c.hasRtScoreMin = NxIsNumber(r.rtScoreMin)
+    c.hasMetacriticMin = NxIsNumber(r.metacriticMin)
+    c.wonOscar = NxTruthy(r.wonOscar)
+    c.hasAddedWithin = NxIsNumber(r.addedWithinDays)
+    c.hasReleasedWithin = NxIsNumber(r.releasedWithinMonths)
+    c.hasRatingMin = NxIsNumber(r.ratingMin)
 
     dr = r.durationRange
     c.durMin = invalid
@@ -151,9 +177,18 @@ function NxFilterItem(item as Object) as Object
     manifestKey = invalid
     if NxTruthy(item.tmdbID) then manifestKey = mediaType + ":" + NxToStr(item.tmdbID)
 
+    locks = NxGenreLocks()
     p = {
         titleLower: titleLower,
         genres: genres,
+        inHorror: NxAnyIn(genres, locks.horror),
+        inReality: NxAnyIn(genres, locks.reality),
+        inAnimation: NxAnyIn(genres, locks.animation),
+        inDocumentary: NxAnyIn(genres, locks.documentary),
+        inWar: NxAnyIn(genres, locks.war),
+        inWestern: NxAnyIn(genres, locks.western),
+        inTalkShow: NxAnyIn(genres, locks.talkShow),
+        exclusiveMatches: {},
         episodeTitleLower: LCase(NxToStr(item.episodeTitle)),
         keywords: keywords,
         networks: NxLowerList(NxEnriched(item, "networks")),
@@ -191,35 +226,34 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     p = NxFilterItem(item)
     titleLower = p.titleLower
     itemGenres = p.genres
-    locks = NxGenreLocks()
 
-    ' Matches the episode title, not the show: a Christmas special lives in
-    ' "The One with the Holiday Armadillo", not in "Friends".
-    matchesEpisodeTitleRule = c.hasEpisodeTitleRule and p.episodeTitleLower.Len() > 0 and NxAnyWord(p.episodeTitleLower, c.episodeTitleRx)
-    matchesTitleRule = true
-    if c.hasTitleRule then matchesTitleRule = NxAnyWord(titleLower, c.titleContainsRx)
-
-    if NxTruthy(r.source) then
+    if c.hasSource then
         if p.source <> r.source then return ""
     else if p.source = "musicVideo" then
         return ""
     end if
 
     if c.isFamilySafe and NxTruthy(item.contentRating) then
-        if locks.adultRatings.DoesExist(NxToStr(item.contentRating)) then return ""
+        if NxGenreLocks().adultRatings.DoesExist(NxToStr(item.contentRating)) then return ""
     end if
 
-    if not c.allowsHorror and NxAnyIn(itemGenres, locks.horror) then return ""
-    if not c.allowsReality and NxAnyIn(itemGenres, locks.reality) then return ""
-    if not c.allowsAnimation and NxAnyIn(itemGenres, locks.animation) then return ""
-    if not c.allowsDocumentary and NxAnyIn(itemGenres, locks.documentary) then return ""
-    if not c.allowsWar and NxAnyIn(itemGenres, locks.war) then return ""
-    if not c.allowsWestern and NxAnyIn(itemGenres, locks.western) then return ""
-    if not c.allowsTalkShow and NxAnyIn(itemGenres, locks.talkShow) then return ""
+    if not c.allowsHorror and p.inHorror then return ""
+    if not c.allowsReality and p.inReality then return ""
+    if not c.allowsAnimation and p.inAnimation then return ""
+    if not c.allowsDocumentary and p.inDocumentary then return ""
+    if not c.allowsWar and p.inWar then return ""
+    if not c.allowsWestern and p.inWestern then return ""
+    if not c.allowsTalkShow and p.inTalkShow then return ""
 
-    if c.isExplicitReality and not NxAnyIn(itemGenres, locks.reality) then return ""
+    if c.isExplicitReality and not p.inReality then return ""
 
-    if NxHasExact(c.editorialLower, titleLower) then return "editorial"
+    if c.editorialSet.DoesExist(titleLower) or (titleLower = "" and NxHasExact(c.editorialLower, "")) then return "editorial"
+
+    ' Every path below checks type and year range before it returns a match,
+    ' so an item failing either can only end in "": stop here, for speed.
+    ' The checks stay where upstream has them too.
+    if c.hasType and item.type <> r.type then return ""
+    if c.hasYearRange and not NxPassesYearRange(item, r) then return ""
 
     ' Manifest-level exclusivity: an item locked to one channel airs nowhere else.
     entry = invalid
@@ -233,9 +267,9 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     end if
 
     if NxManifestClaims(entry, c.id) then
-        if NxTruthy(r.type) and item.type <> r.type then return ""
-        if not NxPassesYearRange(item, r) then return ""
-        if c.hasTitleRule and not matchesTitleRule then return ""
+        if c.hasType and item.type <> r.type then return ""
+        if c.hasYearRange and not NxPassesYearRange(item, r) then return ""
+        if c.hasTitleRule and not NxAnyWord(titleLower, c.titleContainsRx) then return ""
         ' A channel's own exclusions outrank a manifest claim; includes don't.
         if NxAnyWord(titleLower, c.titleExcludesRx) then return ""
         if NxAnySubstring(itemGenres, c.excludeLower) then return ""
@@ -243,14 +277,19 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     end if
 
     ' manifestOnly: membership comes solely from the manifest.
-    if NxTruthy(r.manifestOnly) then return ""
+    if c.manifestOnly then return ""
 
     if NxAnyWord(titleLower, c.titleExcludesRx) then return ""
 
     ' Channel exclusivity: block items owned by another channel.
     for each rule in exclusiveRules
         if not NxHasValue(rule.ids, c.id) then
-            if NxExclusiveRuleMatches(titleLower, itemGenres, rule) then return ""
+            hit = p.exclusiveMatches[rule.uid]
+            if hit = invalid then
+                hit = NxExclusiveRuleMatches(titleLower, itemGenres, rule)
+                p.exclusiveMatches[rule.uid] = hit
+            end if
+            if hit then return ""
             if rule.manifestExclusive and manifest <> invalid and p.manifestKey <> invalid and type(manifest.items) = "roAssociativeArray" then
                 owner = manifest.items[p.manifestKey]
                 for each id in rule.ids
@@ -260,14 +299,14 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
         end if
     end for
 
-    if NxTruthy(r.type) and item.type <> r.type then return ""
+    if c.hasType and item.type <> r.type then return ""
 
-    if not NxPassesYearRange(item, r) then return ""
+    if c.hasYearRange and not NxPassesYearRange(item, r) then return ""
 
     if c.contentRatings.Count() > 0 then
         rating = ""
         if NxTruthy(item.contentRating) then rating = NxToStr(item.contentRating)
-        if not (rating = "" and NxTruthy(r.allowUnrated)) then
+        if not (rating = "" and c.allowUnrated) then
             if not NxHasValue(c.contentRatings, rating) then return ""
         end if
     end if
@@ -285,12 +324,16 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     if p.year <> invalid then itemYear = p.year
     isNewRelease = itemYear >= clock.year - 1
     viewCount = NxNumberOr0(item.viewCount)
-    if NxTruthy(r.watchedOnly) and viewCount < 1 and not isNewRelease then return ""
-    if NxTruthy(r.unwatchedOnly) and (viewCount > 0 or isNewRelease) then return ""
-    if NxTruthy(r.rewatched) and viewCount < 3 then return ""
+    if c.watchedOnly and viewCount < 1 and not isNewRelease then return ""
+    if c.unwatchedOnly and (viewCount > 0 or isNewRelease) then return ""
+    if c.rewatched and viewCount < 3 then return ""
 
-    ' Episode-title channels are curated: the list is the allowlist.
-    if c.hasEpisodeTitleRule and not matchesEpisodeTitleRule then return ""
+    ' Episode-title channels are curated: the list is the allowlist. It
+    ' matches the episode title, not the show: a Christmas special lives in
+    ' "The One with the Holiday Armadillo", not in "Friends".
+    if c.hasEpisodeTitleRule then
+        if p.episodeTitleLower.Len() = 0 or not NxAnyWord(p.episodeTitleLower, c.episodeTitleRx) then return ""
+    end if
 
     if NxAnySubstring(itemGenres, c.excludeLower) then return ""
 
@@ -303,29 +346,29 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     ' Enrichment gates. OMDb gates are HARD: a missing value rejects the item,
     ' as Swift's `guard let` does.
-    if NxIsNumber(r.imdbRatingMin) then
+    if c.hasImdbRatingMin then
         v = NxEnriched(item, "imdbRating")
         if not NxIsNumber(v) then return ""
         if v < r.imdbRatingMin then return ""
     end if
-    if NxIsNumber(r.imdbVotesMin) then
+    if c.hasImdbVotesMin then
         v = NxEnriched(item, "imdbVotes")
         if not NxIsNumber(v) then return ""
         if v < r.imdbVotesMin then return ""
     end if
-    if NxIsNumber(r.rtScoreMin) then
+    if c.hasRtScoreMin then
         v = NxEnriched(item, "rottenTomatoesScore")
         if v = invalid then v = NxEnriched(item, "rtScore")
         if not NxIsNumber(v) then return ""
         if v < r.rtScoreMin then return ""
     end if
-    if NxIsNumber(r.metacriticMin) then
+    if c.hasMetacriticMin then
         v = NxEnriched(item, "metacriticScore")
         if v = invalid then v = NxEnriched(item, "metacritic")
         if not NxIsNumber(v) then return ""
         if v < r.metacriticMin then return ""
     end if
-    if NxTruthy(r.wonOscar) then
+    if c.wonOscar then
         awards = NxEnriched(item, "awards")
         if not NxIsString(awards) then return ""
         a = LCase(awards)
@@ -333,7 +376,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     end if
 
     ' addedWithinDays: an item with no addedAt (0) is rejected, as in Swift.
-    if NxIsNumber(r.addedWithinDays) then
+    if c.hasAddedWithin then
         if r.addedWithinDays > 0 then
             cutoff = clock.nowSec - r.addedWithinDays * 86400#
             if NxNumberOr0(item.addedAt) < cutoff then return ""
@@ -342,7 +385,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     ' releasedWithinMonths: month precision from originallyAvailableAt, else a
     ' year approximation.
-    if NxIsNumber(r.releasedWithinMonths) then
+    if c.hasReleasedWithin then
         if r.releasedWithinMonths > 0 then
             months = r.releasedWithinMonths
             hit = invalid
@@ -359,7 +402,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     end if
 
     ' ratingMin: the Plex rating or the user rating clears the bar.
-    if NxIsNumber(r.ratingMin) then
+    if c.hasRatingMin then
         if NxNumberOr0(item.rating) < r.ratingMin and NxNumberOr0(item.userRating) < r.ratingMin then return ""
     end if
 
@@ -382,6 +425,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     matchesProdCo = c.hasProdCoRule and p.prodCoHaystack.Count() > 0 and NxAnyContainsAny(p.prodCoHaystack, c.prodCoLower)
 
+    matchesTitleRule = c.hasTitleRule and NxAnyWord(titleLower, c.titleContainsRx)
     if c.isTitleCurated then
         ' The title list is the allowlist (e.g. ADULT CARTOONS).
         if not matchesTitleRule then return ""

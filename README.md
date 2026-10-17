@@ -116,6 +116,7 @@ push, against a fresh clone of upstream.
 | `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
 | `tests/` | Golden vectors from upstream's code, and the runner |
 | `tests/live/` | Live checks against a real Plex server (`plex-link.mjs`, `compare.mjs`, `collections.mjs`) |
+| `tests/bench/` | Channel build benchmark over a saved library; its log diffs two builds pool by pool |
 | `docs/PORTING.md` | What is ported from where, and how parity is proven |
 | `docs/UPSTREAM.md` | Working with the Nostalgex project |
 
