@@ -298,7 +298,7 @@ Never commit real keys. `.gitignore` already covers `.env`, `Secrets.plist` and 
 <summary><strong>License</strong></summary>
 
 <a id="license"></a>
-MIT, see `LICENSE`. Bundled fonts and packages are listed in `THIRD-PARTY-LICENSES.md`.
+MIT, see `LICENSE`. The Roku app in `roku/` carries its own MIT license, `roku/LICENSE`. Bundled fonts and packages are listed in `THIRD-PARTY-LICENSES.md`.
 
 The Nostalgex name, icon and the nostalgex.app site are not part of the MIT grant. Fork the code all you like, but please ship it under your own name.
 

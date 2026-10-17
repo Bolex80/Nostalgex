@@ -22,6 +22,19 @@ The image (`npm run build:selfhost`) bundles these from npm instead of loading t
 | VT323, Press Start 2P, Silkscreen, Space Mono, Bricolage Grotesque (via @fontsource) | SIL Open Font License 1.1 |
 | nginx (base image `nginxinc/nginx-unprivileged`) | 2-clause BSD |
 
+## Roku app (`roku/`)
+
+The Roku port is contributed work under its own MIT license, copyright the
+nostalgex-roku contributors with portions copyright Chad Mueller / Muell Haus
+Inc.: see `roku/LICENSE`, which applies to everything under `roku/`. The Roku
+package bundles the same two fonts as the tvOS app, with their license texts in
+`roku/fonts/` (`roku/THIRD-PARTY-LICENSES.md`):
+
+| Font | License |
+|---|---|
+| DM Mono | SIL Open Font License 1.1, `roku/fonts/OFL-DMMono.txt` |
+| VT323 | SIL Open Font License 1.1, `roku/fonts/OFL-VT323.txt` |
+
 ## Swift packages
 
 | Package | License |
