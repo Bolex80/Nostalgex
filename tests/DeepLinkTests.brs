@@ -10,7 +10,11 @@ function NxRunDeepLinkTests() as Integer
     NxCheck(r, "no mediaType", FormatJson(NxDeepLinkFrom({ contentId: "7" })), "null")
     NxCheck(r, "empty contentId", FormatJson(NxDeepLinkFrom({ contentId: " ", mediaType: "live" })), "null")
     link = NxDeepLinkFrom({ contentId: " 7 ", mediaType: "live", source: "external-control" })
-    NxCheck(r, "link", FormatJson(link), "{""contentId"":""7"",""mediaType"":""live""}")
+    ' Field by field: on a TV, FormatJson writes an AA literal's keys
+    ' lowercased ("contentid"), so the JSON text differs from the interpreter's.
+    NxCheck(r, "link contentId", NxToStr(link.contentId), "7")
+    NxCheck(r, "link mediaType", NxToStr(link.mediaType), "live")
+    NxCheck(r, "link keys", link.Count().ToStr(), "2")
 
     channels = [
         { id: 1, number: 1, name: "ONE" },
