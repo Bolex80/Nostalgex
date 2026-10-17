@@ -7,14 +7,19 @@
 //   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise,enrichment,collections,mediabrowser}.json
 //   node tests/gen-vectors.mjs --check    # fail if the file is stale
 //
-// Upstream clone: $NOSTALGEX_DIR, default ../nostalgex next to this repo.
+// Upstream: $NOSTALGEX_DIR, default the Nostalgex repo this port lives in
+// (roku/..), so the vectors always come from the same tree as the data the
+// port reads. tests/vectors/ is generated, git-ignored, and rewritten by
+// tests/run.sh and scripts/deploy.sh --test on every run. It also gets byte
+// copies of upstream's scripts/franchise-golden.json, filter-golden.json and
+// season-golden.json, which the Franchise, FilterGolden and Seasonal tests read.
 // Every number in the output fits a 32-bit Integer, and 64-bit values travel as
 // hex strings, so the Roku's ParseJson reads them without loss.
 // The filter's date rules run in local time; pin it so the vectors don't
 // depend on where they were generated.
 process.env.TZ = "UTC";
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { filterVectors } from "./gen-filter.mjs";
@@ -25,8 +30,9 @@ import { collectionsVectors } from "./gen-collections.mjs";
 import { mediaBrowserVectors } from "./gen-mediabrowser.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", "..", "nostalgex"));
+const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", ".."));
 const out = join(here, "vectors", "schedule.json");
+mkdirSync(join(here, "vectors"), { recursive: true });
 const commit = execFileSync("git", ["-C", upstream, "rev-parse", "HEAD"]).toString().trim();
 const engine = join(upstream, "scripts", "nostalgex-daily-manifest.js");
 const source = readFileSync(engine, "utf8");
@@ -236,10 +242,14 @@ const files = [
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "plex-tuner.html fetchJellyfinLibraryFromServer" },
     ...(await mediaBrowserVectors(upstream)),
   }],
+  // Upstream's own golden files, copied byte for byte: FranchiseTests.brs,
+  // FilterGoldenTests.brs and SeasonalTests.brs read them.
+  ...["franchise-golden.json", "filter-golden.json", "season-golden.json"].map((g) =>
+    [join(here, "vectors", g), readFileSync(join(upstream, "scripts", g), "utf8")]),
 ];
 let stale = false;
 for (const [path, data] of files) {
-  const text = JSON.stringify(data, null, 1) + "\n";
+  const text = typeof data === "string" ? data : JSON.stringify(data, null, 1) + "\n";
   if (process.argv.includes("--check")) {
     let current = null;
     try { current = readFileSync(path, "utf8"); } catch {}

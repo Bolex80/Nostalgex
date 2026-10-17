@@ -4,42 +4,23 @@
 # wrong, and the port avoids those, but a pass here is confirmed on a TV with
 # `scripts/deploy.sh --test`.
 #
-# Also checks, against the upstream clone ($NOSTALGEX_DIR, default ../nostalgex)
-# when there is one, that data/ and the vectors match the commit pinned in
-# data/UPSTREAM, and warns when the clone's origin/main has moved past it.
+# The port lives at roku/ in the Nostalgex repo. data/ holds symlinks to the
+# repo root's channels.json, channels-memberships.json and franchises.json, and
+# tests/vectors/ is generated here, on every run, from the same tree's JS
+# engine, so the port is always checked against the code and data it ships
+# next to. An outside $NOSTALGEX_DIR is ignored: the vectors and data/ must
+# come from one tree.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-upstream=${NOSTALGEX_DIR:-../nostalgex}
-pinned=$(sed -nE 's/^commit ([0-9a-f]{40}).*/\1/p' data/UPSTREAM)
-if [ -d "$upstream/.git" ]; then
-    git -C "$upstream" cat-file -e "$pinned^{commit}" 2>/dev/null || {
-        echo "FAIL the upstream clone lacks the pinned commit ${pinned:0:7}; fetch it" >&2
-        exit 1
-    }
-    # A throwaway checkout of the pin, so the check doesn't depend on, or move,
-    # whatever the clone has checked out.
-    pin_dir=$(mktemp -d)
-    trap 'rm -rf "$pin_dir"' EXIT
-    git clone -q --shared --no-checkout "$upstream" "$pin_dir"
-    git -C "$pin_dir" checkout -q "$pinned"
-    for f in channels.json channels-memberships.json franchises.json; do
-        cmp -s "$pin_dir/$f" "data/$f" || { echo "FAIL data/$f differs from upstream ${pinned:0:7}" >&2; exit 1; }
-    done
-    for g in franchise-golden.json filter-golden.json season-golden.json; do
-        cmp -s "$pin_dir/scripts/$g" "tests/vectors/$g" ||
-            { echo "FAIL tests/vectors/$g differs from upstream ${pinned:0:7}" >&2; exit 1; }
-    done
-    # Upstream's own builder and filter must pass their golden files, or the files
-    # prove nothing, and its collections module its own smoke test, or the vectors
-    # from it don't.
-    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
-    NOSTALGEX_DIR=$pin_dir node tests/gen-vectors.mjs --check
-    if ahead=$(git -C "$upstream" rev-list --count "$pinned..origin/main" 2>/dev/null) && [ "$ahead" -gt 0 ]; then
-        echo "note: upstream origin/main is $ahead commits past the pinned ${pinned:0:7} (as of the clone's last fetch)"
-    fi
-else
-    echo "no upstream clone at $upstream; skipping the staleness check"
-fi
+upstream=$(cd .. && pwd)
+for f in channels.json channels-memberships.json franchises.json; do
+    [ -f "data/$f" ] || { echo "FAIL data/$f does not resolve; it links to the repo root's $f" >&2; exit 1; }
+done
+# Upstream's own builder, filter and seasons must pass their golden files, or
+# the files prove nothing, and its collections module its own smoke test, or
+# the vectors from it don't.
+(cd "$upstream" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
+NOSTALGEX_DIR=$upstream node tests/gen-vectors.mjs
 # Secrets never reach the debug console, which anyone on the network can read:
 # no print statement may output a variable named like a token, URL or header.
 # Quoted text is ignored, so a message may say "token".

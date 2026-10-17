@@ -30,15 +30,7 @@ hosts_override=${ROKU_HOSTS:-}
 
 stage=out/stage
 rm -rf "$stage" out/nostalgex-roku.zip
-mkdir -p "$stage"
-cp -r manifest source components "$stage"/
-# The MIT notice and the fonts' licences travel with the app (the Channel
-# Store needs them; Discussion #8, item 6). The third-party notices go under
-# licenses/: at the zip's root the static analysis calls the file extraneous.
-cp LICENSE "$stage"/
-mkdir -p "$stage"/licenses
-cp THIRD-PARTY-LICENSES.md "$stage"/licenses/THIRD-PARTY-LICENSES.txt
-for d in images data fonts; do [ -d "$d" ] && cp -r "$d" "$stage"/; done
+scripts/stage.sh "$stage"
 # Enrichment (source/enrich/Enrichment.brs) is in a build only when .env turns
 # it on and gives the Supabase project; the values go into the zip, never the
 # repo. Without them the app runs with no enrichment, as before.
@@ -52,6 +44,9 @@ if [ "${NOSTALGEX_ENRICHMENT:-off}" = on ]; then
 fi
 if [ "$mode" = test ]; then
     cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/QrTests.brs "$stage"/source/
+    # The vectors are generated from this tree's JS engine, never committed
+    # (qr.json, from tests/gen-qr.mjs, is the one kept in git).
+    NOSTALGEX_DIR=.. node tests/gen-vectors.mjs >/dev/null
     mkdir -p "$stage"/tests && cp -r tests/vectors tests/fixtures "$stage"/tests/
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs

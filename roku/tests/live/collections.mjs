@@ -5,7 +5,7 @@
 //
 //   node tests/live/collections.mjs
 //
-// Upstream at the commit pinned in data/UPSTREAM, from a throwaway checkout:
+// Upstream is the Nostalgex repo this port lives in (roku/..):
 // the web tuner's loader, lifted out of plex-tuner.html unchanged, loads the
 // library; scripts/nostalgex-collections.js reads the collections through
 // the loader's plexLibraryFetchForServer, and every response is recorded;
@@ -23,9 +23,8 @@
 // reading of the responses and its collection logic, not the TV's network
 // path, which `scripts/deploy.sh` builds then exercise.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import vm from "node:vm";
@@ -33,12 +32,7 @@ import { readEnv, servers } from "./plex-env.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
-const clone = resolve(process.env.NOSTALGEX_DIR || join(repo, "..", "nostalgex"));
-const pinned = readFileSync(join(repo, "data", "UPSTREAM"), "utf8").match(/^commit ([0-9a-f]{40})/m)[1];
-const upstream = mkdtempSync(join(tmpdir(), "nostalgex-pin-"));
-process.on("exit", () => rmSync(upstream, { recursive: true, force: true }));
-execFileSync("git", ["clone", "-q", "--shared", "--no-checkout", clone, upstream]);
-execFileSync("git", ["-C", upstream, "checkout", "-q", pinned]);
+const upstream = resolve(repo, "..");
 const require = createRequire(import.meta.url);
 
 // ── Upstream's loader, lifted out of plex-tuner.html (as compare.mjs) ───────

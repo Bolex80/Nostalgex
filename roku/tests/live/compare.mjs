@@ -5,17 +5,15 @@
 //   scripts/deploy.sh --live          # TV: load the library, print fingerprints
 //   node tests/live/compare.mjs [out/live-<tv>.log]
 //
-// The reference is upstream itself, at the commit pinned in data/UPSTREAM: the web tuner's loader functions are
+// The reference is upstream itself, the Nostalgex repo this port lives in: the web tuner's loader functions are
 // lifted out of plex-tuner.html unchanged and run here against the server,
 // then upstream's filter and schedule modules run over the result. Plex
 // credentials come from .env (tests/live/plex-link.mjs); nothing here prints a
 // token. The full reference lines go to out/live-reference.tsv (git-ignored)
 // for inspecting a mismatch.
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -23,14 +21,9 @@ import { readEnv, servers } from "./plex-env.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
-const clone = resolve(process.env.NOSTALGEX_DIR || join(repo, "..", "nostalgex"));
-// Upstream at the commit pinned in data/UPSTREAM, from a throwaway checkout,
-// whatever the clone has checked out.
-const pinned = readFileSync(join(repo, "data", "UPSTREAM"), "utf8").match(/^commit ([0-9a-f]{40})/m)[1];
-const upstream = mkdtempSync(join(tmpdir(), "nostalgex-pin-"));
-process.on("exit", () => rmSync(upstream, { recursive: true, force: true }));
-execFileSync("git", ["clone", "-q", "--shared", "--no-checkout", clone, upstream]);
-execFileSync("git", ["-C", upstream, "checkout", "-q", pinned]);
+// Upstream is the Nostalgex repo this port lives in (roku/..), the same tree
+// data/ links to.
+const upstream = resolve(repo, "..");
 const require = createRequire(import.meta.url);
 const logPath = process.argv[2] || join(repo, "out", `live-${(readEnv().ROKU_HOSTS || "").split(" ")[0]}.log`);
 
