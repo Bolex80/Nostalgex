@@ -2,8 +2,10 @@
 
 sub init()
     m.focus = 0
-    m.top0 = 0
-    m.rowsVisible = 10
+    m.scroll = 0
+    ' The list's height on the page, under the SETTINGS title.
+    m.listTop = 100
+    m.listH = 800
     m.fonts = {}
     m.changed = false
     m.franchisesChanged = false
@@ -55,18 +57,41 @@ sub open(unused = invalid as Dynamic)
     if type(m.servers) <> "roArray" then m.servers = []
     m.serversOn = NxServersOn(m.servers, NxSavedServerChoices())
     m.serversChanged = false
+    m.collectionsOpen = false
     buildRows()
+    m.focus = nextFocusable(-1, 1)
+    m.scroll = 0
     m.top.SetFocus(true)
     render()
 end sub
 
-' The row list: { kind: bundle | franchiseAll | franchise | collectionsInfo |
-' collection | server | retro | subtitles | signOut }. The franchise rows are the last
-' guide build's, so they show once the package was on for a build. MY
-' COLLECTIONS follows the packages, as on the web tuner. Server rows show only
-' when the account has more than one server.
+' The row list, in the order of upstream's SettingsPageView
+' (Views/BundleManagerView.swift): SUPPORT NOSTALGEX, CONNECTION (the servers,
+' then sign-out), PLAYBACK, CHANNEL PACKAGES, then MY COLLECTIONS folded
+' closed behind one SHOW/HIDE row, as its CollectionAccordionHeaderRow. Kinds:
+'   header, subheader, info: text only, never focused
+'   support, server, signOut, retro, subtitles, bundle, franchiseAll,
+'   franchise, collectionsToggle, collection: rows
+' The franchise rows are the last guide build's, so they show once the
+' package was on for a build. Every collection here is upstream's "custom"
+' category: the franchise ones fold into FRANCHISES.
 sub buildRows()
     m.rows = []
+    m.rows.Push({ kind: "header", title: "SUPPORT NOSTALGEX", subtitle: "News, help and the Apple TV app are on its site" })
+    m.rows.Push({ kind: "support" })
+
+    m.rows.Push({ kind: "header", title: "CONNECTION", subtitle: "" })
+    m.rows.Push({ kind: "subheader", text: "SERVERS" })
+    for i = 0 to m.servers.Count() - 1
+        m.rows.Push({ kind: "server", index: i })
+    end for
+    m.rows.Push({ kind: "signOut" })
+
+    m.rows.Push({ kind: "header", title: "PLAYBACK", subtitle: "Picture and subtitles" })
+    m.rows.Push({ kind: "retro" })
+    m.rows.Push({ kind: "subtitles" })
+
+    m.rows.Push({ kind: "header", title: "CHANNEL PACKAGES", subtitle: "Toggle packages to customize your lineup" })
     for i = 0 to m.top.bundles.Count() - 1
         b = m.top.bundles[i]
         m.rows.Push({ kind: "bundle", index: i })
@@ -77,22 +102,45 @@ sub buildRows()
             end for
         end if
     end for
+
+    m.rows.Push({ kind: "header", title: "MY COLLECTIONS", subtitle: "Turn the server collections you want into channels, from CH 500" })
     c = m.top.collections
-    if c <> invalid then
-        if NxNumberOr0(c.scanned) > 0 or NxNumberOr0(c.failed) > 0 then m.rows.Push({ kind: "collectionsInfo" })
-        for each row in NxList(c.rows)
-            m.rows.Push({ kind: "collection", collection: row })
-        end for
+    rows = []
+    if c <> invalid then rows = NxList(c.rows)
+    note = collectionsNote()
+    if note <> "" then m.rows.Push({ kind: "info", text: note })
+    if rows.Count() > 0 then
+        m.rows.Push({ kind: "collectionsToggle" })
+        if m.collectionsOpen = true then
+            for each row in rows
+                m.rows.Push({ kind: "collection", collection: row })
+            end for
+        end if
     end if
-    if m.servers.Count() > 1 then
-        for i = 0 to m.servers.Count() - 1
-            m.rows.Push({ kind: "server", index: i })
-        end for
-    end if
-    m.rows.Push({ kind: "retro" })
-    m.rows.Push({ kind: "subtitles" })
-    m.rows.Push({ kind: "signOut" })
 end sub
+
+function focusable(row as Object) as Boolean
+    return row.kind <> "header" and row.kind <> "subheader" and row.kind <> "info" and row.kind <> "support"
+end function
+
+' The next row focus can land on from i, going d (1 or -1); i if none.
+function nextFocusable(i as Integer, d as Integer) as Integer
+    j = i + d
+    while j >= 0 and j < rowCount()
+        if focusable(m.rows[j]) then return j
+        j = j + d
+    end while
+    return i
+end function
+
+function rowHeight(row as Object) as Integer
+    if row.kind = "header" then
+        if row.subtitle = "" then return 84
+        return 112
+    end if
+    if row.kind = "subheader" or row.kind = "info" then return 44
+    return 74
+end function
 
 function rowCount() as Integer
     return m.rows.Count()
@@ -109,19 +157,29 @@ function collectionOn(row as Object) as Boolean
     return m.collectionKeys.DoesExist(row.id)
 end function
 
-' The web tuner's status line under MY COLLECTIONS.
-function collectionsStatus() as String
+' A line under MY COLLECTIONS when there is something to say beyond the
+' accordion's count: none found, a read that failed, or channels past CH 699.
+function collectionsNote() as String
     c = m.top.collections
+    if c = invalid then return ""
     rows = NxList(c.rows)
     if NxNumberOr0(c.failed) > 0 and rows.Count() = 0 then return "COULD NOT READ COLLECTIONS FROM YOUR SERVER"
-    if rows.Count() = 0 then return "NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES"
+    if rows.Count() = 0 then
+        if NxNumberOr0(c.scanned) > 0 then return "NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES"
+        return "Your server's collections show here after the library is read"
+    end if
+    if NxNumberOr0(c.overCap) > 0 then return c.overCap.ToStr() + " SWITCHED ON PAST CH 699, NOT ON AIR"
+    return ""
+end function
+
+' The accordion's "n/m ON AIR", counting this visit's switches.
+function collectionsOnAir() as String
+    rows = NxList(m.top.collections.rows)
     onAir = 0
     for each row in rows
-        if row.enabled then onAir = onAir + 1
+        if collectionOn(row) then onAir = onAir + 1
     end for
-    s = onAir.ToStr() + "/" + rows.Count().ToStr() + " ON AIR"
-    if NxNumberOr0(c.overCap) > 0 then s = s + " · " + c.overCap.ToStr() + " SWITCHED ON PAST CH 699, NOT ON AIR"
-    return s
+    return onAir.ToStr() + "/" + rows.Count().ToStr() + " ON AIR"
 end function
 
 function anyFranchiseOff() as Boolean
@@ -161,124 +219,170 @@ sub render()
     page = m.top.FindNode("page")
     page.RemoveChildrenIndex(page.GetChildCount(), 0)
     page.AppendChild(newLabel("SETTINGS", "VT323-Regular", 56, "0xFFE500FF", 0, 0))
-    page.AppendChild(newLabel("CHANNEL PACKAGES", "DMMono-Medium", 24, "0xFFFFFFB3", 0, 90))
-    page.AppendChild(newLabel("Toggle packages to customize your lineup", "DMMono-Regular", 20, "0xFFFFFF80", 0, 124))
 
-    if m.focus < m.top0 then m.top0 = m.focus
-    if m.focus > m.top0 + m.rowsVisible - 1 then m.top0 = m.focus - m.rowsVisible + 1
-    last = m.top0 + m.rowsVisible - 1
-    if last > rowCount() - 1 then last = rowCount() - 1
-    y = 180
-    for i = m.top0 to last
-        focused = i = m.focus
-        accent = "0xFFE500"
-        row = m.rows[i]
-        indent = 0
-        if row.kind = "bundle" then
-            b = m.top.bundles[row.index]
-            on = NxHasValue(m.enabled, b.id)
-            label = b.name
-            detail = b.channelIDs.Count().ToStr() + " CHANNELS"
-            if NxTruthy(b.activeMonths) then detail = detail + " · SEASONAL"
-            state = "OFF"
-            stateColor = "0xFFFFFF59"
-            if on then
-                state = "ON"
-                stateColor = "0xFFE500FF"
-            end if
-        else if row.kind = "franchiseAll" then
-            indent = 40
-            label = "YOUR FRANCHISES"
-            detail = "Every franchise below at once"
-            state = "REMOVE ALL"
-            if anyFranchiseOff() then state = "ADD ALL"
-            stateColor = "0xFFE500FF"
-        else if row.kind = "franchise" then
-            indent = 40
-            f = row.franchise
-            label = f.name
-            detail = f.countLabel
-            if f.channelNumber <> invalid then detail = detail + " · CH " + f.channelNumber.ToStr()
-            state = "OFF"
-            stateColor = "0xFFFFFF59"
-            if franchiseOn(f) then
-                state = "ON"
-                stateColor = "0xFFE500FF"
-            end if
-        else if row.kind = "collectionsInfo" then
-            label = "MY COLLECTIONS"
-            detail = collectionsStatus()
-            if m.collectionsChanged then detail = "Changes air when you go back to the guide"
-            state = ""
-            stateColor = "0xFFFFFFFF"
-        else if row.kind = "collection" then
-            indent = 40
-            cr = row.collection
-            label = cr.title
-            detail = cr.detail
-            if cr.channelNumber <> invalid then detail = detail + " · CH " + cr.channelNumber.ToStr()
-            state = "OFF"
-            stateColor = "0xFFFFFF59"
-            if collectionOn(cr) then
-                state = "ON"
-                stateColor = "0xFFE500FF"
-            end if
-        else if row.kind = "server" then
-            s = m.servers[row.index]
-            label = "SERVER · " + UCase(NxToStr(s.name))
-            detail = "Shared with you"
-            if NxTruthy(s.owned) then detail = "Your server"
-            state = "OFF"
-            stateColor = "0xFFFFFF59"
-            if m.serversOn[row.index] then
-                state = "ON"
-                stateColor = "0xFFE500FF"
-            end if
-        else if row.kind = "retro" then
-            label = "RETRO MODE"
-            detail = "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio"
-            state = "OFF"
-            stateColor = "0xFFFFFF59"
-            if NxRetroMode() then
-                state = "ON"
-                stateColor = "0xFFE500FF"
-            end if
-        else if row.kind = "subtitles" then
-            label = "SUBTITLES"
-            detail = subtitleModeExplanation()
-            state = subtitleModeLabel()
-            stateColor = "0xFFFFFF59"
-            if state <> "OFF" then stateColor = "0xFFE500FF"
-        else
-            label = "SIGN OUT OF PLEX"
-            detail = "Forget this TV's Plex sign-in"
-            if m.signOutArmed then
-                label = "PRESS OK AGAIN TO SIGN OUT"
-                detail = "Up, Down or BACK cancels"
-            end if
-            state = ""
-            stateColor = "0xFFFFFFFF"
-            accent = "0xFF6B6B"
-        end if
-        if focused then page.AppendChild(newRect(indent, y, 1680 - indent, 72, accent + "52"))
-        if focused then
-            page.AppendChild(newRect(indent, y, 8, 72, accent + "FF"))
-        else
-            page.AppendChild(newRect(indent, y, 4, 72, accent + "66"))
-        end if
-        nameColor = "0xFFFFFFBF"
-        if focused then nameColor = "0xFFFFFFFF"
-        page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
-        page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
-        if state <> "" then
-            stateLabel = newLabel(state, "DMMono-Medium", 24, stateColor, 1260, y + 22)
-            stateLabel.width = 380
-            stateLabel.horizAlign = "right"
-            page.AppendChild(stateLabel)
-        end if
-        y = y + 74
+    ' Where each row sits in the whole list, then a scroll that keeps the
+    ' focused row in view, with the headings just above it when they fit.
+    tops = []
+    y = 0
+    for each row in m.rows
+        tops.Push(y)
+        y = y + rowHeight(row)
     end for
-    page.AppendChild(newLabel("OK toggles · BACK returns to the guide", "DMMono-Regular", 20, "0xFFFFFF59", 0, y + 24))
+    top = tops[m.focus]
+    bottom = top + rowHeight(m.rows[m.focus])
+    k = m.focus - 1
+    while k >= 0 and not focusable(m.rows[k]) and bottom - tops[k] <= m.listH
+        top = tops[k]
+        k = k - 1
+    end while
+    if top < m.scroll then m.scroll = top
+    if bottom > m.scroll + m.listH then m.scroll = bottom - m.listH
+
+    for i = 0 to rowCount() - 1
+        row = m.rows[i]
+        rt = tops[i]
+        if rt >= m.scroll and rt + rowHeight(row) <= m.scroll + m.listH then
+            y = m.listTop + rt - m.scroll
+            if row.kind = "header" then
+                ' A thin divider between sections, as settingsDivider.
+                if i > 0 then page.AppendChild(newRect(0, y + 8, 1680, 1, "0xFFFFFF0F"))
+                page.AppendChild(newLabel(row.title, "DMMono-Medium", 28, "0xFFFFFFCC", 0, y + 28))
+                if row.subtitle <> "" then page.AppendChild(newLabel(row.subtitle, "DMMono-Regular", 20, "0xFFFFFFB3", 0, y + 68))
+            else if row.kind = "subheader" or row.kind = "info" then
+                page.AppendChild(newLabel(row.text, "DMMono-Regular", 20, "0xFFFFFFB3", 0, y + 8))
+            else if row.kind = "support" then
+                page.AppendChild(newLabel("NOSTALGEX.APP", "DMMono-Medium", 24, "0xFFFFFFBF", 30, y + 10))
+                page.AppendChild(newLabel("Open it on a phone or computer", "VT323-Regular", 24, "0xFFFFFF80", 30, y + 40))
+                page.AppendChild(newRect(0, y, 4, 72, "0xFFE50066"))
+            else
+                drawRow(page, i, row, y)
+            end if
+        end if
+    end for
+    page.AppendChild(newLabel("OK toggles · BACK returns to the guide", "DMMono-Regular", 20, "0xFFFFFF59", 0, m.listTop + m.listH + 24))
+end sub
+
+function serversOnCount() as Integer
+    n = 0
+    for each x in m.serversOn
+        if x then n = n + 1
+    end for
+    return n
+end function
+
+sub drawRow(page as Object, i as Integer, row as Object, y as Float)
+    focused = i = m.focus
+    accent = "0xFFE500"
+    indent = 0
+    if row.kind = "bundle" then
+        b = m.top.bundles[row.index]
+        on = NxHasValue(m.enabled, b.id)
+        label = b.name
+        detail = b.channelIDs.Count().ToStr() + " CHANNELS"
+        if NxTruthy(b.activeMonths) then detail = detail + " · SEASONAL"
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if on then
+            state = "ON"
+            stateColor = "0xFFE500FF"
+        end if
+    else if row.kind = "franchiseAll" then
+        indent = 40
+        label = "YOUR FRANCHISES"
+        detail = "Every franchise below at once"
+        state = "REMOVE ALL"
+        if anyFranchiseOff() then state = "ADD ALL"
+        stateColor = "0xFFE500FF"
+    else if row.kind = "franchise" then
+        indent = 40
+        f = row.franchise
+        label = f.name
+        detail = f.countLabel
+        if f.channelNumber <> invalid then detail = detail + " · CH " + f.channelNumber.ToStr()
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if franchiseOn(f) then
+            state = "ON"
+            stateColor = "0xFFE500FF"
+        end if
+    else if row.kind = "collectionsToggle" then
+        label = "OTHER COLLECTIONS"
+        detail = "Actors, directors and your own themed sets · " + collectionsOnAir()
+        if m.collectionsChanged then detail = "Changes air when you go back to the guide · " + collectionsOnAir()
+        state = "SHOW"
+        if m.collectionsOpen = true then state = "HIDE"
+        stateColor = "0xFFE500FF"
+    else if row.kind = "collection" then
+        indent = 40
+        cr = row.collection
+        label = cr.title
+        detail = cr.detail
+        if cr.channelNumber <> invalid then detail = detail + " · CH " + cr.channelNumber.ToStr()
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if collectionOn(cr) then
+            state = "ON"
+            stateColor = "0xFFE500FF"
+        end if
+    else if row.kind = "server" then
+        ' Upstream's server rows: INCLUDED or OFF, and no switch on the
+        ' only server that is on, which can't be turned off.
+        s = m.servers[row.index]
+        label = UCase(NxToStr(s.name))
+        detail = "Shared with you"
+        if NxTruthy(s.owned) then detail = "Your server"
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if m.serversOn[row.index] then
+            state = "INCLUDED"
+            stateColor = "0xFFE500FF"
+            if serversOnCount() <= 1 then
+                detail = detail + " · only connected server"
+                state = ""
+            end if
+        end if
+    else if row.kind = "retro" then
+        label = "RETRO MODE"
+        detail = "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio"
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if NxRetroMode() then
+            state = "ON"
+            stateColor = "0xFFE500FF"
+        end if
+    else if row.kind = "subtitles" then
+        label = "SUBTITLES"
+        detail = subtitleModeExplanation()
+        state = subtitleModeLabel()
+        stateColor = "0xFFFFFF59"
+        if state <> "OFF" then stateColor = "0xFFE500FF"
+    else
+        label = "SIGN OUT OF PLEX"
+        detail = "Forget this TV's Plex sign-in"
+        if m.signOutArmed then
+            label = "PRESS OK AGAIN TO SIGN OUT"
+            detail = "Up, Down or BACK cancels"
+        end if
+        state = ""
+        stateColor = "0xFFFFFFFF"
+        accent = "0xFF6B6B"
+    end if
+    if focused then page.AppendChild(newRect(indent, y, 1680 - indent, 72, accent + "52"))
+    if focused then
+        page.AppendChild(newRect(indent, y, 8, 72, accent + "FF"))
+    else
+        page.AppendChild(newRect(indent, y, 4, 72, accent + "66"))
+    end if
+    nameColor = "0xFFFFFFBF"
+    if focused then nameColor = "0xFFFFFFFF"
+    page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
+    page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
+    if state <> "" then
+        stateLabel = newLabel(state, "DMMono-Medium", 24, stateColor, 1260, y + 22)
+        stateLabel.width = 380
+        stateLabel.horizAlign = "right"
+        page.AppendChild(stateLabel)
+    end if
 end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
@@ -287,13 +391,12 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         m.signOutArmed = false
         render()
     end if
-    if key = "down" and m.focus < rowCount() - 1 then
-        m.focus = m.focus + 1
-        render()
-        return true
-    end if
-    if key = "up" and m.focus > 0 then
-        m.focus = m.focus - 1
+    if key = "down" or key = "up" then
+        d = 1
+        if key = "up" then d = -1
+        m.focus = nextFocusable(m.focus, d)
+        ' Up from the first row shows the headings above it again.
+        if key = "up" and nextFocusable(m.focus, -1) = m.focus then m.scroll = 0
         render()
         return true
     end if
@@ -330,15 +433,13 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             if m.collectionKeys.DoesExist(id) then m.collectionKeys.Delete(id) else m.collectionKeys[id] = true
             m.collectionsChanged = true
             render()
-        else if row.kind = "collectionsInfo" then
-            ' A heading; nothing to switch.
+        else if row.kind = "collectionsToggle" then
+            m.collectionsOpen = not (m.collectionsOpen = true)
+            buildRows()
+            render()
         else if row.kind = "server" then
             ' The last server on stays on, as upstream's picker keeps one.
-            onCount = 0
-            for each x in m.serversOn
-                if x then onCount = onCount + 1
-            end for
-            if not m.serversOn[row.index] or onCount > 1 then
+            if not m.serversOn[row.index] or serversOnCount() > 1 then
                 m.serversOn[row.index] = not m.serversOn[row.index]
                 m.serversChanged = true
                 render()

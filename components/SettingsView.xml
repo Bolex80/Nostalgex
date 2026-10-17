@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Settings, after the Apple TV app's: channel packages on and off,
-     each franchise under FRANCHISES, the server's collections under MY
-     COLLECTIONS (the web tuner's), which Plex servers to read, subtitles, and signing out of Plex.
+<!-- Settings, in the order of the Apple TV app's SettingsPageView: support,
+     the Plex servers to read and signing out, RETRO MODE and subtitles,
+     channel packages with each franchise under FRANCHISES, then the server's
+     collections under MY COLLECTIONS, folded closed.
      Choices are saved on the TV; the guide is rebuilt when Settings closes
      with a package, franchise, collection or server change. -->
 <component name="SettingsView" extends="Group">
