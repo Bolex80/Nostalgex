@@ -296,7 +296,7 @@ at `6f05937` with 5,363 items on one server:
   library ran it 24x faster (189.3 s to 7.7 s), all 27 franchises, their
   movies and shows, and every stock pool identical. On the 55R617 it took
   0.7 s, down from about 15 s.
-- **First run, 70 channels with FRANCHISES on, at `5a0cead`:** guide on screen
+- **First run, FRANCHISES on (61 channels), at `5a0cead`:** guide on screen
   102.6 s after sign-in on the 55R617, down from 131.3 s: library read 57.7 s
   (one request timed out and was retried), collections 4.0 s, 61 channels
   built 26.7 s, franchises 0.7 s.
