@@ -6,8 +6,10 @@
      No field carries a token. -->
 <component name="LibraryTask" extends="Task">
   <interface>
-    <!-- loading | ready | error. "ready" can come twice: saved guide, then fresh. -->
-    <field id="status" type="string" value="" />
+    <!-- loading | ready | error. "ready" comes again for a fresh guide after
+         the saved one, a package build and a new day's schedules, so it
+         notifies when set to the value it already holds. -->
+    <field id="status" type="string" value="" alwaysNotify="true" />
     <field id="progress" type="string" value="" />
     <!-- The loading screen's step rail, as upstream's LibraryLoadPhase:
          preparing | library | collections | metadata | channels | finishing.
