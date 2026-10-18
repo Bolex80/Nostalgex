@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 38 · **138 channels** across **14 bundles** · 88 channels whose `id` differs from their `number`.
+**Config version:** 39 · **138 channels** across **14 bundles** · 88 channels whose `id` differs from their `number`.
 
 ---
 
@@ -143,7 +143,7 @@ _Disney, Nickelodeon, Pixar, and more_
 | 31 | **`33`** ⚠︎ | FAMILY TV | `#FF7043` | Episodes | 10 | incl Family/Comedy/Drama, no Kids/Children/Cartoon, 2000-…, rated TV-G/TV-PG/TV-14/unrated |
 | 32 | **`34`** ⚠︎ | NETFLIX KIDS | `#E50914` | Any | 3 | incl Family/Kids/Children/Comedy/Adventure, no Horror/Thriller, studios Netflix/Netflix Animation/Netflix Family, title allowlist (28), rated TV-Y/TV-Y7/TV-G/G/PG/TV-PG/unrated |
 | 33 | **`218`** ⚠︎ | DREAMWORKS | `#2ECC71` | Any | 5 | studios DreamWorks Animation/Pacific Data Images, rated G/PG/PG-13/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
-| 34 | **`400`** ⚠︎ | TOON TOWN | `#FF9F1C` | Movies | 5 | kw +1, rated G/PG/PG-13/unrated |
+| 34 | **`400`** ⚠︎ | TOON TOWN | `#FF9F1C` | Movies | 5 | kw +1, kw needs genre Animation/Family/Comedy, rated G/PG/PG-13/unrated |
 
 ### PRIME TIME · CH 40–55
 
@@ -436,4 +436,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v38 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v39 by `scripts/render-channels-doc.mjs`. Do not edit by hand._

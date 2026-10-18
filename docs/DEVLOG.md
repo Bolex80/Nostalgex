@@ -15,6 +15,16 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Next.** Nothing on this post. Indexing `/jellyfin` in Search Console is Chad's, from the build notes.
 
+## 2026-10-18 (TOON TOWN: no more Middle-earth)
+
+**Shipped.** Nothing yet. Branch `channels/toon-town-gate`: the web gets it when main is pushed, Apple TV with the next build, Docker with the next `tuner-v*` tag.
+
+**Why.** TOON TOWN was airing The Hobbit. The channel is for live action and cartoon hybrids, and its only test was the TMDB keyword "live action and animation", which TMDB also puts on all three Hobbit films and all three Lord of the Rings films (CGI and motion capture).
+
+**Changed.** `channels.json` v39: TOON TOWN counts the keyword only on a title that is also Animation, Family or Comedy (`keywordsRequireAnyGenre`, already in both engines). Comedy is in the list because the 2002 Scooby-Doo and Detective Pikachu are real hybrids with neither Animation nor Family in Plex. Three new cases in `scripts/filter-golden.json`.
+
+**Measured.** Against the 113 movies in the shared metadata cache with that keyword: 100 still qualify, the 6 Middle-earth films, Okja and a few others drop out, and the two R-rated titles Comedy lets back in are already stopped by the channel's G to PG-13 rule. On one real library, 45 films carry the keyword: the 6 Middle-earth films drop, the rest stay. Both engines pass all 46 golden cases; with the gate removed the Hobbit case fails.
+
 ## 2026-10-16 (blog screenshot sizes)
 
 **Shipped.** Nothing until this lands on main. The live pages pick it up on the next Vercel deploy.

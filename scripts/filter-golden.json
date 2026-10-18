@@ -921,6 +921,80 @@
       "out": [
         421
       ]
+    },
+    {
+      "name": "hobbit-is-not-toon-town",
+      "about": "TMDB tags the Hobbit and Lord of the Rings films 'live action and animation' (CGI and motion capture). TOON TOWN is for live action and cartoon hybrids, so the keyword only counts on an Animation, Family or Comedy title.",
+      "item": {
+        "title": "The Hobbit: The Battle of the Five Armies",
+        "year": 2014,
+        "type": "movie",
+        "genres": [
+          "Adventure",
+          "Action",
+          "Fantasy"
+        ],
+        "contentRating": "PG-13",
+        "enrichment": {
+          "keywords": [
+            "live action and animation",
+            "dwarf"
+          ]
+        }
+      },
+      "in": [],
+      "out": [
+        400
+      ]
+    },
+    {
+      "name": "space-jam-is-toon-town",
+      "about": "The kind of film TOON TOWN is for: the keyword and an Animation or Family genre.",
+      "item": {
+        "title": "Space Jam",
+        "year": 1996,
+        "type": "movie",
+        "genres": [
+          "Animation",
+          "Comedy",
+          "Family"
+        ],
+        "contentRating": "PG",
+        "enrichment": {
+          "keywords": [
+            "live action and animation",
+            "basketball"
+          ]
+        }
+      },
+      "in": [
+        400
+      ],
+      "out": []
+    },
+    {
+      "name": "scooby-doo-2002-stays-on-toon-town",
+      "about": "A live action and cartoon hybrid with no Animation or Family genre in Plex. Comedy keeps it on TOON TOWN.",
+      "item": {
+        "title": "Scooby-Doo",
+        "year": 2002,
+        "type": "movie",
+        "genres": [
+          "Adventure",
+          "Comedy",
+          "Mystery"
+        ],
+        "contentRating": "PG",
+        "enrichment": {
+          "keywords": [
+            "live action and animation"
+          ]
+        }
+      },
+      "in": [
+        400
+      ],
+      "out": []
     }
   ]
 }

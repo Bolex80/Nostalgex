@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "exclusiveRules": [
     {
       "channelIDs": [
@@ -5217,6 +5217,11 @@
         "type": "movie",
         "keywords": [
           "live action and animation"
+        ],
+        "keywordsRequireAnyGenre": [
+          "Animation",
+          "Family",
+          "Comedy"
         ],
         "contentRatings": [
           "G",
