@@ -316,6 +316,10 @@ at `6f05937` with 5,363 items on one server:
 - **Package switch, at `fb27b56`, on the 43S45:** an 8-channel package built
   in 9.4 s on and 4.7 s off, behind Settings, its pools fingerprint equal to a
   full rebuild's both ways.
+- **Collections step, on the 55R617:** 457 s at `d2e276d`, where the progress
+  screen rebuilt itself on each of three updates per collection (25 collections'
+  updates took 66 s, then 136 s, against a 1.1 s fetch); 10.3 s once a change
+  that keeps the layout only updates the detail line and bar.
 
 ## BrightScript notes
 

@@ -10,6 +10,7 @@
 sub init()
     m.fonts = {}
     m.dots = ""
+    m.layout = ""
     m.cyan = "0x00D4FF"
     m.steps = [
         { id: "preparing", title: "Lineup", headline: "PREPARING LINEUP", hint: "Loading channel rules and bundles" },
@@ -88,11 +89,33 @@ function stepIndex(id as String) as Integer
     return 0
 end function
 
+' Every progress, bar and caption change lands here, three per collection
+' read, so a change that keeps the layout only updates the detail line and
+' the bar in place. Rebuilding the whole screen each time took the 55R617
+' over 2.5 s per collection.
 sub render()
     t = m.top.task
     if t = invalid then return
     current = stepIndex(t.phase)
     st = m.steps[current]
+    detail = UCase(NxToStr(t.progress))
+    if st.id = "channels" and t.bar >= 0 then detail = ""
+    if detail = "" and st.id <> "channels" then detail = UCase(st.hint)
+    value = t.bar
+    if value > 1 then value = 1
+    layout = st.id + "|" + t.firstRun.ToStr() + "|" + (detail <> "").ToStr() + "|" + (t.bar >= 0).ToStr()
+    if layout = m.layout then
+        if m.detail <> invalid then m.detail.text = detail
+        if m.barFill <> invalid then
+            m.barFill.width = 420 * value
+            m.barFill.visible = value > 0
+            m.barCaption.text = UCase(NxToStr(t.barCaption))
+        end if
+        return
+    end if
+    m.layout = layout
+    m.detail = invalid
+    m.barFill = invalid
     g = m.top.FindNode("content")
     g.RemoveChildrenIndex(g.GetChildCount(), 0)
 
@@ -100,9 +123,6 @@ sub render()
     gap = 28
     h = 66 + 20 + gap + 56 + gap + 42
     if t.firstRun then h = h + 30 + gap
-    detail = UCase(NxToStr(t.progress))
-    if st.id = "channels" and t.bar >= 0 then detail = ""
-    if detail = "" and st.id <> "channels" then detail = UCase(st.hint)
     if detail <> "" then h = h + 30 + gap
     if t.bar >= 0 then h = h + 44 + gap
     y = (1080 - h) / 2
@@ -132,15 +152,17 @@ sub render()
         lbl.wrap = false
         lbl.ellipsizeOnBoundary = true
         g.AppendChild(lbl)
+        m.detail = lbl
         y = y + 30 + gap
     end if
     if t.bar >= 0 then
-        value = t.bar
-        if value > 1 then value = 1
         x = (1920 - 420) / 2
         g.AppendChild(newRect(x, y, 420, 6, "0xFFFFFF26"))
-        if value > 0 then g.AppendChild(newRect(x, y, 420 * value, 6, m.cyan + "FF"))
-        g.AppendChild(centred(UCase(NxToStr(t.barCaption)), "DMMono-Regular", 19, "0xFFFFFF66", y + 16))
+        m.barFill = newRect(x, y, 420 * value, 6, m.cyan + "FF")
+        m.barFill.visible = value > 0
+        g.AppendChild(m.barFill)
+        m.barCaption = centred(UCase(NxToStr(t.barCaption)), "DMMono-Regular", 19, "0xFFFFFF66", y + 16)
+        g.AppendChild(m.barCaption)
     end if
 end sub
 
