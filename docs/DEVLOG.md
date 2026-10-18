@@ -48,6 +48,16 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Measured.** Against the 113 movies in the shared metadata cache with that keyword: 100 still qualify, the 6 Middle-earth films, Okja and a few others drop out, and the two R-rated titles Comedy lets back in are already stopped by the channel's G to PG-13 rule. On one real library, 45 films carry the keyword: the 6 Middle-earth films drop, the rest stay. Both engines pass all 46 golden cases; with the gate removed the Hobbit case fails.
 
+## 2026-10-18 (Apple TV: retro mode is stronger, and on in full screen)
+
+**Shipped.** Nothing yet. Branch `retro/medium`, for the next build.
+
+**Why.** Retro mode read as too subtle. Full screen had no scanlines at all (the old comment called them too distracting), so in full screen retro mode was the crop, the vignette and a tracking line now and then.
+
+**Changed.** Three looks were tried side by side on a TV and the middle one won. Scanlines at 0.18 (were 0.12), in the guide and now in full screen too. A darker vignette: corners 0.78, top and bottom 0.58, sides 0.48 (were 0.7, 0.5, 0.4). Flicker on 8% of the 80 ms ticks, dipping to 0.76 to 0.88 (was 5%, 0.80 to 0.90). The tracking line on 45% of its checks at 0.22 brightness (was 30%, 0.15). The numbers live in `RetroLook` in `CRTOverlayView.swift`, so the Roku port can match them. The web tuner's retro mode is its own effect and is unchanged.
+
+**Measured.** Unit tests pass. Checked by eye on an Apple TV 4K, in the guide and in full screen.
+
 ## 2026-10-16 (blog screenshot sizes)
 
 **Shipped.** Nothing until this lands on main. The live pages pick it up on the next Vercel deploy.
