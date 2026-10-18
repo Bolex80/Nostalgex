@@ -335,12 +335,13 @@ sub loadLibrary()
         it.Delete("nxFilter")
     end for
     items = invalid
-    keepScheduling(built.ordered, built.guide)
+    keepScheduling(built.ordered, built.guide, built.channels)
 end sub
 
 ' Builds the switched-on channels from the library, schedules them and hands
 ' the guide to the render thread, unless `shown` and it matches what is
-' already on screen. Returns { ordered, guide } for keepScheduling.
+' already on screen. Returns { ordered, guide, channels } for keepScheduling:
+' channels is every channel built, those too small for the guide included.
 function buildGuide(items as Object, config as Object, manifest as Object, collections as Object, shown as Boolean, reuse = invalid as Dynamic) as Object
     timer = CreateObject("roTimespan")
     ' A library load clears the day schedules, as upstream's does.
@@ -372,6 +373,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             matched = invalid
             if reuse <> invalid then matched = reuse[def.id.ToStr()]
             if matched = invalid then
+                if reuse <> invalid then print "library: package change: filtering channel "; def.id; " again"
                 matched = []
                 for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
                     matched.Push(row.item)
@@ -440,6 +442,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         collectionIDs.Push(ch.id)
     end for
     print "library: collections: "; cl.rows.Count(); " listed, "; cl.folded.Count(); " folded into franchises, "; collectionIDs.Count(); " channels, "; cl.overCap; " past CH 699, in "; timer.TotalMilliseconds(); " ms"
+    timer.Mark()
     for each ch in channels
         ' Collection channels air their collection unshuffled, as the web
         ' tuner's do.
@@ -471,8 +474,11 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         guideBundles.Push("nx-collections")
     end if
     ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock.month)
+    print "library: shuffled and ordered in "; timer.TotalMilliseconds(); " ms"
     print "library: pools fingerprint "; NxPoolsFingerprint(ordered); " ("; ordered.Count(); " channels)"
+    timer.Mark()
     out = NxScheduleGuide(ordered, nowSec&)
+    print "library: scheduled in "; timer.TotalMilliseconds(); " ms"
     bundleList = []
     for each bdl in NxList(config.bundles)
         entry = { id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths }
@@ -496,6 +502,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' channel, but Settings has to show it.
     ' Compared with the task's own copy: each read of m.top.guide copies the
     ' whole guide out of the node.
+    timer.Mark()
     old = m.shownGuide
     if shown and old <> invalid and FormatJson(guide.channels) = FormatJson(old.channels) and FormatJson(guide.bundles) = FormatJson(old.bundles) and FormatJson(guide.franchises) = FormatJson(old.franchises) and FormatJson(guide.collections) = FormatJson(old.collections) then
         print "library: background refresh matches the saved guide"
@@ -505,11 +512,14 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         m.shownGuide = guide
         m.top.status = "ready"
     end if
+    print "library: compared and handed over in "; timer.TotalMilliseconds(); " ms"
+    timer.Mark()
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
+    print "library: saved the guide in "; timer.TotalMilliseconds(); " ms"
     timer.Mark()
     NxSavePools(ordered, guide, clock.month)
     print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
-    return { ordered: ordered, guide: guide }
+    return { ordered: ordered, guide: guide, channels: channels }
 end function
 
 ' What each channel airs today and tomorrow, as buildChannelSchedule
@@ -537,7 +547,7 @@ end function
 ' Stay up with the pools, re-checking schedules whenever asked (MainScene asks
 ' every 30 s, as upstream's rebuildAllSchedules runs): a time restriction
 ' lifting at 9 PM, or a new day, re-packs exactly as it would upstream.
-sub keepScheduling(ordered as Object, guide as Object)
+sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object)
     port = CreateObject("roMessagePort")
     m.top.ObserveField("reschedule", port)
     m.top.ObserveField("bundleRequest", port)
@@ -546,10 +556,11 @@ sub keepScheduling(ordered as Object, guide as Object)
     ' packages the guide holds.
     built = FormatJson(guide.enabledBundles)
     if FormatJson(NxEnabledBundles()) <> built then
-        got = rebuildForBundles(ordered)
+        got = rebuildForBundles(builtChannels)
         if got <> invalid then
             ordered = got.ordered
             guide = got.guide
+            builtChannels = got.channels
             built = FormatJson(guide.enabledBundles)
         else
             built = "rebuild"
@@ -563,10 +574,11 @@ sub keepScheduling(ordered as Object, guide as Object)
             ' Several switches while one builds: the saved packages are read
             ' afresh each time, so the last build covers them all.
             print "library: package change requested"
-            got = rebuildForBundles(ordered)
+            got = rebuildForBundles(builtChannels)
             if got <> invalid then
                 ordered = got.ordered
                 guide = got.guide
+                builtChannels = got.channels
                 last = FormatJson(guide.channels)
                 m.top.bundleBuilt = FormatJson(guide.enabledBundles)
             else
@@ -588,10 +600,11 @@ end sub
 
 ' A package switched on or off in Settings, as upstream's
 ' rebuildLineupAfterBundleChange: only channels that weren't built last time
-' are filtered, from the saved library (source/plex/LibrarySnapshot.brs) and
+' (prev: buildGuide's channels, the guide's and those too small for it) are
+' filtered, from the saved library (source/plex/LibrarySnapshot.brs) and
 ' the enrichment caches; every other channel keeps its filtered pool. The
 ' franchise, collection, order and schedule steps run as in a full build.
-' Returns { ordered, guide }, or invalid when a server on has no saved
+' Returns buildGuide's result, or invalid when a server on has no saved
 ' library (Settings then rebuilds the whole guide, as before).
 function rebuildForBundles(prev as Object) as Dynamic
     timer = CreateObject("roTimespan")
@@ -638,7 +651,9 @@ function rebuildForBundles(prev as Object) as Dynamic
         nowSec: NxFilterClock().nowSec, channels: config.channels,
         backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: invalid
     }
+    t = CreateObject("roTimespan")
     NxEnrichFromCaches(items, opts)
+    print "library: package change: enrichment caches applied in "; t.TotalMilliseconds(); " ms"
     reuse = {}
     for each ch in prev
         if ch.filtered <> invalid then reuse[ch.id.ToStr()] = ch.filtered
