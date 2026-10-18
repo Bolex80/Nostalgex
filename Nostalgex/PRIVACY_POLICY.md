@@ -1,16 +1,16 @@
 # Privacy Policy
 
-Effective: October 16, 2026
+Effective: October 18, 2026
 
 Nostalgex turns your own Plex, Jellyfin, or Emby library into live TV channels. We do not host, supply, or stream any media. Everything you watch comes off your own server.
 
-This policy covers two separate things: the Nostalgex app on Apple TV, and the nostalgex.app website. They collect different things, so they are described separately.
+This policy covers three separate things: the Nostalgex app on Apple TV, the Nostalgex app on Roku, and the nostalgex.app website. They collect different things, so they are described separately.
 
 ## Summary
 
 - No accounts. Nothing is sold or rented to anyone.
-- Your server address and login token stay on your Apple TV.
-- The app sends a small, fixed list of anonymous usage events so we can tell whether things are working. No names, no library contents, no titles.
+- Your server address and login token stay on your Apple TV or Roku.
+- The Apple TV app sends a small, fixed list of anonymous usage events so we can tell whether things are working. No names, no library contents, no titles. The Roku app sends none.
 - The website uses two lightweight analytics scripts to count page visits.
 - Nothing we collect follows you into other companies' apps or across the web.
 
@@ -123,11 +123,25 @@ These lookups use public identifiers and titles for the purpose of matching meta
 
 ## Sign-in
 
-Plex sign-in runs through Plex's own PIN system. We never see your Plex username or password. Jellyfin and Emby sign-in goes straight from the app to the server you typed in. Tokens are held in the Keychain on your Apple TV and are never sent to us.
+Plex sign-in runs through Plex's own PIN system. We never see your Plex username or password. Jellyfin and Emby sign-in goes straight from the app to the server you typed in. Tokens are held in the Keychain on your Apple TV and are never sent to us. On Roku, sign-in uses the same Plex code, and the token is kept in the app's own storage on the TV.
 
 ## Playback reporting
 
 The app can report what you are watching back to your own Plex, Jellyfin, or Emby server, so Continue Watching and play counts stay accurate. This is **off by default** and you turn it on in Settings under Playback Reporting. When it is on, the reports go only to the server you connected. They do not come to us.
+
+## The Roku app
+
+The Nostalgex app for Roku works with Plex only. It does not send usage analytics, and it does not use Roku's advertising identifier.
+
+It connects to:
+
+- plex.tv, to sign you in with Plex's own code and to find your servers. You enter the code at plex.tv/link, so the TV never sees your Plex password.
+- Your own Plex server, for your library and for playback. On your home network the app may reach the server at its local address over plain HTTP, the way Plex's own apps do at home. It only does that for a private home-network address, and your token travels in a request header, not in the address. Otherwise it uses HTTPS.
+- The metadata relay on nostalgex.app and the Supabase cache described above, to sort titles onto channels. It sends only public TMDB and IMDb ids. Metadata it fetches is written back to the cache under the title's TMDB id, the same as the Apple TV app and the web tuner. No library titles, account, server or device details go with it.
+
+The Roku app does not report what you watch to your Plex server and does not change anything in your library.
+
+On the TV it keeps your Plex token, a random ID for this install (Plex shows it in your list of devices), your server list, your channel packages and other settings, and a saved copy of your library and guide so it opens quickly. Signing out in Settings removes the token, the install ID, the server list, the saved library and guide, and the metadata cache. Removing the app removes your sign-in and settings; the saved copies sit in the Roku's own cache, which the Roku clears when it needs the room, so sign out first if you want them gone straight away.
 
 ## Tracking
 
