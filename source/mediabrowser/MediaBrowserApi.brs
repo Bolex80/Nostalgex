@@ -103,8 +103,12 @@ end function
 
 ' Quick Connect (Jellyfin only): { code, secret } to show and poll, "off" when
 ' the server has it switched off (401), invalid when it couldn't be reached.
+' Jellyfin 10.9 and later start a code with a POST and answer a GET with 405
+' (12.2, checked 2026-10-18; upstream's clients still send the GET); older
+' servers take the GET.
 function NxMbQuickConnectStart(base as String) as Dynamic
-    res = NxServerRequest("GET", base + "/QuickConnect/Initiate", NxMbHeaders(""), "", 8000)
+    res = NxServerRequest("POST", base + "/QuickConnect/Initiate", NxMbHeaders(""), "", 8000)
+    if res.code = 405 or res.code = 404 then res = NxServerRequest("GET", base + "/QuickConnect/Initiate", NxMbHeaders(""), "", 8000)
     if res.code = 401 or res.code = 403 then return "off"
     if res.code < 200 or res.code > 299 or type(res.json) <> "roAssociativeArray" then return invalid
     if not NxIsString(res.json.Code) or not NxIsString(res.json.Secret) then return invalid
