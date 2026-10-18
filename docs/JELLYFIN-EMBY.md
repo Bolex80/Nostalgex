@@ -105,6 +105,52 @@ read-only.
   setup and in PascalCase after. BrightScript's associative arrays ignore case,
   so the app is safe either way.
 
+## On a TV (2026-10-18)
+
+The build (roku `49c628d`) ran on a 1080p TCL Roku TV against the test
+servers, driven over ECP.
+
+**Jellyfin 12.2**
+
+- The broadcast found the server.
+- Quick Connect signed in.
+- 5,133 items read in 10 s.
+- The guide was on screen 21 s after sign-in, with 15 channels. The same
+  library through Plex gives 16.
+- Tuning seven channels:
+  - MP4 and MKV played directly, joined part-way, picture in 1.4 to 3.3 s.
+  - One HLS stream had a picture in 1.7 s.
+  - Leaving the HLS channel sent `DELETE /Videos/ActiveEncodings`, which
+    answered 204.
+- A relaunch went straight back to the Jellyfin guide.
+
+**Emby 4.10**
+
+- Typed address, then username and password.
+- 5,422 items read in 7 s.
+- The guide was on screen 18 s after sign-in.
+- An HLS channel had a picture in 2.6 s.
+- Only 3 channels, because the test server's libraries had no metadata
+  fetchers (3 of 943 titles had genres). The app read what the server had.
+
+**Found on the TV**, each now fixed:
+
+- **Two components called a function their scripts don't load.** BrightScript
+  only finds out when the call runs, so the tests passed.
+  `tests/tools/check-includes.py` now fails the run when this happens.
+- **Quick Connect needs a POST.** Jellyfin 12.2 answers
+  `GET /QuickConnect/Initiate` with 405; `POST` works. Upstream's Apple TV app
+  (`JellyfinAPIService.quickConnectInitiate`, a default GET) and its web tuner
+  (`web-tuner.html`, a `fetch` with no method) both send the GET, so their
+  Quick Connect may fail on current Jellyfin. That is worth telling upstream.
+- **A string compared with an object stopped the sign-in task.** BrightScript
+  raises a type mismatch where JavaScript would answer false.
+- **The password keyboard closed as soon as it opened.** The username
+  keyboard's closing notice arrived after the password keyboard was up.
+- **A sign-in the server now refuses** left the saved guide up with nothing
+  playable. A launch now checks the token (`GET /Users/{id}`); on a 401 it
+  signs out and says why, as a refused Plex token does.
+
 ## How it fits the app
 
 Most of the app needs no change. Channels, filtering, enrichment, the guide,
