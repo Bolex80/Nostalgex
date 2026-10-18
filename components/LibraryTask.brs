@@ -562,6 +562,7 @@ sub keepScheduling(ordered as Object, guide as Object)
         if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then
             ' Several switches while one builds: the saved packages are read
             ' afresh each time, so the last build covers them all.
+            print "library: package change requested"
             got = rebuildForBundles(ordered)
             if got <> invalid then
                 ordered = got.ordered
@@ -595,7 +596,10 @@ end sub
 function rebuildForBundles(prev as Object) as Dynamic
     timer = CreateObject("roTimespan")
     servers = ParseJson(NxPlexRegistry().Read("servers"))
-    if type(servers) <> "roArray" or servers.Count() = 0 then return invalid
+    if type(servers) <> "roArray" or servers.Count() = 0 then
+        print "library: package change needs a full rebuild: no servers saved"
+        return invalid
+    end if
     serversOn = NxServersOn(servers, NxSavedServerChoices())
     snapDir = NxSnapshotDir()
     snap = NxSnapshotReadMeta(snapDir)
@@ -606,9 +610,15 @@ function rebuildForBundles(prev as Object) as Dynamic
         if key = "" then key = "plex"
         collections.serverKeys[i.ToStr()] = key
         if serversOn[i] and NxToStr(servers[i].uri) <> "" then
-            if type(snap.servers[key]) <> "roAssociativeArray" then return invalid
+            if type(snap.servers[key]) <> "roAssociativeArray" then
+                print "library: package change needs a full rebuild: server "; i; " has no saved library"
+                return invalid
+            end if
             saved = NxSnapshotLoadServer(snapDir, snap, key, i)
-            if saved = invalid then return invalid
+            if saved = invalid then
+                print "library: package change needs a full rebuild: server "; i; "'s saved library didn't load"
+                return invalid
+            end if
             items.Append(saved.items)
             if saved.collections <> invalid then
                 collections.raw.Append(saved.collections)

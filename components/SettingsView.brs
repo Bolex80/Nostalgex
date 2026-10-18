@@ -484,6 +484,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
                 m.building[id] = true
                 m.dotTimer.control = "start"
             end if
+            if found then print "settings: package "; id; " switched off" else print "settings: package "; id; " switched on"
             m.top.bundleChange = true
             buildRows()
             if m.focus > rowCount() - 1 then m.focus = rowCount() - 1
@@ -551,6 +552,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             end if
             reg.Flush()
             if m.collectionsChanged then NxSaveCollectionKeys(m.collectionKeys)
+            print "settings: rebuilding the guide on the way out: packages "; m.needRebuild; ", franchises "; m.franchisesChanged; ", collections "; m.collectionsChanged; ", servers "; m.serversChanged
             m.top.result = "rebuild"
         else
             m.top.result = "close"

@@ -213,6 +213,7 @@ end sub
 ' behind Settings and says when (LibraryTask.bundleRequest).
 sub onBundleRequest()
     if m.library = invalid then
+        print "library: package change needs a full rebuild: no library task running"
         m.guide.bundleBuilt = "rebuild"
         return
     end if
