@@ -1790,6 +1790,29 @@
       "in": [
         20
       ]
+    },
+    {
+      "name": "eight-crazy-nights-is-a-holiday-film",
+      "about": "The Hanukkah film has no holiday word in its title. It is a HOLIDAZE pick and on the shared holiday title list, so PG-13 puts it on NAUGHTY LIST.",
+      "item": {
+        "title": "Eight Crazy Nights",
+        "year": 2002,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Animation"
+        ],
+        "contentRating": "PG-13",
+        "duration": 76
+      },
+      "in": [
+        130,
+        410
+      ],
+      "out": [
+        409,
+        412
+      ]
     }
   ]
 }
