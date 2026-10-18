@@ -220,6 +220,30 @@ fix. It noted the Library step's 12.2 s to 8.2 s as one run each, that a
 stalled load can look like the app quitting (screensaver, then Back), and
 that the sign-out steps and four log lines still apply.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19018694)
+on 2026-10-18, on `0eba225`: the picker, progress screen, Settings, full
+screen and logo look solid and every test passes on the stick. Server checks
+95 ms, a true first run 50.2 s to the guide (19.3 s with the saved library),
+packages up to 81 channels at 41% memory. Next round, in order: a package
+build never reaching the guide (`status` without `alwaysNotify`), leaving
+Settings while it builds (52 s and 44 s; unchanged switches 28 s),
+prebuilding other packages if memory allows, Jellyfin and Emby, whole-title
+exclusive locks (`805c33e`, `scripts/filter-golden.json`), the MIT text in
+the package, and a reinstall keeping the saved library for another account.
+A [reply under it](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19018852)
+gave the Apple TV's stronger retro mode numbers (scanlines, vignette,
+flicker, tracking line) to match.
+
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19019523)
+on 2026-10-18, leading with item 1 fixed in `a028bf8`, checked before and
+after on the 43" TCL: `0eba225` showed the symptom, and of about 25 switches
+on `a028bf8` to `6cc4290`, 23 built in place (5 checked on screen). The other
+2 fell back to a full rebuild; the logged one found no saved library for the
+server in `cachefs:`, guessed but not proven to be the OS clearing it, and
+`6cc4290` logs the cause. It said item 2's waits are most likely the build
+itself, noted items 3 to 7 and the retro numbers, and asked them to try
+`6cc4290`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
