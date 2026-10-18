@@ -32,6 +32,9 @@ stage=out/stage
 rm -rf "$stage" out/nostalgex-roku.zip
 mkdir -p "$stage"
 cp -r manifest source components "$stage"/
+# The MIT notice and the fonts' licences travel with the app (the Channel
+# Store needs them; Discussion #8, item 6).
+cp LICENSE THIRD-PARTY-LICENSES.md "$stage"/
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" "$stage"/; done
 # Enrichment (source/enrich/Enrichment.brs) is in a build only when .env turns
 # it on and gives the Supabase project; the values go into the zip, never the

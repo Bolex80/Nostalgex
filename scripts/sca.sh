@@ -13,6 +13,9 @@ if [ ! -f "$tool/tool/sca-cmd/lib/sca-cmd.jar" ]; then
 fi
 rm -rf out/sca && mkdir -p out/sca/stage
 cp -r manifest source components "out/sca/stage/"
+# The MIT notice and the fonts' licences travel with the app (the Channel
+# Store needs them; Discussion #8, item 6).
+cp LICENSE THIRD-PARTY-LICENSES.md out/sca/stage/
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" out/sca/stage/; done
 rm -f out/sca/stage/data/enrichment.json
 (cd out/sca/stage && zip -qr ../app.zip .)
