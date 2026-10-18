@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 39 · **138 channels** across **14 bundles** · 88 channels whose `id` differs from their `number`.
+**Config version:** 39 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
 
 ---
 
@@ -63,11 +63,11 @@ only name the channel's own defining genre.
 | FRANCHISES | `franchises` | 7 | CH 100–106 | Movie franchise marathons |
 | ARTHOUSE | `arthouse` | 4 | CH 107–110 | Criterion, foreign films, midnight movies, and cult classics |
 | NETWORKS | `streamers` | 12 | CH 118–129 | Channels by streaming service and studio |
-| TIS THE SEASON | `tis-the-season` | 7 | CH 130–136 | Christmas and holiday channels. Spotlighted Dec. Off until switched on, then on in any month. |
 | SCREAM | `seasonal` | 8 | CH 137–144 | Horror, all year's worth, front and centre every October. Spotlighted Oct. Off until switched on, then on in any month. |
+| TIS THE SEASON | `tis-the-season` | 8 | CH 145–152 | Christmas, Thanksgiving and holiday channels. Spotlighted Dec. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
-Bundled channels: 138 of 138.
+Bundled channels: 139 of 139.
 
 ---
 
@@ -82,14 +82,15 @@ the year.
 A lock reads the item's own title (the song for a music video, never the
 artist), with any " (YYYY)" suffix ignored. `editorialTitles` must match the
 whole title exactly. `titleContains` matches whole words only, the same rule
-as a channel's `titleContains`: "Santa" catches The Santa Clause, not Santana,
-and "Holiday" does not catch Holidays. Both filters implement it
-(`ExclusiveRule.matches` in Swift, `exclusiveRuleMatches` in the web filter)
-and `scripts/filter-golden.json` pins the cases.
+as a channel's `titleContains`: "Noel" catches Noel, not Noelle, and "Santa
+Claus" does not catch Santana. A lock can be scoped with `type` and `source`;
+then it only applies to items of that type from that kind of library. Both filters
+implement it (`ExclusiveRule.matches` in Swift, `exclusiveRuleMatches` in the
+web filter) and `scripts/filter-golden.json` pins the cases.
 
 | Locked to | Matches on | Notes |
 |---|---|---|
-| CH130 HOLIDAZE (id 130)<br>CH131 SANTA'S LIST (id 409)<br>CH132 NAUGHTY LIST (id 410)<br>CH133 NOSTALGEX CHRISTMAS (id 411)<br>CH134 HALLMARK (id 412) | genres Holiday/Christmas, 19 title words, 49 exact titles | Holiday and Christmas titles belong to the TIS THE SEASON movie channels. Genre match plus a title allowlist plus an editorial allowlist. Die Hard, Die Hard 2 and Lethal Weapon are deliberately NOT on the list — they stay free for year-round action. |
+| CH145 HOLIDAZE (id 130)<br>CH146 SANTA'S LIST (id 409)<br>CH147 NAUGHTY LIST (id 410)<br>CH148 NOSTALGEX CHRISTMAS (id 411)<br>CH149 MISTLETOE (id 412)<br>CH150 CHRISTMAS SPECIALS (id 413)<br>CH151 KIDS CHRISTMAS TV (id 414) | genres Holiday/Christmas, 14 title words, 47 exact titles, only movies from the movie library | Christmas films belong to the TIS THE SEASON channels, including the two TV channels, which air half-hour specials stored as films. Films in a movie library only (`type: movie`, `source: movie`), so a show with Santa in its name and a Christmas song on a music video stay free. Title words are the ones that measured 95% or more Christmas across TMDB films with 25+ votes (2026-10-18): "Holiday" (66%, Mr. Bean's Holiday, Roman Holiday), "Santa" (87%, Santa Sangre, Santa Fe Trail), "Merry", "Snowman", "Grinch", "Scrooge", "Nutcracker" and "Reindeer" were dropped, so the channels still match them but no longer lock them away. Die Hard, Lethal Weapon, Reindeer Games, Rocky IV, Gremlins, Batman Returns, Trading Places, The Family Man, While You Were Sleeping and The Shop Around the Corner are deliberately NOT locked: Christmas-set, but they belong on their year-round channels too. |
 | id 32 (missing)<br>CH59 ANIME (id 60) | genres Anime, TMDB manifest claim (`manifestExclusive`) | Anime is claimed by genre `Anime` OR by a TMDB-manifest claim (`manifestExclusive`), so manifest-claimed anime is blocked from the other animation channels even when Plex only tags it "Animation". The manifest builder gates these channels with `requireGenres: ["Animation"]` + `requireOriginalLanguage: ["ja"]` + `autoSweepCollections: false` so TMDB similar/collection noise cannot be claimed — that blocks live-action (Spy Kids) AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese anime only. Re-run the keyword tuner to apply changes. |
 | CH139 SCREAM ADULTS (id 132)<br>CH141 SLASHER (id 415) | 22 exact titles | The Scream and Halloween films, by exact title, so SCREAM ADULTS and SLASHER own them rather than the other horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
 
@@ -283,22 +284,6 @@ _Channels by streaming service and studio_
 | 128 | **`129`** ⚠︎ | 20TH CENTURY | `#C8A951` | Movies | 3 | studios 20th Century Fox/20th Century Studios/20th Television +5 more, prodCo 20th Century Fox/20th Century Studios/Searchlight Pictures +2 more |
 | 129 | **`401`** ⚠︎ | MIRAMAX | `#C0392B` | Movies | 3 | studios Miramax/Miramax Films/Dimension Films, prodCo Miramax/Dimension Films |
 
-### TIS THE SEASON · CH 130–136
-
-_Christmas and holiday channels_
-
-Spotlighted Dec. Off until switched on, then on in any month.
-
-| CH | `id` | Name | Color | Type | Min items | Rules |
-|---|---|---|---|---|---|---|
-| 130 | `130` | HOLIDAZE | `#C41E3A` | Movies | 3 | incl Holiday/Christmas, title allowlist (19), editorial always-in (96), Plex rating ≥ 5 |
-| 131 | **`409`** ⚠︎ | SANTA'S LIST | `#2ECC71` | Movies | 3 | incl Holiday/Christmas, title allowlist (114), title blocklist (6), rated G/PG/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
-| 132 | **`410`** ⚠︎ | NAUGHTY LIST | `#C0392B` | Movies | 3 | incl Holiday/Christmas, title allowlist (114), title blocklist (6), rated PG-13/R/TV-14/TV-MA |
-| 133 | **`411`** ⚠︎ | NOSTALGEX CHRISTMAS | `#E74C3C` | Movies | 3 | incl Holiday/Christmas, title allowlist (114), title blocklist (6), …-1999 |
-| 134 | **`412`** ⚠︎ | HALLMARK | `#D98880` | Movies | 3 | no Animation/Animated/Horror, title allowlist (114), title blocklist (9), 2005-…, rated G/PG/TV-Y/TV-Y7/TV-G/TV-PG, 80-95 min |
-| 135 | **`413`** ⚠︎ | CHRISTMAS SPECIALS | `#27AE60` | Episodes | 3 | rated TV-PG/PG/TV-14/TV-MA/PG-13/R |
-| 136 | **`414`** ⚠︎ | KIDS CHRISTMAS TV | `#58D68D` | Episodes | 3 | rated TV-Y/TV-Y7/TV-G/G/unrated |
-
 ### SCREAM · CH 137–144
 
 _Horror, all year's worth, front and centre every October_
@@ -315,6 +300,23 @@ Spotlighted Oct. Off until switched on, then on in any month.
 | 142 | **`416`** ⚠︎ | HORROR COMEDY | `#8BC34A` | Movies | 3 | incl Horror, needs ALL Horror + Comedy, no Family/Children/Kids/Animation/Animated, rated PG/PG-13/R/NC-17/TV-14/TV-MA/NR/unrated |
 | 143 | **`417`** ⚠︎ | FOUND FOOTAGE | `#5D6D5F` | Movies | 3 | incl Horror, no Family/Children/Kids/Animation/Animated, title allowlist (10), kw +2, kw needs genre Horror/Science Fiction, kw-gated genre Horror |
 | 144 | **`418`** ⚠︎ | WORLD HORROR | `#6A1B9A` | Movies | 3 | **TMDB manifest only**, incl Horror, no Family/Children/Kids/Animation/Animated |
+
+### TIS THE SEASON · CH 145–152
+
+_Christmas, Thanksgiving and holiday channels_
+
+Spotlighted Dec. Off until switched on, then on in any month.
+
+| CH | `id` | Name | Color | Type | Min items | Rules |
+|---|---|---|---|---|---|---|
+| 145 | **`130`** ⚠︎ | HOLIDAZE | `#C41E3A` | Movies | 3 | incl Holiday/Christmas, title allowlist (19), title blocklist (3), editorial always-in (97), Plex rating ≥ 5 |
+| 146 | **`409`** ⚠︎ | SANTA'S LIST | `#2ECC71` | Movies | 3 | incl Holiday/Christmas, title allowlist (113), title blocklist (9), rated G/PG/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
+| 147 | **`410`** ⚠︎ | NAUGHTY LIST | `#C0392B` | Movies | 3 | incl Holiday/Christmas, title allowlist (113), title blocklist (9), rated PG-13/R/TV-14/TV-MA |
+| 148 | **`411`** ⚠︎ | NOSTALGEX CHRISTMAS | `#E74C3C` | Movies | 3 | incl Holiday/Christmas, title allowlist (113), title blocklist (9), …-1999 |
+| 149 | **`412`** ⚠︎ | MISTLETOE | `#D98880` | Movies | 3 | genres include TMDB's, needs ALL Romance, no Animation/Animated, title allowlist (19), title blocklist (2), kw +12, 1980-…, rated G/PG/TV-Y/TV-Y7/TV-G/TV-PG/NR/Not Rated/unrated, 70-120 min |
+| 150 | **`413`** ⚠︎ | CHRISTMAS SPECIALS | `#27AE60` | Any | 5 | episode title words (38), seasonal title words (16) if aired 11-25 to 01-07, summary words (17), episode title blocklist (18), rated TV-PG/PG/TV-14/TV-MA/PG-13/R/NR/Not Rated, ≤ 65 min |
+| 151 | **`414`** ⚠︎ | KIDS CHRISTMAS TV | `#58D68D` | Any | 5 | episode title words (38), seasonal title words (16) if aired 11-25 to 01-07, summary words (17), episode title blocklist (18), rated TV-Y/TV-Y7/TV-G/G/unrated, ≤ 65 min |
+| 152 | **`422`** ⚠︎ | TURKEY DAY | `#B9770E` | Any | 5 | episode title words (5), seasonal title words (7) if aired 11-01 to 11-30, summary words (2), ≤ 65 min |
 
 ### HIGH ROTATION · CH 200–213
 
@@ -341,7 +343,7 @@ _Music videos by genre_
 
 ## `id` ≠ `number`
 
-88 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
+90 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
 
 | `id` | Airs as | Name |
 |---|---|---|
@@ -405,12 +407,6 @@ _Music videos by genre_
 | `128` | CH127 | UNIVERSAL |
 | `129` | CH128 | 20TH CENTURY |
 | `401` | CH129 | MIRAMAX |
-| `409` | CH131 | SANTA'S LIST |
-| `410` | CH132 | NAUGHTY LIST |
-| `411` | CH133 | NOSTALGEX CHRISTMAS |
-| `412` | CH134 | HALLMARK |
-| `413` | CH135 | CHRISTMAS SPECIALS |
-| `414` | CH136 | KIDS CHRISTMAS TV |
 | `131` | CH137 | SCREAM KIDS |
 | `141` | CH138 | FRIGHT NIGHT |
 | `132` | CH139 | SCREAM ADULTS |
@@ -419,6 +415,14 @@ _Music videos by genre_
 | `416` | CH142 | HORROR COMEDY |
 | `417` | CH143 | FOUND FOOTAGE |
 | `418` | CH144 | WORLD HORROR |
+| `130` | CH145 | HOLIDAZE |
+| `409` | CH146 | SANTA'S LIST |
+| `410` | CH147 | NAUGHTY LIST |
+| `411` | CH148 | NOSTALGEX CHRISTMAS |
+| `412` | CH149 | MISTLETOE |
+| `413` | CH150 | CHRISTMAS SPECIALS |
+| `414` | CH151 | KIDS CHRISTMAS TV |
+| `422` | CH152 | TURKEY DAY |
 | `150` | CH200 | HIGH ROTATION |
 | `151` | CH201 | POP |
 | `152` | CH202 | ROCK'N |

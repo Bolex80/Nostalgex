@@ -68,6 +68,31 @@ final class SeasonalBundleTests: XCTestCase {
         XCTAssertTrue(lock.editorialTitles.contains("Halloween H20: 20 Years Later"))
     }
 
+    /// TIS THE SEASON in guide order (the December lead block follows bundle order),
+    /// and the holiday lock: films in a movie library only, owned by every holiday
+    /// channel that can air a film, including the two TV channels that air specials.
+    func testShippedHolidayLineupAndLock() throws {
+        let url = try XCTUnwrap(Bundle(for: AppState.self).url(forResource: "channels", withExtension: "json"))
+        let result = try XCTUnwrap(ChannelConfigLoader.loadConfig(from: Data(contentsOf: url)))
+        let holiday = try XCTUnwrap(result.bundles.first { $0.id == "tis-the-season" })
+        XCTAssertEqual(holiday.channelIDs, [130, 409, 410, 411, 412, 413, 414, 422])
+        let byID = Dictionary(uniqueKeysWithValues: result.channels.map { ($0.id, $0) })
+        XCTAssertEqual(holiday.channelIDs.compactMap { byID[$0]?.number }, Array(145...152))
+        XCTAssertEqual(byID[412]?.name, "MISTLETOE")
+        XCTAssertEqual(byID[422]?.name, "TURKEY DAY")
+        XCTAssertEqual(byID[412]?.rules?.matchTmdbGenres, true)
+        XCTAssertEqual(byID[413]?.rules?.episodeAirWindow?.from, "11-25")
+
+        let lock = try XCTUnwrap(result.exclusiveRules.first { $0.channelIDs.contains(130) })
+        XCTAssertEqual(lock.channelIDs, [130, 409, 410, 411, 412, 413, 414])
+        XCTAssertEqual(lock.type, .movie)
+        XCTAssertEqual(lock.source, .movie)
+        for word in ["Holiday", "Santa", "Merry", "Snowman", "Reindeer"] {
+            XCTAssertFalse(lock.titleContains.contains(word), "\(word) measured under 95% Christmas")
+        }
+        XCTAssertFalse(lock.editorialTitles.contains("Rocky IV"))
+    }
+
     /// The episode air window, including one that wraps the new year.
     func testAirWindow() {
         let xmas = AirWindow(from: "11-25", to: "01-07")
