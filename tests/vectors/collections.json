@@ -2,7 +2,7 @@
  "generatedBy": "tests/gen-vectors.mjs (tests/gen-collections.mjs)",
  "upstream": {
   "repo": "https://github.com/chadMueller/Nostalgex",
-  "commit": "4b37674b67dbf2d70bdf6c46491b13c17ede7800",
+  "commit": "805c33e7407393c611b52a601251ea8591b01c1f",
   "engine": "scripts/nostalgex-collections.js"
  },
  "constants": {

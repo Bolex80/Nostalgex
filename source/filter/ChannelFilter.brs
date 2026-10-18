@@ -51,7 +51,7 @@ function NxFilterExclusiveRules(rawRules as Dynamic) as Object
             uid: "x" + g.nxRuleSeq.ToStr(),
             ids: ids,
             genresLower: NxLowerList(r.genres),
-            titleContainsLower: NxLowerList(r.titleContains),
+            titleWordsRx: NxWordPatterns(r.titleContains),
             editorialLower: NxLowerList(r.editorialTitles),
             manifestExclusive: NxTruthy(r.manifestExclusive)
         })
@@ -152,6 +152,10 @@ function NxFilterItem(item as Object) as Object
     ' Mirrors Swift filterTitleHaystack: artist first, lowercased, " (YYYY)" stripped.
     ' (?![\s\S]) is the absolute end, as JS $ is; PCRE's $ also matches before a final newline.
     titleLower = NxRx("yearSuffix", " \(\d{4}\)(?![\s\S])").Replace(LCase(parts.Join(" ")), "")
+    ' What an exclusive lock reads: the item's own title (the song, never the
+    ' artist), raw and with the year suffix stripped and trimmed.
+    ownTitleRaw = LCase(NxToStr(item.title))
+    ownTitle = NxRx("yearSuffix", " \(\d{4}\)(?![\s\S])").Replace(ownTitleRaw, "").Trim()
 
     genres = []
     for each g in NxList(item.genres)
@@ -180,6 +184,8 @@ function NxFilterItem(item as Object) as Object
     locks = NxGenreLocks()
     p = {
         titleLower: titleLower,
+        ownTitleRaw: ownTitleRaw,
+        ownTitle: ownTitle,
         genres: genres,
         inHorror: NxAnyIn(genres, locks.horror),
         inReality: NxAnyIn(genres, locks.reality),
@@ -286,7 +292,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
         if not NxHasValue(rule.ids, c.id) then
             hit = p.exclusiveMatches[rule.uid]
             if hit = invalid then
-                hit = NxExclusiveRuleMatches(titleLower, itemGenres, rule)
+                hit = NxExclusiveRuleMatches(p, itemGenres, rule)
                 p.exclusiveMatches[rule.uid] = hit
             end if
             if hit then return ""
@@ -483,10 +489,13 @@ function NxManifestClaims(entry as Dynamic, channelId as Dynamic) as Boolean
     return NxHasValue(NxList(entry.channels), channelId)
 end function
 
-' Mirrors ExclusiveRule.matches: editorial title, title substring, genre substring.
-function NxExclusiveRuleMatches(titleLower as String, itemGenres as Object, rule as Object) as Boolean
-    if NxHasExact(rule.editorialLower, titleLower) then return true
-    if NxContainsAny(titleLower, rule.titleContainsLower) then return true
+' Mirrors ExclusiveRule.matches and the web filter's exclusiveRuleMatches
+' (upstream 805c33e): the item's own title, never the artist; editorial
+' titles exact (raw or year-stripped), title words whole words only, genres
+' a substring of a tag. `p` is the item's NxFilterItem.
+function NxExclusiveRuleMatches(p as Object, itemGenres as Object, rule as Object) as Boolean
+    if NxHasExact(rule.editorialLower, p.ownTitle) or NxHasExact(rule.editorialLower, p.ownTitleRaw) then return true
+    if NxAnyWord(p.ownTitle, rule.titleWordsRx) then return true
     if rule.genresLower.Count() > 0 and NxAnySubstring(itemGenres, rule.genresLower) then return true
     return false
 end function

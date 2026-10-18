@@ -1,5 +1,5 @@
 {
-  "version": 37,
+  "version": 38,
   "exclusiveRules": [
     {
       "channelIDs": [
@@ -98,16 +98,26 @@
     },
     {
       "channelID": 132,
-      "titleContains": [
-        "Halloween",
-        "Scream"
-      ],
       "editorialTitles": [
+        "Scream",
+        "Scream 2",
+        "Scream 3",
+        "Scream 4",
+        "Scream (2022)",
+        "Scream VI",
+        "Scream 7",
         "Halloween",
         "Halloween II",
         "Halloween III: Season of the Witch",
         "Halloween 4: The Return of Michael Myers",
+        "Halloween 5: The Revenge of Michael Myers",
+        "Halloween: The Curse of Michael Myers",
+        "Halloween 6: The Curse of Michael Myers",
+        "Halloween H20: 20 Years Later",
         "Halloween H20",
+        "Halloween: Resurrection",
+        "Halloween (2007)",
+        "Halloween II (2009)",
         "Halloween (2018)",
         "Halloween Kills",
         "Halloween Ends"

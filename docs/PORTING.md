@@ -208,6 +208,13 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   from upstream's filter smoke test, over a library built from the channels'
   own rules (a match, a near miss and real manifest claims for each), under
   two pinned clocks. It reaches every reachable line of upstream's filter.
+- Reaching a line is not telling two rules apart: at 805c33e the generated
+  filter vectors passed with the old substring locks as well as the
+  whole-word, own-title ones. Upstream's `scripts/filter-golden.json`,
+  vendored unchanged as `tests/vectors/filter-golden.json` and read by
+  `tests/FilterGoldenTests.brs` as `nostalgex-filter-golden-smoke.mjs`
+  reads it, does: the old locks fail two of its cases (Santana on HIGH
+  ROTATION, "Holidays (2016)" on FRIGHT NIGHT).
 - Franchises are checked against upstream's own golden file,
   `scripts/franchise-golden.json`, vendored unchanged as
   `tests/vectors/franchise-golden.json` and read as upstream's

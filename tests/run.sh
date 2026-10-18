@@ -25,11 +25,14 @@ if [ -d "$upstream/.git" ]; then
     for f in channels.json channels-memberships.json franchises.json; do
         cmp -s "$pin_dir/$f" "data/$f" || { echo "FAIL data/$f differs from upstream ${pinned:0:7}" >&2; exit 1; }
     done
-    cmp -s "$pin_dir/scripts/franchise-golden.json" tests/vectors/franchise-golden.json ||
-        { echo "FAIL tests/vectors/franchise-golden.json differs from upstream ${pinned:0:7}" >&2; exit 1; }
-    # Upstream's own builder must pass its golden file, or the file proves nothing,
-    # and its collections module its own smoke test, or the vectors from it don't.
-    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs)
+    for g in franchise-golden.json filter-golden.json; do
+        cmp -s "$pin_dir/scripts/$g" "tests/vectors/$g" ||
+            { echo "FAIL tests/vectors/$g differs from upstream ${pinned:0:7}" >&2; exit 1; }
+    done
+    # Upstream's own builder and filter must pass their golden files, or the files
+    # prove nothing, and its collections module its own smoke test, or the vectors
+    # from it don't.
+    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs)
     NOSTALGEX_DIR=$pin_dir node tests/gen-vectors.mjs --check
     if ahead=$(git -C "$upstream" rev-list --count "$pinned..origin/main" 2>/dev/null) && [ "$ahead" -gt 0 ]; then
         echo "note: upstream origin/main is $ahead commits past the pinned ${pinned:0:7} (as of the clone's last fetch)"
@@ -59,6 +62,6 @@ if [ -n "$shadow" ]; then
 fi
 
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
-    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs 2>&1 | grep -v '^npm warn')
+    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
 grep -q '^ALL TESTS PASSED' <<<"$out"

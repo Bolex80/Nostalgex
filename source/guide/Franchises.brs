@@ -207,7 +207,7 @@ function NxFranchiseLockedElsewhere(item as Object, channelId as Integer, manife
     end if
     for each rule in exclusiveRules
         if not NxHasValue(rule.ids, channelId) then
-            if NxExclusiveRuleMatches(p.titleLower, p.genres, rule) then return true
+            if NxExclusiveRuleMatches(p, p.genres, rule) then return true
             if rule.manifestExclusive and type(entry) = "roAssociativeArray" then
                 for each claimed in NxList(entry.channels)
                     if NxHasValue(rule.ids, claimed) then return true
