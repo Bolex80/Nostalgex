@@ -67,4 +67,22 @@ final class SeasonalBundleTests: XCTestCase {
         XCTAssertTrue(lock.titleContains.isEmpty, "the SCREAM lock is an exact title list")
         XCTAssertTrue(lock.editorialTitles.contains("Halloween H20: 20 Years Later"))
     }
+
+    /// The episode air window, including one that wraps the new year.
+    func testAirWindow() {
+        let xmas = AirWindow(from: "11-25", to: "01-07")
+        XCTAssertTrue(xmas.contains(date: "2000-12-14"))
+        XCTAssertTrue(xmas.contains(date: "1993-11-29"))
+        XCTAssertTrue(xmas.contains(date: "2017-01-05"))
+        XCTAssertTrue(xmas.contains(date: "2017-01-07T00:00:00Z"))
+        XCTAssertFalse(xmas.contains(date: "2017-01-08"))
+        XCTAssertFalse(xmas.contains(date: "1988-11-11"))
+        XCTAssertFalse(xmas.contains(date: "2024-09-12"))
+        XCTAssertFalse(xmas.contains(date: nil))
+        XCTAssertFalse(xmas.contains(date: "December 14"))
+        let november = AirWindow(from: "11-01", to: "11-30")
+        XCTAssertTrue(november.contains(date: "1998-11-19"))
+        XCTAssertFalse(november.contains(date: "2015-02-17"))
+        XCTAssertFalse(AirWindow(from: nil, to: "11-30").contains(date: "1998-11-19"))
+    }
 }

@@ -3897,6 +3897,10 @@
             titleContains: r.titleContains || [],
             editorialTitles: r.editorialTitles || [],
             manifestExclusive: !!r.manifestExclusive,
+            // Optional scope: the lock only applies to items of this type and library
+            // source (see exclusiveRuleApplies in nostalgex-channel-filter.cjs).
+            type: r.type || null,
+            source: r.source || null,
           }));
         }
 
@@ -8587,6 +8591,13 @@
                     meta: [`"${epTitle}"`, seTag, formatDuration(durationMin)].filter(Boolean).join(' · '),
                     summary: ep.Overview || show.Overview || '',
                     year: show.ProductionYear || '',
+                    // First-aired date, as JellyfinAPIService/EmbyAPIService.swift do
+                    // (episode, else show, date part only). The holiday TV channels read
+                    // it to tell a December "Holiday" episode from a trip to Rome.
+                    originallyAvailableAt: (() => {
+                      const d = ep.PremiereDate || show.PremiereDate;
+                      return d ? String(d).slice(0, 10) : null;
+                    })(),
                     contentRating: show.OfficialRating || ep.OfficialRating || '',
                     duration: durationMin,
                     ratingKey: ep.Id,
@@ -8901,6 +8912,9 @@
                       meta: [`"${epTitle}"`, seTag, formatDuration(durationMin)].filter(Boolean).join(' · '),
                       summary: ep.summary || show.summary || '',
                       year: show.year || '',
+                      // First-aired date, as PlexAPIService.makeEpisodeItem does (episode,
+                      // else show). The holiday TV channels read it.
+                      originallyAvailableAt: ep.originallyAvailableAt || show.originallyAvailableAt || null,
                       contentRating: show.contentRating || ep.contentRating || '',
                       duration: durationMin,
                       ratingKey: ep.ratingKey,

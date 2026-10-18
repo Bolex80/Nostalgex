@@ -307,7 +307,7 @@ extension AppState {
            locked != channelID {
             return true
         }
-        for rule in exclusiveRules where !rule.channelIDs.contains(channelID) {
+        for rule in exclusiveRules where !rule.channelIDs.contains(channelID) && rule.applies(to: item) {
             if rule.matches(item) { return true }
             if rule.manifestExclusive, let tmdbID = item.tmdbID,
                let claimed = memberships.channels(forMediaType: mediaType, tmdbID: tmdbID),

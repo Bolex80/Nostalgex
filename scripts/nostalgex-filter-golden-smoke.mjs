@@ -28,6 +28,8 @@ const exclusiveRules = (config.exclusiveRules || []).map((r) => ({
   titleContains: r.titleContains || [],
   editorialTitles: r.editorialTitles || [],
   manifestExclusive: !!r.manifestExclusive,
+  type: r.type || null,
+  source: r.source || null,
 }));
 const channels = new Map(config.channels.map((c) => [c.id, c]));
 
@@ -36,6 +38,8 @@ function toItem(g) {
     title: g.title,
     artist: g.artist ?? null,
     episodeTitle: g.episodeTitle ?? null,
+    summary: g.summary ?? "",
+    originallyAvailableAt: g.originallyAvailableAt ?? null,
     year: g.year ?? null,
     type: g.type || "movie",
     librarySource: g.librarySource || (g.type === "episode" ? "tv" : "movie"),
@@ -56,6 +60,7 @@ function toItem(g) {
       keywords: g.enrichment.keywords || [],
       productionCompanies: g.enrichment.productionCompanies || [],
       networks: g.enrichment.networks || [],
+      tmdbGenres: g.enrichment.tmdbGenres || [],
     };
   }
   return item;

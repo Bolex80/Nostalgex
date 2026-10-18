@@ -965,6 +965,49 @@ extension AppState {
         return false
     }
 
+    /// Whether a channel carries episode rules (any of the three include lists).
+    /// Mirrors `hasEpisodeRules` in scripts/nostalgex-channel-filter.cjs.
+    nonisolated static func hasEpisodeRules(_ rules: ChannelRules) -> Bool {
+        !(rules.episodeTitleContains ?? []).isEmpty
+            || !(rules.episodeSummaryContains ?? []).isEmpty
+            || !(rules.episodeSeasonalTitleContains ?? []).isEmpty
+    }
+
+    /// Episode rules, against the item's OWN title: the episode title for an episode, the
+    /// title (year suffix stripped) for anything else, so a half-hour special stored as a
+    /// film matches the way an episode does. Whole words, lists already lowercased.
+    /// - excludes veto
+    /// - a title word matches
+    /// - a summary word matches
+    /// - a seasonal title word matches only for an episode first aired inside the window
+    /// Mirrors `episodeRulesMatch` in scripts/nostalgex-channel-filter.cjs; both read
+    /// scripts/filter-golden.json.
+    nonisolated static func episodeRulesMatch(
+        _ item: PlexMediaItem,
+        episodeTitleLower: String,
+        titleContains: [String],
+        summaryContains: [String],
+        seasonalTitleContains: [String],
+        airWindow: AirWindow?,
+        titleExcludes: [String]
+    ) -> Bool {
+        let own = item.type == .episode
+            ? episodeTitleLower
+            : stripTrailingYearSuffix(item.title.lowercased())
+        func has(_ list: [String], _ hay: String) -> Bool {
+            !hay.isEmpty && list.contains(where: { titleContainsWordLower(hay, $0) })
+        }
+        if has(titleExcludes, own) { return false }
+        if has(titleContains, own) { return true }
+        if !summaryContains.isEmpty && has(summaryContains, item.summary.lowercased()) { return true }
+        if item.type == .episode, !seasonalTitleContains.isEmpty,
+           airWindow?.contains(date: item.originallyAvailableAt) == true,
+           has(seasonalTitleContains, own) {
+            return true
+        }
+        return false
+    }
+
     /// Release year for filtering: Plex `year`, else calendar year from `originallyAvailableAt`.
     /// Plex genres plus MusicBrainz tags for music-video items.
     private func effectiveGenres(for item: PlexMediaItem) -> [String] {
@@ -997,7 +1040,7 @@ extension AppState {
     /// regex on every call which recompiled per-item; this manual scan is
     /// allocation-free for the common no-suffix case and a single substring
     /// otherwise.
-    static func stripTrailingYearSuffix(_ s: String) -> String {
+    nonisolated static func stripTrailingYearSuffix(_ s: String) -> String {
         // Expect exactly " (NNNN)" — 7 chars — at the end.
         guard s.count >= 7, s.hasSuffix(")") else { return s }
         let endIdx = s.index(s.endIndex, offsetBy: -7)
@@ -1092,7 +1135,11 @@ extension AppState {
         // Check which genre-locked categories this channel explicitly opts into
         let allowsHorror = isStudioChannel || Self.channelIncludesGenre(rules, from: Self.horrorGenres)
         let allowsReality = isStudioChannel || Self.channelIncludesGenre(rules, from: Self.realityGenres)
-        let hasTitleCurated = !(rules.titleContains ?? []).isEmpty
+        // Episode rules are a curated list the same way a title list is, so they open the
+        // Animation lock too: Bluey's and The Simpsons' Christmas episodes belong on the
+        // holiday TV channels.
+        let isEpisodeCurated = Self.hasEpisodeRules(rules)
+        let hasTitleCurated = !(rules.titleContains ?? []).isEmpty || isEpisodeCurated
         let allowsAnimation = isStudioChannel || Self.channelIncludesGenre(rules, from: Self.animationGenres) || isKids || hasTitleCurated
         let allowsDocumentary = isStudioChannel || Self.channelIncludesGenre(rules, from: Self.documentaryGenres)
         // Sport genre is not globally blocked — sports movies (Rudy, Space Jam, The Sixth Man)
@@ -1105,6 +1152,9 @@ extension AppState {
         // Lowercase rule arrays once per channel instead of per item (5000× savings)
         let titleContainsLower = rules.titleContains?.map { $0.lowercased() } ?? []
         let episodeTitleContainsLower = rules.episodeTitleContains?.map { $0.lowercased() } ?? []
+        let episodeSummaryContainsLower = rules.episodeSummaryContains?.map { $0.lowercased() } ?? []
+        let episodeSeasonalTitleContainsLower = rules.episodeSeasonalTitleContains?.map { $0.lowercased() } ?? []
+        let episodeTitleExcludesLower = rules.episodeTitleExcludes?.map { $0.lowercased() } ?? []
         let titleExcludesLower = rules.titleExcludes?.map { $0.lowercased() } ?? []
         let studiosLower = rules.studios?.map { $0.lowercased() } ?? []
         let keywordsLower = rules.keywords?.map { $0.lowercased() } ?? []
@@ -1127,16 +1177,29 @@ extension AppState {
             // suffix stripped (Plex's TMDB-Movie agent often appends release year
             // to disambiguate; rules like "Bluey" should still match "Bluey (2018)").
             let titleLower = cache.titleLower
-            let itemGenresLowerSet = cache.genresLowerSet
             let enrichment = cache.enrichment
+            // `matchTmdbGenres`: this channel also sees the item's TMDB genres. A Plex
+            // listing carries two genres per film, so a Hallmark-style Christmas romance
+            // often reads "Family, Drama" while TMDB says "TV Movie, Romance, Family".
+            // Exclusive rules still read the server's genres (ExclusiveRule.matches).
+            // Mirrors scripts/nostalgex-channel-filter.cjs.
+            let itemGenresLowerSet: Set<String> = {
+                guard rules.matchTmdbGenres, let tmdb = enrichment?.tmdbGenres, !tmdb.isEmpty else {
+                    return cache.genresLowerSet
+                }
+                return cache.genresLowerSet.union(tmdb.map { $0.lowercased() })
+            }()
             let itemStudioLower = cache.itemStudioLower
 
-            let matchesEpisodeTitleRule: Bool = {
-                guard !episodeTitleContainsLower.isEmpty, !cache.episodeTitleLower.isEmpty else { return false }
-                return episodeTitleContainsLower.contains(where: {
-                    Self.titleContainsWordLower(cache.episodeTitleLower, $0)
-                })
-            }()
+            let matchesEpisodeRules: Bool = isEpisodeCurated && Self.episodeRulesMatch(
+                item,
+                episodeTitleLower: cache.episodeTitleLower,
+                titleContains: episodeTitleContainsLower,
+                summaryContains: episodeSummaryContainsLower,
+                seasonalTitleContains: episodeSeasonalTitleContainsLower,
+                airWindow: rules.episodeAirWindow,
+                titleExcludes: episodeTitleExcludesLower
+            )
 
             let matchesTitleRule: Bool = {
                 guard !titleContainsLower.isEmpty else { return true }
@@ -1214,6 +1277,8 @@ extension AppState {
                     if !titleContainsLower.isEmpty && !matchesTitleRule {
                         return nil
                     }
+                    // Nor past the episode rules. Keep in sync with the web filter.
+                    if isEpisodeCurated && !matchesEpisodeRules { return nil }
                     // titleExcludes outranks a manifest claim for the same reason
                     // genres.exclude does. SCREAM ADULTS lists "Ring" for The Ring, and
                     // the manifest handed it The Fellowship of the Ring.
@@ -1258,6 +1323,7 @@ extension AppState {
             // Channel exclusivity: if this item is claimed by another channel, skip it
             for rule in exclusiveRules {
                 guard !rule.channelIDs.contains(channelID) else { continue }
+                guard rule.applies(to: item) else { continue }
                 if rule.matches(item) { return nil }
                 // manifestExclusive: also block if the manifest claims this item for
                 // one of the rule's channels (catches anime tagged only "Animation").
@@ -1279,7 +1345,6 @@ extension AppState {
             // - When both studios AND genre include exist, require BOTH (AND)
             //   e.g. Disney Animation = Disney studio AND Animation/Family genre
             // - When only one of studios/genre include exists, it works alone
-            let hasEpisodeTitleRule = !episodeTitleContainsLower.isEmpty
             let hasTitleRule = !titleContainsLower.isEmpty
             let hasGenreInclude = !genresIncludeLower.isEmpty
             let hasStudioRule = !studiosLower.isEmpty
@@ -1290,15 +1355,15 @@ extension AppState {
             // Title-curated channels (e.g. ADULT CARTOONS): title list is the allowlist.
             // genres.include still sets allowsAnimation for genre-lock; Plex tags are
             // not required on every episode (Simpsons is often Comedy-only in Plex).
-            // Episode-title channels are curated the same way a title list is: the list is
-            // the allowlist, and nothing else may widen it.
-            if hasEpisodeTitleRule {
-                if !matchesEpisodeTitleRule { return nil }
+            // Episode-curated channels are curated the same way a title list is: the episode
+            // rules are the allowlist, and nothing else may widen it.
+            if isEpisodeCurated {
+                if !matchesEpisodeRules { return nil }
             }
             let isTitleCuratedChannel = hasTitleRule && !hasKeywordRule && !hasNetworkRule && !hasProdCoRule && !hasStudioRule
             if isTitleCuratedChannel {
                 if !matchesTitleRule { return nil }
-            } else if !hasEpisodeTitleRule && (hasTitleRule || hasGenreInclude || hasStudioRule || hasKeywordRule || hasNetworkRule || hasProdCoRule) {
+            } else if !isEpisodeCurated && (hasTitleRule || hasGenreInclude || hasStudioRule || hasKeywordRule || hasNetworkRule || hasProdCoRule) {
                 // Word-boundary match: a rule of "See" matches a title that
                 // CONTAINS the word "See" but not "Stickbird" or "Stylesheet".
                 // Prevents short dictionary-word rule entries from pulling in

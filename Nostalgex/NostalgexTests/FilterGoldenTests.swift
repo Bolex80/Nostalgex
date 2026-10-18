@@ -19,12 +19,15 @@ final class FilterGoldenTests: XCTestCase {
         let keywords: [String]?
         let productionCompanies: [String]?
         let networks: [String]?
+        let tmdbGenres: [String]?
     }
 
     private struct Item: Decodable {
         let title: String
         let artist: String?
         let episodeTitle: String?
+        let summary: String?
+        let originallyAvailableAt: String?
         let year: Int?
         let type: String?
         let librarySource: String?
@@ -64,7 +67,7 @@ final class FilterGoldenTests: XCTestCase {
         let source = g.librarySource.flatMap { LibrarySource(rawValue: $0) } ?? (type == .episode ? .tv : .movie)
         return PlexMediaItem(
             id: "golden", title: g.title, artist: g.artist, episodeTitle: g.episodeTitle,
-            seTag: nil, summary: "", year: g.year, originallyAvailableAt: nil,
+            seTag: nil, summary: g.summary ?? "", year: g.year, originallyAvailableAt: g.originallyAvailableAt,
             contentRating: g.contentRating, duration: g.duration ?? 100, ratingKey: "golden",
             partKey: nil, container: nil, videoCodec: nil, audioCodec: nil, videoProfile: nil,
             bitrate: nil, genres: g.genres ?? [], rating: g.rating ?? 0, userRating: 0, type: type,
@@ -84,7 +87,7 @@ final class FilterGoldenTests: XCTestCase {
             MediaEnrichment(
                 tmdbID: g.tmdbID ?? "0", imdbID: nil, mediaType: item.type == .episode ? "tv" : "movie",
                 keywords: ($0.keywords ?? []).map { $0.lowercased() }, networks: $0.networks ?? [],
-                productionCompanies: $0.productionCompanies ?? [], tmdbGenres: [],
+                productionCompanies: $0.productionCompanies ?? [], tmdbGenres: $0.tmdbGenres ?? [],
                 imdbRating: nil, imdbVotes: nil, rottenTomatoesScore: nil, metacriticScore: nil,
                 awards: nil, fetchedAt: Date()
             )
