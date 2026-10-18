@@ -58,6 +58,18 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Measured.** Unit tests pass. Checked by eye on an Apple TV 4K, in the guide and in full screen.
 
+## 2026-10-18 (Plex: Blu-ray DD+ 7.1 plays on Apple TV)
+
+**Shipped.** Nothing yet. Branch `plex/eac3-71-cap`, for the next Apple TV build.
+
+**Why.** Some films never played on Apple TV: The Wild Robot, Bob Marley: One Love, and about ten more in one library. Plex's decision looked fine (video copied, "EAC3 7.1" copied, MPEG-TS), the TV read about a megabyte and hung up, and the server never refused anything. These are Blu-ray "DD+ 7.1" tracks: every audio frame is an AC-3 5.1 core followed by an E-AC-3 extension frame, labelled E-AC-3 but never a plain E-AC-3 frame. AVPlayer on tvOS rejects that (CoreMedia -12979) within about two seconds. The Mac's player plays it on the core, so a Mac-only check misses it. True E-AC-3 7.1 and Plex's own 7.1 encodes play, so eight channels is not the problem.
+
+**Changed.** Both Plex client profiles (the everyday one and the Dolby Vision remux) cap EAC3 at 6 channels: `add-limitation(scope=videoAudioCodec&scopeName=eac3&type=upperBound&name=audio.channels&value=6)`. Plex then re-encodes only that audio to AC-3 5.1 and still copies the video. The scope has to be `videoAudioCodec`; `audioCodec` is silently ignored. EAC3 5.1 is still copied as before. The cost: a title that reached the TV as 7.1 now arrives as 5.1.
+
+**Measured.** The app's exact request reproduced against the real server: the affected titles fail with -12979 in a tvOS 26.1 simulator, EAC3 5.1 controls play in under a second, and with the cap all affected titles play (ready in 0.5 to 2.4 s). Unit test pins the cap and its scope in both profiles. On-device check below.
+
+Also found: a file whose audio track runs far past its video (one film: 97 min of picture, 219 min of audio, the rest digital silence) gets a slot the length of the audio, so most of its airing is a frozen frame. That one is the file, fixed by remuxing it; the app has no check yet for a clock that moves with no new frames.
+
 ## 2026-10-16 (blog screenshot sizes)
 
 **Shipped.** Nothing until this lands on main. The live pages pick it up on the next Vercel deploy.

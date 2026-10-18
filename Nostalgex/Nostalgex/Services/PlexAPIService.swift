@@ -729,6 +729,7 @@ struct PlexAPIService: MediaBackend {
     ///   H.264). Profile 8 in an MKV is re-encoded by the server regardless; that is Plex.
     /// - Lossy audio targets only. Offering ALAC made the server turn TrueHD into ALAC at
     ///   negative speed: picture, no sound, then nothing.
+    /// - EAC3 capped at 6 channels (`eac3ChannelCap`).
     static func clientProfileExtra(hevcCapable: Bool, offersHEVC: Bool) -> String {
         let hevc = hevcCapable && offersHEVC
         let video = CodecSupport.directPlayVideoCodecs(hevcCapable: hevc)
@@ -739,6 +740,7 @@ struct PlexAPIService: MediaBackend {
             + "+add-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=fmp4&videoCodec=\(mp4Video)&audioCodec=\(audio))"
             + "+add-limitation(scope=videoCodec&scopeName=*&type=upperBound&name=video.width&value=3840&replace=true)"
             + "+add-limitation(scope=videoCodec&scopeName=*&type=upperBound&name=video.height&value=2160&replace=true)"
+            + eac3ChannelCap
         if hevc {
             profile += "+add-limitation(scope=videoCodec&scopeName=hevc&type=upperBound&name=video.width&value=3840&replace=true)"
                 + "+add-limitation(scope=videoCodec&scopeName=hevc&type=upperBound&name=video.height&value=2160&replace=true)"
@@ -746,6 +748,14 @@ struct PlexAPIService: MediaBackend {
         }
         return profile
     }
+
+    /// Blu-ray "DD+ 7.1" is an AC-3 5.1 core with E-AC-3 extension frames, and AVPlayer
+    /// refuses it (CoreMedia -12979) about a second after Plex starts copying it: The Wild
+    /// Robot, Bob Marley: One Love and ten more in one library. True E-AC-3 7.1 plays, so the
+    /// channel count is not the problem, but the label can't tell the two apart. Capped at 6,
+    /// Plex re-encodes just that audio to AC-3 5.1 and still copies the video. Must be scope
+    /// `videoAudioCodec`: `audioCodec` is silently ignored. Measured 2026-10-18.
+    static let eac3ChannelCap = "+add-limitation(scope=videoAudioCodec&scopeName=eac3&type=upperBound&name=audio.channels&value=6)"
 
     /// Query for `/video/:/transcode/universal/start.m3u8`. No `videoDecision=transcode`:
     /// that flag forced a full video re-encode on every file that could not direct play,
@@ -874,6 +884,7 @@ struct PlexAPIService: MediaBackend {
         let audio = CodecSupport.transcodeAudioCodecs.sorted().joined(separator: ",")
         let profile = "add-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=mp4&videoCodec=h264,hevc&audioCodec=\(audio))"
             + "+add-limitation(scope=videoTranscodeTarget&scopeName=hevc&scopeType=videoCodec&context=all&protocol=hls&type=upperBound&name=video.bitDepth&value=10)"
+            + eac3ChannelCap
         items.append(.init(name: "X-Plex-Platform", value: "Generic"))
         items.append(.init(name: "X-Plex-Client-Profile-Extra", value: profile))
         components.queryItems = items
