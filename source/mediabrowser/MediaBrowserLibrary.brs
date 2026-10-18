@@ -347,3 +347,21 @@ function NxMbScanServer(fetcher as Object, kind as String, userId as String, ser
     end for
     return out
 end function
+
+' ── By kind of server (source/mediabrowser/ServerKind.brs) ──
+
+' The library's change signature now, or invalid. Jellyfin and Emby keep
+' none (their libraries carry no updatedAt), so they are scanned each load,
+' as upstream does.
+function NxServerSignatureFor(server as Object) as Dynamic
+    if NxServerKind(server) <> "plex" then return invalid
+    return NxPlexServerSignature(server)
+end function
+
+' A server's items (NxPlexScanServer or NxMbScanServer), or invalid.
+function NxScanServerFor(server as Object, serverIndex as Integer, progress as Dynamic, info as Object) as Dynamic
+    kind = NxServerKind(server)
+    if kind = "plex" then return NxPlexScanServer(server, serverIndex, progress, info)
+    info.signature = invalid
+    return NxMbScanServer(NxMbFetcher(server), kind, NxToStr(server.userId), serverIndex, progress)
+end function

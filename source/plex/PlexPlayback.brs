@@ -16,14 +16,6 @@
 ' reports playback back to Plex (no timeline, no scrobble): the app reads
 ' your library and never changes it.
 
-' The token for a block's server, for NxPlexApplyAuth. "" if unknown.
-function NxPlexStreamToken(b as Object) as String
-    servers = ParseJson(NxPlexRegistry().Read("servers"))
-    if type(servers) <> "roArray" or b.serverIndex = invalid then return ""
-    if b.serverIndex >= servers.Count() then return ""
-    return NxToStr(servers[b.serverIndex].accessToken)
-end function
-
 ' Video nodes take headers through their own ifHttpAgent; a ContentNode's
 ' HttpHeaders field alone left this TV buffering with no request reaching Plex.
 sub NxPlexApplyAuth(video as Object, token as String)

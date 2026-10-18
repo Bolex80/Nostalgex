@@ -681,7 +681,7 @@ sub startTune(idx as Integer)
         m.video.control = "stop"
         return
     end if
-    stream = NxPlexStreamContent(b, offset&)
+    stream = NxStreamContent(b, offset&)
     if stream = invalid then
         m.top.FindNode("notice").text = "Can't play this one: its server isn't set up on this TV."
         return
@@ -690,7 +690,7 @@ sub startTune(idx as Integer)
     m.stopUrl = stream.stopUrl
     m.stopServer = b.serverIndex
     rememberStop()
-    NxPlexApplyAuth(m.video, NxPlexStreamToken(b))
+    NxApplyStreamAuth(m.video, b)
     m.video.content = stream.content
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat

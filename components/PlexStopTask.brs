@@ -5,7 +5,6 @@ sub init()
 end sub
 
 sub stopTranscode()
-    token = NxPlexStreamToken({ serverIndex: m.top.serverIndex })
-    code = NxPlexVideoRequest(m.top.stopUrl, token)
-    print "player: stopped the previous Plex transcode ("; code; ")"
+    code = NxStopStream(m.top.stopUrl, m.top.serverIndex)
+    print "player: stopped the previous transcode ("; code; ")"
 end sub

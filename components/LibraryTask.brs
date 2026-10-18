@@ -191,7 +191,7 @@ sub loadLibrary()
     end if
     servers = ParseJson(NxPlexRegistry().Read("servers"))
     if type(servers) <> "roArray" or servers.Count() = 0 then
-        fail("No Plex server is set up on this TV. Press * to sign in again.")
+        fail("No " + NxKindName(NxSignedInKind()) + " server is set up on this TV. Press * to sign in again.")
         return
     end if
 
@@ -245,7 +245,7 @@ sub loadLibrary()
                 fresh = m.top.rebuild
                 if not fresh then
                     m.top.progress = "Checking your library on " + NxToStr(servers[i].name) + "…"
-                    fresh = NxSnapshotFresh(snap.servers[keys[i]], NxPlexServerSignature(servers[i]), nowSec&)
+                    fresh = NxSnapshotFresh(snap.servers[keys[i]], NxServerSignatureFor(servers[i]), nowSec&)
                 end if
                 if fresh then saved = NxSnapshotLoadServer(snapDir, snap, keys[i], i)
             end if
@@ -260,7 +260,7 @@ sub loadLibrary()
             else
                 m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
                 info = { signature: invalid }
-                got = NxPlexScanServer(servers[i], i, m.top, info)
+                got = NxScanServerFor(servers[i], i, m.top, info)
                 if got = invalid then
                     if shown then
                         print "library: background refresh couldn't read the library; keeping the saved guide"
@@ -284,7 +284,13 @@ sub loadLibrary()
     setPhase("collections")
     if scanned.Count() > 0 then m.top.progress = "Reading your collections…"
     for each s in scanned
-        got = NxCollectionsFetchPlex(s.key, NxPlexCollectionsFetcher(servers[s.index]), m.top)
+        ' Jellyfin and Emby collections aren't read yet (docs/JELLYFIN-EMBY.md,
+        ' phase 4): none, rather than a failure.
+        if NxServerKind(servers[s.index]) = "plex" then
+            got = NxCollectionsFetchPlex(s.key, NxPlexCollectionsFetcher(servers[s.index]), m.top)
+        else
+            got = []
+        end if
         if got = invalid then
             collections.failed = collections.failed + 1
         else
