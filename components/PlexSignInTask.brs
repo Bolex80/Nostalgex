@@ -7,18 +7,21 @@ end sub
 sub runSignIn()
     print "plex: sign-in task started"
     token = NxPlexLoadToken()
+    ' No saved sign-in: a first run, or the app deleted and installed again.
+    fresh = token = ""
     account = invalid
     if token <> "" then
         m.top.status = "checking"
-        account = NxPlexAccountName(token)
+        account = NxPlexAccount(token)
         if account = invalid then
             fail("Can't reach plex.tv. Check the TV's internet connection, then press OK to try again.")
             return
         end if
-        if account = "" then
+        if type(account) <> "roAssociativeArray" then
             ' plex.tv rejected the saved token (revoked or expired): start over.
             NxPlexClearAuth()
             token = ""
+            fresh = true
         end if
     end if
 
@@ -43,8 +46,15 @@ sub runSignIn()
         end for
     end while
     NxPlexSaveToken(token)
-    if account = invalid or account = "" then account = NxPlexAccountName(token)
-    if NxIsString(account) then m.top.account = account
+    if type(account) <> "roAssociativeArray" then account = NxPlexAccount(token)
+    ' Caches the deleted app left behind may be another account's library.
+    if type(account) = "roAssociativeArray" and account.id <> "" then
+        m.top.account = account.name
+        if NxClaimAccountCaches(account.id, fresh) then print "plex: cleared the saved library left by another account, or by none recorded"
+    else if fresh then
+        NxClearAccountCaches()
+        print "plex: cleared the saved library: couldn't tell whose it is"
+    end if
 
     ' A TV that already has its servers keeps them: their addresses were
     ' checked when they were first used, and the Apple TV app doesn't probe

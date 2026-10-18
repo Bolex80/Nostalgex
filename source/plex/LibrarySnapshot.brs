@@ -154,6 +154,49 @@ sub NxSnapshotClear(dir as String)
     DeleteDirectory(dir)
 end sub
 
+' The saved library, guide, pools and enrichment cache (which TMDB ids the
+' library has) are one account's library. They live in cachefs:, which
+' outlasts deleting the app while the registry (the sign-in) does not, so a
+' file beside them says whose they are: SHA-1 of the plex.tv account id.
+' root is "cachefs:" except in the tests.
+function NxCacheOwnerPath(root = "cachefs:" as String) as String
+    return root + "/nostalgex-owner.txt"
+end function
+
+function NxCacheOwnerHash(accountID as String) as String
+    bytes = CreateObject("roByteArray")
+    bytes.FromAsciiString(accountID)
+    d = CreateObject("roEVPDigest")
+    d.Setup("sha1")
+    return d.Process(bytes)
+end function
+
+sub NxClearAccountCaches(root = "cachefs:" as String)
+    NxSnapshotClear(root + "/nostalgex-library")
+    DeleteFile(root + "/nostalgex-guide.json")
+    DeleteFile(root + "/nostalgex-pools.json")
+    DeleteFile(root + "/nostalgex-enrichment.json")
+    DeleteFile(NxCacheOwnerPath(root))
+end sub
+
+' After a sign-in: a fresh one (no saved token, as after reinstalling)
+' clears caches another account left, or that no account was recorded for.
+' A saved sign-in only records the owner, since the library may already be
+' reading the caches. Returns true when it cleared them.
+function NxClaimAccountCaches(accountID as String, fresh as Boolean, root = "cachefs:" as String) as Boolean
+    owner = NxCacheOwnerHash(accountID)
+    saved = ""
+    if CreateObject("roFileSystem").Exists(NxCacheOwnerPath(root)) then saved = ReadAsciiFile(NxCacheOwnerPath(root))
+    if saved = owner then return false
+    cleared = false
+    if fresh then
+        NxClearAccountCaches(root)
+        cleared = true
+    end if
+    WriteAsciiFile(NxCacheOwnerPath(root), owner)
+    return cleared
+end function
+
 sub NxSnapshotWriteMeta(dir as String, meta as Object)
     meta.format = NxSnapshotFormat()
     NxSnapshotWriteFile(dir + "/meta.json", FormatJson(meta))

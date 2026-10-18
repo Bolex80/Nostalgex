@@ -256,12 +256,8 @@ sub signOut()
     closePicker()
     dropGuide()
     NxPlexClearAuth()
-    ' The saved guide, pools and library and the enrichment cache (which TMDB
-    ' ids the library has) are this account's library; they go with the sign-in.
-    NxSnapshotClear(NxSnapshotDir())
-    DeleteFile("cachefs:/nostalgex-guide.json")
-    DeleteFile("cachefs:/nostalgex-pools.json")
-    DeleteFile("cachefs:/nostalgex-enrichment.json")
+    ' The saved library and the caches made from it go with the sign-in.
+    NxClearAccountCaches()
     startSignIn()
 end sub
 

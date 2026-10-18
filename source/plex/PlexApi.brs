@@ -252,16 +252,19 @@ function NxPlexCheckPin(id as Dynamic) as Dynamic
     return ""
 end function
 
-' The signed-in account's name, "" if the token was rejected, or invalid if
-' plex.tv couldn't be reached (so a network blip doesn't sign anyone out).
-function NxPlexAccountName(token as String) as Dynamic
+' The signed-in account as { name, id }, "" if the token was rejected, or
+' invalid if plex.tv couldn't be reached (so a network blip doesn't sign
+' anyone out). id is the account's uuid, or its number when there is none.
+function NxPlexAccount(token as String) as Dynamic
     res = NxHttp("GET", "https://plex.tv/api/v2/user", NxPlexHeaders(token))
     if res.code = 401 or res.code = 403 then return ""
     if res.code < 200 or res.code > 299 or type(res.json) <> "roAssociativeArray" then return invalid
     name = res.json.username
     if not NxIsString(name) or name = "" then name = res.json.title
     if not NxIsString(name) then name = "Plex"
-    return name
+    id = NxToStr(res.json.uuid)
+    if id = "" then id = NxToStr(res.json.id)
+    return { name: name, id: id }
 end function
 
 ' Servers on the account: [{ name, machineIdentifier, owned, accessToken,

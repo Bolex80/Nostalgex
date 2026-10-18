@@ -76,6 +76,31 @@ function NxRunSnapshotTests() as Integer
     NxSnapshotClear(dir)
     NxSnapCheck(r, "cleared", ListDir("tmp:/").Count() > 0 and NxHasValue(ListDir("tmp:/"), "nx-snapshot-test"), false)
 
+    ' ── Whose caches (NxClaimAccountCaches) ──
+    ' roEVPDigest and roFileSystem are the TV's only: these run in deploy.sh --test.
+    if NxTestRuntime() = "device" then
+        root = "tmp:/nx-owner-test"
+        CreateDirectory(root)
+        NxSnapCheck(r, "owner: the id is hashed", Len(NxCacheOwnerHash("uuid-a")) = 40 and NxCacheOwnerHash("uuid-a") <> "uuid-a", true)
+        WriteAsciiFile(root + "/nostalgex-guide.json", "{}")
+        NxSnapCheck(r, "owner: saved sign-in, none recorded, keeps", NxClaimAccountCaches("uuid-a", false, root), false)
+        NxSnapCheck(r, "owner: ...and the guide stays", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", true)
+        NxSnapCheck(r, "owner: ...and records the account", ReadAsciiFile(NxCacheOwnerPath(root)), NxCacheOwnerHash("uuid-a"))
+        NxSnapCheck(r, "owner: fresh, same account, keeps", NxClaimAccountCaches("uuid-a", true, root), false)
+        NxSnapCheck(r, "owner: ...and the guide stays", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", true)
+        NxSnapCheck(r, "owner: saved sign-in, another account, keeps", NxClaimAccountCaches("uuid-b", false, root), false)
+        NxSnapCheck(r, "owner: ...and records that account", ReadAsciiFile(NxCacheOwnerPath(root)), NxCacheOwnerHash("uuid-b"))
+        NxSnapCheck(r, "owner: fresh, another account, clears", NxClaimAccountCaches("uuid-a", true, root), true)
+        NxSnapCheck(r, "owner: ...the guide is gone", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", false)
+        NxSnapCheck(r, "owner: ...and the new account recorded", ReadAsciiFile(NxCacheOwnerPath(root)), NxCacheOwnerHash("uuid-a"))
+        DeleteFile(NxCacheOwnerPath(root))
+        WriteAsciiFile(root + "/nostalgex-pools.json", "{}")
+        NxSnapCheck(r, "owner: fresh, none recorded, clears", NxClaimAccountCaches("uuid-a", true, root), true)
+        NxSnapCheck(r, "owner: ...the pools are gone", ReadAsciiFile(root + "/nostalgex-pools.json") <> "", false)
+        NxClearAccountCaches(root)
+        DeleteDirectory(root)
+    end if
+
     print "snapshot cases: "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function
