@@ -171,7 +171,7 @@ sized 16:9 at the box's height, centred on the box, with the panel drawn over
 its left overflow and the right running off the screen. A 4:3 file fills the
 box exactly.
 
-Two differences are on purpose:
+Three differences are on purpose:
 
 - On the Apple TV the grid's header overflows (220 + 12 + 4 x (425 + 14) =
   1988 px), which centres the rows about 30 px right of where
@@ -183,6 +183,12 @@ Two differences are on purpose:
   audio tracks, RETRO MODE, the sleep timer and playback information; it
   leaves out stream quality, the language pickers and OPEN IN PLEX, which
   have nothing to act on here. OK flashes the OSD rather than leaving.
+- An airing hands over as `advanceToNextItem` does: when its file ends,
+  the next one starts from its beginning, so an episode running past its
+  whole-minute slot plays to the end (`source/guide/Advance.brs`, cases in
+  `tests/AdvanceTests.brs`). Unlike upstream, the clock takes over anyway
+  five minutes past the slot, so a stream that never reports finishing
+  can't hold the channel.
 
 ## Parity is proven, not eyeballed
 

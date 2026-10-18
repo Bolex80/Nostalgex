@@ -45,7 +45,7 @@ if [ "${NOSTALGEX_ENRICHMENT:-off}" = on ]; then
     echo "build: enrichment on"
 fi
 if [ "$mode" = test ]; then
-    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs "$stage"/source/
+    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs "$stage"/source/
     mkdir -p "$stage"/tests && cp -r tests/vectors "$stage"/tests/
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs

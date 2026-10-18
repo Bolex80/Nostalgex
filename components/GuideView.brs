@@ -166,6 +166,11 @@ sub onGuide()
     now = blockAt(m.channels[m.tuned], nowSec())
     same = now <> invalid and m.playing <> invalid
     if same then same = now.ratingKey = m.playing.ratingKey and now.startSec = m.playing.startSec
+    ' An airing still running past its slot finishes first.
+    if not same and m.playing <> invalid then
+        t = nowSec()
+        if t >= m.playing.endSec and not NxAiringEnded(m.playing, t, m.video.state) then same = true
+    end if
     if not same then tune(m.tuned)
 end sub
 
@@ -564,7 +569,14 @@ sub renderInfo()
     track.width = barW
     fill = m.top.FindNode("progressFill")
     fill.translation = [x, 15]
-    if dur& > 0 then fill.width = barW * pos& / dur& else fill.width = 0
+    ' Past the slot while the file finishes, the bar stays full.
+    if pos& > dur& then
+        fill.width = barW
+    else if dur& > 0 then
+        fill.width = barW * pos& / dur&
+    else
+        fill.width = 0
+    end if
 
     y = y + 34 + 20
     n = blockAfter(ch, b)
@@ -613,8 +625,9 @@ sub onTick()
     if m.fullscreen then updateOsdTime()
     t = nowSec()
     if (t \ 1800) * 1800 <> m.lastWindow or t mod 30 = 0 then renderGrid()
-    ' Live: when the airing ends, the channel moves on to whatever is on now.
-    if m.playing <> invalid and t >= m.playing.endSec then tune(m.tuned)
+    ' Live: when the airing's slot is over and its file isn't still playing,
+    ' the channel moves on to whatever is on now (source/guide/Advance.brs).
+    if NxAiringEnded(m.playing, t, m.video.state) then tune(m.tuned)
 end sub
 
 ' ── Playback ────────────────────────────────────────────────────────────────
@@ -622,7 +635,7 @@ end sub
 ' Plex refuses a second transcode for the same device while one runs (HTTP
 ' 400), so the running one is stopped first and the channel starts when the
 ' stop has gone through. Only the latest press starts (source/guide/TuneQueue.brs).
-sub tune(idx as Integer)
+sub tune(idx as Integer, nextAiring = invalid as Dynamic)
     ' From the press to the picture, stop included: the maintainer's bar is
     ' under 10 s for a converted channel, mid-programme too.
     ' A retry keeps the clock running.
@@ -630,13 +643,17 @@ sub tune(idx as Integer)
     m.retrying = false
     action = NxTuneAsk(m.tuneQueue, idx, m.stopUrl <> invalid and m.stopUrl <> "")
     if action = "start" then
+        m.nextAiring = nextAiring
         startTune(idx)
         return
     end if
     ' While it waits, the screen already shows the channel asked for, so the
     ' OSD and the next Up or Down go from it, not from the one stopping.
     m.tuned = idx
-    m.playing = blockAt(m.channels[idx], nowSec())
+    ' A press for any channel drops a hand-over still waiting on the stop.
+    m.nextAiring = nextAiring
+    m.playing = nextAiring
+    if m.playing = invalid then m.playing = blockAt(m.channels[idx], nowSec())
     renderInfo()
     renderGrid()
     if action = "stop" then stopPrevious()
@@ -646,7 +663,15 @@ sub startTune(idx as Integer)
     m.tuned = idx
     ch = m.channels[idx]
     t = nowSec()
-    b = blockAt(ch, t)
+    ' A hand-over starts the next airing from its beginning; a press joins
+    ' what airs now part way in.
+    b = m.nextAiring
+    m.nextAiring = invalid
+    offset& = 0
+    if b = invalid then
+        b = blockAt(ch, t)
+        if b <> invalid then offset& = t - b.startSec
+    end if
     m.top.FindNode("notice").text = ""
     armHaze()
     renderInfo()
@@ -656,7 +681,7 @@ sub startTune(idx as Integer)
         m.video.control = "stop"
         return
     end if
-    stream = NxPlexStreamContent(b, t - b.startSec)
+    stream = NxPlexStreamContent(b, offset&)
     if stream = invalid then
         m.top.FindNode("notice").text = "Can't play this one: its server isn't set up on this TV."
         return
@@ -670,7 +695,7 @@ sub startTune(idx as Integer)
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat
     m.tuneRoute = stream.route
-    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; t - b.startSec; " s into the airing"
+    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing"
 end sub
 
 sub onBuffering()
@@ -722,6 +747,14 @@ sub onVideoState()
         m.retried = false
         hideHaze()
         applySubtitles()
+    end if
+    ' The file ended: hand over to the next airing, as upstream does on
+    ' AVPlayerItemDidPlayToEndTime.
+    if state = "finished" and m.tuned >= 0 and m.playing <> invalid then
+        nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, nowSec())
+        if nxt <> invalid then print "player: finished, "; nowSec() - m.playing.endSec; " s past the slot; next from its start"
+        tune(m.tuned, nxt)
+        return
     end if
     if state = "error" then
         print "player: error "; m.video.errorCode; " "; m.video.errorMsg
