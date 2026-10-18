@@ -254,6 +254,34 @@ stays. Item 2 already works with `a028bf8` (Back at once, channels arrive
 11 MB of a ~195 MB limit, KIDZ ZONE 22% to 32%), holding off on prebuilding
 unless the stick shows room. Asked them to try `58213cc`.
 
+[Reported](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19026577)
+on 2026-10-18 that item 4 works on the 43" (`eeb42f3`).
+
+- **Jellyfin:** Quick Connect, the guide on screen 21 s after sign-in, and 15
+  channels on air against 16 through Plex.
+- **Emby:** a password sign-in and the guide in 18 s; the test server's channel
+  count isn't meaningful until its rescan is done.
+- **The scan** is held to upstream's own function by `gen-mediabrowser.mjs`.
+- **Differences from upstream:**
+  - one kind of server at a time;
+  - the token in a header;
+  - HLS built on the TV, not taken from PlaybackInfo, with the subtitle burn-in
+    seen there and a suggestion to check it on the Apple TV;
+  - nothing reported to the server;
+  - no collections yet.
+
+It told them:
+
+- their clients start Quick Connect with a GET, which Jellyfin 12.2 answers
+  with 405;
+- their privacy policy's Roku section says Plex only;
+- Jellyfin 12.2, unlike Emby 4.10.1, cancels a device's previous token when it
+  signs in again.
+
+It reported items 5 to 7 done (`ffd2ef8`), asked them to try `eeb42f3`
+against their Emby, and noted that items 1 to 3 wait on their run of
+`58213cc`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
