@@ -129,6 +129,16 @@ function NxMbQuickConnectFinish(base as String, secret as String) as Dynamic
     return NxMbReadAuth(NxServerRequest("POST", base + "/Users/AuthenticateWithQuickConnect", NxMbPostHeaders(""), body, 15000))
 end function
 
+' Whether a saved sign-in still works: "ok", "rejected" when the server
+' refuses the token (signed out elsewhere, or a reinstalled server), or
+' "unreachable".
+function NxMbCheckSignIn(server as Object) as String
+    res = NxServerRequest("GET", NxToStr(server.uri) + "/Users/" + NxUrlEncode(NxToStr(server.userId)), NxMbHeaders(NxToStr(server.accessToken)), "", 8000)
+    if res.code = 401 or res.code = 403 then return "rejected"
+    if res.code >= 200 and res.code <= 299 then return "ok"
+    return "unreachable"
+end function
+
 ' What NxMbScanServer reads a server through: getJSON(path) gives the parsed
 ' answer or invalid, with up to three tries, and getMany(paths) five at a
 ' time, each failure retried on its own. `auth` is set once the server

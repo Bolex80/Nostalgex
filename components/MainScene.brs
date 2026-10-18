@@ -19,6 +19,10 @@ sub init()
         if reg.Read("servers") <> "" then
             m.prompt.text = "Connecting to " + NxKindName(kind) + "…"
             startLibrary(true)
+            m.mbCheck = CreateObject("roSGNode", "MediaBrowserSignInTask")
+            m.mbCheck.action = "check"
+            m.mbCheck.ObserveField("status", "onMbCheck")
+            m.mbCheck.control = "run"
         else
             showConnect()
         end if
@@ -30,6 +34,15 @@ sub init()
     end if
     if reg.Read("servers") <> "" and reg.Read("needsPick") = "" then startLibrary(true)
     startSignIn()
+end sub
+
+' The saved Jellyfin or Emby sign-in was refused: back to CONNECT YOUR
+' LIBRARY, with the reason.
+sub onMbCheck()
+    if m.mbCheck.status <> "rejected" then return
+    message = m.mbCheck.message
+    signOut()
+    m.connect.notice = message
 end sub
 
 ' CONNECT YOUR LIBRARY (ConnectView): Plex, Jellyfin or Emby, for a TV that

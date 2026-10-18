@@ -4,7 +4,7 @@
      sign-in itself (NxMbSaveSignIn). -->
 <component name="MediaBrowserSignInTask" extends="Task">
   <interface>
-    <!-- discover | connect | quickConnect | password -->
+    <!-- discover | connect | quickConnect | password | check -->
     <field id="action" type="string" />
     <!-- jellyfin | emby: what the viewer chose; connect may find the other. -->
     <field id="kind" type="string" />
@@ -13,7 +13,7 @@
     <field id="password" type="string" />
     <!-- Set true to end a Quick Connect wait. -->
     <field id="cancel" type="boolean" />
-    <!-- found | connected | code | signedIn | error. Not "state": every Task has one. -->
+    <!-- found | connected | code | signedIn | error | rejected. Not "state": every Task has one. -->
     <field id="status" type="string" alwaysNotify="true" />
     <!-- discover: [{ name, address, id }] -->
     <field id="found" type="array" />

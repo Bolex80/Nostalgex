@@ -57,6 +57,11 @@ sub outline(g as Object, x as Float, y as Float, w as Float, h as Float, t as Fl
     g.AppendChild(newRect(x + w - t, y, t, h, color))
 end sub
 
+sub onNotice()
+    m.error = m.top.notice
+    render()
+end sub
+
 ' Goes to a step: its rows ({ id, title, detail }) and words.
 sub show(stepName as String)
     m.step = stepName

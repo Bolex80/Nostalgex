@@ -9,6 +9,8 @@
   <interface>
     <!-- Set once: "plex" when Plex is chosen, "jellyfin" or "emby" once signed in. -->
     <field id="done" type="string" />
+    <!-- A reason shown on the first screen, such as a refused sign-in. -->
+    <field id="notice" type="string" onChange="onNotice" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />

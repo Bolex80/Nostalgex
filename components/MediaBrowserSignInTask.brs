@@ -16,6 +16,8 @@ sub runAction()
         quickConnect()
     else if action = "password" then
         password()
+    else if action = "check" then
+        check()
     end if
 end sub
 
@@ -86,6 +88,19 @@ sub quickConnect()
         end if
     end for
     fail("The Quick Connect code expired. Try again.")
+end sub
+
+' At launch, with the saved guide already up: a token the server now refuses
+' sends the TV back to sign in, as a rejected Plex token does.
+sub check()
+    servers = ParseJson(NxPlexRegistry().Read("servers"))
+    if type(servers) <> "roArray" or servers.Count() = 0 then return
+    result = NxMbCheckSignIn(servers[0])
+    print "mediabrowser: saved sign-in check: "; result
+    if result = "rejected" then
+        m.top.message = "The " + NxKindName(NxServerKind(servers[0])) + " server no longer accepts this TV's sign-in. Sign in again."
+        m.top.status = "rejected"
+    end if
 end sub
 
 sub password()

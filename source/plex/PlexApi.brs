@@ -158,10 +158,7 @@ function NxServerRequest(method as String, url as String, headers as Object, bod
         xfer.AsyncCancel()
         return { code: -28, json: invalid }
     end if
-    text = msg.GetString()
-    json = invalid
-    if text <> "" then json = ParseJson(text)
-    return { code: msg.GetResponseCode(), json: json }
+    return { code: msg.GetResponseCode(), json: NxParseJsonBody(msg.GetString()) }
 end function
 
 ' Several GETs to one server, up to `width` in flight at once, under the
@@ -197,10 +194,7 @@ function NxServerGetMany(urls as Object, headers as Object, width as Integer, ti
             if job <> invalid then
                 live.Delete(id)
                 pending = pending - 1
-                body = msg.GetString()
-                json = invalid
-                if body <> "" then json = ParseJson(body)
-                out[job.index] = { code: msg.GetResponseCode(), json: json }
+                out[job.index] = { code: msg.GetResponseCode(), json: NxParseJsonBody(msg.GetString()) }
             end if
         else if msg = invalid then
             ' Nothing answered in time: what's still out timed out.
@@ -213,6 +207,17 @@ function NxServerGetMany(urls as Object, headers as Object, width as Integer, ti
         end if
     end while
     return out
+end function
+
+' A response body as JSON, or invalid. Only a body that starts as JSON is
+' parsed: an error page or plain text ("Access token is invalid or expired.")
+' would put a ParseJSON error in the log.
+function NxParseJsonBody(text as String) as Dynamic
+    t = text.Trim()
+    if t = "" then return invalid
+    first = Left(t, 1)
+    if first <> "{" and first <> "[" then return invalid
+    return ParseJson(t)
 end function
 
 ' A transfer for one server request, or invalid when the URL is refused:
