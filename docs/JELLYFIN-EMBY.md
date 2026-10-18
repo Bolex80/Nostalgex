@@ -24,7 +24,8 @@ code path.
 - Password: `POST /Users/AuthenticateByName` with `{Username, Pw}`. The answer
   carries `AccessToken` and `User.Id`.
 - Jellyfin also has Quick Connect: the TV shows a code, and you approve it in
-  Jellyfin's web or phone app. The calls are `GET /QuickConnect/Initiate`, then
+  Jellyfin's web or phone app. The calls are `GET /QuickConnect/Initiate` (the
+  port sends a POST, which Jellyfin 12.2 needs; below), then
   poll `GET /QuickConnect/Connect?Secret=` every 2 s, then
   `POST /Users/AuthenticateWithQuickConnect`. A 401 on Initiate means the server
   has Quick Connect switched off.
