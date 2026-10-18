@@ -277,6 +277,10 @@ end sub
 
 sub closeKeyboard()
     if m.keyboard = invalid then return
+    ' Its closing notice arrives after the next keyboard (the password one)
+    ' may be up, and would close that one too.
+    m.keyboard.UnobserveField("buttonSelected")
+    m.keyboard.UnobserveField("wasClosed")
     m.keyboard.close = true
     m.keyboard = invalid
     m.top.SetFocus(true)
