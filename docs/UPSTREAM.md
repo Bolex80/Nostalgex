@@ -212,6 +212,14 @@ app still uses the old bolt logo, fixed `link` (`02cc134`), and asked them
 to sign out and in on `02cc134` for the `checked`, `libraries picked` and
 `guide on screen` lines, and every package on.
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19008971)
+on 2026-10-17: use `94f1a2e` instead, since on `02cc134` the progress screen
+rebuilt itself on every update and the Collections step took 457 s on the
+55R617 (1.1 s fetches, 66 s and 136 s of updates per 25), 10.3 s after the
+fix. It noted the Library step's 12.2 s to 8.2 s as one run each, that a
+stalled load can look like the app quitting (screensaver, then Back), and
+that the sign-out steps and four log lines still apply.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
