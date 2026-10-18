@@ -83,8 +83,21 @@ read-only.
   Roku privacy text ("your token travels in a request header, not in the
   address") stays true. Upstream puts `api_key` in addresses because AVPlayer
   can't add headers. We don't need to.
-  - HLS segments haven't been checked this way yet: a transcode first needs a
-    PlaybackInfo session. That is phase 2's first test.
+  - HLS too (2026-10-18). Emby wants the token on the master playlist and
+    not on segments. Jellyfin wants it on the master, the variant and every
+    segment (401 without it). With the header alone, every stream in the spike
+    below played on the TV, and Jellyfin logged no rejected request.
+- **Signing in again cancels the device's previous token on Jellyfin** (not on
+  Emby). A token stopped working the moment the same `DeviceId` signed in
+  elsewhere. The app has to keep one `DeviceId` per install (the Plex client id
+  already is one) and must never sign in again in the background while a
+  stream is using the old token.
+- **Jellyfin burns subtitles into the picture unless told not to.** Two MKVs
+  came back from PlaybackInfo with `SubtitleMethod=Encode`
+  (`SubtitleCodecNotSupported`), which means a full video transcode. Even with
+  `SubtitleStreamIndex: -1` in the body, the `TranscodingUrl` still named a
+  subtitle stream. The app needs `SubtitleProfiles` in its device profile (text
+  subtitles delivered as HLS or External), or it has to drop those parameters.
 - **Jellyfin serves a static stream to anyone who knows the item id**: it
   answered 206 with no token at all. Emby answered 401. That is the server's
   business, not ours, but it is worth knowing when reading logs.
@@ -138,6 +151,33 @@ phase breaks Plex.
        a Roku, which is why Plex remuxes it for us. Jellyfin can't start the
        remux at the offset, so the client seek has to be fast enough.
    - If the HLS seek is unusable, we know before building the rest.
+   - **Done 2026-10-18, on a 1080p TCL Roku TV (OS 16.0.4).** The spike played
+     each case with `PlayStart = 1200` (20 minutes in) and the token only in
+     `HttpHeaders`.
+
+     | Case | Playing after | Rebuffers in 60 s |
+     |---|---|---|
+     | Jellyfin MP4 H.264, direct | 2.6 s | 0 |
+     | Jellyfin MP4 HEVC 10-bit (`hev1`), direct | 1.5 s | 0 |
+     | Jellyfin MKV HEVC 10-bit, direct | 3.6 s | 0 |
+     | Jellyfin MKV HEVC, PlaybackInfo HLS, fMP4 | 2.6 s | 0 |
+     | Jellyfin MKV H.264, PlaybackInfo HLS, TS | 3.3 s | 0 |
+     | Jellyfin MKV HEVC, hand-built HLS, fMP4 | 5.7 s | 0 |
+     | Emby MP4 HEVC 10-bit, direct | 1.7 s | 0 |
+     | Emby MKV HEVC, PlaybackInfo HLS, fMP4 | 1.6 s | 0 |
+     | Emby MKV H.264, hand-built HLS with `PlaySessionId`, TS | 3.0 s | 0 |
+
+     - **How each row was checked.** The player reached `playing`, and its
+       position advanced about 55 s per minute from 1200. Developer
+       screenshots don't capture the video plane, so the picture itself wasn't
+       seen.
+     - **Seeking on the client works.** HLS joins needed no `StartTimeTicks`:
+       the player asks for the segment at the offset, and both servers start
+       there within a second or two.
+     - **Direct MKV joined fine here**, unlike the MKV crawl seen through Plex.
+       That was over HTTPS, and this was plain HTTP on the LAN, so it isn't the
+       same comparison. Phase 2 should still prefer direct play for MKV on a
+       private address and keep HLS as the fallback.
 2. **Jellyfin, read and play.**
    - Sign-in by address with password and Quick Connect.
    - The library scan and item mapping.
