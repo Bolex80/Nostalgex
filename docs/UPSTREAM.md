@@ -244,6 +244,16 @@ server in `cachefs:`, guessed but not proven to be the OS clearing it, and
 itself, noted items 3 to 7 and the retro numbers, and asked them to try
 `6cc4290`.
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19020451)
+on 2026-10-18: a switch with nothing new to build went from 5.2 s to 3.0 s
+in `7112b9c` (channels too small for the guide are reused, fingerprints
+equal to a full build), with where the 3.0 s goes and why the library load
+stays. Item 2 already works with `a028bf8` (Back at once, channels arrive
+11.8 s later), asking what "the guide shows it's building" means beyond
+`BundleManagerView`'s spinner. Item 3: memory from `58213cc` (library about
+11 MB of a ~195 MB limit, KIDZ ZONE 22% to 32%), holding off on prebuilding
+unless the stick shows room. Asked them to try `58213cc`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
