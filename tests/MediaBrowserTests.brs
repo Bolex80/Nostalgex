@@ -63,6 +63,36 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "date " + NxToStr(d[0]), NxMbUnixSeconds(d[0]).ToStr(), d[1].ToStr())
     end for
 
+
+    ' What someone types as a server address.
+    addrs = [
+        ["192.168.0.5", "http://192.168.0.5:8096 http://192.168.0.5"],
+        [" http://10.0.0.2:8920/web/index.html#!/home ", "http://10.0.0.2:8920"],
+        ["https://media.example.org/jellyfin/", "https://media.example.org/jellyfin"],
+        ["http://nas.local/emby", "http://nas.local:8096/emby http://nas.local/emby"],
+        ["HTTPS://Box:443", "https://Box:443"],
+        ["", ""],
+        ["http://", ""]
+    ]
+    for each a in addrs
+        NxCheck(r, "address " + a[0], NxMbAddressCandidates(a[0]).Join(" "), a[1])
+    end for
+
+    ' /System/Info/Public as each server answers it (trimmed).
+    jf = { code: 200, json: { LocalAddress: "http://10.0.0.2:8096", ServerName: "den", Version: "12.2.0", ProductName: "Jellyfin Server", Id: "9a88", StartupWizardCompleted: true } }
+    em = { code: 200, json: { LocalAddresses: [], RemoteAddresses: [], ServerName: "", Version: "4.10.1.0", Id: "1cc8" } }
+    NxCheck(r, "public info, jellyfin", FormatJson(NxMbReadPublicInfo(jf)), FormatJson({ name: "den", id: "9a88", kind: "jellyfin", version: "12.2.0" }))
+    NxCheck(r, "public info, emby", FormatJson(NxMbReadPublicInfo(em)), FormatJson({ name: "Emby Server", id: "1cc8", kind: "emby", version: "4.10.1.0" }))
+    NxCheck(r, "public info, a web page", NxToStr(NxMbReadPublicInfo({ code: 200, json: invalid }) = invalid), "true")
+    NxCheck(r, "public info, something else", NxToStr(NxMbReadPublicInfo({ code: 200, json: { ServerName: "x" } }) = invalid), "true")
+
+    ' AuthenticateByName's answer.
+    ok = { code: 200, json: { User: { Name: "n", Id: "u1" }, AccessToken: "t1", ServerId: "s1" } }
+    NxCheck(r, "auth, accepted", FormatJson(NxMbReadAuth(ok)), FormatJson({ token: "t1", userId: "u1", serverId: "s1" }))
+    NxCheck(r, "auth, refused", FormatJson(NxMbReadAuth({ code: 401, json: invalid })), """""")
+    NxCheck(r, "auth, no token", FormatJson(NxMbReadAuth({ code: 200, json: { User: { Id: "u1" } } })), """""")
+    NxCheck(r, "auth, unreachable", NxToStr(NxMbReadAuth({ code: -28, json: invalid }) = invalid), "true")
+
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function
