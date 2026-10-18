@@ -335,12 +335,6 @@ function NxTags(list as Dynamic) as Object
     return out
 end function
 
-' JS `a || b`.
-function NxOr(a as Dynamic, b as Dynamic) as Dynamic
-    if NxTruthy(a) then return a
-    return b
-end function
-
 ' The highest-bitrate version, ties to the taller picture; the first when none
 ' reports a bitrate. Mirrors pickBestVersion with Plex's getters.
 function NxPickBestVersion(versions as Dynamic) as Dynamic

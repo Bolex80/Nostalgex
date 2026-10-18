@@ -207,24 +207,3 @@ function NxMbDiscover(kind as String, waitMs = 2500 as Integer) as Object
     sock.Close()
     return found
 end function
-
-' Saves a Jellyfin or Emby sign-in as this TV's only server and clears caches
-' another account or server left (NxClaimAccountCaches), as a fresh Plex
-' sign-in does.
-sub NxMbSaveSignIn(kind as String, base as String, info as Object, auth as Object)
-    serverId = auth.serverId
-    if serverId = "" then serverId = info.id
-    if serverId = "" then serverId = base
-    server = {
-        kind: kind, name: info.name, machineIdentifier: serverId, uri: base,
-        userId: auth.userId, accessToken: auth.token, owned: true, checked: true
-    }
-    reg = NxPlexRegistry()
-    reg.Delete("token")
-    reg.Delete("needsPick")
-    reg.Delete("serverChoices")
-    reg.Write("kind", kind)
-    reg.Write("servers", FormatJson([server]))
-    reg.Flush()
-    if NxClaimAccountCaches(kind + ":" + serverId + ":" + auth.userId, true) then print "mediabrowser: cleared the saved library left by another account, or by none recorded"
-end sub

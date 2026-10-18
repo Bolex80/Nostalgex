@@ -90,7 +90,10 @@ end function
 
 ' The saved server an airing comes from, or invalid.
 function NxStreamServer(b as Object) as Dynamic
-    servers = ParseJson(NxPlexRegistry().Read("servers"))
+    ' Signing out empties the list while a stream may still be stopping.
+    raw = NxPlexRegistry().Read("servers")
+    if raw = "" then return invalid
+    servers = ParseJson(raw)
     if type(servers) <> "roArray" or b.serverIndex = invalid then return invalid
     if b.serverIndex >= servers.Count() then return invalid
     return servers[b.serverIndex]

@@ -52,6 +52,8 @@ if [ -n "$leaks" ]; then
     exit 1
 fi
 
+python3 tests/tools/check-includes.py
+
 # `m` is BrightScript's implicit this: a variable of that name silently holds
 # the component's AA instead. It has cost three debugging rounds; fail fast.
 shadow=$(grep -rnE '^\s*(for\s+)?m\s*=[^=]|\bas\s+\w+\s*,?\s*m\s+as\b|\(\s*m\s+as\b' source components tests --include=*.brs || true)

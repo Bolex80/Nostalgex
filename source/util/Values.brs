@@ -26,6 +26,12 @@ function NxTruthy(v as Dynamic) as Boolean
     return true
 end function
 
+' JS `a || b`.
+function NxOr(a as Dynamic, b as Dynamic) as Dynamic
+    if NxTruthy(a) then return a
+    return b
+end function
+
 function NxNumberOr0(v as Dynamic) as Dynamic
     if NxIsNumber(v) then return v
     return 0
