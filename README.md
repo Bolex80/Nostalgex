@@ -10,11 +10,12 @@ The goal is a faithful port. It uses the same channels, the same schedule (so
 a channel shows the same programme at the same minute as on Apple TV) and the
 same look, rewritten in BrightScript and SceneGraph.
 
-It signs in to Plex, reads your library, and airs the same channels and
-schedules as upstream, in the Apple TV app's guide, with packages and live
-playback. Once signed in it opens on its saved guide in under a second, or
-on a later day in a few seconds from the saved channel pools, and refreshes
-in the background. Plex only; Jellyfin and Emby are not ported.
+It signs in to Plex, Jellyfin or Emby, reads your library, and airs the same
+channels and schedules as upstream, in the Apple TV app's guide, with
+packages and live playback. Once signed in it opens on its saved guide in
+under a second, or on a later day in a few seconds from the saved channel
+pools, and refreshes in the background. Server collections become channels
+on Plex only so far.
 
 ## Install (developer mode)
 

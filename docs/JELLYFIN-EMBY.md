@@ -1,8 +1,9 @@
-# Jellyfin and Emby: the plan
+# Jellyfin and Emby
 
-Discussion #8, item 4. The Roku app reads only Plex today. Upstream's Apple TV
-app (1.0.26) and web tuner (tuner-v1.0.1) also read Jellyfin and Emby. This is
-how the port fits in, in what order, and how each step is tested.
+Discussion #8, item 4. Upstream's Apple TV app (1.0.26) and web tuner
+(tuner-v1.0.1) read Jellyfin and Emby as well as Plex, and so does the port.
+This is what upstream does, how the port fits it in, where it differs, and
+what was measured.
 
 ## What upstream does
 
@@ -153,128 +154,71 @@ servers, driven over ECP.
 
 ## How it fits the app
 
-Most of the app needs no change. Channels, filtering, enrichment, the guide,
-saved libraries and the package switches all work on the scanned items, and a
-Jellyfin item can be made into the same shape as a Plex one.
+Channels, filtering, enrichment, the guide, saved libraries and package
+switches work on scanned items, and a Jellyfin or Emby item is made into the
+same shape as a Plex one, so none of them changed. What does differ by server:
 
-The Plex-only places, and what each one becomes:
-
-| Today (Plex only) | Becomes |
-|---|---|
-| `PlexSignInTask` (plex.tv/link code) | A first screen that picks Plex, Jellyfin or Emby. Plex goes as now. Jellyfin and Emby: find the server on the LAN (or type its address), then sign in with Quick Connect (Jellyfin) or a username and password. |
-| Registry `plex` section: token, `servers` | Each saved server gains `kind`: `plex`, `jellyfin` or `emby`. A Jellyfin or Emby server keeps `uri`, `userId` and `accessToken`, and its key is the server's `Id`. |
-| `NxPlexScanServer` | Picks by `kind`. A new `source/mediabrowser/` holds the Jellyfin/Emby scan and the item mapping. |
-| `NxPlexServerSignature` | Returns invalid for Jellyfin and Emby, as upstream does, so they are scanned each launch. Phase 4 can try something better. |
-| `NxPlexCollectionsFetcher` | A BoxSet fetcher beside it, which takes both series ids and episode ids. |
-| `NxPlexStreamContent` / `NxPlexApplyAuth` | Pick by `kind`: direct play, else PlaybackInfo's `TranscodingUrl`, else a hand-built HLS address. The token is always a header. |
-| `PlexStopTask` | Also sends `DELETE /Videos/ActiveEncodings` for Jellyfin and Emby. |
-| Settings: account, sign-out | Shows which kind the TV is signed in to. Sign-out clears the same things for every kind. |
+| Step | Plex | Jellyfin and Emby |
+|---|---|---|
+| Sign-in | `PlexSignInTask`, the plex.tv/link code | `components/ConnectView.*` and `MediaBrowserSignInTask`: the 7359 broadcast or a typed address, then Quick Connect (Jellyfin) or a username and password |
+| Saved server | registry `plex` section, `servers` | the same list, one server with `kind`, `uri`, `userId`, `accessToken`, keyed by the server's `Id`; `kind` in the section too (`source/mediabrowser/ServerKind.brs`) |
+| Library | `NxPlexScanServer` | `NxMbScanServer` (`MediaBrowserLibrary.brs`), chosen by `NxScanServerFor` |
+| Change signature | section stamps | none, as upstream, so each load scans |
+| Collections | `NxCollectionsFetchPlex` | none yet (no BoxSets) |
+| Playback | `NxPlexStreamContent` | `NxMbStreamContent` (`MediaBrowserPlayback.brs`), both through `NxStreamContent` and `NxApplyStreamAuth` |
+| Stop | Plex's transcode stop | `DELETE /Videos/ActiveEncodings`, through `NxStopStream` |
+| Launch check | plex.tv account | `GET /Users/{id}`; a 401 signs out to CONNECT YOUR LIBRARY with the reason |
 
 **One kind at a time, as upstream does.** The Apple TV app holds one
-`backend_kind`, and so would we: a TV is signed in to Plex, or to one Jellyfin
-server, or to one Emby server. Mixing them would mean a server picker and
-channels that cross backends. Upstream doesn't do that, and nobody has asked
-for it.
+`backend_kind`: a TV is signed in to Plex, or to one Jellyfin server, or to
+one Emby server. Mixing them would mean channels that cross backends, which
+upstream doesn't do.
+
+**HLS built on the TV, not taken from PlaybackInfo.** That would be a POST
+before every tune, and PlaybackInfo had Jellyfin burn subtitles into the
+picture (above). Direct play when the TV decodes the file (MKV only on the
+home network), else `master.m3u8` copying the video.
 
 **No reporting to the server.** The Roku app sends Plex nothing about what you
-watch, and the privacy policy says so. We'd keep it that way for Jellyfin and
-Emby, which also spares us upstream's watch-state restore machinery. Upstream
-has it off by default anyway.
+watch, and its privacy policy says so; Jellyfin and Emby are the same, which
+also leaves out upstream's watch-state restore.
 
-## Phases
+## Playback spike (2026-10-18)
 
-Each phase ends with something working on a TV, and nothing in a
-phase breaks Plex.
+Before building the rest: a throwaway app on a 1080p TCL Roku TV (OS 16.0.4)
+played each case with `PlayStart = 1200` (20 minutes in) and the token only in
+`HttpHeaders`.
 
-1. **Playback spike, first.** This is the riskiest part, so it goes first and
-   is thrown away afterwards. A test-only screen plays one Jellyfin movie, then
-   one Emby movie, joining 20 minutes in.
-   - Questions it answers:
-     - Does direct play of an MP4 seek to the offset?
-     - Does a PlaybackInfo HLS stream start, seek, and keep the token in a
-       header for every segment?
-     - What happens with an MKV? On Plex, joining an MKV part-way crawled on
-       a Roku, which is why Plex remuxes it for us. Jellyfin can't start the
-       remux at the offset, so the client seek has to be fast enough.
-   - If the HLS seek is unusable, we know before building the rest.
-   - **Done 2026-10-18, on a 1080p TCL Roku TV (OS 16.0.4).** The spike played
-     each case with `PlayStart = 1200` (20 minutes in) and the token only in
-     `HttpHeaders`.
+| Case | Playing after | Rebuffers in 60 s |
+|---|---|---|
+| Jellyfin MP4 H.264, direct | 2.6 s | 0 |
+| Jellyfin MP4 HEVC 10-bit (`hev1`), direct | 1.5 s | 0 |
+| Jellyfin MKV HEVC 10-bit, direct | 3.6 s | 0 |
+| Jellyfin MKV HEVC, PlaybackInfo HLS, fMP4 | 2.6 s | 0 |
+| Jellyfin MKV H.264, PlaybackInfo HLS, TS | 3.3 s | 0 |
+| Jellyfin MKV HEVC, hand-built HLS, fMP4 | 5.7 s | 0 |
+| Emby MP4 HEVC 10-bit, direct | 1.7 s | 0 |
+| Emby MKV HEVC, PlaybackInfo HLS, fMP4 | 1.6 s | 0 |
+| Emby MKV H.264, hand-built HLS with `PlaySessionId`, TS | 3.0 s | 0 |
 
-     | Case | Playing after | Rebuffers in 60 s |
-     |---|---|---|
-     | Jellyfin MP4 H.264, direct | 2.6 s | 0 |
-     | Jellyfin MP4 HEVC 10-bit (`hev1`), direct | 1.5 s | 0 |
-     | Jellyfin MKV HEVC 10-bit, direct | 3.6 s | 0 |
-     | Jellyfin MKV HEVC, PlaybackInfo HLS, fMP4 | 2.6 s | 0 |
-     | Jellyfin MKV H.264, PlaybackInfo HLS, TS | 3.3 s | 0 |
-     | Jellyfin MKV HEVC, hand-built HLS, fMP4 | 5.7 s | 0 |
-     | Emby MP4 HEVC 10-bit, direct | 1.7 s | 0 |
-     | Emby MKV HEVC, PlaybackInfo HLS, fMP4 | 1.6 s | 0 |
-     | Emby MKV H.264, hand-built HLS with `PlaySessionId`, TS | 3.0 s | 0 |
-
-     - **How each row was checked.** The player reached `playing`, and its
-       position advanced about 55 s per minute from 1200. Developer
-       screenshots don't capture the video plane, so the picture itself wasn't
-       seen.
-     - **Seeking on the client works.** HLS joins needed no `StartTimeTicks`:
-       the player asks for the segment at the offset, and both servers start
-       there within a second or two.
-     - **Direct MKV joined fine here**, unlike the MKV crawl seen through Plex.
-       That was over HTTPS, and this was plain HTTP on the LAN, so it isn't the
-       same comparison. Phase 2 should still prefer direct play for MKV on a
-       private address and keep HLS as the fallback.
-2. **Jellyfin, read and play.**
-   - Sign-in by address with password and Quick Connect.
-   - The library scan and item mapping.
-   - The guide builds, and channels play, including mid-programme joins.
-   - Stop on channel change.
-   - Then sign-out and switching back to Plex.
-3. **Emby.**
-   - Its libraries call.
-   - Password-only sign-in.
-   - `PlaySessionId` on the hand-built HLS address.
-   - Its direct-play retry flags.
-   - Its episode-id collection members.
-4. **Collections, LAN discovery, polish.**
-   - BoxSet channels.
-   - Finding the server without typing.
-   - Error messages for a wrong address, a wrong password, and Quick Connect
-     switched off.
-   - Possibly a cheap library-changed check, so a relaunch doesn't always
-     rescan.
+- **How each row was checked.** The player reached `playing`, and its
+  position advanced about 55 s per minute from 1200. Developer screenshots
+  don't capture the video plane, so the picture itself wasn't seen.
+- **Seeking on the client works.** HLS joins needed no `StartTimeTicks`: the
+  player asks for the segment at the offset, and both servers start there
+  within a second or two.
+- **Direct MKV joined fine here**, unlike the MKV crawl seen through Plex.
+  That was over HTTPS and this was plain HTTP on the LAN, so it isn't the same
+  comparison.
 
 ## Tests
 
-- **Item mapping** (the part the channel rules depend on).
-  - Off-device tests read real `/Items` answers saved from our two servers,
-    trimmed to a few movies, a show with episodes, a disc-stacked film and a
-    collection.
-  - The cases:
-    - each field of the common item shape;
-    - show fields copied onto episodes;
-    - ticks to minutes, with zero-length items dropped;
-    - TMDB ids found whatever the key's case;
-    - both shapes of collection members.
-- **Same channels as upstream.** The same library read through Plex and
-  through Jellyfin should fill about the same channels. It won't be identical,
-  since the two servers match titles to TMDB differently. A per-channel count
-  side by side shows mapping mistakes quickly.
-- **On the TV:** `deploy.sh --test` runs the mapping tests on the TV. The rest
-  is checked by driving a TV over ECP:
-  - sign-in each way;
-  - a guide build;
-  - joining part-way;
-  - a channel change stopping the stream;
-  - sign-out.
-- **The maintainer** runs Emby and could try a build against a second, real
-  Emby server once phase 3 works.
-
-## For upstream
-
-- **Privacy policy.** The maintainer's Roku privacy section says "The Nostalgex app for
-  Roku works with Plex only". It would need an edit once this ships. The rest
-  of it (the token in a header, no reporting) can stay true by design.
-- **Starting offset.** It's worth asking whether upstream found a better answer for
-  mid-programme joins on Jellyfin than seeking on the client. Roku's player
-  may behave differently from AVPlayer.
+- **The scan:** `tests/gen-mediabrowser.mjs` runs upstream's own
+  `fetchJellyfinLibraryFromServer` over `tests/fixtures/mediabrowser-server.json`
+  (answers trimmed from a Jellyfin 12.2 server, plus made-up cases), and
+  `tests/MediaBrowserTests.brs` holds `NxMbScanServer` to its requests and
+  items. It also covers dates, typed addresses, `/System/Info/Public` and
+  sign-in answers.
+- **On the TV:** the rest was checked by driving a TV over ECP (above):
+  sign-in each way, a guide build, joining part-way, a channel change stopping
+  the stream, sign-out, and a refused sign-in.

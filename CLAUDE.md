@@ -28,4 +28,6 @@ with the Nostalgex maintainer.
   it only when he says to post that draft, and only through
   `scripts/post-upstream.sh` (Discussions on upstream, nothing else), then
   records it in `docs/UPSTREAM.md`. PRs to upstream stay his to open.
-- **Plex first.** Jellyfin and Emby follow once Plex reaches parity.
+- **One kind of server at a time.** A TV is signed in to Plex, or to one
+  Jellyfin or Emby server, as the Apple TV app holds one backend
+  ([docs/JELLYFIN-EMBY.md](docs/JELLYFIN-EMBY.md)).

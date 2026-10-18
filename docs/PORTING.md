@@ -24,13 +24,14 @@ and already pinned to the Apple TV.
 | `SettingsPageView` order and `CollectionAccordionHeaderRow` (`BundleManagerView.swift`); `toggleBundle`, `rebuildLineupAfterBundleChange` (`AppState+Channels.swift`) | `components/SettingsView.*`, `rebuildForBundles` in `components/LibraryTask.brs` | ported; no rating, tips, stream quality or language rows. A package switch builds only its own channels, behind Settings; its pools matched a full rebuild's on the 43S45 |
 | `PlayerView`, `MiniChannelStrip`, `NowPlayingPanel`, `SleepGracePrompt`, `SleepTimerLogic` | `components/GuideView.brs`, `components/MiniStripView.*`, `components/NowPlayingView.*`, `source/guide/SleepTimer.brs` | ported (differences below); sleep-timer cases in `tests/SleepTimerTests.brs` |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
+| `plex-tuner.html` `fetchJellyfinLibraryFromServer`; sign-in, playback and stop after `JellyfinAPIService.swift`, `EmbyAPIService.swift` and the web connect page | `source/mediabrowser/`, `components/ConnectView.*`, `components/MediaBrowserSignInTask.*` | ported; the scan held to upstream's own function (`tests/vectors/mediabrowser.json`); BoxSets not yet. Differences and the TV results in [JELLYFIN-EMBY.md](JELLYFIN-EMBY.md) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
 | `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). On both TVs (2026-10-16) the load reads 67 collections and lists 26; a CH 500 channel hasn't been seen |
 | `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
-| Playback | BrightScript | Roku's Video node over Plex; with the guide |
+| Playback | BrightScript | Roku's Video node over Plex, Jellyfin or Emby; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen, and a row of the Now Playing panel. No language picker, as Plex sends one track (below) |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash are the nostalgex.app wordmark from upstream's `logo/png/` (`scripts/icons.sh`), as the maintainer asked on 2026-10-17 ([UPSTREAM.md](UPSTREAM.md)); the Apple TV app itself still shows its earlier lightning-bolt logo |
@@ -229,10 +230,17 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   quota clock. `tests/EnrichmentTests.brs` adds the cases of upstream's
   `nostalgex-enrichment-smoke.mjs` (batching, the caches and TTLs, the OMDb
   budget and backoff, end to end) over a stub network.
+- `tests/gen-mediabrowser.mjs` lifts `fetchJellyfinLibraryFromServer` out
+  of the pinned `plex-tuner.html` and runs it with `fetch` stubbed over the
+  saved server answers in `tests/fixtures/mediabrowser-server.json`, writing
+  `tests/vectors/mediabrowser.json`: the requests and items the port's scan
+  must match.
 - `tests/run.sh` runs them in the off-device interpreter. It fails if
   `data/` or the vectors don't match the commit pinned in `data/UPSTREAM`,
   runs upstream's franchise smoke test at that commit, and notes when the
-  clone's `origin/main` has moved past it.
+  clone's `origin/main` has moved past it. `tests/tools/check-includes.py`
+  fails it when a component calls an `Nx` function none of its scripts load,
+  which BrightScript only finds when the call runs.
 - `scripts/deploy.sh --test` runs the same suite on each TV in `ROKU_HOSTS`.
   **The TV run is the one that counts**, for the reason below.
 - A divergence is a bug here, never a fix to the vectors. Regenerating is only
