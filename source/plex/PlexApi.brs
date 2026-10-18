@@ -223,6 +223,24 @@ function NxPlexVideoRequest(url as String, token as String, timeoutMs = 5000 as 
     return NxPlexServerGet(url, token, timeoutMs).code
 end function
 
+' Percent-encodes all but A-Z a-z 0-9 - _ . ~, byte by byte in UTF-8, as
+' roUrlTransfer.Escape does. That component is task-only on Roku OS 16, and
+' this runs on the render thread, where creating it crashed the app.
+function NxUrlEncode(s as String) as String
+    bytes = CreateObject("roByteArray")
+    bytes.FromAsciiString(s)
+    hex = "0123456789ABCDEF"
+    out = ""
+    for each b in bytes
+        if (b >= 65 and b <= 90) or (b >= 97 and b <= 122) or (b >= 48 and b <= 57) or b = 45 or b = 95 or b = 46 or b = 126 then
+            out = out + Chr(b)
+        else
+            out = out + "%" + Mid(hex, (b >> 4) + 1, 1) + Mid(hex, (b and 15) + 1, 1)
+        end if
+    end for
+    return out
+end function
+
 function NxUrlHost(url as String) as String
     rest = Mid(url, Instr(1, url, "//") + 2)
     cut = Instr(1, rest, "/")
