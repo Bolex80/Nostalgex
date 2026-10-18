@@ -608,6 +608,7 @@ end sub
 ' library (Settings then rebuilds the whole guide, as before).
 function rebuildForBundles(prev as Object) as Dynamic
     timer = CreateObject("roTimespan")
+    print "library: package change: memory before the saved library "; NxMemoryLine()
     servers = ParseJson(NxPlexRegistry().Read("servers"))
     if type(servers) <> "roArray" or servers.Count() = 0 then
         print "library: package change needs a full rebuild: no servers saved"
@@ -653,7 +654,7 @@ function rebuildForBundles(prev as Object) as Dynamic
     }
     t = CreateObject("roTimespan")
     NxEnrichFromCaches(items, opts)
-    print "library: package change: enrichment caches applied in "; t.TotalMilliseconds(); " ms"
+    print "library: package change: enrichment caches applied in "; t.TotalMilliseconds(); " ms; memory with the library "; NxMemoryLine()
     reuse = {}
     for each ch in prev
         if ch.filtered <> invalid then reuse[ch.id.ToStr()] = ch.filtered
@@ -663,8 +664,15 @@ function rebuildForBundles(prev as Object) as Dynamic
     for each it in items
         it.Delete("nxFilter")
     end for
-    print "library: package change built in "; timer.TotalMilliseconds(); " ms"
+    print "library: package change built in "; timer.TotalMilliseconds(); " ms; memory "; NxMemoryLine()
     return built
+end function
+
+' The app's memory use, for the package-change log: percent of its limit and
+' KB still available to it.
+function NxMemoryLine() as String
+    mon = CreateObject("roAppMemoryMonitor")
+    return mon.GetMemoryLimitPercent().ToStr() + "%, " + mon.GetChannelAvailableMemory().ToStr() + " KB free"
 end function
 
 ' SHA-1 of each guide channel's id and its pool's items before the shuffle,
