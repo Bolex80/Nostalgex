@@ -12,8 +12,61 @@ sub init()
     m.hint = m.top.FindNode("hint")
     m.top.SetFocus(true)
     reg = NxPlexRegistry()
-    if NxPlexLoadToken() <> "" and reg.Read("servers") <> "" and reg.Read("needsPick") = "" then startLibrary(true)
+    kind = NxSignedInKind()
+    if kind <> "plex" then
+        ' Jellyfin or Emby: no account service to recheck; a rejected token
+        ' shows up as the library failing to load.
+        if reg.Read("servers") <> "" then
+            m.prompt.text = "Connecting to " + NxKindName(kind) + "…"
+            startLibrary(true)
+        else
+            showConnect()
+        end if
+        return
+    end if
+    if NxPlexLoadToken() = "" then
+        showConnect()
+        return
+    end if
+    if reg.Read("servers") <> "" and reg.Read("needsPick") = "" then startLibrary(true)
     startSignIn()
+end sub
+
+' CONNECT YOUR LIBRARY (ConnectView): Plex, Jellyfin or Emby, for a TV that
+' isn't signed in. A login dialog for the launch beacons, as the code is.
+sub showConnect()
+    if m.connect <> invalid then return
+    m.prompt.text = ""
+    m.code.text = ""
+    m.hint.text = ""
+    m.connect = CreateObject("roSGNode", "ConnectView")
+    m.connect.ObserveField("done", "onConnectDone")
+    m.top.AppendChild(m.connect)
+    m.connect.SetFocus(true)
+    signInShown()
+end sub
+
+sub closeConnect()
+    if m.connect = invalid then return
+    m.top.RemoveChild(m.connect)
+    m.connect = invalid
+    m.top.SetFocus(true)
+end sub
+
+sub onConnectDone()
+    done = m.connect.done
+    closeConnect()
+    if done = "plex" then
+        startSignIn()
+        return
+    end if
+    ' Signed in to Jellyfin or Emby: the first run's clock starts here, as it
+    ' does once a Plex code is entered.
+    signInDone()
+    m.signedInClock = CreateObject("roTimespan")
+    m.prompt.text = "Connecting to " + NxKindName(done) + "…"
+    m.hint.text = ""
+    startLibrary(true)
 end sub
 
 sub startSignIn()
@@ -55,7 +108,7 @@ sub onSignInState()
         signInDone()
     else if state = "ready" then
         m.prompt.text = m.signIn.message
-        m.hint.text = "Press * to sign out of Plex on this TV."
+        m.hint.text = signOutHint()
         if NxPlexRegistry().Read("needsPick") <> "" then
             showPicker()
         else if m.library = invalid then
@@ -64,7 +117,7 @@ sub onSignInState()
     else if state = "error" then
         ' A saved guide stays up through a network blip.
         m.prompt.text = m.signIn.message
-        m.hint.text = "Press * to sign out of Plex on this TV."
+        m.hint.text = signOutHint()
         launchComplete()
     end if
 end sub
@@ -166,7 +219,7 @@ sub onLibraryStatus()
         closeLoading()
         m.signedInClock = invalid
         m.prompt.text = m.library.message
-        m.hint.text = "Press OK to try again, or * to sign out of Plex on this TV."
+        m.hint.text = "Press OK to try again, or * to sign out of " + NxKindName(NxSignedInKind()) + " on this TV."
         launchComplete()
     else if status = "ready" then
         closeLoading()
@@ -255,11 +308,18 @@ sub signOut()
     if m.signIn <> invalid then m.signIn.control = "stop"
     closePicker()
     dropGuide()
+    closeConnect()
     NxPlexClearAuth()
     ' The saved library and the caches made from it go with the sign-in.
     NxClearAccountCaches()
-    startSignIn()
+    m.prompt.text = ""
+    m.hint.text = ""
+    showConnect()
 end sub
+
+function signOutHint() as String
+    return "Press * to sign out of " + NxKindName(NxSignedInKind()) + " on this TV."
+end function
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press then return false

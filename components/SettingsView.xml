@@ -26,6 +26,7 @@
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/RetroMode.brs" />

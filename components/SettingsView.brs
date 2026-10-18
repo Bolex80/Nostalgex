@@ -8,7 +8,7 @@ sub init()
     m.listH = 800
     m.fonts = {}
     m.franchisesChanged = false
-    ' The first OK on SIGN OUT OF PLEX only arms it; a second one signs out.
+    ' The first OK on SIGN OUT only arms it; a second one signs out.
     m.signOutArmed = false
     m.collectionsChanged = false
     ' Packages switched on whose channels are still being built: { id: true }.
@@ -419,8 +419,9 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         stateColor = "0xFFFFFF59"
         if state <> "OFF" then stateColor = "0xFFE500FF"
     else
-        label = "SIGN OUT OF PLEX"
-        detail = "Forget this TV's Plex sign-in"
+        kindName = NxKindName(NxSignedInKind())
+        label = "SIGN OUT OF " + UCase(kindName)
+        detail = "Forget this TV's " + kindName + " sign-in"
         if m.signOutArmed then
             label = "PRESS OK AGAIN TO SIGN OUT"
             detail = "Up, Down or BACK cancels"

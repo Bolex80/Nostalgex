@@ -1,0 +1,114 @@
+' Copyright (c) 2026 nostalgex-roku contributors, MIT License.
+
+sub init()
+    m.top.functionName = "runAction"
+end sub
+
+sub runAction()
+    action = m.top.action
+    if action = "discover" then
+        m.top.found = NxMbDiscover(m.top.kind)
+        print "mediabrowser: "; m.top.found.Count(); " servers answered on this network"
+        m.top.status = "found"
+    else if action = "connect" then
+        connect()
+    else if action = "quickConnect" then
+        quickConnect()
+    else if action = "password" then
+        password()
+    end if
+end sub
+
+' The first address for what was typed that answers as a Jellyfin or Emby
+' server. A server of the other kind is taken as that kind, as the web tuner
+' adopts Emby for a server saved as Jellyfin.
+sub connect()
+    cands = NxMbAddressCandidates(m.top.address)
+    if cands.Count() = 0 then
+        fail("That isn't a server address. Try something like 192.168.1.20 or http://192.168.1.20:8096.")
+        return
+    end if
+    refused = false
+    for each base in cands
+        if not NxMbAllowed(base) then
+            refused = true
+        else
+            info = NxMbPublicInfo(base)
+            if info <> invalid then
+                print "mediabrowser: found a "; info.kind; " server ("; info.version; ")"
+                m.top.server = { name: info.name, kind: info.kind, base: base, id: info.id }
+                m.top.status = "connected"
+                return
+            end if
+        end if
+    end for
+    if refused then
+        fail("Nostalgex reaches a server over HTTPS, or over plain HTTP only on your home network. Use the server's home-network address, or an https:// one.")
+    else
+        fail("No " + NxKindName(m.top.kind) + " server answered at that address. Check it, and that the server is running.")
+    end if
+end sub
+
+' Whether NxServerRequest would try this address at all.
+function NxMbAllowed(base as String) as Boolean
+    lower = LCase(base)
+    if Left(lower, 8) = "https://" then return true
+    return Left(lower, 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
+end function
+
+' Jellyfin's Quick Connect: show the code, wait up to 5 minutes for it to be
+' approved (every 2 s, as upstream), then sign in with it.
+sub quickConnect()
+    s = m.top.server
+    start = NxMbQuickConnectStart(s.base)
+    if start = "off" then
+        fail("Quick Connect is off on this server. Turn it on in Jellyfin (Dashboard, then General), or sign in with your password.")
+        return
+    end if
+    if start = invalid then
+        fail("Could not start Quick Connect. Check the server, or sign in with your password.")
+        return
+    end if
+    m.top.code = start.code
+    m.top.status = "code"
+    for attempt = 1 to 150
+        Sleep(2000)
+        if m.top.cancel then return
+        ok = NxMbQuickConnectApproved(s.base, start.secret)
+        if ok = invalid then
+            fail("The Quick Connect code expired. Try again.")
+            return
+        end if
+        if ok then
+            finish(NxMbQuickConnectFinish(s.base, start.secret))
+            return
+        end if
+    end for
+    fail("The Quick Connect code expired. Try again.")
+end sub
+
+sub password()
+    finish(NxMbSignIn(m.top.server.base, m.top.username, m.top.password))
+    m.top.password = ""
+end sub
+
+sub finish(auth as Dynamic)
+    if auth = invalid then
+        fail("Couldn't reach the server to sign in. Try again.")
+        return
+    end if
+    if type(auth) <> "roAssociativeArray" then
+        fail("The server didn't accept that username and password.")
+        return
+    end if
+    s = m.top.server
+    NxMbSaveSignIn(s.kind, s.base, { name: s.name, id: NxToStr(s.id) }, auth)
+    print "mediabrowser: signed in to "; s.kind
+    m.top.status = "signedIn"
+end sub
+
+sub fail(message as String)
+    m.top.message = message
+    m.top.status = "error"
+    print "mediabrowser: "; message
+end sub

@@ -168,3 +168,63 @@ function NxMbFetcher(server as Object) as Object
         end function
     }
 end function
+
+' Servers of a kind on this network: [{ name, address, id }], from a UDP
+' broadcast to port 7359 that Jellyfin answers to "who is JellyfinServer?" and
+' Emby to "who is EmbyServer?" (LANServerDiscovery.swift). Waits waitMs for
+' answers; empty when none came or the socket couldn't be made.
+function NxMbDiscover(kind as String, waitMs = 2500 as Integer) as Object
+    found = []
+    probe = "who is JellyfinServer?"
+    if kind = "emby" then probe = "who is EmbyServer?"
+    sock = CreateObject("roDatagramSocket")
+    if sock = invalid then return found
+    port = CreateObject("roMessagePort")
+    sock.SetMessagePort(port)
+    sock.SetBroadcast(true)
+    dest = CreateObject("roSocketAddress")
+    dest.SetAddress("255.255.255.255:7359")
+    sock.SetSendToAddress(dest)
+    sock.NotifyReadable(true)
+    sock.SendStr(probe)
+    clock = CreateObject("roTimespan")
+    seen = {}
+    while clock.TotalMilliseconds() < waitMs
+        msg = Wait(waitMs - clock.TotalMilliseconds(), port)
+        if type(msg) = "roSocketEvent" and sock.IsReadable() then
+            reply = ParseJson(sock.ReceiveStr(4096))
+            if type(reply) = "roAssociativeArray" and NxIsString(reply.Address) then
+                id = NxToStr(reply.Id)
+                if not seen.DoesExist(id + reply.Address) then
+                    seen[id + reply.Address] = true
+                    found.Push({ name: NxToStr(NxOr(reply.Name, reply.Address)), address: reply.Address, id: id })
+                end if
+            end if
+        else if msg = invalid then
+            exit while
+        end if
+    end while
+    sock.Close()
+    return found
+end function
+
+' Saves a Jellyfin or Emby sign-in as this TV's only server and clears caches
+' another account or server left (NxClaimAccountCaches), as a fresh Plex
+' sign-in does.
+sub NxMbSaveSignIn(kind as String, base as String, info as Object, auth as Object)
+    serverId = auth.serverId
+    if serverId = "" then serverId = info.id
+    if serverId = "" then serverId = base
+    server = {
+        kind: kind, name: info.name, machineIdentifier: serverId, uri: base,
+        userId: auth.userId, accessToken: auth.token, owned: true, checked: true
+    }
+    reg = NxPlexRegistry()
+    reg.Delete("token")
+    reg.Delete("needsPick")
+    reg.Delete("serverChoices")
+    reg.Write("kind", kind)
+    reg.Write("servers", FormatJson([server]))
+    reg.Flush()
+    if NxClaimAccountCaches(kind + ":" + serverId + ":" + auth.userId, true) then print "mediabrowser: cleared the saved library left by another account, or by none recorded"
+end sub
