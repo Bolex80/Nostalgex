@@ -612,6 +612,9 @@ function rebuildForBundles(prev as Object) as Dynamic
         if serversOn[i] and NxToStr(servers[i].uri) <> "" then
             if type(snap.servers[key]) <> "roAssociativeArray" then
                 print "library: package change needs a full rebuild: server "; i; " has no saved library"
+                ' cachefs: files can be deleted by the OS to make room.
+                fs = CreateObject("roFileSystem")
+                print "library: saved library dir has "; ListDir(snapDir).Count(); " files, meta.json "; fs.Exists(snapDir + "/meta.json"); ", saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists("cachefs:/nostalgex-enrichment.json")
                 return invalid
             end if
             saved = NxSnapshotLoadServer(snapDir, snap, key, i)
