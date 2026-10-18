@@ -61,7 +61,8 @@ end function
 sub quickConnect()
     s = m.top.server
     start = NxMbQuickConnectStart(s.base)
-    if start = "off" then
+    ' A String ("off") or an object: BrightScript can't compare an object to text.
+    if NxIsString(start) then
         fail("Quick Connect is off on this server. Turn it on in Jellyfin (Dashboard, then General), or sign in with your password.")
         return
     end if
