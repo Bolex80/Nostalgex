@@ -9,8 +9,10 @@
  * decides the invite and the guide lead, never whether pools are built.
  *
  * Runs the production scripts/nostalgex-library-load.js against the shipped
- * channels.json, plus the real `isBundleInSeason` from plex-tuner.html under a
- * fixed clock for each month. No network. Run: `npm run test:library-load`.
+ * channels.json, plus the real `isBundleInSeason` from plex-tuner.html (which hands
+ * off to scripts/nostalgex-season.js) under a fixed clock for each month. The season
+ * itself, `seasonStart` included, is `npm run test:season`. No network.
+ * Run: `npm run test:library-load`.
  */
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -18,6 +20,7 @@ import assert from "node:assert/strict";
 
 const root = new URL("../", import.meta.url);
 const loaderSrc = readFileSync(new URL("scripts/nostalgex-library-load.js", root), "utf8");
+const seasonSrc = readFileSync(new URL("scripts/nostalgex-season.js", root), "utf8");
 const tuner = readFileSync(new URL("plex-tuner.html", root), "utf8");
 const config = JSON.parse(readFileSync(new URL("channels.json", root), "utf8"));
 
@@ -51,7 +54,9 @@ function isBundleInSeasonAt(month) {
     }
   }
   const ctx = { Date: FixedDate };
+  ctx.globalThis = ctx;
   vm.createContext(ctx);
+  vm.runInContext(seasonSrc, ctx);
   vm.runInContext(`${src}\nthis.fn = isBundleInSeason;`, ctx);
   return ctx.fn;
 }
@@ -111,12 +116,17 @@ check("activeMonths still drives the invite and the guide lead (isBundleInSeason
 });
 
 check("Settings row label: SPOTLIGHTED <month>, never OFF SEASON", () => {
-  assert.equal(LL.seasonalSpotlightLabel(byID.get("seasonal")), "SPOTLIGHTED OCT");
-  assert.equal(LL.seasonalSpotlightLabel(byID.get("tis-the-season")), "SPOTLIGHTED DEC");
-  assert.equal(LL.seasonalSpotlightLabel(byID.get("nostalgex")), "");
-  assert.equal(LL.seasonalSpotlightLabel({ activeMonths: [11, 12] }), "SPOTLIGHTED NOV, DEC");
+  const ctx = { globalThis: null };
+  ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(seasonSrc, ctx);
+  const label = (b) => ctx.NostalgexSeason.seasonalSpotlightLabel(b, new Date(2026, 6, 4, 12));
+  assert.equal(label(byID.get("seasonal")), "SPOTLIGHTED OCT");
+  assert.equal(label(byID.get("tis-the-season")), "SPOTLIGHTED NOV 19 TO DEC 31");
+  assert.equal(label(byID.get("nostalgex")), "");
+  assert.equal(label({ activeMonths: [11, 12] }), "SPOTLIGHTED NOV, DEC");
   assert.equal(tuner.includes("OFF SEASON"), false, "plex-tuner.html still prints OFF SEASON");
-  assert.equal(tuner.includes("seasonalSpotlightLabel(bundle)"), true, "the bundle row does not use the label");
+  assert.equal(tuner.includes("seasonalSpotlightLabel(bundle, new Date())"), true, "the bundle row does not use the label");
 });
 
 check("plex-tuner.html no longer hands the season check to the pool build", () => {

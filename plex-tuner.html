@@ -20,6 +20,7 @@
 <script src="scripts/nostalgex-music-brainz.js"></script>
 <script src="scripts/nostalgex-daily-manifest.js"></script>
 <script src="scripts/nostalgex-library-load.js"></script>
+<script src="scripts/nostalgex-season.js"></script>
 <script src="scripts/nostalgex-enrichment.js"></script>
 <script src="scripts/nostalgex-collections.js"></script>
 <script src="scripts/nostalgex-watch-state.js"></script>
@@ -3762,10 +3763,11 @@
     }
   }
 
+  // When a seasonal package is in season (its invite, its guide lead, its Settings
+  // note): scripts/nostalgex-season.js, which mirrors ChannelBundle.swift and shares
+  // scripts/season-golden.json with the Apple TV tests.
   function isBundleInSeason(bundle) {
-    if (!bundle.activeMonths) return true;
-    const currentMonth = new Date().getMonth() + 1; // 1-12
-    return bundle.activeMonths.includes(currentMonth);
+    return globalThis.NostalgexSeason.isInSeason(bundle, new Date());
   }
 
   // What the guide prints. `id` is the stable key (collections live at 1,000,000+,
@@ -3773,13 +3775,10 @@
   function chNum(ch) { return ch.number || ch.id; }
 
   // Mirrors GuideChannelOrder.swift: a seasonal package can be switched on any month,
-  // and for the month it runs it leads the guide as a block, in its bundle's order,
+  // and while it is in season it leads the guide as a block, in its bundle's order,
   // above channel one. Numbers are untouched.
   function seasonalLeadIDs() {
-    const now = new Date();
-    return bundles
-      .filter(b => b.activeMonths && enabledBundleIDs.has(b.id) && isBundleInSeason(b))
-      .flatMap(b => b.channelIDs || []);
+    return globalThis.NostalgexSeason.seasonalLeadIDs(bundles, enabledBundleIDs, new Date());
   }
 
   function sortChannelsForGuide(list) {
@@ -3814,14 +3813,10 @@
     renderActiveGuide();
   }
   function seasonalBundleOnOffer() {
-    return bundles.find(b => b.activeMonths && isBundleInSeason(b)
-      && !enabledBundleIDs.has(b.id) && !isSeasonalPromptSilenced(b.id)) || null;
+    return globalThis.NostalgexSeason.bundleToOffer(bundles, enabledBundleIDs, new Date(), isSeasonalPromptSilenced);
   }
   function seasonalHeadline(bundle) {
-    if (bundle.id === 'seasonal') return "IT'S OCTOBER. ARE YOU READY TO SCREAM?";
-    if (bundle.id === 'tis-the-season') return "IT'S DECEMBER. DECK THE CHANNELS.";
-    const month = new Date().toLocaleString('en-US', { month: 'long' }).toUpperCase();
-    return `IT'S ${month}. ${bundle.name} IS ON.`;
+    return globalThis.NostalgexSeason.inviteHeadline(bundle, new Date());
   }
 
   function applyBundleFilter() {
@@ -3885,6 +3880,7 @@
             description: b.description || '',
             channelIDs: b.channelIDs || [],
             activeMonths: b.activeMonths || null,
+            seasonStart: b.seasonStart || null,
             enabled: enabledBundleIDs.has(b.id),
           }));
         }
@@ -7042,7 +7038,7 @@
       const isEnabled = enabledBundleIDs.has(bundle.id);
       // A seasonal bundle works in every month; outside its month the row says when
       // it is spotlighted, like the Apple TV row ("Spotlighted OCT").
-      const spotlight = isBundleInSeason(bundle) ? '' : globalThis.NostalgexLibraryLoad.seasonalSpotlightLabel(bundle);
+      const spotlight = isBundleInSeason(bundle) ? '' : globalThis.NostalgexSeason.seasonalSpotlightLabel(bundle, new Date());
       const isFocused = idx === bundleFocusIndex;
       const channelCount = bundle.channelIDs.length;
 
