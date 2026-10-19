@@ -54,12 +54,14 @@ end function
 ' filter cache, the enrichment record and the artwork paths. Every episode of
 ' a show shares one enrichment record in memory but would get its own copy
 ' in the file.
-sub NxSavePools(ordered as Object, guide as Object, month as Integer)
+'
+' Besides the guide's pools, every built channel's filter result (built:
+' buildGuide's channels, those too small for the guide included), so a
+' launch with an unchanged library reuses them (NxSavedFiltered).
+sub NxSavePools(ordered as Object, guide as Object, month as Integer, built as Object)
     path = NxPoolCachePath()
     WriteAsciiFile(path, "{""key"":" + FormatJson(NxPoolCacheKey(month, guide.enabledBundles)) + ",""items"":[")
-    index = {}
-    count = 0
-    parts = []
+    st = { index: {}, count: 0, parts: [], path: path }
     chans = []
     for each ch in ordered
         saved = {}
@@ -72,36 +74,89 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
         end for
         pool = ch.basePool
         if pool = invalid then pool = ch.pool
-        idx = []
-        for each it in pool
-            id = NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)
-            n = index[id]
-            if n = invalid then
-                n = count
-                count = count + 1
-                index[id] = n
-                copy = {}
-                for each k in it
-                    lk = LCase(k)
-                    if lk <> "nxfilter" and lk <> "enrichment" and lk <> "thumb" and lk <> "art" then copy[k] = it[k]
-                end for
-                text = FormatJson(copy)
-                if n > 0 then text = "," + text
-                parts.Push(text)
-                if parts.Count() >= 500 then NxAppendText(path, parts)
-            end if
-            idx.Push(n)
-        end for
-        saved.poolIdx = idx
+        saved.poolIdx = NxPoolItemIndexes(pool, st)
         chans.Push(saved)
     end for
-    parts.Push("],""channels"":" + FormatJson(chans))
-    parts.Push(",""libraryItems"":" + FormatJson(guide.items))
-    parts.Push(",""bundles"":" + FormatJson(guide.bundles))
-    parts.Push(",""franchises"":" + FormatJson(guide.franchises))
-    parts.Push(",""collections"":" + FormatJson(guide.collections) + "}")
-    NxAppendText(path, parts)
+    filtered = {}
+    for each ch in built
+        if ch.filtered <> invalid then filtered[ch.id.ToStr()] = NxPoolItemIndexes(ch.filtered, st)
+    end for
+    st.parts.Push("],""channels"":" + FormatJson(chans))
+    st.parts.Push(",""filtered"":" + FormatJson(filtered))
+    st.parts.Push(",""libraryItems"":" + FormatJson(guide.items))
+    st.parts.Push(",""bundles"":" + FormatJson(guide.bundles))
+    st.parts.Push(",""franchises"":" + FormatJson(guide.franchises))
+    st.parts.Push(",""collections"":" + FormatJson(guide.collections) + "}")
+    NxAppendText(path, st.parts)
 end sub
+
+' Each item's place in the file's item list, writing the items not yet in it.
+function NxPoolItemIndexes(list as Object, st as Object) as Object
+    idx = []
+    for each it in list
+        id = NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)
+        n = st.index[id]
+        if n = invalid then
+            n = st.count
+            st.count = st.count + 1
+            st.index[id] = n
+            copy = {}
+            for each k in it
+                lk = LCase(k)
+                if lk <> "nxfilter" and lk <> "enrichment" and lk <> "thumb" and lk <> "art" then copy[k] = it[k]
+            end for
+            text = FormatJson(copy)
+            if n > 0 then text = "," + text
+            st.parts.Push(text)
+            if st.parts.Count() >= 500 then NxAppendText(st.path, st.parts)
+        end if
+        idx.Push(n)
+    end for
+    return idx
+end function
+
+' The last build's filter results, for a launch whose library is the one it
+' was built from (every server from its save, nothing new from enrichment):
+' { <channel id>: [items] } over this run's items, as buildGuide's reuse.
+' A channel whose rules read the clock to the day or finer (PREMIERES'
+' addedWithinDays, releasedWithinMonths) is left out, so it's filtered
+' again; the rest read only the year, and the key holds the month. Invalid
+' when there is no match for these packages and choices, or an item isn't in
+' the library.
+function NxSavedFiltered(items as Object, config as Object, month as Integer, bundles as Object) as Dynamic
+    if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
+    saved = ParseJson(NxReadBigFile(NxPoolCachePath()))
+    if type(saved) <> "roAssociativeArray" then return invalid
+    if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.filtered) <> "roAssociativeArray" or type(saved.items) <> "roArray" then return invalid
+    byKey = {}
+    for each it in items
+        byKey[NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)] = it
+    end for
+    mapped = []
+    for each it in saved.items
+        x = byKey[NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)]
+        if x = invalid then return invalid
+        mapped.Push(x)
+    end for
+    clocked = {}
+    for each def in config.channels
+        r = def.rules
+        if type(r) = "roAssociativeArray" then
+            if NxIsNumber(r.addedWithinDays) or NxIsNumber(r.releasedWithinMonths) then clocked[def.id.ToStr()] = true
+        end if
+    end for
+    reuse = {}
+    for each id in saved.filtered
+        if not clocked.DoesExist(id) then
+            list = []
+            for each n in saved.filtered[id]
+                list.Push(mapped[n])
+            end for
+            reuse[id] = list
+        end if
+    end for
+    return reuse
+end function
 
 function NxFileKB(path as String) as Integer
     st = CreateObject("roFileSystem").Stat(path)
@@ -128,9 +183,17 @@ end function
 
 ' The guide from the saved pools, as { ordered, guide }, or invalid when
 ' there are none for this key.
+' Only today is scheduled: the launch's guide goes up first, and the caller
+' schedules tomorrow after.
 function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles as Object) as Dynamic
     if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
-    saved = ParseJson(NxReadBigFile(NxPoolCachePath()))
+    timer = CreateObject("roTimespan")
+    text = NxReadBigFile(NxPoolCachePath())
+    readMs = timer.TotalMilliseconds()
+    timer.Mark()
+    saved = ParseJson(text)
+    text = ""
+    print "library: saved pools read in "; readMs; " ms, parsed in "; timer.TotalMilliseconds(); " ms"
     if type(saved) <> "roAssociativeArray" then return invalid
     if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
     ordered = []
@@ -146,8 +209,11 @@ function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles 
         ordered.Push(ch)
     end for
     NxClearManifests()
+    timer.Mark()
+    channels = NxScheduleGuide(ordered, nowSec, true)
+    print "library: saved pools shuffled and today scheduled in "; timer.TotalMilliseconds(); " ms"
     guide = {
-        channels: NxScheduleGuide(ordered, nowSec), builtAt: nowSec, items: saved.libraryItems,
+        channels: channels, builtAt: nowSec, items: saved.libraryItems,
         bundles: saved.bundles, enabledBundles: bundles, franchises: saved.franchises,
         collections: saved.collections
     }
@@ -186,6 +252,13 @@ sub loadLibrary()
                 m.top.status = "ready"
                 shown = true
                 print "library: showing the saved pools, scheduled for today, after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
+                ' Then tomorrow, so the guide can be read past midnight.
+                t = CreateObject("roTimespan")
+                fromPools.guide.channels = NxScheduleGuide(fromPools.ordered, clock0.nowSec)
+                m.top.guide = fromPools.guide
+                m.shownGuide = fromPools.guide
+                m.top.status = "ready"
+                print "library: tomorrow scheduled and handed over in "; t.TotalMilliseconds(); " ms"
             end if
         end if
     end if
@@ -326,18 +399,29 @@ sub loadLibrary()
     m.top.progress = "Reading shared details…"
     state = NxEnrichFromCaches(items, opts)
     if not state.skipped then print "library: enrichment caches read in "; timer.TotalMilliseconds(); " ms"
+    ' Every server from its save: the last build's filter results stand for
+    ' all but the channels that read the clock (NxSavedFiltered).
+    reuse = invalid
+    if scanned.Count() = 0 then
+        timer.Mark()
+        reuse = NxSavedFiltered(items, config, NxFilterClock().month, NxEnabledBundles())
+        if reuse <> invalid then print "library: "; reuse.Count(); " channels' filter results from the last build, read in "; timer.TotalMilliseconds(); " ms"
+    end if
     built = invalid
     if NxEnrichHasRemoteWork(state, opts) then
         if not shown then
-            built = buildGuide(items, config, manifest, collections, false)
+            built = buildGuide(items, config, manifest, collections, false, reuse)
             shown = true
         end if
         timer.Mark()
         added = NxEnrichFromRemote(state, items, opts)
         print "library: enrichment remote step added "; added; " in "; timer.TotalMilliseconds(); " ms"
-        if added > 0 then built = invalid
+        if added > 0 then
+            built = invalid
+            reuse = invalid
+        end if
     end if
-    if built = invalid then built = buildGuide(items, config, manifest, collections, shown)
+    if built = invalid then built = buildGuide(items, config, manifest, collections, shown, reuse)
     timer.Mark()
     for each s in scanned
         NxSnapshotSaveServer(snapDir, snap, s.key, items, s.index, s.collections, s.signature, nowSec&)
@@ -401,7 +485,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             matched = invalid
             if reuse <> invalid then matched = reuse[def.id.ToStr()]
             if matched = invalid then
-                if reuse <> invalid then print "library: package change: filtering channel "; def.id; " again"
+                if reuse <> invalid then print "library: filtering channel "; def.id; " (no earlier result to reuse)"
                 matched = []
                 for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
                     matched.Push(row.item)
@@ -545,7 +629,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     print "library: saved the guide in "; timer.TotalMilliseconds(); " ms"
     timer.Mark()
-    NxSavePools(ordered, guide, clock.month)
+    NxSavePools(ordered, guide, clock.month, channels)
     print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
     return { ordered: ordered, guide: guide, channels: channels }
 end function

@@ -6,14 +6,18 @@
 ' What each channel airs today and tomorrow, as buildChannelSchedule
 ' computes it: the hour's time restrictions, then the day's schedule from the
 ' session cache.
-function NxScheduleGuide(ordered as Object, nowSec as LongInteger) as Object
+' todayOnly leaves tomorrow out, for a launch that needs the guide up first;
+' tomorrow is packed from today's schedule either way, so scheduling it
+' afterwards gives the same blocks.
+function NxScheduleGuide(ordered as Object, nowSec as LongInteger, todayOnly = false as Boolean) as Object
     day = NxLocalDay(nowSec)
     tomorrowAt& = day.dayStartSec + 86400 + 60
     tomorrowHour = NxLocalDay(tomorrowAt&).hour
     out = []
     for each ch in ordered
         today = NxManifestBlocks(ch, NxTimeFilteredPool(ch, ch.pool, day.hour), nowSec, NxPoolMemo(ch, day.hour))
-        tomorrow = NxManifestBlocks(ch, NxTimeFilteredPool(ch, ch.pool, tomorrowHour), tomorrowAt&, NxPoolMemo(ch, tomorrowHour))
+        tomorrow = []
+        if not todayOnly then tomorrow = NxManifestBlocks(ch, NxTimeFilteredPool(ch, ch.pool, tomorrowHour), tomorrowAt&, NxPoolMemo(ch, tomorrowHour))
         blocks = []
         for each b in today
             blocks.Push(NxGuideBlock(b))
