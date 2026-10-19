@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Golden vectors for the channel pool filter. Read by BOTH Nostalgex/NostalgexTests/FilterGoldenTests.swift (AppState.filterItems, tvOS) and scripts/nostalgex-filter-golden-smoke.mjs (scripts/nostalgex-channel-filter.cjs, web tuner and Docker; npm run test:filter-golden). Each case is one item run against the SHIPPED channels.json, its exclusiveRules and channels-memberships.json. `in` lists channel ids (not numbers) the item must reach, `out` the ids it must not. Item fields: title, artist (music videos), episodeTitle, year, type (movie|episode), librarySource (movie|tv|musicVideo), genres, contentRating, duration (minutes, default 100), rating, studio, tmdbID (string; only when the case is about a manifest claim), and enrichment ({ keywords, productionCompanies, networks }; absent means not enriched). When a rule changes, change both engines, then update or add a case here.",
+  "about": "Golden vectors for the channel pool filter. Read by BOTH Nostalgex/NostalgexTests/FilterGoldenTests.swift (AppState.filterItems, tvOS) and scripts/nostalgex-filter-golden-smoke.mjs (scripts/nostalgex-channel-filter.cjs, web tuner and Docker; npm run test:filter-golden). Each case is one item run against the SHIPPED channels.json, its exclusiveRules and channels-memberships.json. `in` lists channel ids (not numbers) the item must reach, `out` the ids it must not. Item fields: title, artist (music videos), episodeTitle, year, type (movie|episode), librarySource (movie|tv|musicVideo), genres, contentRating, duration (minutes, default 100), rating, studio, tmdbID (string; only when the case is about a manifest claim), and enrichment ({ keywords, productionCompanies, networks }; absent means not enriched), backend (plex|jellyfin|emby, default plex; the server the item came from) and doviProfile (Dolby Vision profile; absent means unknown). When a rule changes, change both engines, then update or add a case here.",
   "cases": [
     {
       "name": "kicking-and-screaming-is-not-a-scream-film",
@@ -993,6 +993,167 @@
       },
       "in": [
         400
+      ],
+      "out": []
+    },
+    {
+      "name": "emby-dolby-vision-5-film-is-on-no-channel",
+      "about": "Emby sends Dolby Vision profile 5 to Apple TV and browsers in a form they draw green and purple, so it goes on no channel (ChannelEligibility.swift, isLeftOffChannels in nostalgex-channel-filter.cjs). The same film with profile 8, without a profile, or from Jellyfin or Plex reaches these channels (the cases below).",
+      "item": {
+        "title": "Lab Clip Comedy",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "PG",
+        "backend": "emby",
+        "doviProfile": 5
+      },
+      "in": [],
+      "out": [
+        14,
+        405,
+        406,
+        51
+      ]
+    },
+    {
+      "name": "emby-dolby-vision-5-episode-is-on-no-channel",
+      "item": {
+        "title": "Lab Clip Show",
+        "episodeTitle": "Pilot",
+        "year": 2003,
+        "type": "episode",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "TV-PG",
+        "duration": 25,
+        "backend": "emby",
+        "doviProfile": 5
+      },
+      "in": [],
+      "out": [
+        407,
+        30,
+        33,
+        50
+      ]
+    },
+    {
+      "name": "emby-dolby-vision-8-film-airs",
+      "about": "Profile 8 carries an HDR10 base layer and is not green on Apple TV.",
+      "item": {
+        "title": "Lab Clip Comedy",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "PG",
+        "backend": "emby",
+        "doviProfile": 8
+      },
+      "in": [
+        14,
+        405,
+        406,
+        51
+      ],
+      "out": []
+    },
+    {
+      "name": "emby-dolby-vision-8-episode-airs",
+      "item": {
+        "title": "Lab Clip Show",
+        "episodeTitle": "Pilot",
+        "year": 2003,
+        "type": "episode",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "TV-PG",
+        "duration": 25,
+        "backend": "emby",
+        "doviProfile": 8
+      },
+      "in": [
+        407,
+        30,
+        33,
+        50
+      ],
+      "out": []
+    },
+    {
+      "name": "emby-film-without-a-profile-airs",
+      "about": "HDR10, SDR, or Dolby Vision whose profile Emby did not report: kept, never guessed.",
+      "item": {
+        "title": "Lab Clip Comedy",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "PG",
+        "backend": "emby"
+      },
+      "in": [
+        14,
+        405,
+        406,
+        51
+      ],
+      "out": []
+    },
+    {
+      "name": "jellyfin-dolby-vision-5-film-airs",
+      "about": "Jellyfin sends profile 5 as Dolby Vision to Apple TV and tone-maps it for browsers.",
+      "item": {
+        "title": "Lab Clip Comedy",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "PG",
+        "backend": "jellyfin",
+        "doviProfile": 5
+      },
+      "in": [
+        14,
+        405,
+        406,
+        51
+      ],
+      "out": []
+    },
+    {
+      "name": "plex-dolby-vision-5-film-airs",
+      "item": {
+        "title": "Lab Clip Comedy",
+        "year": 2003,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Action"
+        ],
+        "contentRating": "PG",
+        "backend": "plex",
+        "doviProfile": 5
+      },
+      "in": [
+        14,
+        405,
+        406,
+        51
       ],
       "out": []
     }

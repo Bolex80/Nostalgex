@@ -35,6 +35,9 @@ final class FilterGoldenTests: XCTestCase {
         let studio: String?
         let tmdbID: String?
         let enrichment: Enrichment?
+        /// plex | jellyfin | emby; absent means plex.
+        let backend: String?
+        let doviProfile: Int?
     }
 
     private struct Case: Decodable {
@@ -66,12 +69,12 @@ final class FilterGoldenTests: XCTestCase {
             partKey: nil, container: nil, videoCodec: nil, audioCodec: nil, videoProfile: nil,
             bitrate: nil, genres: g.genres ?? [], rating: g.rating ?? 0, userRating: 0, type: type,
             thumb: nil, art: nil, viewCount: 0, addedAt: 0, studio: g.studio, tmdbID: g.tmdbID,
-            imdbID: nil, librarySource: source
+            imdbID: nil, librarySource: source, doviProfile: g.doviProfile
         )
     }
 
     /// What `makeFilterCache` builds for this item in the app: artist first, then title,
-    /// lowercased, trailing " (YYYY)" stripped.
+    /// lowercased, trailing " (YYYY)" stripped, and the channel eligibility for its backend.
     @MainActor
     private func cache(_ g: Item) -> AppState.FilterCache {
         let item = plexItem(g)
@@ -92,7 +95,9 @@ final class FilterGoldenTests: XCTestCase {
             episodeTitleLower: (g.episodeTitle ?? "").lowercased(),
             genresLowerSet: Set((g.genres ?? []).map { $0.lowercased() }),
             enrichment: enrichment,
-            itemStudioLower: (g.studio ?? "").lowercased()
+            itemStudioLower: (g.studio ?? "").lowercased(),
+            leftOffChannels: ChannelEligibility.isLeftOffChannels(
+                item, backend: g.backend.flatMap(MediaBackendKind.init(rawValue:)) ?? .plex)
         )
     }
 

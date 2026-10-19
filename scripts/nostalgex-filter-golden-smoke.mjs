@@ -49,6 +49,7 @@ function toItem(g) {
     studio: g.studio ?? null,
     tmdbID: g.tmdbID ?? null,
     ratingKey: "golden",
+    doviProfile: g.doviProfile ?? null,
   };
   if (g.enrichment) {
     item.enrichment = {
@@ -67,7 +68,7 @@ for (const c of golden.cases) {
   const pass = (id) => {
     const ch = channels.get(id);
     if (!ch) throw new Error(`channel id ${id} is not in channels.json`);
-    return CF.itemPasses(item, ch, { manifest, exclusiveRules }) !== false;
+    return CF.itemPasses(item, ch, { manifest, exclusiveRules, backend: c.item.backend || "plex" }) !== false;
   };
   const problems = [];
   try {
