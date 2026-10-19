@@ -33,6 +33,13 @@ function NxTuneStopped(q as Object) as Integer
     return idx
 end function
 
+' A new guide moved the channels: the one waiting (always the one the
+' screen shows as tuned) now sits at idx. A waiting index from the old list
+' would start whatever took its place, or nothing at all past the new end.
+sub NxTuneMoved(q as Object, idx as Integer)
+    if q.pending >= 0 then q.pending = idx
+end sub
+
 ' Leaving the player: whatever was waiting never starts.
 sub NxTuneDrop(q as Object)
     q.pending = -1

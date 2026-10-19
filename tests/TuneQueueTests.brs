@@ -26,6 +26,16 @@ function NxRunTuneQueueTests() as Integer
     NxTuneDrop(q)
     NxCheck(r, "dropped never starts", NxTuneStopped(q).ToStr(), "-1")
 
+    ' A new guide lands while a tune waits on the stop: the channel waiting
+    ' moved from 7 to 2 in the new list.
+    q = NxTuneQueue()
+    NxTuneAsk(q, 7, true)
+    NxTuneMoved(q, 2)
+    NxCheck(r, "a moved channel starts where it is now", NxTuneStopped(q).ToStr(), "2")
+    q = NxTuneQueue()
+    NxTuneMoved(q, 2)
+    NxCheck(r, "a new guide starts nothing that wasn't waiting", NxTuneStopped(q).ToStr(), "-1")
+
     print "tune queue cases (upstream tune ownership): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

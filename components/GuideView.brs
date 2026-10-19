@@ -180,6 +180,7 @@ sub onGuide()
         if m.channels[i].id = tunedId then m.tuned = i
         if m.channels[i].id = focusId then m.focus = i
     end for
+    NxTuneMoved(m.tuneQueue, m.tuned)
     keepFocusVisible()
     renderGrid()
     renderInfo()
@@ -664,7 +665,12 @@ sub tune(idx as Integer, nextAiring = invalid as Dynamic)
     ' From the press to the picture, stop included: the maintainer's bar is
     ' under 10 s for a converted channel, mid-programme too.
     ' A retry keeps the clock running.
-    if m.retrying <> true then m.tuneClock = CreateObject("roTimespan")
+    if m.retrying <> true then
+        m.tuneClock = CreateObject("roTimespan")
+        ' Anything tuned meanwhile replaces a retry still waiting to fire,
+        ' which would otherwise restart whatever is on by then.
+        stopRetry()
+    end if
     m.retrying = false
     action = NxTuneAsk(m.tuneQueue, idx, m.stopUrl <> invalid and m.stopUrl <> "")
     if action = "start" then
@@ -806,8 +812,12 @@ sub onVideoState()
         if e <> invalid then print "player: error category "; e.category; " code "; e.errcode; " source "; e.source
         ' One retry, as upstream retries a failed start: Plex can refuse a
         ' stream for a moment while the last one is still winding down.
+        ' The one retry is per channel: another channel's refusal, say while
+        ' the last transcode winds down after a flip, gets its own.
+        if m.retried = true and m.retriedId <> tunedChannelId() then m.retried = false
         if m.retried <> true and m.tuned >= 0 then
             m.retried = true
+            m.retriedId = tunedChannelId()
             m.retryTimer = CreateObject("roSGNode", "Timer")
             m.retryTimer.duration = 3
             m.retryTimer.ObserveField("fire", "onRetry")
@@ -819,9 +829,17 @@ sub onVideoState()
 end sub
 
 sub onRetry()
+    m.retryTimer = invalid
     print "player: retrying"
     m.retrying = true
     tune(m.tuned)
+end sub
+
+sub stopRetry()
+    if m.retryTimer = invalid then return
+    m.retryTimer.control = "stop"
+    m.retryTimer.UnobserveField("fire")
+    m.retryTimer = invalid
 end sub
 
 sub setFullscreen(on as Boolean)
@@ -1209,6 +1227,9 @@ sub expireSleep()
     closeGrace()
     m.sleepMinutes = 0
     print "player: sleep timer ran out; stopping"
+    ' Nothing waiting may start again behind the guide.
+    stopRetry()
+    NxTuneDrop(m.tuneQueue)
     stopPrevious()
     m.video.control = "stop"
     m.playing = invalid
