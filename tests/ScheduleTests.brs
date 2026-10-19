@@ -47,6 +47,16 @@ function NxRunScheduleTests(vectorsPath as String) as Integer
         NxCheck(r, "packDay " + c.name, parts.Join(","), c.blocks)
     end for
 
+    ' NxPackDay's goldenShift for pools past 2^24 s, where Int() would round
+    ' to float32 on a TV, and NxFloorDouble around it (Math.floor in Python).
+    for each c in [[27000000&, "16686917"], [70000000&, "43262379"], [123456789&, "76300491"]]
+        total& = c[0]
+        NxCheck(r, "goldenShift " + total&.ToStr(), NxFloorDouble(total& * 0.6180339887#).ToStr(), c[1])
+    end for
+    for each c in [[0#, "0"], [0.999#, "0"], [-1.5#, "-2"], [16777217.5#, "16777217"], [1684742353.25#, "1684742353"], [951868799#, "951868799"], [123456789012.75#, "123456789012"]]
+        NxCheck(r, "floor " + Str(c[0]).Trim(), NxFloorDouble(c[0]).ToStr(), c[1])
+    end for
+
     print "schedule vectors (upstream "; Left(v.upstream.commit, 7); "): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

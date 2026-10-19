@@ -377,7 +377,8 @@ function NxPackDay(pool as Object, dayStartSec as Integer, dayNumber as Integer,
     if t < dayEndSec then
         ' Filler loop: sequels only, no premiere promotion, as on tvOS.
         orderedFull = NxGroupSequelParts(NxInterleaveByShow(pool, channelId, dayNumber + 1))
-        goldenShift = Int(totalPoolSec * 0.6180339887#)
+        ' Math.floor, exactly: Int() would round a pool past 2^24 seconds to float32.
+        goldenShift = NxFloorDouble(totalPoolSec * 0.6180339887#)
         day& = dayNumber
         offsetSec = (day& * goldenShift) mod totalPoolSec
 

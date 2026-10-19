@@ -59,3 +59,25 @@ function NxHasValue(list as Object, v as Dynamic) as Boolean
     end for
     return false
 end function
+
+' Math.floor of a Double, exactly, for |d| < 2^46 (the first guess must fit
+' an Integer). Int() takes a Float on a Roku, so past 2^24 it rounds first
+' (Jellyfin dates came out up to 64 s off, Discussion #8); here it only
+' makes the first guess.
+function NxFloorDouble(d as Double) as LongInteger
+    a& = Int(d / 65536#)
+    a& = a& * 65536&
+    while a& > d
+        a& = a& - 65536&
+    end while
+    while a& + 65536& <= d
+        a& = a& + 65536&
+    end while
+    ' a& <= d < a& + 65536: the largest step that stays at or under d.
+    stepSize& = 32768&
+    while stepSize& >= 1
+        if a& + stepSize& <= d then a& = a& + stepSize&
+        stepSize& = stepSize& \ 2
+    end while
+    return a&
+end function

@@ -75,15 +75,17 @@ function NxMbUnixSeconds(iso as Dynamic) as Integer
     doy = Int((153 * mp + 2) / 5) + d - 1
     doe = yoe * 365 + Int(yoe / 4) - Int(yoe / 100) + doy
     days = era * 146097 + doe - 719468
-    secs = days * 86400#
-    if hit.Count() > 4 and hit[4] <> "" then secs = secs + hit[4].ToInt() * 3600 + hit[5].ToInt() * 60
-    if hit.Count() > 6 and hit[6] <> "" then secs = secs + hit[6].ToInt()
+    ' A LongInteger, not a Double: Int() takes a Float on a Roku, which
+    ' rounded these to float32 (up to 64 s off; Discussion #8).
+    secs& = days * 86400&
+    if hit.Count() > 4 and hit[4] <> "" then secs& = secs& + hit[4].ToInt() * 3600 + hit[5].ToInt() * 60
+    if hit.Count() > 6 and hit[6] <> "" then secs& = secs& + hit[6].ToInt()
     if hit.Count() > 7 and hit[7] <> "" and hit[7] <> "Z" then
         sign = 1
         if Left(hit[7], 1) = "-" then sign = -1
-        secs = secs - sign * (Mid(hit[7], 2, 2).ToInt() * 3600 + Mid(hit[7], 5, 2).ToInt() * 60)
+        secs& = secs& - sign * (Mid(hit[7], 2, 2).ToInt() * 3600 + Mid(hit[7], 5, 2).ToInt() * 60)
     end if
-    return Int(secs)
+    return secs&
 end function
 
 ' RunTimeTicks (100 ns) to whole minutes, rounded half up as Math.round.
