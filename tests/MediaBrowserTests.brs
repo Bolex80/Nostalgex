@@ -30,8 +30,14 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
             for each k in want
                 NxCheck(r, label + " " + k, FormatJson(NxMbJsonValue(it[k])), FormatJson(NxMbJsonValue(want[k])))
             end for
+            ' By lowercased name: on a TV an AA literal's keys iterate
+            ' lowercased, while ParseJson's keep their case.
+            wantKeys = {}
+            for each k in want
+                wantKeys[LCase(k)] = true
+            end for
             for each k in it
-                if not want.DoesExist(k) and not extras.DoesExist(k) then NxCheck(r, label + " has no field " + k, "present", "absent")
+                if not wantKeys.DoesExist(LCase(k)) and not extras.DoesExist(k) then NxCheck(r, label + " has no field " + k, "present", "absent")
             end for
             NxCheck(r, label + " serverIndex", NxToStr(it.serverIndex), "2")
         end for
