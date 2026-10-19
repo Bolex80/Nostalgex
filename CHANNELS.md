@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 40 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
+**Config version:** 41 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
 
 ---
 
@@ -184,7 +184,7 @@ _Premium channels_
 | 65 | **`201`** ⚠︎ | BIOPICS | `#C9A84C` | Movies | 5 | kw +6 |
 | 66 | **`67`** ⚠︎ | ALL TIME GREATS | `#FFD700` | Movies | 5 | Plex rating ≥ 8.2, ≥ 60 min |
 | 67 | **`68`** ⚠︎ | CERTIFIED GOLD | `#F56040` | Movies | 3 | Plex rating ≥ 8, ≥ 60 min |
-| 68 | **`69`** ⚠︎ | OSCAR WINNERS | `#FFD700` | Movies | 3 | title allowlist (44) |
+| 68 | **`69`** ⚠︎ | OSCAR WINNERS | `#FFD700` | Movies | 3 | title allowlist (44), title blocklist (7) |
 | 69 | **`217`** ⚠︎ | SKETCH COMEDY | `#5DADE2` | Episodes | 3 | incl Comedy/Talk Show/News, title allowlist (24) |
 
 ### ADVENTURELAND · CH 70–78
@@ -440,4 +440,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v40 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v41 by `scripts/render-channels-doc.mjs`. Do not edit by hand._

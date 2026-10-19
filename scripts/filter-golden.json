@@ -1813,6 +1813,40 @@
         409,
         412
       ]
+    },
+    {
+      "name": "rocky-ii-is-not-an-oscar-winner",
+      "about": "OSCAR WINNERS matches winning titles as whole words, so 'Rocky' caught every sequel. Only Rocky (1976) won; the sequels are excluded by title.",
+      "item": {
+        "title": "Rocky II",
+        "year": 1979,
+        "type": "movie",
+        "genres": [
+          "Drama"
+        ],
+        "contentRating": "PG"
+      },
+      "in": [],
+      "out": [
+        69
+      ]
+    },
+    {
+      "name": "rocky-is-an-oscar-winner",
+      "about": "Rocky (1976) won Best Picture and stays on OSCAR WINNERS.",
+      "item": {
+        "title": "Rocky",
+        "year": 1976,
+        "type": "movie",
+        "genres": [
+          "Drama"
+        ],
+        "contentRating": "PG"
+      },
+      "in": [
+        69
+      ],
+      "out": []
     }
   ]
 }

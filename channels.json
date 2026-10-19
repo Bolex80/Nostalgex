@@ -1,5 +1,5 @@
 {
-  "version": 40,
+  "version": 41,
   "exclusiveRules": [
     {
       "channelIDs": [
@@ -2452,6 +2452,15 @@
           "Crash",
           "The Hurt Locker",
           "The Revenant"
+        ],
+        "titleExcludes": [
+          "Rocky II",
+          "Rocky III",
+          "Rocky IV",
+          "Rocky V",
+          "Rocky Balboa",
+          "Gladiator II",
+          "The Godfather Part III"
         ]
       }
     },
