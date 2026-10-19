@@ -25,6 +25,8 @@ sub init()
     m.trackedWidth = {}
     m.advance = {}
     m.tuned = -1
+    m.sawPlaying = false
+    m.unplayedEnds = 0
     m.tuneQueue = NxTuneQueue()
     m.slotOffset = 0
     m.playing = invalid
@@ -684,6 +686,11 @@ end sub
 
 sub startTune(idx as Integer)
     m.tuned = idx
+    ' Set when this start reaches "playing"; see onVideoState's "finished".
+    ' A start that isn't a hand-over counts unplayed ends afresh; the one
+    ' retry still bounds a loop through it.
+    m.sawPlaying = false
+    if m.nextAiring = invalid then m.unplayedEnds = 0
     ch = m.channels[idx]
     t = nowSec()
     ' A hand-over starts the next airing from its beginning; a press joins
@@ -768,8 +775,22 @@ sub onVideoState()
             m.tuneClock = invalid
         end if
         m.retried = false
+        m.sawPlaying = true
+        m.unplayedEnds = 0
         hideHaze()
         applySubtitles()
+    end if
+    ' A start the server refused can end as "finished", never having played:
+    ' handing over then bounced between the airing on now and the next one,
+    ' three requests a second for four minutes against an Emby answering 401.
+    ' One such end hands over (joined past where a file shorter than its slot
+    ' ends, the next airing is right); a second in a row is a failed start.
+    if state = "finished" and m.sawPlaying = false then
+        m.unplayedEnds = m.unplayedEnds + 1
+        if m.unplayedEnds >= 2 then
+            print "player: finished without playing again; treating it as an error"
+            state = "error"
+        end if
     end if
     ' The file ended: hand over to the next airing, as upstream does on
     ' AVPlayerItemDidPlayToEndTime.
