@@ -492,6 +492,11 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
     /// The PlaybackInfo POST. `serverStreamOnly` is the retry after a direct play failed;
     /// see `JellyfinPlaybackResolver.playbackInfoBody`.
     func playbackInfoRequest(for item: PlexMediaItem, serverStreamOnly: Bool) -> URLRequest? {
+        playbackInfoRequest(for: item, serverStreamOnly: serverStreamOnly, burningSubtitle: nil)
+    }
+
+    /// `burningSubtitle`: the forced track to burn in; see `JellyfinPlaybackResolver.forcedSubtitleToBurn`.
+    func playbackInfoRequest(for item: PlexMediaItem, serverStreamOnly: Bool, burningSubtitle: Int?) -> URLRequest? {
         guard var components = URLComponents(string: "\(serverURL)/Items/\(item.ratingKey)/PlaybackInfo") else {
             return nil
         }
@@ -508,7 +513,8 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
         let body = JellyfinPlaybackResolver.playbackInfoBody(
             mediaSourceId: item.partKey ?? item.ratingKey,
             supportsHEVC: Self.deviceSupportsHEVC,
-            serverStreamOnly: serverStreamOnly
+            serverStreamOnly: serverStreamOnly,
+            burningSubtitle: burningSubtitle
         )
         guard let encoded = try? JSONEncoder().encode(body) else { return nil }
         req.httpBody = encoded
@@ -525,16 +531,28 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
     }
 
     private func negotiatePlayback(for item: PlexMediaItem, serverStreamOnly: Bool) async -> PlaybackResolution? {
+        await negotiatePlayback(
+            for: item, serverStreamOnly: serverStreamOnly,
+            preferredSubtitleLanguage: SubtitleSelectionLogic.currentSubtitleLanguage(),
+            send: { try await Self.session.data(for: $0) }
+        )
+    }
+
+    /// The PlaybackInfo exchange, with how requests are sent as a parameter so tests can
+    /// answer them. A second request burns a forced subtitle track; see
+    /// `JellyfinPlaybackResolver.negotiate`.
+    func negotiatePlayback(
+        for item: PlexMediaItem,
+        serverStreamOnly: Bool,
+        preferredSubtitleLanguage: String,
+        send: JellyfinPlaybackResolver.PlaybackInfoSend
+    ) async -> PlaybackResolution? {
         let msid = item.partKey ?? item.ratingKey
         do {
-            guard let req = playbackInfoRequest(for: item, serverStreamOnly: serverStreamOnly) else {
-                return fallbackResolution(for: item)
-            }
-            let (data, response) = try await Self.session.data(for: req)
-            let info = try Self.decode(JellyfinPlaybackResolver.PlaybackInfoResponse.self, data: data, response: response)
-            return JellyfinPlaybackResolver.resolve(
-                info, serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid,
-                serverStreamOnly: serverStreamOnly
+            return try await JellyfinPlaybackResolver.negotiate(
+                request: { playbackInfoRequest(for: item, serverStreamOnly: serverStreamOnly, burningSubtitle: $0) },
+                serverURL: serverURL, apiKey: accessToken, itemId: item.ratingKey, mediaSourceId: msid,
+                serverStreamOnly: serverStreamOnly, preferredSubtitleLanguage: preferredSubtitleLanguage, send: send
             ) ?? fallbackResolution(for: item)
         } catch {
             print("[Plex90] PlaybackInfo failed for \(item.ratingKey): \(error) — falling back to hand-built URL")

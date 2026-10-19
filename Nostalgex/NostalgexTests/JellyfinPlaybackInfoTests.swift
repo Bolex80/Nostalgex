@@ -105,9 +105,168 @@ final class JellyfinPlaybackInfoTests: XCTestCase {
             }
             XCTAssertEqual(Set(subs.map(\.Method)), ["External"], "nothing may be Encode (burn in) or Hls (cues 10 s late on fMP4)")
         }
+        XCTAssertEqual(Set(JellyfinPlaybackResolver.deviceProfile(supportsHEVC: true, burningSubtitle: true).SubtitleProfiles.map(\.Method)),
+                       ["Encode"], "only when burning the forced track")
         let json = try profileJSON(supportsHEVC: true)
         XCTAssertTrue(json.contains("\"SubtitleProfiles\":[{"), "encoded under the server's key")
         XCTAssertTrue(json.contains("\"Method\":\"External\""))
+    }
+
+    // MARK: - A forced track in the viewer's language is the one exception: burned in
+
+    private func streams(_ json: String) throws -> [JellyfinPlaybackResolver.PlaybackInfoResponse.MediaStream] {
+        try JSONDecoder().decode([JellyfinPlaybackResolver.PlaybackInfoResponse.MediaStream].self, from: Data(json.utf8))
+    }
+
+    func testAForcedTrackInTheViewersLanguageIsBurned() throws {
+        let s = try streams("""
+        [ { "Index": 0, "Type": "Video" }, { "Index": 1, "Type": "Audio", "Language": "eng" },
+          { "Index": 2, "Type": "Subtitle", "Language": "eng", "IsForced": true, "IsDefault": false } ]
+        """)
+        XCTAssertEqual(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "en"), 2)
+    }
+
+    func testADefaultOnlyTrackIsNeverBurned() throws {
+        let s = try streams("""
+        [ { "Index": 2, "Type": "Subtitle", "Language": "eng", "IsDefault": true, "IsForced": false } ]
+        """)
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "en"),
+                     "full subtitles are the viewer's choice and full screen only")
+    }
+
+    func testNoSubtitlesNothingBurned() throws {
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: try streams("[ { \"Index\": 0, \"Type\": \"Video\" } ]"), preferredLanguage: "en"))
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: nil, preferredLanguage: "en"))
+    }
+
+    func testAForcedTrackInAnotherLanguageIsNotBurned() throws {
+        let s = try streams("""
+        [ { "Index": 2, "Type": "Subtitle", "Language": "ger", "IsForced": true } ]
+        """)
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "en"))
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "es"))
+    }
+
+    /// Emby kept "ger" from the file, Jellyfin 12.2.0 reported the same track as "deu".
+    func testBothISOCodesForTheViewersLanguageCount() throws {
+        for code in ["ger", "deu"] {
+            let s = try streams("[ { \"Index\": 2, \"Type\": \"Subtitle\", \"Language\": \"\(code)\", \"IsForced\": true } ]")
+            XCTAssertEqual(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "de"), 2, code)
+        }
+    }
+
+    /// The lab's Blu-ray layout: English PGS default, SRT, ASS, then an English forced PGS.
+    func testOnABluRayLayoutTheForcedImageTrackIsTheOneBurned() throws {
+        let s = try streams("""
+        [ { "Index": 0, "Type": "Video" }, { "Index": 1, "Type": "Audio", "Language": "eng" },
+          { "Index": 2, "Type": "Subtitle", "Language": "eng", "IsDefault": true, "IsForced": false },
+          { "Index": 3, "Type": "Subtitle", "Language": "eng" },
+          { "Index": 4, "Type": "Subtitle", "Language": "eng" },
+          { "Index": 5, "Type": "Subtitle", "Language": "eng", "IsForced": true } ]
+        """)
+        XCTAssertEqual(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "en"), 5)
+    }
+
+    func testOnlySubtitleTracksCount() throws {
+        let s = try streams("[ { \"Index\": 1, \"Type\": \"Audio\", \"Language\": \"eng\", \"IsForced\": true } ]")
+        XCTAssertNil(JellyfinPlaybackResolver.forcedSubtitleToBurn(in: s, preferredLanguage: "en"))
+    }
+
+    /// Asked for a track by index with External profiles, both servers answered External and
+    /// copied the video; with Encode both burned it in.
+    func testTheBurnBodyNamesTheTrackAndAsksForEncode() throws {
+        let data = try JSONEncoder().encode(JellyfinPlaybackResolver.playbackInfoBody(
+            mediaSourceId: "src1", supportsHEVC: true, serverStreamOnly: false, burningSubtitle: 5))
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(body["SubtitleStreamIndex"] as? Int, 5)
+        let profile = try XCTUnwrap(body["DeviceProfile"] as? [String: Any])
+        let subs = try XCTUnwrap(profile["SubtitleProfiles"] as? [[String: String]])
+        XCTAssertFalse(subs.isEmpty)
+        XCTAssertEqual(Set(subs.map { $0["Method"] ?? "" }), ["Encode"])
+    }
+
+    // MARK: - The two PlaybackInfo requests, through both services
+
+    /// Answers PlaybackInfo like a server: the first request (no subtitle) gets `first`,
+    /// a request naming a track gets `burned`, or an error when `burned` is nil.
+    private final class FakeServer: @unchecked Sendable {
+        let first: String
+        let burned: String?
+        private let lock = NSLock()
+        private(set) var bodies: [[String: Any]] = []
+        init(first: String, burned: String?) { self.first = first; self.burned = burned }
+        func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody)) as? [String: Any])
+            lock.withLock { bodies.append(body) }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            if (body["SubtitleStreamIndex"] as? Int) == -1 { return (Data(first.utf8), response) }
+            guard let burned else { throw URLError(.timedOut) }
+            return (Data(burned.utf8), response)
+        }
+        var sentIndexes: [Int] { lock.withLock { bodies.compactMap { $0["SubtitleStreamIndex"] as? Int } } }
+    }
+
+    private func answer(session: String, forced: Bool) -> String {
+        """
+        { "PlaySessionId": "\(session)",
+          "MediaSources": [ { "Id": "mediasource_4242", "SupportsDirectPlay": false, "SupportsTranscoding": true,
+            "TranscodingUrl": "/videos/4242/master.m3u8?MediaSourceId=mediasource_4242&PlaySessionId=\(session)&ApiKey=TKN",
+            "MediaStreams": [ { "Index": 0, "Type": "Video" }, { "Index": 1, "Type": "Audio", "Language": "eng" },
+              { "Index": 2, "Type": "Subtitle", "Language": "eng", "IsDefault": true },
+              { "Index": 5, "Type": "Subtitle", "Language": "eng", "IsForced": \(forced) } ] } ] }
+        """
+    }
+
+    private func mkv() -> PlexMediaItem {
+        PlexMediaItem(
+            id: "4242", title: "Film", artist: nil, episodeTitle: nil, seTag: nil,
+            summary: "", year: 2001, originallyAvailableAt: nil, contentRating: nil,
+            duration: 100, ratingKey: "4242", partKey: "mediasource_4242", container: "mkv",
+            videoCodec: "h264", audioCodec: "aac", videoProfile: nil, bitrate: 8_000,
+            genres: [], rating: 0, userRating: 0, type: .movie, thumb: nil, art: nil,
+            viewCount: 0, addedAt: 0, studio: nil, tmdbID: nil, imdbID: nil,
+            librarySource: .movie
+        )
+    }
+
+    private func negotiate(_ server: FakeServer) async -> [(String, PlaybackResolution?)] {
+        let send: JellyfinPlaybackResolver.PlaybackInfoSend = { try await server.send($0) }
+        let jellyfin = await JellyfinAPIService(serverURL: "http://jelly.local:8096", accessToken: "TKN", userId: "u1")
+            .negotiatePlayback(for: mkv(), serverStreamOnly: false, preferredSubtitleLanguage: "en", send: send)
+        let emby = await EmbyAPIService(serverURL: "http://emby.local:8096", accessToken: "TKN", userId: "u1")
+            .negotiatePlayback(for: mkv(), serverStreamOnly: false, preferredSubtitleLanguage: "en", send: send)
+        return [("Jellyfin", jellyfin), ("Emby", emby)]
+    }
+
+    func testAFileWithAForcedTrackAsksASecondTimeAndPlaysTheBurnedStream() async throws {
+        let server = FakeServer(first: answer(session: "plain", forced: true), burned: answer(session: "burned", forced: true))
+        for (name, resolution) in await negotiate(server) {
+            let r = try XCTUnwrap(resolution, name)
+            XCTAssertEqual(r.playSessionId, "burned", name)
+            XCTAssertTrue(r.url.absoluteString.contains("PlaySessionId=burned"), name)
+        }
+        XCTAssertEqual(server.sentIndexes, [-1, 5, -1, 5], "no subtitle first, then the forced track, on each service")
+        let methods = server.bodies.map { body -> Set<String> in
+            let profiles = (body["DeviceProfile"] as? [String: Any])?["SubtitleProfiles"] as? [[String: String]] ?? []
+            return Set(profiles.map { $0["Method"] ?? "" })
+        }
+        XCTAssertEqual(methods, [["External"], ["Encode"], ["External"], ["Encode"]])
+    }
+
+    func testAFileWithOnlyADefaultTrackAsksOnce() async throws {
+        let server = FakeServer(first: answer(session: "plain", forced: false), burned: nil)
+        for (name, resolution) in await negotiate(server) {
+            XCTAssertEqual(try XCTUnwrap(resolution, name).playSessionId, "plain", name)
+        }
+        XCTAssertEqual(server.sentIndexes, [-1, -1], "one request per service, no subtitle")
+    }
+
+    func testWhenTheBurnRequestFailsTheFilmStillPlaysWithoutIt() async throws {
+        let server = FakeServer(first: answer(session: "plain", forced: true), burned: nil)
+        for (name, resolution) in await negotiate(server) {
+            XCTAssertEqual(try XCTUnwrap(resolution, name).playSessionId, "plain", name)
+        }
+        XCTAssertEqual(server.sentIndexes, [-1, 5, -1, 5])
     }
 
     // MARK: - Dolby Vision arrives signalled as Dolby Vision

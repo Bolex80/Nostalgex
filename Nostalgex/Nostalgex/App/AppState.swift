@@ -550,7 +550,7 @@ class AppState {
         }
     }
 
-    private static let subtitleLanguageDefaultsKey = "nostalgex_subtitle_language"
+    private static let subtitleLanguageDefaultsKey = SubtitleSelectionLogic.subtitleLanguageDefaultsKey
 
     private static func loadPreferredSubtitleLanguageInitial() -> String {
         if let s = UserDefaults.standard.string(forKey: subtitleLanguageDefaultsKey), !s.isEmpty {

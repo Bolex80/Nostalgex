@@ -85,7 +85,7 @@ extension JellyfinPlaybackResolver {
 ///   • Transcoding always targets fMP4 HLS (`Container: "mp4"`), never MPEG-TS — AVPlayer
 ///     cannot render HEVC from a TS segment (the original black-screen bug).
 /// CodecProfiles add the decode limits a codec name does not express; see `deviceProfile`.
-/// SubtitleProfiles stop the server painting subtitles into the picture; see `subtitleProfiles`.
+/// SubtitleProfiles stop the server painting subtitles into the picture; see `subtitleProfiles(burning:)`.
 struct JellyfinDeviceProfile: Encodable, Sendable {
     let MaxStreamingBitrate: Int
     let MaxStaticBitrate: Int
@@ -156,8 +156,9 @@ struct JellyfinDeviceProfile: Encodable, Sendable {
 /// file has already been played directly and gave no picture or starved; see
 /// `JellyfinPlaybackResolver.playbackInfoBody`.
 ///
-/// `SubtitleStreamIndex` is always -1: no subtitle stream in the video. See
-/// `JellyfinPlaybackResolver.noSubtitleStream`.
+/// `SubtitleStreamIndex` is -1, no subtitle stream in the video, unless the source has a
+/// forced track in the viewer's subtitle language; then it names that track and the server
+/// burns it in. See `JellyfinPlaybackResolver.noSubtitleStream` and `forcedSubtitleToBurn`.
 struct PlaybackInfoBody: Encodable, Sendable {
     let DeviceProfile: JellyfinDeviceProfile
     let MediaSourceId: String
@@ -185,22 +186,27 @@ enum JellyfinPlaybackResolver {
     /// server returns a `master.m3u8` TranscodingUrl whose variant, init and first three
     /// segments answer 200. An MKV is unaffected: it never direct plays, and the flags
     /// change nothing about the TranscodingUrl it already gets.
+    ///
+    /// `burningSubtitle` is the forced track to burn in, from `forcedSubtitleToBurn`; nil
+    /// asks for no subtitle at all.
     static func playbackInfoBody(
         mediaSourceId: String,
         supportsHEVC: Bool,
-        serverStreamOnly: Bool
+        serverStreamOnly: Bool,
+        burningSubtitle: Int? = nil
     ) -> PlaybackInfoBody {
         PlaybackInfoBody(
-            DeviceProfile: deviceProfile(supportsHEVC: supportsHEVC),
+            DeviceProfile: deviceProfile(supportsHEVC: supportsHEVC, burningSubtitle: burningSubtitle != nil),
             MediaSourceId: mediaSourceId,
             MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
-            SubtitleStreamIndex: noSubtitleStream,
+            SubtitleStreamIndex: burningSubtitle ?? noSubtitleStream,
             EnableDirectPlay: serverStreamOnly ? false : nil,
             EnableDirectStream: serverStreamOnly ? false : nil
         )
     }
 
-    /// No subtitle stream goes into the video, whatever the file or the server account says.
+    /// No subtitle stream goes into the video, whatever the file or the server account says,
+    /// with one exception: a forced track in the viewer's language (`forcedSubtitleToBurn`).
     ///
     /// Left to itself the server picks a subtitle track by the account's subtitle mode and,
     /// with no way to hand it to this client, burns it into the picture: a full video
@@ -211,9 +217,8 @@ enum JellyfinPlaybackResolver {
     /// and an overlay or subtitles filter. On Jellyfin an MP4 with a default mov_text track
     /// or a sidecar .srt lost direct play and was re-encoded the same way (the app asks about
     /// HEVC MP4s, and on the retry). With -1 every case copies the video, and the MP4s
-    /// direct play again. The app shows subtitles only
-    /// through AVPlayer's own tracks, and neither server put a subtitle track into the HLS
-    /// stream either way, so nothing the app could show is lost.
+    /// direct play again. Neither server put a subtitle track into the HLS stream either
+    /// way, so the app had no other way to show a server's subtitles.
     ///
     /// Not used: Jellyfin's HLS subtitle delivery. It does add text tracks to the master
     /// playlist, but its WebVTT says `X-TIMESTAMP-MAP=MPEGTS:900000` (10 s), the start of its
@@ -225,18 +230,47 @@ enum JellyfinPlaybackResolver {
     /// that is its default value, and nothing is encoded.
     static let noSubtitleStream = -1
 
-    /// Every subtitle format either server names, as a separate file. Belt and braces for
-    /// -1 above: if a server ever picks a track anyway, "External" means it does not burn
-    /// it. Measured: with these profiles and no -1, no file in the matrix was burned in on
-    /// either server. Image formats are listed too, because a profile list without them
-    /// still burned PGS and VobSub. Names are the servers' own (Jellyfin `PGSSUB`,
-    /// `DVDSUB`, `subrip`; Emby `srt`), matched without regard to case.
-    static let subtitleProfiles: [JellyfinDeviceProfile.SubtitleProfile] = [
+    /// Every subtitle format either server names. Names are the servers' own (Jellyfin
+    /// `PGSSUB`, `DVDSUB`, `subrip`; Emby `srt`), matched without regard to case.
+    static let subtitleFormats = [
         "srt", "subrip", "ass", "ssa", "vtt", "webvtt", "mov_text", "ttml", "sub", "smi", "sami",
         "pgs", "pgssub", "dvdsub", "vobsub", "dvbsub", "sup", "xsub",
-    ].map { .init(Format: $0, Method: "External") }
+    ]
 
-    static func deviceProfile(supportsHEVC: Bool) -> JellyfinDeviceProfile {
+    /// Normally "External" for every format: belt and braces for -1, so if a server ever
+    /// picks a track anyway it does not burn it. Measured: with these profiles and no -1, no
+    /// file in the matrix was burned in on either server. Image formats are listed too,
+    /// because a list without them still burned PGS and VobSub.
+    ///
+    /// "Encode" when burning the forced track. "External" would stop that too: asked for a
+    /// track by index with these External profiles, both servers answered External and
+    /// copied the video. Asked with Encode, both burned it in (measured on SRT, PGS and
+    /// VobSub forced tracks and the forced PGS of a Blu-ray layout, both clients).
+    static func subtitleProfiles(burning: Bool) -> [JellyfinDeviceProfile.SubtitleProfile] {
+        subtitleFormats.map { .init(Format: $0, Method: burning ? "Encode" : "External") }
+    }
+
+    /// The forced subtitle track to burn into the picture, or nil.
+    ///
+    /// Mirrors the app's own rule for subtitles the viewer has not turned on
+    /// (`AppState.pickForcedLegibleOption`): a track flagged forced, in the viewer's
+    /// subtitle language, is always shown. Those are the lines a film means to be read,
+    /// such as Na'vi in Avatar. AVPlayer can show such a track only if it reaches the
+    /// stream, and neither server sends one, so the server burns it in. That costs a video
+    /// re-encode, for these files only. A track that is only flagged default is never burned:
+    /// full subtitles are the viewer's choice, shown in full screen only. Text and image
+    /// tracks both qualify. The first matching forced track wins, as in the app.
+    static func forcedSubtitleToBurn(
+        in streams: [PlaybackInfoResponse.MediaStream]?,
+        preferredLanguage: String
+    ) -> Int? {
+        (streams ?? []).first {
+            $0.mediaType?.lowercased() == "subtitle" && $0.IsForced == true
+                && SubtitleSelectionLogic.sameLanguage($0.Language, preferredLanguage)
+        }?.Index
+    }
+
+    static func deviceProfile(supportsHEVC: Bool, burningSubtitle: Bool = false) -> JellyfinDeviceProfile {
         let videoCodecs = supportsHEVC ? "h264,hevc" : "h264"
         return JellyfinDeviceProfile(
             MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
@@ -253,7 +287,7 @@ enum JellyfinPlaybackResolver {
                       Context: "Streaming", MaxAudioChannels: "6", protocolName: "hls"),
             ],
             CodecProfiles: codecProfiles(supportsHEVC: supportsHEVC),
-            SubtitleProfiles: subtitleProfiles
+            SubtitleProfiles: subtitleProfiles(burning: burningSubtitle)
         )
     }
 
@@ -372,10 +406,11 @@ enum JellyfinPlaybackResolver {
             let mediaType: String?
             let Language: String?
             let IsDefault: Bool?
+            let IsForced: Bool?
             let Channels: Int?
 
             enum CodingKeys: String, CodingKey {
-                case Index, Language, IsDefault, Channels
+                case Index, Language, IsDefault, IsForced, Channels
                 case mediaType = "Type"
             }
         }
@@ -395,8 +430,7 @@ enum JellyfinPlaybackResolver {
         mediaSourceId: String?,
         serverStreamOnly: Bool = false
     ) -> PlaybackResolution? {
-        let sources = info.MediaSources ?? []
-        let source = sources.first(where: { $0.Id == mediaSourceId }) ?? sources.first
+        let source = source(in: info, mediaSourceId: mediaSourceId)
 
         // 1) Server handed us a transcode/remux URL — use it verbatim (it carries the right
         //    session + params). Only ensure api_key is present for the segment requests,
@@ -422,6 +456,56 @@ enum JellyfinPlaybackResolver {
 
         // 3) Nothing playable (e.g. transcoding disabled server-side).
         return nil
+    }
+
+    /// The media source PlaybackInfo answered for: the one asked about, else the first.
+    static func source(in info: PlaybackInfoResponse, mediaSourceId: String?) -> PlaybackInfoResponse.PlaybackMediaSource? {
+        let sources = info.MediaSources ?? []
+        return sources.first(where: { $0.Id == mediaSourceId }) ?? sources.first
+    }
+
+    typealias PlaybackInfoSend = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
+    /// PlaybackInfo for Jellyfin and Emby: the usual question, and a second one only when the
+    /// answer lists a forced subtitle track to burn in (`forcedSubtitleToBurn`). The source's
+    /// tracks are known only from the first answer. `request(nil)` is the usual body,
+    /// `request(index)` the one burning that track. If the second request fails or offers
+    /// nothing playable, the first answer is used: the film without its forced lines beats
+    /// no film. Throws only when the first request does.
+    static func negotiate(
+        request: (Int?) -> URLRequest?,
+        serverURL: String,
+        apiKey: String,
+        itemId: String,
+        mediaSourceId: String,
+        serverStreamOnly: Bool,
+        preferredSubtitleLanguage: String,
+        send: PlaybackInfoSend
+    ) async throws -> PlaybackResolution? {
+        guard let first = request(nil) else { return nil }
+        let (data, response) = try await send(first)
+        let info = try decodePlaybackInfo(data, response)
+        if let forced = forcedSubtitleToBurn(
+            in: source(in: info, mediaSourceId: mediaSourceId)?.MediaStreams,
+            preferredLanguage: preferredSubtitleLanguage
+        ), let second = request(forced),
+           let (data2, response2) = try? await send(second),
+           let burnedInfo = try? decodePlaybackInfo(data2, response2),
+           let burned = resolve(burnedInfo, serverURL: serverURL, apiKey: apiKey, itemId: itemId,
+                                mediaSourceId: mediaSourceId, serverStreamOnly: serverStreamOnly) {
+            return burned
+        }
+        return resolve(info, serverURL: serverURL, apiKey: apiKey, itemId: itemId,
+                       mediaSourceId: mediaSourceId, serverStreamOnly: serverStreamOnly)
+    }
+
+    private static func decodePlaybackInfo(_ data: Data, _ response: URLResponse) throws -> PlaybackInfoResponse {
+        guard let http = response as? HTTPURLResponse else { throw PlexAPIService.APIError.invalidResponse }
+        if http.statusCode == 401 || http.statusCode == 403 { throw PlexAPIService.APIError.unauthorized }
+        guard (200...299).contains(http.statusCode) else {
+            throw PlexAPIService.APIError.httpFailure(statusCode: http.statusCode)
+        }
+        return try JSONDecoder().decode(PlaybackInfoResponse.self, from: data)
     }
 
     /// The direct-play URL for Jellyfin and Emby: the file as stored, served whole.
