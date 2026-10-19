@@ -306,6 +306,7 @@ sub loadLibrary()
     if usable = 0 then
         if shown then
             print "library: background refresh reached no server; keeping the saved guide"
+            keepSavedGuide()
             return
         end if
         if missing = invalid then
@@ -344,6 +345,7 @@ sub loadLibrary()
                 if got = invalid then
                     if shown then
                         print "library: background refresh couldn't read the library; keeping the saved guide"
+                        keepSavedGuide()
                         return
                     end if
                     fail("Couldn't read the library on " + NxToStr(servers[i].name) + ". Press OK to try again.")
@@ -691,6 +693,51 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object, 
                 m.top.guide = guide
                 m.top.status = "ready"
                 print "library: schedules changed (new day or time restriction)"
+            end if
+        end if
+    end while
+end sub
+
+' keepScheduling for a saved guide the background refresh couldn't follow
+' with a library (no server reached, or its scan failed). The task stays up,
+' so Settings and the 30 s re-check still have someone listening: a package
+' switch needs the library, so it is answered "rebuild", and a new hour or
+' day schedules from the saved pools, read the first time one is needed.
+sub keepSavedGuide()
+    port = CreateObject("roMessagePort")
+    m.top.ObserveField("reschedule", port)
+    m.top.ObserveField("bundleRequest", port)
+    guide = m.shownGuide
+    if FormatJson(NxEnabledBundles()) <> FormatJson(guide.enabledBundles) then
+        m.top.bundleBuilt = "rebuild"
+    else
+        m.top.bundleBuilt = FormatJson(guide.enabledBundles)
+    end if
+    ordered = invalid
+    lastHour = NxScheduleHourKey(guide.builtAt)
+    while true
+        msg = Wait(0, port)
+        if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then
+            print "library: package change needs a full rebuild: the background refresh has no library"
+            m.top.bundleBuilt = "rebuild"
+        else if type(msg) = "roSGNodeEvent" and NxScheduleHourKey(CreateObject("roDateTime").AsSeconds()) <> lastHour then
+            nowSec& = CreateObject("roDateTime").AsSeconds()
+            lastHour = NxScheduleHourKey(nowSec&)
+            if ordered = invalid then
+                clock = NxFilterClock(nowSec&)
+                fromPools = NxGuideFromSavedPools(nowSec&, clock.month, guide.enabledBundles)
+                if fromPools <> invalid then
+                    ordered = fromPools.ordered
+                    guide = fromPools.guide
+                end if
+            end if
+            if ordered = invalid then
+                print "library: no saved pools to schedule the new hour from; the guide stays as it is"
+            else
+                guide.channels = NxScheduleGuide(ordered, nowSec&)
+                m.top.guide = guide
+                m.top.status = "ready"
+                print "library: saved guide rescheduled from the saved pools (new day or time restriction)"
             end if
         end if
     end while

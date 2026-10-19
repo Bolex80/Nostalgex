@@ -201,6 +201,7 @@ sub launchComplete()
 end sub
 
 sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean)
+    releaseLibrary()
     m.library = CreateObject("roSGNode", "LibraryTask")
     m.library.ObserveField("bundleBuilt", "onBundleBuilt")
     m.library.useCache = useCache
@@ -213,6 +214,7 @@ end sub
 ' The progress screen (LoadingView) goes up once the load is under way and
 ' there is no guide to show; the saved guide, when there is one, comes first.
 sub onLibraryPhase()
+    if m.library = invalid then return
     if m.guide <> invalid or m.loading <> invalid or m.library.phase = "" then return
     m.loading = CreateObject("roSGNode", "LoadingView")
     m.top.AppendChild(m.loading)
@@ -226,6 +228,7 @@ sub closeLoading()
 end sub
 
 sub onLibraryStatus()
+    if m.library = invalid then return
     status = m.library.status
     if status = "error" then
         if m.guide <> invalid then return
@@ -280,7 +283,8 @@ end sub
 ' A package switched in Settings: the running library task builds for it
 ' behind Settings and says when (LibraryTask.bundleRequest).
 sub onBundleRequest()
-    if m.library = invalid then
+    ' A task that has ended (a refresh that failed outright) would never answer.
+    if m.library = invalid or m.library.state <> "run" then
         print "library: package change needs a full rebuild: no library task running"
         m.guide.bundleBuilt = "rebuild"
         return
@@ -289,16 +293,26 @@ sub onBundleRequest()
 end sub
 
 sub onBundleBuilt()
-    if m.guide <> invalid then m.guide.bundleBuilt = m.library.bundleBuilt
+    if m.guide <> invalid and m.library <> invalid then m.guide.bundleBuilt = m.library.bundleBuilt
 end sub
 
 sub onScheduleTimer()
     if m.library <> invalid then m.library.reschedule = true
 end sub
 
-sub dropGuide()
-    if m.library <> invalid then m.library.control = "stop"
+' Stops the library task and stops listening to it: a task told to stop can
+' still report once more, and its handlers read m.library.
+sub releaseLibrary()
+    if m.library = invalid then return
+    m.library.UnobserveField("bundleBuilt")
+    m.library.UnobserveField("phase")
+    m.library.UnobserveField("status")
+    m.library.control = "stop"
     m.library = invalid
+end sub
+
+sub dropGuide()
+    releaseLibrary()
     closeLoading()
     if m.guide <> invalid then
         m.top.RemoveChild(m.guide)
