@@ -52,15 +52,17 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "views path, jellyfin", NxMbViewsPath("jellyfin", "u 1"), "/UserViews?userId=u%201")
     NxCheck(r, "views path, emby", NxMbViewsPath("emby", "u1"), "/Users/u1/Views")
 
-    ' DateCreated as Date.parse reads it, floored to seconds.
+    ' DateCreated as Date.parse reads it, floored to seconds. LongInteger
+    ' literals: on Roku OS 16 these (all past 2^30) came out as Floats and
+    ' printed as 1.69208e+09, while 951868799 stayed an Integer.
     dates = [
-        ["2023-08-15T07:19:45.0000000Z", 1692083985],
+        ["2023-08-15T07:19:45.0000000Z", 1692083985&],
         ["1970-01-01T00:00:00Z", 0],
         ["2000-02-29T23:59:59.999Z", 951868799],
-        ["2024-12-31T12:00:00+02:00", 1735639200],
-        ["2024-12-31T12:00:00-05:30", 1735666200],
-        ["2021-06-01", 1622505600],
-        ["2021-06-01T08:30Z", 1622536200],
+        ["2024-12-31T12:00:00+02:00", 1735639200&],
+        ["2024-12-31T12:00:00-05:30", 1735666200&],
+        ["2021-06-01", 1622505600&],
+        ["2021-06-01T08:30Z", 1622536200&],
         ["not a date", 0],
         ["", 0],
         [invalid, 0]
