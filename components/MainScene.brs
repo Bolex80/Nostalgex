@@ -39,7 +39,7 @@ end sub
 ' The saved Jellyfin or Emby sign-in was refused: back to CONNECT YOUR
 ' LIBRARY, with the reason.
 sub onMbCheck()
-    if m.mbCheck.status <> "rejected" then return
+    if m.mbCheck = invalid or m.mbCheck.status <> "rejected" then return
     message = m.mbCheck.message
     signOut()
     m.connect.notice = message
@@ -338,6 +338,13 @@ end sub
 
 sub signOut()
     if m.signIn <> invalid then m.signIn.control = "stop"
+    ' A launch check still running is for the sign-in going away: its late
+    ' "rejected" must not sign out the next one.
+    if m.mbCheck <> invalid then
+        m.mbCheck.UnobserveField("status")
+        m.mbCheck.control = "stop"
+        m.mbCheck = invalid
+    end if
     closePicker()
     dropGuide()
     closeConnect()

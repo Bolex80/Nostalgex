@@ -109,6 +109,12 @@ sub password()
 end sub
 
 sub finish(auth as Dynamic)
+    ' Backed out while the server answered: saving now would sign this TV in
+    ' to a server the viewer has left, maybe under a Plex sign-in begun since.
+    if m.top.cancel then
+        print "mediabrowser: sign-in answered after Back; not saved"
+        return
+    end if
     if auth = invalid then
         fail("Couldn't reach the server to sign in. Try again.")
         return
