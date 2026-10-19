@@ -16,6 +16,11 @@
     <!-- A deep link from MainScene ({ contentId, mediaType }): tune that
          channel fullscreen. -->
     <field id="deepLink" type="assocarray" alwaysNotify="true" onChange="onDeepLink" />
+    <!-- Set before the first guide, after a full rebuild from Settings: the
+         channel to tune and focus instead of the top row, by id. -->
+    <field id="resumeId" type="string" />
+    <!-- The id of the channel tuned, as a string, or "" (resumeId's source). -->
+    <function name="tunedChannelId" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />

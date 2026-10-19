@@ -250,6 +250,8 @@ sub onLibraryStatus()
             m.guide.ObserveField("bundleRequest", "onBundleRequest")
             if m.pendingLink <> invalid then m.guide.deepLink = m.pendingLink
             m.pendingLink = invalid
+            if m.resumeId <> invalid then m.guide.resumeId = m.resumeId
+            m.resumeId = invalid
             m.top.AppendChild(m.guide)
         end if
         m.guide.guide = m.library.guide
@@ -308,8 +310,11 @@ end sub
 
 sub onGuideAction()
     action = m.guide.action
+    ' The rebuilt guide opens on the same channel, not the top row.
+    m.resumeId = m.guide.callFunc("tunedChannelId", invalid)
     dropGuide()
     if action = "signOut" then
+        m.resumeId = ""
         signOut()
     else if action = "rebuild" then
         m.prompt.text = "Rebuilding your channels…"

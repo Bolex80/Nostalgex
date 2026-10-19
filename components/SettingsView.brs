@@ -544,7 +544,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             plex.Write("serverChoices", FormatJson(choices))
             plex.Flush()
         end if
-        if m.needRebuild or m.franchisesChanged or m.collectionsChanged or m.serversChanged then
+        if m.franchisesChanged or m.collectionsChanged then
             reg = CreateObject("roRegistrySection", "guide")
             if m.franchisesChanged then
                 lists = NxFranchiseChoiceLists(m.choices)
@@ -553,8 +553,16 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             end if
             reg.Flush()
             if m.collectionsChanged then NxSaveCollectionKeys(m.collectionKeys)
+        end if
+        if m.needRebuild or m.serversChanged then
             print "settings: rebuilding the guide on the way out: packages "; m.needRebuild; ", franchises "; m.franchisesChanged; ", collections "; m.collectionsChanged; ", servers "; m.serversChanged
             m.top.result = "rebuild"
+        else if m.franchisesChanged or m.collectionsChanged then
+            ' Built behind the guide from the library in memory, as a package
+            ' switch is: the guide and the channel on stay up.
+            print "settings: building in place on the way out: franchises "; m.franchisesChanged; ", collections "; m.collectionsChanged
+            m.top.bundleChange = true
+            m.top.result = "close"
         else
             m.top.result = "close"
         end if

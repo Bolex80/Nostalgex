@@ -134,14 +134,26 @@ sub onGuide()
         m.tick.control = "start"
         ' A launch deep link opens on its channel, fullscreen.
         linked = NxDeepLinkChannel(m.channels, m.top.deepLink)
+        ' After a full rebuild from Settings, the channel that was on.
+        resumed = -1
+        if linked < 0 and m.top.resumeId <> "" then
+            for i = 0 to m.channels.Count() - 1
+                if NxToStr(m.channels[i].id) = m.top.resumeId then resumed = i
+            end for
+        end if
         if linked >= 0 then
             m.focus = linked
+            keepFocusVisible()
+        else if resumed >= 0 then
+            m.focus = resumed
             keepFocusVisible()
         end if
         renderGrid()
         if linked >= 0 then
             tune(linked)
             setFullscreen(true)
+        else if resumed >= 0 then
+            tune(resumed)
         else
             tune(0)
         end if
@@ -173,6 +185,11 @@ sub onGuide()
     end if
     if not same then tune(m.tuned)
 end sub
+
+function tunedChannelId(unused = invalid as Dynamic) as String
+    if m.channels = invalid or m.tuned < 0 or m.tuned >= m.channels.Count() then return ""
+    return NxToStr(m.channels[m.tuned].id)
+end function
 
 ' ── Clock ───────────────────────────────────────────────────────────────────
 
@@ -1440,7 +1457,17 @@ sub onSettingsBundleChange()
 end sub
 
 sub onBundleBuilt()
-    if m.settings <> invalid then m.settings.bundleBuilt = m.top.bundleBuilt
+    if m.settings <> invalid then
+        m.settings.bundleBuilt = m.top.bundleBuilt
+    else if m.top.bundleBuilt = "rebuild" then
+        ' A build asked for on the way out of Settings couldn't be done in
+        ' place: the whole guide is rebuilt, as Settings would have.
+        print "guide: the build after Settings needs a full rebuild"
+        NxTuneDrop(m.tuneQueue)
+        stopPrevious()
+        m.tick.control = "stop"
+        m.top.action = "rebuild"
+    end if
 end sub
 
 ' A guide built while Settings is open: its franchise and collection lists
