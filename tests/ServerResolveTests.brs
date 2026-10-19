@@ -8,8 +8,8 @@ function NxRunServerResolveTests() as Integer
     conns = [
         { protocol: "https", uri: "https://relay.plex.direct:8443", local: false, relay: true },
         { protocol: "https", uri: "https://remote.plex.direct:32400", local: false, relay: false },
-        { protocol: "https", uri: "https://local.plex.direct:32400", local: true, relay: false, address: "192.168.1.20", port: 32400 },
-        { protocol: "http", uri: "http://192.168.1.20:32400", local: true, relay: false, address: "192.168.1.20", port: 32400 },
+        { protocol: "https", uri: "https://local.plex.direct:32400", local: true, relay: false, address: "10.0.0.20", port: 32400 },
+        { protocol: "http", uri: "http://10.0.0.20:32400", local: true, relay: false, address: "10.0.0.20", port: 32400 },
         { protocol: "https", uri: "https://public.plex.direct:32400", local: true, relay: false, address: "8.8.8.8", port: 32400 }
     ]
     c = NxResolveCandidates(conns)
@@ -18,7 +18,7 @@ function NxRunServerResolveTests() as Integer
         order.Push(x.use + ":" + x.kind)
     end for
     NxCheck(r, "order", order.Join(","), "uri:local,uri:local,uri:remote,uri:relay,lan:home network")
-    NxCheck(r, "lan url", c[4].url, "http://192.168.1.20:32400")
+    NxCheck(r, "lan url", c[4].url, "http://10.0.0.20:32400")
 
     ' Nothing back yet: waiting.
     NxCheck(r, "waiting", NxBoolStr(NxResolveOutcome(c, 100, 3000, false).settled), "false")
@@ -40,7 +40,7 @@ function NxRunServerResolveTests() as Integer
     o = NxResolveOutcome(c, 200, 3000, false)
     NxCheck(r, "local settles", NxBoolStr(o.settled), "true")
     NxCheck(r, "local uri", o.uri, "https://local.plex.direct:32400")
-    NxCheck(r, "local lan", o.lanUri, "http://192.168.1.20:32400")
+    NxCheck(r, "local lan", o.lanUri, "http://10.0.0.20:32400")
 
     ' Relay waits on remote until the deadline.
     c = NxResolveCandidates(conns)

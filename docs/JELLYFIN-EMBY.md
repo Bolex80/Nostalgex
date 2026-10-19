@@ -155,7 +155,7 @@ servers, driven over ECP.
 
 - **Emby restarts its transcode on every segment after a mid-file join**
   (2026-10-19, Emby 4.10.1, Discussion #8). Joined 335 s into an MKV whose
-  audio it converts, the bedroom TV fetched each segment once, but Emby
+  audio it converts, the 43S45 fetched each segment once, but Emby
   started ffmpeg again for each one ("segmentGap is 53 … requestedIndex=55",
   then 54, 55, …: 26 restarts in 11 s). curl alone does the same, so it's
   Emby's, not the TV's: it seems to count the restarted ffmpeg's segments

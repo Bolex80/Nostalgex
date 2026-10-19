@@ -74,7 +74,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
 
     ' What someone types as a server address.
     addrs = [
-        ["192.168.0.5", "http://192.168.0.5:8096 http://192.168.0.5"],
+        ["172.16.0.5", "http://172.16.0.5:8096 http://172.16.0.5"],
         [" http://10.0.0.2:8920/web/index.html#!/home ", "http://10.0.0.2:8920"],
         ["https://media.example.org/jellyfin/", "https://media.example.org/jellyfin"],
         ["http://nas.local/emby", "http://nas.local:8096/emby http://nas.local/emby"],

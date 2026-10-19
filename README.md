@@ -1,21 +1,20 @@
 # nostalgex-roku
 
 A Roku port of [Nostalgex](https://github.com/chadMueller/Nostalgex), the
-retro live-TV channel guide for your own Plex library. The upstream project
+retro live-TV channel guide for your own media library. The upstream project
 ships an Apple TV app and a browser tuner, and Roku is
 [not on its roadmap](https://github.com/chadMueller/Nostalgex/discussions/8).
 This port fills that gap.
 
-The goal is a faithful port. It uses the same channels, the same schedule (so
-a channel shows the same programme at the same minute as on Apple TV) and the
-same look, rewritten in BrightScript and SceneGraph.
+The goal is a faithful port, rewritten in BrightScript and SceneGraph. It
+signs in to Plex, Jellyfin or Emby, reads your library, and airs upstream's
+channels, packages and schedules (a channel shows the same programme at the
+same minute as on Apple TV) in the Apple TV app's guide, with live playback.
+Once signed in it opens on its saved guide in under a second, or on a later
+day in a few seconds from the saved channel pools, and refreshes in the
+background.
 
-It signs in to Plex, Jellyfin or Emby, reads your library, and airs the same
-channels and schedules as upstream, in the Apple TV app's guide, with
-packages and live playback. Once signed in it opens on its saved guide in
-under a second, or on a later day in a few seconds from the saved channel
-pools, and refreshes in the background. Server collections become channels
-on Plex only so far.
+**Server collections become channels on Plex only so far.**
 
 ## Install (developer mode)
 
@@ -50,9 +49,6 @@ curl -d '' "http://<tv>:8060/launch/dev?contentId=7&mediaType=live" # at launch
 curl -d '' "http://<tv>:8060/input?contentId=12&mediaType=live"     # while running
 ```
 
-`scripts/sca.sh` runs Roku's Static Channel Analysis, the Channel Store's own
-check, and fails on any error it reports.
-
 ## Security
 
 - **Sign-in is plex.tv's link code.** The TV never sees your Plex password.
@@ -68,8 +64,13 @@ check, and fails on any error it reports.
   the token never leaves the house unencrypted, and it travels in a header,
   never in a URL. If your server isn't found at all, set Plex's
   *Settings > Network > Secure connections* to *Preferred*.
-- **Read-only.** The app never reports playback to Plex and never changes
-  watch status or anything else in your library.
+- **Jellyfin and Emby** sign in with Jellyfin's Quick Connect code or with a
+  username and password. The password goes to your server once and is
+  cleared; only the access token the server returns is kept. Server requests
+  follow the same rule as Plex: HTTPS, or plain HTTP to a private address
+  only, with the token in a header.
+- **Read-only.** The app never reports playback to your server and never
+  changes watch status or anything else in your library.
 - **The saved guide** (`cachefs:`) holds titles and schedules, and the saved
   pools the library items each channel draws on. Both are deleted on
   sign-out.
@@ -78,8 +79,8 @@ check, and fails on any error it reports.
   IMDb ids leave the TV, to the Nostalgex relay and its shared cache, as the
   web tuner sends them. Its local cache is deleted on sign-out too.
 - **Sign out in Settings** (SIGN OUT OF PLEX, then OK a second time), or
-  with \* on the sign-in and error screens. That removes the token, the server list and the
-  device ID the app stored.
+  with \* on the sign-in and error screens. That removes the token, the
+  server list and the device ID the app stored.
 
 ## Tests
 
@@ -93,7 +94,23 @@ node tests/gen-vectors.mjs # regenerate after following a new upstream commit
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `tests/run.sh` on every
-push, against a fresh clone of upstream.
+push to the [GitHub copy](https://github.com/tydude001/nostalgex-roku),
+against a fresh clone of upstream. Actions is off on Gitea, so a commit that
+has only reached Gitea hasn't been through CI.
+
+The live checks compare the port with upstream's code on a real Plex server.
+They need this computer linked to Plex once, which saves `PLEX_TOKEN` and
+`PLEX_CLIENT_ID` to `.env`:
+
+```sh
+node tests/live/plex-link.mjs     # shows a plex.tv/link code; the token is never printed
+scripts/deploy.sh --live          # TV: load the library, log fingerprints to out/live-<tv>.log
+node tests/live/compare.mjs       # same pools and schedules as upstream?
+node tests/live/collections.mjs   # same server collections and folds? (no TV)
+```
+
+`scripts/sca.sh` runs Roku's Static Channel Analysis, the Channel Store's own
+check, and fails on any error it reports.
 
 ## Layout
 
@@ -108,13 +125,18 @@ push, against a fresh clone of upstream.
 | `source/collections/` | Server collections as channels from CH 500, and their fold into franchises, ported from upstream |
 | `source/guide/` | Lineup: bundles, daily shuffle, time restrictions, day schedules; franchise channels and their switches |
 | `source/plex/` | Plex sign-in, library loader, playback |
+| `source/mediabrowser/` | Jellyfin and Emby: sign-in, LAN discovery, library loader, playback |
+| `source/enrich/` | TMDB and IMDb enrichment through the Nostalgex relay, off unless a build turns it on |
 | `source/subtitles/` | Subtitle settings and language matching, ported from upstream |
 | `source/util/` | Shared helpers |
 | `data/` | Upstream's channel config and franchise dictionary, vendored unchanged (`data/UPSTREAM`) |
 | `fonts/` | DM Mono and VT323, with their licenses (`THIRD-PARTY-LICENSES.md`) |
-| `images/` | Home-screen icons, splash and in-app logo: the Nostalgex wordmark, drawn by `scripts/icons.sh` from upstream's `logo/` |
+| `images/` | Home-screen icons, splash and in-app logo, and the guide's overlays in `images/look/` |
 | `scripts/deploy.sh` | Zip and sideload to every TV (`--test` runs the vectors, `--live` the live check) |
+| `scripts/icons.sh` | Draws the icons, splash and logo: the Nostalgex wordmark, from upstream's `logo/` |
+| `scripts/look-images.py` | Draws `images/look/` (scanlines, vignette, focus outline, static) from the Apple TV app's drawing code |
 | `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
+| `scripts/post-upstream.sh` | Posts to upstream's GitHub Discussions; it can reach nothing else |
 | `tests/` | Golden vectors from upstream's code, and the runner |
 | `tests/live/` | Live checks against a real Plex server (`plex-link.mjs`, `compare.mjs`, `collections.mjs`) |
 | `tests/bench/` | Channel build, franchise step and schedule benchmarks over a saved library; their logs diff two builds result by result |

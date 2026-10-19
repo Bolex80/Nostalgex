@@ -27,7 +27,7 @@ end sub
 sub connect()
     cands = NxMbAddressCandidates(m.top.address)
     if cands.Count() = 0 then
-        fail("That isn't a server address. Try something like 192.168.1.20 or http://192.168.1.20:8096.")
+        fail("That isn't a server address. Try something like 10.0.0.20 or http://10.0.0.20:8096.")
         return
     end if
     refused = false

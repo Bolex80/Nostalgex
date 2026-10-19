@@ -91,7 +91,7 @@ sub show(stepName as String)
         for each s in m.found
             m.rows.Push({ id: "found", title: UCase(s.name), detail: s.address, address: s.address })
         end for
-        m.rows.Push({ id: "type", title: "TYPE AN ADDRESS", detail: "Like 192.168.1.20 or http://192.168.1.20:8096" })
+        m.rows.Push({ id: "type", title: "TYPE AN ADDRESS", detail: "Like 10.0.0.20 or http://10.0.0.20:8096" })
     else if stepName = "connecting" then
         m.title = "CONNECT TO " + UCase(name)
         m.body = "Connecting to " + m.address + "…"
@@ -222,7 +222,7 @@ sub choose(row as Object)
         runTask("discover")
     else if m.step = "servers" then
         if row.id = "type" then
-            askText("address", NxKindName(m.kind) + " server address", "The address you open " + NxKindName(m.kind) + " at in a browser, like 192.168.1.20:8096.", "", false)
+            askText("address", NxKindName(m.kind) + " server address", "The address you open " + NxKindName(m.kind) + " at in a browser, like 10.0.0.20:8096.", "", false)
         else
             connectTo(row.address)
         end if

@@ -318,7 +318,7 @@ transcoded film joined 70 minutes in had Plex's transcode window at minutes
 server, so the rows don't show) and the sign-in code changing after 5 minutes.
 `*` in the guide was pressed on a TV and did nothing, as intended.
 
-The Channel Store bar, on the bedroom TV (43S45, Roku OS 16.0.4), 2026-10-16
+The Channel Store bar, on the 43S45 (Roku OS 16.0.4), 2026-10-16
 at `6f05937` with 5,363 items on one server:
 
 - **No rescan on a switch:** with the saved library there, a package switch
