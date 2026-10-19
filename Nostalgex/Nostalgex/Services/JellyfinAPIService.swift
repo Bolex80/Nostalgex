@@ -681,16 +681,36 @@ struct JellyfinAPIService: MediaBackend, WatchActivityReporting {
 
     struct QuickConnectInit: Sendable { let code: String; let secret: String }
 
+    /// How a sign-in request is sent. The app uses `session`; tests pass a recorder.
+    typealias SignInSend = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
     /// Starts a Quick Connect session; user approves `code` in their Jellyfin dashboard.
     static func quickConnectInitiate(serverURL: String) async throws -> QuickConnectInit {
+        try await quickConnectInitiate(serverURL: serverURL) { try await session.data(for: $0) }
+    }
+
+    /// Jellyfin 10.9 made Initiate a POST and kept GET as a legacy route; 12.0 removed the
+    /// GET, so 12.x answers it 405 (measured on 12.2.0). 10.7 and 10.8 have only the GET.
+    /// POST first, then GET only when the server says the method or route is wrong.
+    static func quickConnectInitiateRetriesWithGET(statusCode: Int) -> Bool {
+        statusCode == 405 || statusCode == 404
+    }
+
+    static func quickConnectInitiate(serverURL: String, send: SignInSend) async throws -> QuickConnectInit {
         guard let url = URL(string: "\(serverURL)/QuickConnect/Initiate") else {
             throw PlexAPIService.APIError.invalidResponse
         }
         var req = URLRequest(url: url)
         req.timeoutInterval = SignInRequest.timeout
+        req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue(authorizationHeader(deviceID: PlexAPIService.clientID, token: ""), forHTTPHeaderField: "Authorization")
-        let (data, response) = try await session.data(for: req)
+        var (data, response) = try await send(req)
+        if let status = (response as? HTTPURLResponse)?.statusCode,
+           quickConnectInitiateRetriesWithGET(statusCode: status) {
+            req.httpMethod = "GET"
+            (data, response) = try await send(req)
+        }
         let decoded = try decodeSignIn(QuickConnectResult.self, data: data, response: response)
         guard let code = decoded.Code, let secret = decoded.Secret else {
             throw PlexAPIService.APIError.invalidResponse
