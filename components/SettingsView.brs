@@ -102,8 +102,10 @@ end function
 ' on (upstream's BundleManagerView), then RETRO MODE and subtitles (its
 ' PLAYBACK section), then sign-out.
 sub open(unused = invalid as Dynamic)
-    m.enabled = []
-    m.enabled.Append(m.top.enabledBundles)
+    ' The saved packages, not the guide's: with a build still queued behind
+    ' the one that landed, the guide's would bring back a package just
+    ' switched off, and the next switch would save it again.
+    m.enabled = NxEnabledBundles()
     m.subs = NxSubtitleSettings()
     m.choices = NxSavedFranchiseChoices()
     m.collectionKeys = NxSavedCollectionKeys()

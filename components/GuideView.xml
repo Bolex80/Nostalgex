@@ -23,6 +23,7 @@
     <function name="tunedChannelId" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/TuneQueue.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/Advance.brs" />

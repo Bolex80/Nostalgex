@@ -822,16 +822,6 @@ function NxPoolsFingerprint(ordered as Object) as String
     return Left(d.Final(), 12)
 end function
 
-' Switched-on bundles: saved on the TV, upstream's default until changed.
-function NxEnabledBundles() as Object
-    raw = CreateObject("roRegistrySection", "guide").Read("bundles")
-    if raw <> "" then
-        saved = ParseJson(raw)
-        if type(saved) = "roArray" then return saved
-    end if
-    return ["nostalgex"]
-end function
-
 ' A new step on the loading screen's rail; the last step's bar goes with it.
 sub setPhase(phase as String)
     m.top.bar = -1

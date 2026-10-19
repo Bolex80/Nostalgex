@@ -1487,7 +1487,6 @@ end function
 sub openSettings()
     m.settings = CreateObject("roSGNode", "SettingsView")
     m.settings.bundles = m.top.guide.bundles
-    m.settings.enabledBundles = m.top.guide.enabledBundles
     franchises = m.top.guide.franchises
     if franchises = invalid then franchises = []
     m.settings.franchises = franchises
@@ -1522,7 +1521,6 @@ end sub
 ' go to Settings, so FRANCHISES switched on lists its franchises at once.
 sub refreshSettings()
     if m.settings = invalid then return
-    m.settings.enabledBundles = m.top.guide.enabledBundles
     if m.top.guide.franchises <> invalid then m.settings.franchises = m.top.guide.franchises
     if m.top.guide.collections <> invalid then m.settings.collections = m.top.guide.collections
     m.settings.callFunc("refreshRows", invalid)
@@ -1795,9 +1793,8 @@ function promptKey(key as String) as Boolean
         if turnOn then
             ' On for good, as the Apple TV's toggleBundle, then rebuilt like a
             ' change in Settings.
-            enabled = []
-            enabled.Append(m.top.guide.enabledBundles)
-            enabled.Push(offer.id)
+            enabled = NxEnabledBundles()
+            if not NxHasValue(enabled, offer.id) then enabled.Push(offer.id)
             reg = CreateObject("roRegistrySection", "guide")
             reg.Write("bundles", FormatJson(enabled))
             reg.Flush()

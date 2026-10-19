@@ -9,7 +9,6 @@
 <component name="SettingsView" extends="Group">
   <interface>
     <field id="bundles" type="array" />
-    <field id="enabledBundles" type="array" />
     <!-- The franchise list under FRANCHISES, from the last guide build. -->
     <field id="franchises" type="array" />
     <!-- MY COLLECTIONS from the last guide build: { rows, overCap, scanned, failed }. -->
@@ -24,6 +23,7 @@
     <function name="refreshRows" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
