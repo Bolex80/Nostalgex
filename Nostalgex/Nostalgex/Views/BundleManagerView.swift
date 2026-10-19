@@ -695,16 +695,8 @@ struct SettingsPageView: View {
     }
 
     private func seasonalLabel(for bundle: ChannelBundle) -> String {
-        guard let months = bundle.activeMonths else { return bundle.description ?? "" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        let names = months.compactMap { m -> String? in
-            var comps = DateComponents()
-            comps.month = m
-            guard let date = Calendar.current.date(from: comps) else { return nil }
-            return formatter.string(from: date).uppercased()
-        }
-        return "Spotlighted \(names.joined(separator: ", "))"
+        guard bundle.activeMonths != nil else { return bundle.description ?? "" }
+        return bundle.spotlightLabel(now: Date())
     }
 
     private var scanStatusDetail: String {

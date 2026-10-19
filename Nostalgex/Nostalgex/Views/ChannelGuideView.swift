@@ -742,13 +742,7 @@ struct SeasonalInviteRow: View {
     let isFocused: Bool
     let rowHeight: CGFloat
 
-    private var headline: String {
-        switch bundle.id {
-        case "seasonal":        return "IT'S OCTOBER. ARE YOU READY TO SCREAM?"
-        case "tis-the-season":  return "IT'S DECEMBER. DECK THE CHANNELS."
-        default:                return "\(bundle.name) IS IN SEASON."
-        }
-    }
+    private var headline: String { SeasonalPrompt.headline(for: bundle, now: Date()) }
 
     /// Each season gets its own colour so the invite reads as part of that season rather
     /// than as a generic notice.
