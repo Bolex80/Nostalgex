@@ -317,6 +317,31 @@ limit) with all 14 packages on, about 120 channels, 11,687 Plex items:
   - The privacy page gets a Jellyfin/Emby line when the Roku app ships with
     them.
 
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19047518)
+on 2026-10-19, leading with items 1 to 4 in `a18a256`, 1 to 3 checked on the
+43S45. Memory held at 36 to 39% over six switches of one package, and every
+test passed on the TV.
+- **Items 1 to 3:** a switch builds from the library in memory and keeps the
+  day's schedules; the 30 s re-check acts only on a new hour or day.
+  - Off the TV, scheduling for a switch went from 41.6 s to 11.5 s.
+  - On the TV, switches on took 6.4 to 12.0 s, and a switch off 5.7 s.
+- **Item 4:** franchise and collection switches build in place; a launch
+  reuses the last filter results (6.2 s to 18 ms here); today's schedule goes
+  up before tomorrow's.
+- **Not tried on a TV:** the re-save after a purge, the cleared-library
+  message, a server switch keeping the channel, and the new-day launch.
+- **The smaller items:** done. Their Now Playing opens on CC too, and their
+  bolt badge narrows the name too.
+- **Emby:**
+  - 4.10.1 starts ffmpeg again for every segment after a join part-way into
+    a file whose audio it converts (26 starts in 11 s, also with curl).
+  - That's the likely source of their 500s; a progressive stream is next.
+  - It asked whether their Apple TV hits the same.
+- **Also reported:** the hand-over loop on refused starts (`d991621`).
+- **Asked them to:** run `a18a256` with every package on, checking switches,
+  memory, the second launch and the first launch of a new day.
+- **Still to do:** the retro numbers from `e48cdc1`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
