@@ -67,6 +67,16 @@ sub open(unused = invalid as Dynamic)
     m.col = 0
     m.idx = [0, 0]
     m.infoOpen = false
+    ' Upstream opens on CC (focusedControl = .cc) even with no subtitles,
+    ' where it's greyed out; here it opens on the next row that does
+    ' something instead: an audio track, else RETRO MODE (Discussion #8).
+    if m.top.state <> invalid then
+        cols = columns()
+        f = focusables(cols[0])
+        if f.Count() > 0 and cols[0][f[0]].disabled = true then
+            if f.Count() > 1 then m.idx[0] = 1 else m.col = 1
+        end if
+    end if
     render()
     m.top.SetFocus(true)
 end sub

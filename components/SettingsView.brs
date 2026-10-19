@@ -345,7 +345,9 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
             n = b.channelIDs.Count()
             detail = "Finding " + n.ToStr() + " channel"
             if n <> 1 then detail = detail + "s"
-            detail = detail + " in your library"
+            ' The build runs behind the guide too, which nothing said
+            ' (Discussion #8); the maintainer's wording.
+            detail = detail + " in your library · You can go back to the guide; they show up when ready"
             state = "BUILDING" + m.dots
         end if
     else if row.kind = "franchiseAll" then

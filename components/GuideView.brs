@@ -107,7 +107,13 @@ function newLabel(text as String, font as String, size as Integer, color as Stri
     lbl.font = fontOf(font, size)
     lbl.color = color
     lbl.translation = [x, y]
-    if width > 0 then lbl.width = width
+    if width > 0 then
+        lbl.width = width
+        ' One glyph, as SwiftUI truncates, not "...": on the tuned row, whose
+        ' bolt chip narrows the name as on the Apple TV, the three dots took
+        ' two more letters (Discussion #8). DM Mono has U+2026.
+        lbl.ellipsisText = Chr(8230)
+    end if
     return lbl
 end function
 
@@ -1653,12 +1659,16 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
 end function
 
 ' The focused row in the middle of the rows, as tvOS scrolls it (anchor
-' .center), held at both ends of the list. Rows show partly at the edges.
+' .center), held at both ends of the list, and snapped to a whole row at
+' the top: centred exactly, 29 px of the row two above showed under the
+' time header, below its text, as a bare colour bar (Discussion #8). The
+' row cut at the bottom keeps its name.
 sub keepFocusVisible()
     at = 0
     if m.nav = "grid" then at = m.focus + leadRows()
     total = m.channels.Count() + leadRows()
     want = (m.viewHeight - 80) \ 2 - at * m.rowPitch
+    if want < 0 then want = -(((-want) + m.rowPitch \ 2) \ m.rowPitch) * m.rowPitch
     lowest = m.viewHeight - total * m.rowPitch
     if lowest > 0 then lowest = 0
     if want < lowest then want = lowest
