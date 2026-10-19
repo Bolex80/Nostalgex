@@ -541,7 +541,9 @@ await test('Jellyfin unchanged: the same retry sends the same body as before, no
   await f.tune(direct('A'), 1);
   f.video.onerror();
   const body = bodyOf(f.requests[0]);
-  assert.equal(Object.keys(body).sort().join(), 'DeviceProfile,MaxStreamingBitrate,MediaSourceId,StartTimeTicks');
+  // SubtitleStreamIndex (-1, no subtitle burned into the video) goes to both servers on every
+  // attempt since 2026-10-19; see scripts/nostalgex-jellyfin-subtitles-smoke.mjs.
+  assert.equal(Object.keys(body).sort().join(), 'DeviceProfile,MaxStreamingBitrate,MediaSourceId,StartTimeTicks,SubtitleStreamIndex');
 });
 await test('Emby: direct play URL, MediaBrowser auth on PlaybackInfo, and the encode is stopped by its own session', async () => {
   const f = fixture({ backend: 'emby' });

@@ -5038,7 +5038,10 @@
           Context: 'Streaming', MaxAudioChannels: '2', MinSegments: 1, BreakOnNonKeyFrames: true },
       ],
       CodecProfiles: [],
-      SubtitleProfiles: [],
+      // Every subtitle format as a separate file, and no subtitle stream in the video (below):
+      // the tuner fetches its own WebVTT. Otherwise the server burns a track into the picture.
+      // See point 8 in scripts/nostalgex-jellyfin-urls.js.
+      SubtitleProfiles: NostalgexJellyfinUrls.subtitleProfiles(),
     };
     try {
       const res = await fetch(`${request.serverUrl}/Items/${item.ratingKey}/PlaybackInfo?userId=${encodeURIComponent(request.userId)}`, {
@@ -5051,6 +5054,7 @@
             MaxStreamingBitrate: 120000000,
             StartTimeTicks: startTicks,
             MediaSourceId: msid,
+            SubtitleStreamIndex: NostalgexJellyfinUrls.NO_SUBTITLE_STREAM,
           };
           const pickedAudio = pickAudioStream(item.audioStreams || []);
           if (pickedAudio) body.AudioStreamIndex = pickedAudio.index;
@@ -6758,8 +6762,11 @@
     return (navigator.language || 'en').split('-')[0].toLowerCase();
   }
 
-  function pickSubtitle(subs) {
-    if (!Array.isArray(subs) || subs.length === 0) return null;
+  function pickSubtitle(allSubs) {
+    // Only text tracks become WebVTT; a PGS or VobSub track comes back empty or as an error
+    // (point 9 in scripts/nostalgex-jellyfin-urls.js), so it must not win over an SRT.
+    const subs = Array.isArray(allSubs) ? allSubs.filter(s => NostalgexJellyfinUrls.isTextSubtitle(s.codec)) : [];
+    if (subs.length === 0) return null;
     const pref = resolveSubtitleLanguage();
     // Prefer non-forced matching lang, then forced, then nothing (don't show wrong language)
     return subs.find(s => !s.forced && langMatches(s.lang, pref))

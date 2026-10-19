@@ -48,6 +48,21 @@
 //    12.0 removed the GET. So POST first, and GET again only on 405 or 404. The poll
 //    (GET /QuickConnect/Connect) and POST /Users/AuthenticateWithQuickConnect are unchanged.
 //
+// SUBTITLES. Mirrors JellyfinPlaybackResolver.noSubtitleStream and .subtitleProfiles on Apple TV.
+//
+// 8. PlaybackInfo asks for no subtitle stream (SubtitleStreamIndex -1) and lists every subtitle
+//    format as External. The tuner fetches the subtitle it shows itself, as WebVTT, in full
+//    screen only. Without this the server picked a track by the account's subtitle mode and
+//    burned it into the picture: a full video re-encode, subtitles in the small player, and a
+//    second copy on top when the tuner showed its own. Measured 2026-10-19, Jellyfin 12.2.0
+//    (mode Default) burned every default or forced track (SRT, ASS, PGS, VobSub, mov_text, a
+//    sidecar .srt), Emby 4.10.1.0 (mode Smart) every forced one. With both fields every case
+//    copies the video on both servers. -1 counts only with a matching MediaSourceId.
+// 9. Only text tracks can be shown. The WebVTT endpoint turns SRT, ASS and mov_text into cues,
+//    but a PGS or VobSub track came back HTTP 400 from Jellyfin 12.2.0 and as an empty WEBVTT
+//    from Emby 4.10.1.0. A Blu-ray rip often lists an English PGS before an English SRT, so
+//    the tuner picked the PGS and showed nothing. isTextSubtitle tells them apart.
+//
 // Same on both, so shared: the MediaBrowser Authorization header (Emby 4.10 accepts it on every
 // call the tuner makes), AuthenticateByName with { Username, Pw }, /Items, PlaybackInfo, the
 // static stream, subtitle VTT, /Users/{id}/... watch state, and DELETE /Videos/ActiveEncodings,
@@ -64,6 +79,7 @@
 //   JU.serverStreamOnlyFields(backend, serverStreamOnly);
 //   JU.serverKindFromPublicInfo(json);
 //   await JU.quickConnectInitiate(serverUrl, headers[, fetchImpl]);   // the Response
+//   JU.subtitleProfiles();  JU.NO_SUBTITLE_STREAM;  JU.isTextSubtitle(codec);
 
 (function (global) {
   'use strict';
@@ -166,10 +182,24 @@
     return send(url, { method: 'GET', headers });
   }
 
+  // Subtitles (see 8 and 9 above). Names are the servers' own codec names, any case.
+  const TEXT_SUBTITLES = ['srt', 'subrip', 'ass', 'ssa', 'vtt', 'webvtt', 'mov_text', 'ttml', 'sub', 'smi', 'sami'];
+  const IMAGE_SUBTITLES = ['pgs', 'pgssub', 'dvdsub', 'vobsub', 'dvbsub', 'sup', 'xsub'];
+  const NO_SUBTITLE_STREAM = -1;
+
+  function subtitleProfiles() {
+    return TEXT_SUBTITLES.concat(IMAGE_SUBTITLES).map(Format => ({ Format, Method: 'External' }));
+  }
+
+  function isTextSubtitle(codec) {
+    return TEXT_SUBTITLES.includes(String(codec || '').toLowerCase());
+  }
+
   const api = {
     isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl,
     isMediaBrowser, userViewsPath, serverStreamOnlyFields, serverKindFromPublicInfo,
     quickConnectInitiateRetriesWithGet, quickConnectInitiate,
+    subtitleProfiles, isTextSubtitle, NO_SUBTITLE_STREAM,
   };
 
   global.NostalgexJellyfinUrls = api;
