@@ -62,6 +62,15 @@
 //    but a PGS or VobSub track came back HTTP 400 from Jellyfin 12.2.0 and as an empty WEBVTT
 //    from Emby 4.10.1.0. A Blu-ray rip often lists an English PGS before an English SRT, so
 //    the tuner picked the PGS and showed nothing. isTextSubtitle tells them apart.
+// 10. One exception to 8: a track flagged forced, in the viewer's subtitle language, is burned
+//    in. Those are the lines a film means to be read (Na'vi in Avatar), and the Apple TV app
+//    shows them even with subtitles off (JellyfinPlaybackResolver.forcedSubtitleToBurn). The
+//    tuner's own WebVTT is full screen only, so the server paints them: PlaybackInfo names
+//    the track and lists every format as Encode. External would stop it again: asked for a
+//    track by index with External profiles, both servers answered External and copied the
+//    video; with Encode both burned it in (Jellyfin 12.2.0 and Emby 4.10.1.0, SRT, PGS and
+//    VobSub forced tracks, measured 2026-10-19). A track only flagged default is never burned.
+//    The cost is a video re-encode for these files only.
 //
 // Same on both, so shared: the MediaBrowser Authorization header (Emby 4.10 accepts it on every
 // call the tuner makes), AuthenticateByName with { Username, Pw }, /Items, PlaybackInfo, the
@@ -79,7 +88,8 @@
 //   JU.serverStreamOnlyFields(backend, serverStreamOnly);
 //   JU.serverKindFromPublicInfo(json);
 //   await JU.quickConnectInitiate(serverUrl, headers[, fetchImpl]);   // the Response
-//   JU.subtitleProfiles();  JU.NO_SUBTITLE_STREAM;  JU.isTextSubtitle(codec);
+//   JU.subtitleProfiles(method);  JU.NO_SUBTITLE_STREAM;  JU.isTextSubtitle(codec);
+//   JU.forcedSubtitleToBurn(subtitles, matchesViewerLanguage);   // a subtitle, or null
 
 (function (global) {
   'use strict';
@@ -187,8 +197,17 @@
   const IMAGE_SUBTITLES = ['pgs', 'pgssub', 'dvdsub', 'vobsub', 'dvbsub', 'sup', 'xsub'];
   const NO_SUBTITLE_STREAM = -1;
 
-  function subtitleProfiles() {
-    return TEXT_SUBTITLES.concat(IMAGE_SUBTITLES).map(Format => ({ Format, Method: 'External' }));
+  // 'External' (the default) or 'Encode' when burning the forced track (see 10 above).
+  function subtitleProfiles(method) {
+    const Method = method === 'Encode' ? 'Encode' : 'External';
+    return TEXT_SUBTITLES.concat(IMAGE_SUBTITLES).map(Format => ({ Format, Method }));
+  }
+
+  // The first forced track whose language the viewer reads, or null (see 10 above).
+  // `subtitles` are the page's item.subtitles: { index, lang, forced, codec }.
+  function forcedSubtitleToBurn(subtitles, matchesViewerLanguage) {
+    if (!Array.isArray(subtitles)) return null;
+    return subtitles.find(s => s && s.forced === true && matchesViewerLanguage(s.lang)) || null;
   }
 
   function isTextSubtitle(codec) {
@@ -199,7 +218,7 @@
     isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl,
     isMediaBrowser, userViewsPath, serverStreamOnlyFields, serverKindFromPublicInfo,
     quickConnectInitiateRetriesWithGet, quickConnectInitiate,
-    subtitleProfiles, isTextSubtitle, NO_SUBTITLE_STREAM,
+    subtitleProfiles, isTextSubtitle, forcedSubtitleToBurn, NO_SUBTITLE_STREAM,
   };
 
   global.NostalgexJellyfinUrls = api;

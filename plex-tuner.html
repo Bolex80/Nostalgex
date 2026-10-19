@@ -5028,6 +5028,12 @@
         id: (url && new URL(url, request.serverUrl).searchParams.get('PlaySessionId')) || sessionId,
       },
     });
+    // A forced track in the viewer's subtitle language is burned in; nothing else is. See
+    // point 10 in scripts/nostalgex-jellyfin-urls.js. Noted on the request so the tuner's own
+    // subtitles do not draw the same track a second time.
+    const burn = NostalgexJellyfinUrls.forcedSubtitleToBurn(item.subtitles,
+      lang => langMatches(lang, resolveSubtitleLanguage()));
+    request.burnedSubtitleIndex = burn ? burn.index : null;
     const deviceProfile = {
       MaxStreamingBitrate: 120000000,
       DirectPlayProfiles: [
@@ -5040,8 +5046,8 @@
       CodecProfiles: [],
       // Every subtitle format as a separate file, and no subtitle stream in the video (below):
       // the tuner fetches its own WebVTT. Otherwise the server burns a track into the picture.
-      // See point 8 in scripts/nostalgex-jellyfin-urls.js.
-      SubtitleProfiles: NostalgexJellyfinUrls.subtitleProfiles(),
+      // See point 8 in scripts/nostalgex-jellyfin-urls.js. Encode only for the forced track.
+      SubtitleProfiles: NostalgexJellyfinUrls.subtitleProfiles(burn ? 'Encode' : 'External'),
     };
     try {
       const res = await fetch(`${request.serverUrl}/Items/${item.ratingKey}/PlaybackInfo?userId=${encodeURIComponent(request.userId)}`, {
@@ -5054,7 +5060,7 @@
             MaxStreamingBitrate: 120000000,
             StartTimeTicks: startTicks,
             MediaSourceId: msid,
-            SubtitleStreamIndex: NostalgexJellyfinUrls.NO_SUBTITLE_STREAM,
+            SubtitleStreamIndex: burn ? burn.index : NostalgexJellyfinUrls.NO_SUBTITLE_STREAM,
           };
           const pickedAudio = pickAudioStream(item.audioStreams || []);
           if (pickedAudio) body.AudioStreamIndex = pickedAudio.index;
@@ -6839,6 +6845,7 @@
     if (!item || !Array.isArray(item.subtitles) || item.subtitles.length === 0) return;
     const sub = pickSubtitle(item.subtitles);
     if (!sub) return;
+    if (request.burnedSubtitleIndex === sub.index) return;  // already in the picture
     try {
       const res = await fetch(buildSubtitleUrl(item, sub), { signal: controller.signal });
       if (!ownsSubtitle() || !res.ok) return;

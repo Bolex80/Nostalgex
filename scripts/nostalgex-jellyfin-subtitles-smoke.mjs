@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * The web tuner never asks Jellyfin or Emby to put a subtitle into the video, and only picks
- * subtitle tracks it can show. Points 8 and 9 in scripts/nostalgex-jellyfin-urls.js.
+ * The web tuner never asks Jellyfin or Emby to put a subtitle into the video, except a forced
+ * track in the viewer's language, and only picks subtitle tracks it can show. Points 8, 9 and
+ * 10 in scripts/nostalgex-jellyfin-urls.js.
  *
  * Runs the page's own getJellyfinTranscodeUrl and pickSubtitle, cut out of plex-tuner.html,
  * against a fake server, so the PlaybackInfo body checked here is the one the page sends.
@@ -72,6 +73,12 @@ function extractFunction(src, name) {
   throw new Error(`${name}: unbalanced braces`);
 }
 
+// The page's own language matching: its tables and langMatches.
+function pageLanguageCode() {
+  const table = (/const ISO6391_TO_6392 = \{[\s\S]*?\};/.exec(tuner) || [""])[0];
+  return `${table}\n${extractFunction(tuner, "langMatches")}`;
+}
+
 // ---- the module ----
 
 const profiles = JU.subtitleProfiles ? JU.subtitleProfiles() : [];
@@ -86,6 +93,19 @@ await check("every subtitle profile is External, none Encode or Hls", () => {
   for (const p of profiles) assert(p.Method === "External", `${p.Format} is ${p.Method}`);
 });
 await check("no subtitle stream is -1", () => assert(JU.NO_SUBTITLE_STREAM === -1, `got ${JU.NO_SUBTITLE_STREAM}`));
+await check("burning profiles are all Encode, the same formats", () => {
+  const enc = JU.subtitleProfiles("Encode");
+  assert(enc.length === profiles.length && enc.every(p => p.Method === "Encode"), JSON.stringify(enc.slice(0, 2)));
+  assert(JSON.stringify(enc.map(p => p.Format)) === JSON.stringify(profiles.map(p => p.Format)), "formats differ");
+});
+await check("forcedSubtitleToBurn: first forced track the viewer reads, else null", () => {
+  const en = lang => lang === "eng";
+  const subs = [{ index: 2, lang: "eng", forced: false }, { index: 5, lang: "eng", forced: true }, { index: 6, lang: "eng", forced: true }];
+  assert(JU.forcedSubtitleToBurn(subs, en).index === 5, "forced eng");
+  assert(JU.forcedSubtitleToBurn([{ index: 2, lang: "eng", forced: false }], en) === null, "default only");
+  assert(JU.forcedSubtitleToBurn([{ index: 2, lang: "spa", forced: true }], en) === null, "other language");
+  assert(JU.forcedSubtitleToBurn([], en) === null && JU.forcedSubtitleToBurn(undefined, en) === null, "none");
+});
 await check("text subtitle codecs are text, any case", () => {
   for (const c of ["subrip", "SRT", "ass", "ssa", "mov_text", "webvtt"]) assert(JU.isTextSubtitle(c), c);
 });
@@ -97,7 +117,7 @@ await check("image subtitle codecs are not text", () => {
 
 // ---- the page's PlaybackInfo body ----
 
-async function pageBody(backend, retry) {
+async function pageBody(backend, retry, subtitles, pref = "en") {
   const sent = [];
   const ctx = {
     NostalgexJellyfinUrls: JU,
@@ -105,6 +125,7 @@ async function pageBody(backend, retry) {
     console: { warn() {}, log() {} },
     pickAudioStream: () => null,
     ownsPlaybackRequest: () => true,
+    resolveSubtitleLanguage: () => pref,
     fetch: async (url, init) => {
       sent.push({ url, body: JSON.parse(init.body) });
       return {
@@ -117,14 +138,14 @@ async function pageBody(backend, retry) {
     },
   };
   vm.createContext(ctx);
-  vm.runInContext(`${extractFunction(tuner, "getJellyfinTranscodeUrl")}; this.getJellyfinTranscodeUrl = getJellyfinTranscodeUrl;`, ctx);
+  vm.runInContext(`${pageLanguageCode()}\n${extractFunction(tuner, "getJellyfinTranscodeUrl")}; this.getJellyfinTranscodeUrl = getJellyfinTranscodeUrl;`, ctx);
   const request = {
     backend, serverUrl: "http://192.168.1.50:8096", token: "TOK", deviceId: "dev", userId: "u1",
     authorization: "MediaBrowser Token=\"TOK\"", controller: new AbortController(),
   };
-  const out = await ctx.getJellyfinTranscodeUrl({ ratingKey: "i1", partKey: "ms1", offsetSeconds: 600, _retryHls: retry }, request);
+  const out = await ctx.getJellyfinTranscodeUrl({ ratingKey: "i1", partKey: "ms1", offsetSeconds: 600, _retryHls: retry, subtitles }, request);
   assert(sent.length === 1, `expected one PlaybackInfo POST, saw ${sent.length}`);
-  return { body: sent[0].body, url: sent[0].url, out };
+  return { body: sent[0].body, url: sent[0].url, out, request };
 }
 
 for (const backend of ["jellyfin", "emby"]) {
@@ -158,13 +179,54 @@ await check("the stream URL is the server's TranscodingUrl, unchanged apart from
   assert(!/SubtitleStreamIndex|SubtitleMethod/.test(out.url), out.url);
 });
 
+// ---- the forced track: burned in, and nothing else ----
+
+const methods = body => [...new Set(body.DeviceProfile.SubtitleProfiles.map(p => p.Method))].join();
+const track = (index, lang, forced, codec = "subrip") => ({ index, lang, forced, codec });
+const bluRay = [track(2, "eng", false, "pgssub"), track(3, "eng", false), track(4, "eng", false, "ass"), track(5, "eng", true, "pgssub")];
+const burnCases = [
+  ["forced English SRT, English viewer: burned", [track(2, "eng", true)], "en", 2],
+  ["forced English PGS, English viewer: burned (image tracks qualify)", [track(2, "eng", true, "pgssub")], "en", 2],
+  ["Blu-ray layout: the forced PGS is burned, not the default", bluRay, "en", 5],
+  ["default-only track: never burned", [track(2, "eng", false)], "en", -1],
+  ["no subtitle tracks: nothing burned", [], "en", -1],
+  ["no subtitle list at all: nothing burned", undefined, "en", -1],
+  ["forced track in another language: not burned", [track(2, "spa", true)], "en", -1],
+  ["forced German as ger (Emby), German viewer: burned", [track(2, "ger", true)], "de", 2],
+  ["forced German as deu (Jellyfin 12.2), German viewer: burned", [track(2, "deu", true)], "de", 2],
+  ["forced French as fre, French viewer: burned", [track(2, "fre", true)], "fr", 2],
+  ["forced German, English viewer: not burned", [track(2, "ger", true)], "en", -1],
+];
+for (const backend of ["jellyfin", "emby"]) {
+  for (const [label, subs, pref, want] of burnCases) {
+    await check(`${backend}: ${label}`, async () => {
+      const { body, request } = await pageBody(backend, false, subs, pref);
+      assert(body.SubtitleStreamIndex === want, `SubtitleStreamIndex ${body.SubtitleStreamIndex}, want ${want}`);
+      assert(methods(body) === (want === -1 ? "External" : "Encode"), `profiles ${methods(body)}`);
+      assert(request.burnedSubtitleIndex === (want === -1 ? null : want), `burnedSubtitleIndex ${request.burnedSubtitleIndex}`);
+    });
+  }
+}
+await check("the tuner's own subtitles skip a track already burned in", () => {
+  const fn = extractFunction(tuner, "loadSubtitleForCurrentItem");
+  assert(/request\.burnedSubtitleIndex === sub\.index\) return/.test(fn), "no check against the burned track");
+});
+await check("langMatches takes both ISO 639-2 codes for the burn rule (ger and deu, fre and fra)", () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(`${pageLanguageCode()}; this.m = langMatches;`, ctx);
+  for (const [t, p] of [["eng", "en"], ["ger", "de"], ["deu", "de"], ["fre", "fr"], ["fra", "fr"], ["dut", "nl"], ["nld", "nl"], ["chi", "zh"], ["zho", "zh"]]) {
+    assert(ctx.m(t, p), `${t} vs ${p}`);
+  }
+  assert(!ctx.m("spa", "en") && !ctx.m("ger", "en"), "a different language matched");
+});
+
 // ---- the page's subtitle pick ----
 
 function pagePick(subs, preferred = "en") {
   const ctx = { NostalgexJellyfinUrls: JU, resolveSubtitleLanguage: () => preferred };
   vm.createContext(ctx);
-  const table = /const ISO6391_TO_6392 = \{[\s\S]*?\};/.exec(tuner);
-  vm.runInContext(`${table ? table[0] : ""} ${extractFunction(tuner, "langMatches")}; ${extractFunction(tuner, "pickSubtitle")}; this.pick = pickSubtitle;`, ctx);
+  vm.runInContext(`${pageLanguageCode()}\n${extractFunction(tuner, "pickSubtitle")}; this.pick = pickSubtitle;`, ctx);
   return ctx.pick(subs);
 }
 const pgs = { index: 2, lang: "eng", forced: false, codec: "pgssub" };
