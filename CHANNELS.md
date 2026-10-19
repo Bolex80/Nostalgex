@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 39 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
+**Config version:** 40 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
 
 ---
 
@@ -440,4 +440,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v39 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v40 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
