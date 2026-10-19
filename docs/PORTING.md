@@ -406,6 +406,9 @@ at `6f05937` with 5,363 items on one server:
   same in `LongInteger` was right; keep exact integer arithmetic in
   `LongInteger`.
 - `Abs()` returns a Float. Array indexes must be `Integer`, not `LongInteger`.
+- A `for each` nested inside a `for each` over the same array shares its
+  place on a TV, so the outer loop ends when the inner one does. The
+  interpreter keeps them apart. Loop the inner one by index (`b9543c7`).
 - The TV's compiler rejects a statement that calls a method on a function's
   result, `F(x).list.Push(y)` (compile error `&h02`, and the app drops back to
   the home screen). The off-device interpreter accepts it, so assign the
