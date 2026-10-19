@@ -3,6 +3,29 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-19 (Jellyfin Quick Connect starts with a POST)
+
+**Shipped.** Nothing yet. Branch `jellyfin/quick-connect-post`, not merged or pushed. Apple TV needs an App Store build; the web tuner gets it when main is pushed, and Docker with the next `tuner-v*` tag.
+
+**Why.** Quick Connect could not start on Jellyfin 12 from either client. Both sent `GET /QuickConnect/Initiate`. Jellyfin 12.2.0 answers that with 405 and an empty body, and answers `POST` with 200 and the code and secret. So the web tuner and the Docker image said QUICK CONNECT IS NOT ENABLED ON THIS SERVER with Quick Connect on, and Apple TV said "Could not start Quick Connect". Reported by the Roku port's author, who also confirmed the poll (`GET /QuickConnect/Connect`) and `POST /Users/AuthenticateWithQuickConnect` work as we have them. Jellyfin's own history, from `Jellyfin.Api/Controllers/QuickConnectController.cs` at each release tag: 10.7.7, 10.8.8 and 10.8.13 route Initiate as GET only. 10.9.0 made it POST and kept GET as an obsolete route (commit 722ad3f, "Change InitiateQuickConnect to use POST request"), and 10.9.0 through 10.11.11 answer both. 12.0 removed the GET ("Remove some deprecated API members", 874fd9a); 12.0-rc1, 12.0 and 12.2 are POST only.
+
+**Changed.**
+- Apple TV: `JellyfinAPIService.quickConnectInitiate` sends POST. Only when that gets 405 or 404 does it send the same request again as GET, so 10.7 and 10.8 keep working. A 401 (Quick Connect off), any other error and a network failure are not retried. Two 404s still read as "that address isn't Jellyfin", so sign-in moves on to the next address as before. How the request is sent is now a parameter, so tests can record it; the app passes the same session as before.
+- Web tuner and Docker: the same rule, as `quickConnectInitiate` in `scripts/nostalgex-jellyfin-urls.js` (point 7), which `web-tuner.html` already loads. It hands back the server's response, so the page's checks and messages are unchanged.
+- Every other Quick Connect call is unchanged.
+- Looked for the same problem elsewhere. Every other Jellyfin method and path either client uses is in Jellyfin's 12.2 source with the method we send, and the lab server routes each one (a PUT to the same path is 405, ours is not). The legacy `/Users/{id}/...` watch-state routes (`Items/{id}`, `PlayedItems/{id}`, `Items/{id}/UserData`) are still there in 12.2, left out of its OpenAPI document. The other endpoints the 12.0 cleanup removed are ones neither client calls.
+
+**Measured.** Lab Jellyfin 12.2.0 on this Mac, Quick Connect on: GET Initiate 405, POST 200 with a 6 digit code and a 64 character secret. Without the MediaBrowser header the POST is 400; both clients send it.
+- Swift: new `JellyfinQuickConnectTests`, 7 tests, pass, and `QuickConnectFailureMessageTests` (4) still pass. With the old GET-only request put back behind the same seam, all 7 fail. `JellyfinQuickConnectLiveHarness` (skipped unless pointed at a server) runs the app's own initiate, poll and authenticate: code issued, poll false, code approved, poll true, signed in as the right user, and the new token lists the libraries. With the old request it fails on HTTP 405. Full NostalgexTests run serially: 805 tests, 794 passed, 0 failed, 11 skipped (the opt-in live harnesses, this one included). In a parallel run one wall-clock harness, `TelemetryVolumeHarness` timing the five second skip loop, read 6.5 s against 5 plus or minus 1 on a busy machine; it passes 3 of 3 on its own.
+- Web: new `npm run test:jellyfin-quick-connect`, 24 checks. The module, then `web-tuner.html`'s own Jellyfin section in a VM against fake servers with the 12.x, 10.9 to 10.11, and 10.7 and 10.8 route tables, plus Quick Connect off, an unreachable server and a server that isn't Jellyfin. The old GET-only call is run through the same checks as negative controls. Against main's page and module the file fails 20 of 24. With a server set in the environment it also signs in for real through the page's code: POST Initiate 200, poll, `AuthenticateWithQuickConnect` 200, saved as Jellyfin, `/UserViews` 200 with the new token. The built Docker files in headless Chrome: Quick Connect lands on the tuner signed in; the same files with the old call put back show QUICK CONNECT IS NOT ENABLED ON THIS SERVER after a GET 405.
+- `npm test`, `npm run build` and `npm run build:selfhost` pass.
+
+**Unverified.** No Apple TV, no Roku and no Jellyfin 10.x server were used. The GET fallback for 10.7 and 10.8 is covered only by tests: whether 10.8 answers a POST with 405 or 404 was not measured, and both get the GET. Codes were approved with the lab's admin API key, standing in for the person in the Jellyfin dashboard.
+
+**Next.**
+- Which build carries this is Chad's call. Draft changelog line, not yet in `content/changelog.json`: "Jellyfin Quick Connect works on Jellyfin 12."
+- The Roku port should start Quick Connect with POST too.
+
 ## 2026-10-19 (publish Jellyfin TV guide post)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/jellyfin-tv-guide-own-library`.
