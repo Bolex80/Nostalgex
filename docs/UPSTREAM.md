@@ -342,6 +342,25 @@ test passed on the TV.
   memory, the second launch and the first launch of a new day.
 - **Still to do:** the retro numbers from `e48cdc1`.
 
+[Followed up](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19049078)
+on 2026-10-19, leading with the schedule matching theirs across the clock
+changes (`e1ef341`, the `dst` lineup cases, passing on the 43S45).
+- **Two of theirs, kept in the port:** a day packs 24 hours, so a 25-hour
+  Nov 1 can have nothing scheduled before its midnight; and on 2027-03-15
+  "yesterday" is Mar 13 (web and Swift). It asked what their Apple TV shows
+  at 11:30 PM on Nov 1, and suggested stepping the calendar day.
+- **Bugs found by reading the code** (`469740f` to `b9bd4ff`):
+  - a package switch unanswered after a refresh that reached no server;
+  - Settings showing the last build's packages;
+  - the retry landing on another channel;
+  - a waiting tune's stale index;
+  - and smaller ones.
+
+  The first two were checked on the 43S45.
+- **Also reported:** a nested `for each` over one array sharing its place on
+  a TV.
+- **Asked them to:** run `76d27d0` in place of `a18a256`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
