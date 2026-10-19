@@ -88,8 +88,34 @@ export function lineupVectors(upstream, M, pool) {
       out: blocksOf(M.getManifestBlocks(s.ch, s.pool, ms, "roku")),
     });
   }
+  // The same, in a zone whose clocks change: either side of each change and
+  // late on both days, when the clock's time since midnight is an hour off.
+  // `zone` is America/New_York's offsets over these dates, for the port to pin.
+  const dst = { zone: [
+    { fromSec: 0, offsetSec: -4 * 3600 },
+    { fromSec: Date.parse("2026-11-01T06:00:00Z") / 1000, offsetSec: -5 * 3600 },
+    { fromSec: Date.parse("2027-03-14T07:00:00Z") / 1000, offsetSec: -4 * 3600 },
+  ], cases: [] };
+  const tz = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    for (const iso of ["2026-10-31T23:30:00-04:00", "2026-11-01T00:30:00-04:00", "2026-11-01T01:30:00-04:00",
+      "2026-11-01T01:30:00-05:00", "2026-11-01T21:00:00-05:00", "2026-11-01T23:30:00-05:00",
+      "2026-11-02T00:30:00-05:00", "2027-03-14T01:30:00-05:00", "2027-03-14T03:30:00-04:00",
+      "2027-03-14T21:00:00-04:00", "2027-03-15T00:30:00-04:00"]) {
+      const ms = Date.parse(iso);
+      M.clearManifests("roku");
+      dst.cases.push({
+        atSec: Math.floor(ms / 1000),
+        dayStartSec: Math.floor(M.startOfLocalDayMs(ms) / 1000), dayKey: M.localDayKey(ms), dayNumber: M.localDayNumber(ms),
+        out: blocksOf(M.getManifestBlocks({ id: 7 }, small, ms, "roku")),
+      });
+    }
+  } finally {
+    process.env.TZ = tz;
+  }
   delete globalThis.localStorage;
 
   const fingerprint = [0, 1, 5, pool.length].map((n) => ({ n, out: globalThis.__nxRng.poolFingerprint(pool.slice(0, n)) }));
-  return { pool, shuffle, timeFilter, rated, manifests, fingerprint };
+  return { pool, shuffle, timeFilter, rated, manifests, dst, fingerprint };
 }

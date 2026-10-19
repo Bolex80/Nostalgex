@@ -11,7 +11,8 @@
 ' afterwards gives the same blocks.
 function NxScheduleGuide(ordered as Object, nowSec as LongInteger, todayOnly = false as Boolean) as Object
     day = NxLocalDay(nowSec)
-    tomorrowAt& = day.dayStartSec + 86400 + 60
+    ' A day is 23 to 25 hours long, so 26 hours on is always tomorrow.
+    tomorrowAt& = NxLocalDay(day.dayStartSec + 26 * 3600).dayStartSec + 60
     tomorrowHour = NxLocalDay(tomorrowAt&).hour
     out = []
     for each ch in ordered

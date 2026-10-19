@@ -77,6 +77,15 @@ The caller keeps a day's blocks in memory instead (`NxManifestCache`),
 cleared on a library load as the web tuner's is and kept through a package
 switch as the Apple TV's `DailyManifestStore` is.
 
+A day starts at local midnight as `setHours(0, 0, 0, 0)` has it, also on the
+days the clocks change, when the clock's time since midnight is an hour off
+the real one (`NxLocalDay`). `lineup.json`'s `dst` cases hold the port to
+upstream in America/New_York either side of each change. Two things upstream
+does on those days are ported as they are: a day packs 24 hours, so a
+25-hour day can run out before its midnight and the next programme start early,
+and the day after a 23-hour day reads "yesterday" as the day before it
+(`dayStart - 86400`, also in `DailyManifestScheduler.swift`).
+
 Not ported from the filter module: `filterPool`'s `shows` summary and the
 animation flags on its rows, which only devtools read. Two changes don't
 affect results:

@@ -18,20 +18,54 @@
 
 ' { dayStartSec, dayKey, dayNumber } for the local day holding epochSec, as
 ' startOfLocalDayMs, localDayKey and localDayNumber. Tests pin the zone by
-' setting GetGlobalAA().nxTzOffsetSec.
+' setting GetGlobalAA().nxTzOffsetSec, or nxTzOffsets for a zone whose
+' clocks change.
 function NxLocalDay(epochSec as LongInteger) as Object
-    g = GetGlobalAA()
-    dt = CreateObject("roDateTime")
-    dt.FromSeconds(epochSec)
-    if g.nxTzOffsetSec <> invalid then
-        dt.FromSeconds(epochSec + g.nxTzOffsetSec)
-    else
-        dt.ToLocalTime()
-    end if
-    secOfDay = dt.GetHours() * 3600 + dt.GetMinutes() * 60 + dt.GetSeconds()
+    dt = NxLocalClock(epochSec)
+    secOfDay = NxClockSecOfDay(dt)
     dayStart& = epochSec - secOfDay
+    ' On a day the clocks change, the clock's time since midnight is an hour
+    ' off the real one, so look at what the clock says at that guess. Where
+    ' midnight itself is skipped, the day starts at its first moment, as
+    ' setHours(0, 0, 0, 0) has it.
+    at = NxLocalClock(dayStart&)
+    if NxClockSameDate(at, dt) then
+        s = NxClockSecOfDay(at)
+        if s > 0 and NxClockSameDate(NxLocalClock(dayStart& - s), dt) then dayStart& = dayStart& - s
+    else
+        dayStart& = dayStart& + 86400 - NxClockSecOfDay(at)
+    end if
     key = dt.GetYear().ToStr() + "-" + NxPad2(dt.GetMonth()) + "-" + NxPad2(dt.GetDayOfMonth())
     return { dayStartSec: dayStart&, dayKey: key, dayNumber: NxFloorDivLong(dayStart&, 86400), hour: dt.GetHours(), month: dt.GetMonth() }
+end function
+
+' An roDateTime showing the local wall clock at epochSec. nxTzOffsets is
+' [{ fromSec, offsetSec }] in time order, each offset holding from its
+' fromSec on.
+function NxLocalClock(epochSec as LongInteger) as Object
+    g = GetGlobalAA()
+    off = g.nxTzOffsetSec
+    if type(g.nxTzOffsets) = "roArray" then
+        for each z in g.nxTzOffsets
+            if epochSec >= z.fromSec then off = z.offsetSec
+        end for
+    end if
+    dt = CreateObject("roDateTime")
+    if off <> invalid then
+        dt.FromSeconds(epochSec + off)
+    else
+        dt.FromSeconds(epochSec)
+        dt.ToLocalTime()
+    end if
+    return dt
+end function
+
+function NxClockSecOfDay(dt as Object) as Integer
+    return dt.GetHours() * 3600 + dt.GetMinutes() * 60 + dt.GetSeconds()
+end function
+
+function NxClockSameDate(a as Object, b as Object) as Boolean
+    return a.GetDayOfMonth() = b.GetDayOfMonth() and a.GetMonth() = b.GetMonth() and a.GetYear() = b.GetYear()
 end function
 
 function NxPad2(n as Integer) as String
