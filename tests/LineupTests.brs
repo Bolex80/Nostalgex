@@ -80,8 +80,11 @@ function NxRunLineupTests(vectorsPath as String) as Integer
             parts.Push(NxToStr(b.item.ratingKey) + "@" + b.startSec.ToStr() + "-" + b.endSec.ToStr())
         end for
         NxCheck(r, name + " manifest", parts.Join(","), c.out)
+        ' By index: a nested `for each` over the same array shares its place on
+        ' a TV, so the outer loop would end after one case.
         nextStart& = 0
-        for each o in v.dst.cases
+        for i = 0 to v.dst.cases.Count() - 1
+            o = v.dst.cases[i]
             if o.dayStartSec > c.dayStartSec and (nextStart& = 0 or o.dayStartSec < nextStart&) then nextStart& = o.dayStartSec
         end for
         if nextStart& > 0 and nextStart& - c.dayStartSec <= 25 * 3600 then
