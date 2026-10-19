@@ -1,5 +1,5 @@
 {
-  "version": 42,
+  "version": 43,
   "exclusiveRules": [
     {
       "channelIDs": [
@@ -98,6 +98,8 @@
         132,
         415
       ],
+      "type": "movie",
+      "source": "movie",
       "editorialTitles": [
         "Scream",
         "Scream 2",

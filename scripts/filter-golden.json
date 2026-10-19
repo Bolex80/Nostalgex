@@ -1847,6 +1847,52 @@
         69
       ],
       "out": []
+    },
+    {
+      "name": "scream-tv-series-is-not-locked",
+      "about": "The SCREAM lock keeps the Scream and Halloween films on SCREAM ADULTS and SLASHER. It is films only, so a TV series titled Scream airs on the horror TV channels instead of nowhere.",
+      "item": {
+        "title": "Scream",
+        "episodeTitle": "Pilot",
+        "year": 2015,
+        "type": "episode",
+        "genres": [
+          "Horror",
+          "Drama",
+          "Mystery"
+        ],
+        "contentRating": "TV-14",
+        "duration": 44
+      },
+      "in": [
+        141
+      ],
+      "out": [
+        132,
+        415
+      ]
+    },
+    {
+      "name": "scream-music-video-is-not-locked",
+      "about": "A music video titled Scream stays on the music video channels; the SCREAM lock only takes films.",
+      "item": {
+        "title": "Scream",
+        "artist": "Michael Jackson",
+        "year": 1995,
+        "type": "movie",
+        "librarySource": "musicVideo",
+        "genres": [
+          "Pop"
+        ],
+        "duration": 5
+      },
+      "in": [
+        150
+      ],
+      "out": [
+        132,
+        415
+      ]
     }
   ]
 }

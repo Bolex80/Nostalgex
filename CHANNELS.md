@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 42 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
+**Config version:** 43 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
 
 ---
 
@@ -92,7 +92,7 @@ web filter) and `scripts/filter-golden.json` pins the cases.
 |---|---|---|
 | CH145 HOLIDAZE (id 130)<br>CH146 SANTA'S LIST (id 409)<br>CH147 NAUGHTY LIST (id 410)<br>CH148 NOSTALGEX CHRISTMAS (id 411)<br>CH149 MISTLETOE (id 412)<br>CH150 CHRISTMAS SPECIALS (id 413)<br>CH151 KIDS CHRISTMAS TV (id 414) | genres Holiday/Christmas, 14 title words, 47 exact titles, only movies from the movie library | Christmas films belong to the TIS THE SEASON channels, including the two TV channels, which air half-hour specials stored as films. Films in a movie library only (`type: movie`, `source: movie`), so a show with Santa in its name and a Christmas song on a music video stay free. Title words are the ones that measured 95% or more Christmas across TMDB films with 25+ votes (2026-10-18): "Holiday" (66%, Mr. Bean's Holiday, Roman Holiday), "Santa" (87%, Santa Sangre, Santa Fe Trail), "Merry", "Snowman", "Grinch", "Scrooge", "Nutcracker" and "Reindeer" were dropped, so the channels still match them but no longer lock them away. Die Hard, Lethal Weapon, Reindeer Games, Rocky IV, Gremlins, Batman Returns, Trading Places, The Family Man, While You Were Sleeping and The Shop Around the Corner are deliberately NOT locked: Christmas-set, but they belong on their year-round channels too. |
 | id 32 (missing)<br>CH59 ANIME (id 60) | genres Anime, TMDB manifest claim (`manifestExclusive`) | Anime is claimed by genre `Anime` OR by a TMDB-manifest claim (`manifestExclusive`), so manifest-claimed anime is blocked from the other animation channels even when Plex only tags it "Animation". The manifest builder gates these channels with `requireGenres: ["Animation"]` + `requireOriginalLanguage: ["ja"]` + `autoSweepCollections: false` so TMDB similar/collection noise cannot be claimed — that blocks live-action (Spy Kids) AND Western animation (An American Tail, Avatar, Castlevania). Strict Japanese anime only. Re-run the keyword tuner to apply changes. |
-| CH139 SCREAM ADULTS (id 132)<br>CH141 SLASHER (id 415) | 22 exact titles | The Scream and Halloween films, by exact title, so SCREAM ADULTS and SLASHER own them rather than the other horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
+| CH139 SCREAM ADULTS (id 132)<br>CH141 SLASHER (id 415) | 22 exact titles, only movies from the movie library | The Scream and Halloween films, by exact title, so SCREAM ADULTS and SLASHER own them rather than the other horror channels. It used to match any title containing "scream" or "halloween", which hid Kicking & Screaming and Hubie Halloween from every channel they belong on. |
 
 ---
 
@@ -440,4 +440,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v42 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v43 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
