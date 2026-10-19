@@ -55,14 +55,14 @@ docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/cha
 
 Then open `http://YOUR-SERVER-IP:8080`. Step by step help is in the [Docker container guide](https://www.nostalgex.app/self-host).
 
-**Latest: `tuner-v1.0.1`.** A sleep timer, playback information, its own Emby sign-in, and SCREAM in any month with eight horror channels. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.1). Already running it? `docker compose pull && docker compose up -d`.
+**Latest: `tuner-v1.0.2`.** Jellyfin Quick Connect works on Jellyfin 12, and TOON TOWN no longer airs The Hobbit. 1.0.1 added a sleep timer, playback information, its own Emby sign-in, and SCREAM in any month with eight horror channels. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.2). Already running it? `docker compose pull && docker compose up -d`.
 
 <a id="whats-new-in-1026"></a>
 ## What's new in 1.0.26
 
 The App Store went straight from 1.0.23 to 1.0.26, so this rolls up 1.0.24, 1.0.25 and 1.0.26. [Full release notes](https://github.com/chadMueller/Nostalgex/releases/tag/v1.0.26)
 
-- **The Docker container launched** as `tuner-v1.0.0`. It's on [`tuner-v1.0.1`](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.1) now.
+- **The Docker container launched** as `tuner-v1.0.0`. It's on [`tuner-v1.0.2`](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.2) now.
 - **Emby is officially supported.** Thank you to the Emby community for all the logs and testing.
 - **Franchises.** Each film series in your library (Star Wars, Rocky, whatever you own) gets its own channel and its own switch in Settings. Server collections land in FRANCHISES or OTHER COLLECTIONS. NOTABLE STARS is retired.
 - **iCloud sync** (Settings > CONNECTION). Every Apple TV on your Apple ID shares the same lineup and settings. Off by default, and server logins never leave the device.
