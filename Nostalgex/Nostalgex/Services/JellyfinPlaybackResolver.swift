@@ -85,12 +85,21 @@ extension JellyfinPlaybackResolver {
 ///   • Transcoding always targets fMP4 HLS (`Container: "mp4"`), never MPEG-TS — AVPlayer
 ///     cannot render HEVC from a TS segment (the original black-screen bug).
 /// CodecProfiles add the two decode limits a codec name does not express; see `deviceProfile`.
+/// SubtitleProfiles stop the server painting subtitles into the picture; see `subtitleProfiles`.
 struct JellyfinDeviceProfile: Encodable, Sendable {
     let MaxStreamingBitrate: Int
     let MaxStaticBitrate: Int
     let DirectPlayProfiles: [DirectPlayProfile]
     let TranscodingProfiles: [TranscodingProfile]
     let CodecProfiles: [CodecProfile]
+    let SubtitleProfiles: [SubtitleProfile]
+
+    /// `Method` is the server's word for how a subtitle reaches the client: "Encode" burns
+    /// it into the video, "External" leaves it as a separate file the client may fetch.
+    struct SubtitleProfile: Encodable, Sendable, Equatable {
+        let Format: String
+        let Method: String
+    }
 
     struct CodecProfile: Encodable, Sendable {
         let mediaType: String
@@ -146,10 +155,14 @@ struct JellyfinDeviceProfile: Encodable, Sendable {
 /// left out and the server decides exactly as it always has. They are false only when the
 /// file has already been played directly and gave no picture or starved; see
 /// `JellyfinPlaybackResolver.playbackInfoBody`.
+///
+/// `SubtitleStreamIndex` is always -1: no subtitle stream in the video. See
+/// `JellyfinPlaybackResolver.noSubtitleStream`.
 struct PlaybackInfoBody: Encodable, Sendable {
     let DeviceProfile: JellyfinDeviceProfile
     let MediaSourceId: String
     let MaxStreamingBitrate: Int
+    let SubtitleStreamIndex: Int
     let EnableDirectPlay: Bool?
     let EnableDirectStream: Bool?
 }
@@ -181,10 +194,47 @@ enum JellyfinPlaybackResolver {
             DeviceProfile: deviceProfile(supportsHEVC: supportsHEVC),
             MediaSourceId: mediaSourceId,
             MaxStreamingBitrate: StreamQuality.current.maxBitrateBps,
+            SubtitleStreamIndex: noSubtitleStream,
             EnableDirectPlay: serverStreamOnly ? false : nil,
             EnableDirectStream: serverStreamOnly ? false : nil
         )
     }
+
+    /// No subtitle stream goes into the video, whatever the file or the server account says.
+    ///
+    /// Left to itself the server picks a subtitle track by the account's subtitle mode and,
+    /// with no way to hand it to this client, burns it into the picture: a full video
+    /// re-encode for the whole film, subtitles in the guide preview, and no way to turn
+    /// them off. Measured 2026-10-19 against Jellyfin 12.2.0 (mode Default) and Emby
+    /// 4.10.1.0 (mode Smart) with MKVs carrying SRT, ASS, PGS and VobSub tracks: Jellyfin
+    /// burned in every default or forced track, Emby every forced one, both with libx264
+    /// and an overlay or subtitles filter. On Jellyfin an MP4 with a default mov_text track
+    /// or a sidecar .srt lost direct play and was re-encoded the same way (the app asks about
+    /// HEVC MP4s, and on the retry). With -1 every case copies the video, and the MP4s
+    /// direct play again. The app shows subtitles only
+    /// through AVPlayer's own tracks, and neither server put a subtitle track into the HLS
+    /// stream either way, so nothing the app could show is lost.
+    ///
+    /// Not used: Jellyfin's HLS subtitle delivery. It does add text tracks to the master
+    /// playlist, but its WebVTT says `X-TIMESTAMP-MAP=MPEGTS:900000` (10 s), the start of its
+    /// MPEG-TS output, while its fMP4 output starts at 0. AVPlayer showed every cue 10 s
+    /// late. Emby has no HLS subtitle delivery at all.
+    ///
+    /// -1 is honoured only when `MediaSourceId` matches the source: without one, Jellyfin
+    /// burned in as before. Jellyfin still writes `SubtitleMethod=Encode` on the URL with -1;
+    /// that is its default value, and nothing is encoded.
+    static let noSubtitleStream = -1
+
+    /// Every subtitle format either server names, as a separate file. Belt and braces for
+    /// -1 above: if a server ever picks a track anyway, "External" means it does not burn
+    /// it. Measured: with these profiles and no -1, no file in the matrix was burned in on
+    /// either server. Image formats are listed too, because a profile list without them
+    /// still burned PGS and VobSub. Names are the servers' own (Jellyfin `PGSSUB`,
+    /// `DVDSUB`, `subrip`; Emby `srt`), matched without regard to case.
+    static let subtitleProfiles: [JellyfinDeviceProfile.SubtitleProfile] = [
+        "srt", "subrip", "ass", "ssa", "vtt", "webvtt", "mov_text", "ttml", "sub", "smi", "sami",
+        "pgs", "pgssub", "dvdsub", "vobsub", "dvbsub", "sup", "xsub",
+    ].map { .init(Format: $0, Method: "External") }
 
     static func deviceProfile(supportsHEVC: Bool) -> JellyfinDeviceProfile {
         let videoCodecs = supportsHEVC ? "h264,hevc" : "h264"
@@ -202,7 +252,8 @@ enum JellyfinPlaybackResolver {
                 .init(Container: "mp4", mediaType: "Video", VideoCodec: videoCodecs, AudioCodec: audioCodecs,
                       Context: "Streaming", MaxAudioChannels: "6", protocolName: "hls"),
             ],
-            CodecProfiles: codecProfiles(supportsHEVC: supportsHEVC)
+            CodecProfiles: codecProfiles(supportsHEVC: supportsHEVC),
+            SubtitleProfiles: subtitleProfiles
         )
     }
 

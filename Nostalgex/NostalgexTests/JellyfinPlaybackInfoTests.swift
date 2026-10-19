@@ -49,6 +49,67 @@ final class JellyfinPlaybackInfoTests: XCTestCase {
         XCTAssertFalse(try profileJSON(supportsHEVC: false).contains("VideoCodecTag"), "no HEVC rule when HEVC is not offered")
     }
 
+    // MARK: - Subtitles never go into the picture
+
+    private func bodyJSON(serverStreamOnly: Bool) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(JellyfinPlaybackResolver.playbackInfoBody(
+            mediaSourceId: "src1", supportsHEVC: true, serverStreamOnly: serverStreamOnly))
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    /// Without it Jellyfin 12.2.0 burned every default or forced subtitle track into a full
+    /// libx264 re-encode, and Emby 4.10.1.0 every forced one (measured 2026-10-19).
+    func testPlaybackInfoAsksForNoSubtitleStreamOnEveryAttempt() throws {
+        for serverStreamOnly in [false, true] {
+            let body = try bodyJSON(serverStreamOnly: serverStreamOnly)
+            XCTAssertEqual(body["SubtitleStreamIndex"] as? Int, -1, "serverStreamOnly=\(serverStreamOnly)")
+            XCTAssertEqual(body["MediaSourceId"] as? String, "src1",
+                           "the server honours -1 only with a matching MediaSourceId; without one Jellyfin burned in")
+        }
+    }
+
+    func testBothServicesSendTheSubtitleFields() throws {
+        let item = PlexMediaItem(
+            id: "4242", title: "Film", artist: nil, episodeTitle: nil, seTag: nil,
+            summary: "", year: 2001, originallyAvailableAt: nil, contentRating: nil,
+            duration: 100, ratingKey: "4242", partKey: "mediasource_4242", container: "mkv",
+            videoCodec: "h264", audioCodec: "aac", videoProfile: nil, bitrate: 8_000,
+            genres: [], rating: 0, userRating: 0, type: .movie, thumb: nil, art: nil,
+            viewCount: 0, addedAt: 0, studio: nil, tmdbID: nil, imdbID: nil,
+            librarySource: .movie
+        )
+        let requests: [(String, URLRequest?)] = [
+            ("Jellyfin", JellyfinAPIService(serverURL: "http://jelly.local:8096", accessToken: "TKN", userId: "u1")
+                .playbackInfoRequest(for: item, serverStreamOnly: false)),
+            ("Emby", EmbyAPIService(serverURL: "http://emby.local:8096", accessToken: "TKN", userId: "u1")
+                .playbackInfoRequest(for: item, serverStreamOnly: false)),
+        ]
+        for (name, request) in requests {
+            let data = try XCTUnwrap(try XCTUnwrap(request, name).httpBody, name)
+            let body = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any], name)
+            XCTAssertEqual(body["SubtitleStreamIndex"] as? Int, -1, name)
+            let profile = try XCTUnwrap(body["DeviceProfile"] as? [String: Any], name)
+            let subs = try XCTUnwrap(profile["SubtitleProfiles"] as? [[String: String]], name)
+            XCTAssertFalse(subs.isEmpty, name)
+        }
+    }
+
+    /// Image formats matter as much as text: with only text formats listed, Jellyfin still
+    /// burned PGS and VobSub tracks.
+    func testDeviceProfileListsEverySubtitleFormatAsExternal() throws {
+        for hevc in [true, false] {
+            let subs = JellyfinPlaybackResolver.deviceProfile(supportsHEVC: hevc).SubtitleProfiles
+            let formats = Set(subs.map { $0.Format.lowercased() })
+            for format in ["srt", "subrip", "ass", "ssa", "mov_text", "webvtt", "pgssub", "dvdsub", "dvbsub"] {
+                XCTAssertTrue(formats.contains(format), "\(format) missing (hevc=\(hevc))")
+            }
+            XCTAssertEqual(Set(subs.map(\.Method)), ["External"], "nothing may be Encode (burn in) or Hls (cues 10 s late on fMP4)")
+        }
+        let json = try profileJSON(supportsHEVC: true)
+        XCTAssertTrue(json.contains("\"SubtitleProfiles\":[{"), "encoded under the server's key")
+        XCTAssertTrue(json.contains("\"Method\":\"External\""))
+    }
+
     // MARK: - resolve()
 
     func testResolveSelectsTranscodingUrlAndSession() throws {
