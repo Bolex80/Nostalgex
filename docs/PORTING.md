@@ -48,24 +48,34 @@ The library itself is saved too, after the Apple TV app's
 `LibrarySnapshotStore.swift` (`source/plex/LibrarySnapshot.brs`): each
 server's items and collections in 2,000-item chunk files under
 `cachefs:/nostalgex-library/`, with the meta file written last so a save cut
-off part way leaves the last one readable. A package switched in Settings is
-built from it at once, behind Settings, reusing every pool already in the
-guide; a franchise, collection or server switch rebuilds the channels from it
-on leaving Settings, reading only a server it doesn't have (Discussion #8,
-item 7). A launch's background
+off part way leaves the last one readable. The build task keeps the library
+it loaded in memory, and a package switched in Settings is built from that at
+once, behind Settings, reusing every pool already in the guide; a franchise
+or collection switch is built the same way on leaving Settings. Only a server
+switch rebuilds the channels from the saved library, reading only a server it
+doesn't have (Discussion #8, item 7). When the OS has cleared a server's save,
+the next switch writes it again from memory. A launch's background
 refresh asks each server for its section list first and skips the scan while
 the library signature (`LibraryChangeSignature.swift`: each section's
 `updatedAt` and `contentChangedAt`) is unchanged and the save is under a day
 old, as the Apple TV app's `refreshLibraryIfChanged` does. Saved items drop
 the filter cache, the enrichment record and the artwork paths, which nothing
 after the scan reads. Sign-out deletes them with the rest. The build task stays running with the
-pools and re-checks schedules every 30 seconds, as upstream's
-`rebuildAllSchedules` does, so time restrictions and day changes re-pack as
-they would upstream.
+pools and is asked to re-check schedules every 30 seconds, as upstream's
+`rebuildAllSchedules` runs, so time restrictions and day changes re-pack as
+they would upstream; it schedules again only when the local hour or day has
+moved, the only inputs besides the pools.
+
+A launch whose servers all come from their saves reuses the last build's
+filter results (kept in the saved pools file), as a package switch does,
+except for channels whose rules read the clock to the day
+(`addedWithinDays`, `releasedWithinMonths`); the file's key holds the month,
+which is all the rest read.
 
 Not ported from the schedule module: its manifest cache (`localStorage`).
-The caller caches a day's blocks in the Roku registry instead, which is the
-same role in a different medium, as upstream's own notes allow.
+The caller keeps a day's blocks in memory instead (`NxManifestCache`),
+cleared on a library load as the web tuner's is and kept through a package
+switch as the Apple TV's `DailyManifestStore` is.
 
 Not ported from the filter module: `filterPool`'s `shows` summary and the
 animation flags on its rows, which only devtools read. Two changes don't
@@ -421,8 +431,12 @@ at `6f05937` with 5,363 items on one server:
   `NxFranchiseLower`.
 - `step` is a reserved word, like `pos`.
 - `cachefs:` is a cache: on a 43S45 it was emptied between two runs of the
-  app, saved library and enrichment cache together. Everything kept there
+  app, saved library and enrichment cache together, and on a Streaming Stick
+  Plus twice in 25 minutes while the app ran. Roku keeps it in RAM unless
+  there is an SD card, so a restart empties it too. Everything kept there
   must be rebuildable.
+- `Int()` takes a Float: a Double past 2^24 is rounded to float32 first
+  (Jellyfin dates 47 s off on a stick). `NxFloorDouble` floors exactly.
 - `roUrlTransfer` is task-only on Roku OS 16: created on the render thread
   it is `invalid` (OS 15 allowed it), so `NxUrlEncode` encodes by hand.
 - System fonts go on a Label's `font` attribute. A `<Font uri="font:…">`

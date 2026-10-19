@@ -282,6 +282,41 @@ It reported items 5 to 7 done (`ffd2ef8`), asked them to try `eeb42f3`
 against their Emby, and noted that items 1 to 3 wait on their run of
 `58213cc`.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19045881)
+on 2026-10-19, on `49f5df7` on a Streaming Stick Plus (OS 15.3.4, 513.8 MB
+limit) with all 14 packages on, about 120 channels, 11,687 Plex items:
+
+- **Working:** 7 of 11 package switches built in place with fingerprints
+  equal to a full build. Leaving Settings mid-build works. Emby signed in,
+  played direct and HLS, and relaunched in 754 ms, with no `api_key` in any
+  address. Every test passes off the TV.
+- **On the stick:**
+  - mediabrowser fails 2,245: 2,232 from the test's case-sensitive key
+    compare against the TV's lowercased keys, and 13 real ones,
+    `NxMbUnixSeconds` rounded to float32.
+  - Emby fetched HLS segments twice over (177 GETs for 81 segments in 82 s)
+    and answered 7 with 500.
+- **Their order for next:**
+  1. The OS clearing `cachefs:` (twice in about 25 minutes), which made a
+     switch a silent 2.5-minute rescan.
+  2. Scheduling: 13 to 18 s per switch, and 9 to 10 s of a core every 30 s.
+  3. Memory held per build in one task (40% to 64% to 74%); hold off on
+     prebuilding until these are sorted.
+  4. `tune(0)` after a Settings rebuild, and the new-day launch (20.9 s to the
+     guide; certification wants under 15 s).
+- **Later:** Now Playing opening on a greyed-out CC row, the tuned row's
+  shorter name, a 30 px sliver under the time header, a hint on the BUILDING
+  row, and every launch rerunning the full build.
+- **Dropped from their list:** FRANCHISES' single channel and SCREAM on top in
+  October are upstream's own defaults.
+- **From their side:**
+  - Retro mode numbers in `e48cdc1`.
+  - Quick Connect's POST in their main and Docker `tuner-v1.0.2`, credited.
+  - Their subtitle burn-in confirmed and being fixed; `SubtitleStreamIndex: -1`
+    sticks only with a matching `MediaSourceId`.
+  - The privacy page gets a Jellyfin/Emby line when the Roku app ships with
+    them.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
