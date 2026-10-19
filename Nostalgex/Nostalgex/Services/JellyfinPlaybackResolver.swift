@@ -84,7 +84,7 @@ extension JellyfinPlaybackResolver {
 ///   • HEVC is only an acceptable codec when the device can hardware-decode it.
 ///   • Transcoding always targets fMP4 HLS (`Container: "mp4"`), never MPEG-TS — AVPlayer
 ///     cannot render HEVC from a TS segment (the original black-screen bug).
-/// CodecProfiles add the two decode limits a codec name does not express; see `deviceProfile`.
+/// CodecProfiles add the decode limits a codec name does not express; see `deviceProfile`.
 /// SubtitleProfiles stop the server painting subtitles into the picture; see `subtitleProfiles`.
 struct JellyfinDeviceProfile: Encodable, Sendable {
     let MaxStreamingBitrate: Int
@@ -257,6 +257,27 @@ enum JellyfinPlaybackResolver {
         )
     }
 
+    /// The dynamic ranges Apple TV renders, in Jellyfin's `VideoRangeType` names.
+    ///
+    /// Without it Jellyfin copied a Dolby Vision profile 5 file into the fMP4 stream as
+    /// plain `hvc1`: no `dvcC` box, no colour information, `CODECS="hvc1..."`, though every
+    /// frame still carried the DV RPU. AVFoundation read that track as SDR (`containsHDRVideo`
+    /// false). Profile 5 has no HDR10 base layer, so a player that does not treat it as Dolby
+    /// Vision shows the IPT picture as ordinary colour: green and purple. That is the
+    /// classic "green tint on DV files". With the list Jellyfin writes `dvh1` with a profile
+    /// 5 `dvcC` and `CODECS="dvh1.05.06"`, video still copied, the same stream our Plex path
+    /// gets from `dolbyVisionRemuxURL`. Profile 8.1 gains its `dvvC` box and keeps `hvc1`
+    /// with `SUPPLEMENTAL-CODECS="dvh1.08.03/db1p"`, Apple's form for DV with an HDR10
+    /// base. Measured 2026-10-19 against Jellyfin 12.2.0.
+    ///
+    /// `DOVIWithEL` (profile 7, Blu-ray dual layer) is left out on purpose: AVPlayer cannot
+    /// render it as Dolby Vision. With the cap lifted Jellyfin then copied it and removed
+    /// the RPU (`hevc_metadata=remove_dovi=1`), a clean HDR10 stream; at the app's 40 Mbps
+    /// cap these remuxes are re-encoded either way. HDR10+ is copied with its metadata with
+    /// or without the list, and so are HDR10 and an 8-bit hev1 HEVC file with no colour
+    /// tags. Emby ignores the property and decided every file exactly as before.
+    static let videoRangeTypes = "SDR|HDR10|HLG|DOVI|DOVIWithHDR10|DOVIWithHLG|DOVIWithSDR"
+
     /// Files that pass the codec check and still play as sound over a black picture.
     ///   • 10-bit H.264 has no decoder on any Apple device. The bit-depth cap also stops the
     ///     server copying it into HLS, so it is re-encoded to 8-bit. Not required, so a file
@@ -267,6 +288,8 @@ enum JellyfinPlaybackResolver {
     ///     remuxes rather than risk the black picture. That case is common: Jellyfin 12.1
     ///     records no codec tags at all (its probe reads `codec_tag_string?`), so on 12.1
     ///     every HEVC MP4 remuxes, hvc1 included. Measured against a 12.1 server.
+    ///   • HEVC also names the dynamic ranges it can show, so Dolby Vision arrives signalled
+    ///     as Dolby Vision; see `videoRangeTypes`.
     private static func codecProfiles(supportsHEVC: Bool) -> [JellyfinDeviceProfile.CodecProfile] {
         var profiles: [JellyfinDeviceProfile.CodecProfile] = [
             .init(mediaType: "Video", Codec: "h264", Conditions: [
@@ -276,6 +299,7 @@ enum JellyfinPlaybackResolver {
         if supportsHEVC {
             profiles.append(.init(mediaType: "Video", Codec: "hevc", Conditions: [
                 .init(Condition: "EqualsAny", Property: "VideoCodecTag", Value: "hvc1|dvh1", IsRequired: true),
+                .init(Condition: "EqualsAny", Property: "VideoRangeType", Value: videoRangeTypes, IsRequired: false),
             ]))
         }
         return profiles

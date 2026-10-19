@@ -110,6 +110,32 @@ final class JellyfinPlaybackInfoTests: XCTestCase {
         XCTAssertTrue(json.contains("\"Method\":\"External\""))
     }
 
+    // MARK: - Dolby Vision arrives signalled as Dolby Vision
+
+    private func rangeCondition(_ codec: String, supportsHEVC: Bool) -> JellyfinDeviceProfile.ProfileCondition? {
+        JellyfinPlaybackResolver.deviceProfile(supportsHEVC: supportsHEVC).CodecProfiles
+            .first { $0.Codec == codec }?.Conditions.first { $0.Property == "VideoRangeType" }
+    }
+
+    /// Without the list Jellyfin 12.2.0 sent a DV profile 5 file as plain hvc1 with no dvcC,
+    /// which a player shows green and purple. With it: dvh1, dvcC, CODECS="dvh1.05.06".
+    func testHEVCDeclaresTheDynamicRangesAppleTVRenders() throws {
+        let condition = try XCTUnwrap(rangeCondition("hevc", supportsHEVC: true))
+        XCTAssertEqual(condition.Condition, "EqualsAny")
+        XCTAssertFalse(condition.IsRequired, "optional, like the H.264 bit-depth cap")
+        let ranges = Set(condition.Value.split(separator: "|").map(String.init))
+        for range in ["SDR", "HDR10", "HLG", "DOVI", "DOVIWithHDR10", "DOVIWithHLG", "DOVIWithSDR"] {
+            XCTAssertTrue(ranges.contains(range), "\(range) missing")
+        }
+        XCTAssertFalse(ranges.contains("DOVIWithEL"),
+                       "profile 7 must not be sent as Dolby Vision; Jellyfin strips its RPU to HDR10 instead")
+    }
+
+    func testOnlyHEVCCarriesTheRangeList() {
+        XCTAssertNil(rangeCondition("h264", supportsHEVC: true), "H.264 is SDR only; nothing to declare")
+        XCTAssertNil(rangeCondition("hevc", supportsHEVC: false), "no HEVC profile at all on an Apple TV HD")
+    }
+
     // MARK: - resolve()
 
     func testResolveSelectsTranscodingUrlAndSession() throws {
