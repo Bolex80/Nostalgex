@@ -72,6 +72,16 @@
 //    VobSub forced tracks, measured 2026-10-19). A track only flagged default is never burned.
 //    The cost is a video re-encode for these files only.
 //
+// DOLBY VISION ON EMBY. Mirrors EmbyAPIService.doviProfile(extendedVideoSubType:) on Apple TV.
+//
+// 11. Emby names a file's Dolby Vision profile in the video stream's ExtendedVideoSubType:
+//    "DoviProfile50" is profile 5, "DoviProfile81" 8.1, "DoviProfile76" 7.6 (the last digit is
+//    the base layer's compatibility id). Emby has no DvProfile field; that is Jellyfin's, and
+//    Jellyfin has no ExtendedVideoSubType. The library scan already asks for MediaSources,
+//    which carries it on Emby 4.10.1.0 for films and episodes (measured 2026-10-19). Anything
+//    else ("Hdr10", "None", missing) is null, an unknown profile. embyDoviProfile reads it;
+//    the channel filter's isLeftOffChannels keeps profile 5 off every channel on Emby.
+//
 // Same on both, so shared: the MediaBrowser Authorization header (Emby 4.10 accepts it on every
 // call the tuner makes), AuthenticateByName with { Username, Pw }, /Items, PlaybackInfo, the
 // static stream, subtitle VTT, /Users/{id}/... watch state, and DELETE /Videos/ActiveEncodings,
@@ -90,6 +100,7 @@
 //   await JU.quickConnectInitiate(serverUrl, headers[, fetchImpl]);   // the Response
 //   JU.subtitleProfiles(method);  JU.NO_SUBTITLE_STREAM;  JU.isTextSubtitle(codec);
 //   JU.forcedSubtitleToBurn(subtitles, matchesViewerLanguage);   // a subtitle, or null
+//   JU.embyDoviProfile(extendedVideoSubType);   // 5, 8, 7, or null
 
 (function (global) {
   'use strict';
@@ -214,11 +225,18 @@
     return TEXT_SUBTITLES.includes(String(codec || '').toLowerCase());
   }
 
+  // Emby's Dolby Vision profile (see 11 above): "DoviProfile50" -> 5, anything else -> null.
+  function embyDoviProfile(extendedVideoSubType) {
+    const m = /^doviprofile(\d{2,})$/i.exec(String(extendedVideoSubType || ''));
+    return m ? Number(m[1].slice(0, -1)) : null;
+  }
+
   const api = {
     isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl,
     isMediaBrowser, userViewsPath, serverStreamOnlyFields, serverKindFromPublicInfo,
     quickConnectInitiateRetriesWithGet, quickConnectInitiate,
     subtitleProfiles, isTextSubtitle, forcedSubtitleToBurn, NO_SUBTITLE_STREAM,
+    embyDoviProfile,
   };
 
   global.NostalgexJellyfinUrls = api;

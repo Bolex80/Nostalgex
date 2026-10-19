@@ -165,12 +165,36 @@ function enrichedList(item, key) {
 }
 
 /**
+ * True when no channel may take `item`, whatever its rules: on Emby, a Dolby Vision profile 5
+ * file (`item.doviProfile === 5`, from Emby's ExtendedVideoSubType, see point 11 in
+ * nostalgex-jellyfin-urls.js). Emby 4.10.1.0 sends profile 5 to a browser re-encoded with no
+ * tone mapping and to the Apple TV with no Dolby Vision signalling, so both draw it green and
+ * purple, and no request changes that (measured 2026-10-19). Profile 8 keeps an HDR10 base
+ * layer and stays. Plex and Jellyfin are untouched. An unknown profile (null) is kept.
+ * The item stays in the library; only channel pools leave it out.
+ * Mirrors ChannelEligibility.isLeftOffChannels in Nostalgex/Nostalgex/Services/ChannelEligibility.swift.
+ * @param {object} item
+ * @param {string} [backend] 'plex', 'jellyfin' or 'emby' (the tuner's mediaBackend)
+ */
+function isLeftOffChannels(item, backend) {
+  return backend === "emby" && !!item && item.doviProfile === 5;
+}
+
+/** `items` without the ones isLeftOffChannels leaves out, in the same order. */
+function onChannels(items, backend) {
+  if (backend !== "emby") return items;
+  return items.filter((it) => !isLeftOffChannels(it, backend));
+}
+
+/**
  * @param {object} item — normalized pool item (title, genres[], type, tmdbID, …)
  * @param {{ id: number, rules?: object, category?: string }} channel
- * @param {{ manifest?: object, nowSec?: number }} [opts]
+ * @param {{ manifest?: object, nowSec?: number, backend?: string }} [opts]
  * @returns {false | { pass: true, via: 'rules' | 'manifest' | 'editorial' }}
  */
 function itemPasses(item, channel, opts = {}) {
+  // Emby Dolby Vision profile 5: on no channel, whatever the rules say.
+  if (isLeftOffChannels(item, opts.backend)) return false;
   const r = channel.rules || {};
   const category = channel.category || null;
   const manifest = opts.manifest || null;
@@ -573,12 +597,13 @@ function filterPool(allItems, channel, opts = {}) {
   const manifest = opts.manifest ?? null;
   const nowSec = opts.nowSec ?? Math.floor(Date.now() / 1000);
   const exclusiveRules = opts.exclusiveRules ?? [];
+  const backend = opts.backend;
   const requiresAnimation = channelRequiresAnimationGenre(channel.rules || {});
   const seenShows = new Map();
   const items = [];
 
   for (const it of allItems) {
-    const raw = itemPasses(it, channel, { manifest, nowSec, exclusiveRules });
+    const raw = itemPasses(it, channel, { manifest, nowSec, exclusiveRules, backend });
     const hit = normalizePassResult(raw);
     if (!hit) continue;
 
@@ -620,6 +645,8 @@ function filterPool(allItems, channel, opts = {}) {
 const api = {
   itemPasses,
   filterPool,
+  isLeftOffChannels,
+  onChannels,
   parseTmdbIdFromPlex,
   passesYearRange,
   releaseYear,

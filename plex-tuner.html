@@ -3978,12 +3978,13 @@
   }
 
   function filterItems(items, rules, channelID, category) {
-    if (!rules) return [...items];
     const CF = channelFilter();
     if (!CF) {
       console.error('NostalgexChannelFilter missing — is scripts/nostalgex-channel-filter.cjs loaded?');
-      return [];
+      return rules ? [] : [...items];
     }
+    // Emby Dolby Vision profile 5 is on no channel (CF.isLeftOffChannels), rules or not.
+    if (!rules) return [...CF.onChannels(items, mediaBackend)];
     const channel = { id: channelID, rules, category };
     // Exclusivity goes through the shared filter, which builds the same
     // artist-then-title haystack Swift does. A local copy of this lived here and
@@ -3992,6 +3993,7 @@
     const pool = CF.filterPool(items, channel, {
       manifest: channelMembershipManifest,
       exclusiveRules,
+      backend: mediaBackend,
     });
     // A Settings blacklist used to be filtered out here. The tab is gone, so a
     // list saved under plex90_blacklist is no longer read: titles hidden through
@@ -8352,7 +8354,8 @@
     // Films and episodes, with episodes grouped by show, so a collection of shows
     // expands to the episodes already loaded. This indexed films only, which is where
     // a collection of shows lost every member.
-    const indexByServer = CL.indexLibrary(allItemsCache, collectionServerKeyForItem);
+    // Items no channel may take (Emby Dolby Vision profile 5) are not members either.
+    const indexByServer = CL.indexLibrary(channelFilter().onChannels(allItemsCache, mediaBackend), collectionServerKeyForItem);
     // What the app compares against (its `allChannels`): every stock channel built with
     // enough to air, whether or not its bundle is switched on. Fold targets are the
     // FRANCHISES bundle's channels among them (`availableStockFranchiseChannelIDs`).
@@ -8518,12 +8521,15 @@
       // Capture the actual video/audio codec so playback can decide direct-play vs
       // transcode by what the browser can really decode — container alone lies (an
       // mp4 can hold HEVC, which browsers can't play).
-      let videoCodec = null, audioCodec = null, subtitles = [], audioStreams = [];
+      let videoCodec = null, audioCodec = null, subtitles = [], audioStreams = [], doviProfile = null;
       if (src && Array.isArray(src.MediaStreams)) {
         const v = src.MediaStreams.find(s => s.Type === 'Video');
         const allAudio = src.MediaStreams.filter(s => s.Type === 'Audio');
         const a = allAudio[0];
         if (v && v.Codec) videoCodec = String(v.Codec).toLowerCase();
+        // Emby only (Jellyfin has no ExtendedVideoSubType): a profile 5 file goes on no
+        // channel (NostalgexChannelFilter.isLeftOffChannels).
+        if (v) doviProfile = NostalgexJellyfinUrls.embyDoviProfile(v.ExtendedVideoSubType);
         if (a && a.Codec) audioCodec = String(a.Codec).toLowerCase();
         audioStreams = allAudio.map(s => ({
           index: s.Index,
@@ -8542,7 +8548,7 @@
             external: !!s.IsExternal,
           }));
       }
-      return { msid: src ? src.Id : null, container, videoCodec, audioCodec, subtitles, audioStreams };
+      return { msid: src ? src.Id : null, container, videoCodec, audioCodec, subtitles, audioStreams, doviProfile };
     }
 
     let allItems = [];
@@ -8603,6 +8609,7 @@
                     librarySource: isMusicVideoSection ? 'musicVideo' : 'tv',
                     tmdbID: showTmdb,
                     subtitles: mi.subtitles,
+                    doviProfile: mi.doviProfile,
                   };
                 }).filter(Boolean);
               } catch (e) { return []; }
@@ -8661,6 +8668,7 @@
               librarySource: isMusicVideo ? 'musicVideo' : 'movie',
               tmdbID: tmdbFromProviderIds(jf.ProviderIds),
               subtitles: mi.subtitles,
+              doviProfile: mi.doviProfile,
             });
           });
           LL.state.scanItemsFound = allItems.length;
@@ -8672,6 +8680,11 @@
 
     const withTmdb = allItems.filter(i => i.tmdbID).length;
     console.log(`[${backendDisplayName()}] LIBRARY: ${allItems.length} items, ${withTmdb} with tmdbID`);
+    if (mediaBackend === 'emby') {
+      // They stay in the library; the channel filter keeps them out of every pool.
+      const leftOff = allItems.length - channelFilter().onChannels(allItems, mediaBackend).length;
+      console.log(`[Emby] CHANNELS: ${leftOff} Dolby Vision profile 5 item(s) left off channels`);
+    }
 
     allItems = await finalizeLibraryWithMusicBrainz(allItems, {
       buildAllChannels: buildAll,
