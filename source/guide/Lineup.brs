@@ -199,11 +199,14 @@ function NxPoolFingerprint(pool as Object) as String
     ' equal JS UTF-16 code units for the ASCII ratingKeys Plex uses.
     bytes = CreateObject("roByteArray")
     bytes.FromAsciiString(keys.Join(","))
+    ' Kept unsigned mod 2^32 inside the loop and made signed once at the end,
+    ' which gives what ToInt32 at every step would: a call per byte was most
+    ' of the cost.
     h& = 0
     for each c in bytes
-        h& = NxToInt32(h& * 31 + c)
+        h& = (h& * 31 + c) mod 4294967296&
     end for
-    return h&.ToStr()
+    return NxToInt32(h&).ToStr()
 end function
 
 ' The session's schedule cache: channelId_dayKey -> { fp, blocks }.
@@ -220,20 +223,35 @@ end sub
 ' The day's blocks for a channel as [{ item, startSec, endSec }]. Mirrors
 ' getManifestBlocks: reuse the day's schedule while the pool is unchanged,
 ' otherwise pack it fresh, skipping what aired yesterday.
-function NxManifestBlocks(channel as Object, pool as Object, atSec as LongInteger) as Object
-    valid = []
-    lookup = {}
-    lookup.SetModeCaseSensitive()
-    for each it in pool
-        if it <> invalid and NxDuration(it) > 0 then
-            valid.Push(it)
-            lookup[NxToStr(it.ratingKey)] = it
+' `memo`, when given, holds what depends only on the pool (its playable
+' items, their lookup and its fingerprint) from an earlier call with the same
+' pool: the fingerprint alone took most of a 30 s re-check at 120 channels.
+function NxManifestBlocks(channel as Object, pool as Object, atSec as LongInteger, memo = invalid as Dynamic) as Object
+    if memo <> invalid and memo.fp <> invalid then
+        valid = memo.valid
+        lookup = memo.lookup
+        fp = memo.fp
+    else
+        valid = []
+        lookup = {}
+        lookup.SetModeCaseSensitive()
+        for each it in pool
+            if it <> invalid and NxDuration(it) > 0 then
+                valid.Push(it)
+                lookup[NxToStr(it.ratingKey)] = it
+            end if
+        end for
+        fp = invalid
+        if valid.Count() > 0 then fp = NxPoolFingerprint(valid)
+        if memo <> invalid then
+            memo.valid = valid
+            memo.lookup = lookup
+            memo.fp = fp
         end if
-    end for
+    end if
     if valid.Count() = 0 then return []
 
     day = NxLocalDay(atSec)
-    fp = NxPoolFingerprint(valid)
     cache = NxManifestCache()
     key = channel.id.ToStr() + "_" + day.dayKey
     cached = cache[key]

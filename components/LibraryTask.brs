@@ -68,7 +68,7 @@ sub NxSavePools(ordered as Object, guide as Object, month as Integer)
         ' was written out in full a second time (20 MB of a 23 MB file).
         for each k in ch
             lk = LCase(k)
-            if lk <> "pool" and lk <> "basepool" and lk <> "filtered" then saved[k] = ch[k]
+            if lk <> "pool" and lk <> "basepool" and lk <> "filtered" and lk <> "nxmemo" then saved[k] = ch[k]
         end for
         pool = ch.basePool
         if pool = invalid then pool = ch.pool
@@ -350,8 +350,11 @@ end sub
 ' channels is every channel built, those too small for the guide included.
 function buildGuide(items as Object, config as Object, manifest as Object, collections as Object, shown as Boolean, reuse = invalid as Dynamic) as Object
     timer = CreateObject("roTimespan")
-    ' A library load clears the day schedules, as upstream's does.
-    NxClearManifests()
+    ' A library load clears the day schedules, as the web tuner's does. A
+    ' package switch (reuse) keeps them, as the Apple TV's
+    ' rebuildLineupAfterBundleChange does: a channel whose pool is unchanged
+    ' keeps today's schedule instead of being packed again.
+    if reuse = invalid then NxClearManifests()
     exclusive = NxFilterExclusiveRules(config.exclusiveRules)
     clock = NxFilterClock()
     nowSec& = clock.nowSec
@@ -528,28 +531,6 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     return { ordered: ordered, guide: guide, channels: channels }
 end function
 
-' What each channel airs today and tomorrow, as buildChannelSchedule
-' computes it: the hour's time restrictions, then the day's schedule from the
-' session cache.
-function NxScheduleGuide(ordered as Object, nowSec as LongInteger) as Object
-    day = NxLocalDay(nowSec)
-    out = []
-    for each ch in ordered
-        today = NxManifestBlocks(ch, NxTimeFilteredPool(ch, ch.pool, day.hour), nowSec)
-        tomorrowAt& = day.dayStartSec + 86400 + 60
-        tomorrow = NxManifestBlocks(ch, NxTimeFilteredPool(ch, ch.pool, NxLocalDay(tomorrowAt&).hour), tomorrowAt&)
-        blocks = []
-        for each b in today
-            blocks.Push(NxGuideBlock(b))
-        end for
-        for each b in tomorrow
-            blocks.Push(NxGuideBlock(b))
-        end for
-        out.Push({ id: ch.id, number: NxChNum(ch), name: ch.name, color: ch.colorHex, blocks: blocks })
-    end for
-    return out
-end function
-
 ' Stay up with the pools, re-checking schedules whenever asked (MainScene asks
 ' every 30 s, as upstream's rebuildAllSchedules runs): a time restriction
 ' lifting at 9 PM, or a new day, re-packs exactly as it would upstream.
@@ -574,6 +555,10 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object)
     end if
     m.top.bundleBuilt = built
     last = FormatJson(guide.channels)
+    ' What a schedule depends on besides the pools: the local day and hour
+    ' (time restrictions go by the hour). The re-check skips while neither
+    ' has moved; scheduling about 120 channels took a core for 9 to 10 s.
+    lastHour = NxScheduleHourKey(guide.builtAt)
     while true
         msg = Wait(0, port)
         if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then
@@ -586,12 +571,15 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object)
                 guide = got.guide
                 builtChannels = got.channels
                 last = FormatJson(guide.channels)
+                lastHour = NxScheduleHourKey(guide.builtAt)
                 m.top.bundleBuilt = FormatJson(guide.enabledBundles)
             else
                 m.top.bundleBuilt = "rebuild"
             end if
-        else if type(msg) = "roSGNodeEvent" then
-            channels = NxScheduleGuide(ordered, CreateObject("roDateTime").AsSeconds())
+        else if type(msg) = "roSGNodeEvent" and NxScheduleHourKey(CreateObject("roDateTime").AsSeconds()) <> lastHour then
+            nowSec& = CreateObject("roDateTime").AsSeconds()
+            lastHour = NxScheduleHourKey(nowSec&)
+            channels = NxScheduleGuide(ordered, nowSec&)
             now = FormatJson(channels)
             if now <> last then
                 last = now
@@ -699,38 +687,6 @@ function NxPoolsFingerprint(ordered as Object) as String
         d.Update(b)
     end for
     return Left(d.Final(), 12)
-end function
-
-' What the guide and player need from one airing; nothing secret.
-function NxGuideBlock(b as Object) as Object
-    it = b.item
-    out = {
-        startSec: b.startSec, endSec: b.endSec,
-        ratingKey: NxToStr(it.ratingKey), line: NxGuideTitle(it), title: NxToStr(it.title),
-        episodeTitle: NxToStr(it.episodeTitle), seasonNumber: it.seasonNumber, episodeNumber: it.episodeNumber,
-        summary: NxToStr(it.summary), year: NxToStr(it.year), partKey: it.partKey,
-        container: it.container, videoCodec: it.videoCodec, audioCodec: it.audioCodec,
-        serverIndex: it.serverIndex, contentRating: NxToStr(it.contentRating), rating: 0,
-        type: NxToStr(it.type)
-    }
-    if NxIsNumber(it.rating) then out.rating = it.rating
-    ' Music videos also show their artist and genres (PlexMediaItem+MusicDisplay.swift).
-    if it.librarySource = "musicVideo" then
-        out.music = true
-        out.artist = NxToStr(it.artist)
-        out.genreLine = NxMusicGenreLine(it.genres)
-    end if
-    return out
-end function
-
-' musicGenreDisplay: up to four genres, less the generic music ones.
-function NxMusicGenreLine(genres as Dynamic) as String
-    useful = []
-    for each g in NxList(genres)
-        l = LCase(NxToStr(g))
-        if l <> "" and Instr(1, l, "music video") = 0 and l <> "music" and l <> "musical" and useful.Count() < 4 then useful.Push(NxToStr(g))
-    end for
-    return useful.Join(" · ")
 end function
 
 ' Switched-on bundles: saved on the TV, upstream's default until changed.

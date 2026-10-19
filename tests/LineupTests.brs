@@ -50,6 +50,15 @@ function NxRunLineupTests(vectorsPath as String) as Integer
                 parts.Push(NxToStr(b.item.ratingKey) + "@" + b.startSec.ToStr() + "-" + b.endSec.ToStr())
             end for
             NxCheck(r, "manifest stepNo " + stepNo.ToStr(), parts.Join(","), c.out)
+            ' NxScheduleGuide's memo: filled on the first call, read on the second.
+            memo = {}
+            for pass = 1 to 2
+                parts = []
+                for each b in NxManifestBlocks(c.channel, part, c.atSec, memo)
+                    parts.Push(NxToStr(b.item.ratingKey) + "@" + b.startSec.ToStr() + "-" + b.endSec.ToStr())
+                end for
+                NxCheck(r, "manifest stepNo " + stepNo.ToStr() + " memo pass " + pass.ToStr(), parts.Join(","), c.out)
+            end for
         end if
     end for
 
