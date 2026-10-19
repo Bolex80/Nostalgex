@@ -3,6 +3,16 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-19 (Apple TV: RATE opens the Nostalgex page)
+
+**Shipped.** On main, for the next Apple TV build.
+
+**Why.** RATE (Settings and the rating nudge) opened the App Store but not the Nostalgex page, so rating took a search. All four App Store link forms land on the page when handed to the App Store directly, so the address was fine; an `https` link opened from inside the app is what lost it.
+
+**Changed.** `AppStoreLink.productPage` is `itms-apps://apps.apple.com/app/id6762563534`, which goes straight to the App Store with the address.
+
+**Measured.** On a real Apple TV 4K: RATE in Settings now lands on the Nostalgex page.
+
 ## 2026-10-19 (Jellyfin Quick Connect starts with a POST)
 
 **Shipped.** Nothing yet. Branch `jellyfin/quick-connect-post`, not merged or pushed. Apple TV needs an App Store build; the web tuner gets it when main is pushed, and Docker with the next `tuner-v*` tag.
