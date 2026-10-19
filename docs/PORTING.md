@@ -347,6 +347,16 @@ at `6f05937` with 5,363 items on one server:
 - **Package switch, at `fb27b56`, on the 43S45:** an 8-channel package built
   in 9.4 s on and 4.7 s off, behind Settings, its pools fingerprint equal to a
   full rebuild's both ways.
+- **This round, at `a18a256`, on the 43S45 (2026-10-19), 5,367 items:**
+  - Launch: the saved pools up in 0.9 s (AppLaunchComplete 1.9 s), tomorrow
+    added 0.7 s later. A relaunch reused all 19 channels' filter results:
+    built in 18 ms against 6.2 s, fingerprint `41ca239378f2` both ways.
+  - Six packages on, one at a time (19 to 82 channels): 6.4 to 12.0 s each,
+    scheduling 0.7 to 1.9 s. ADVENTURELAND off and on three times: memory 36
+    to 39%, off 5.7 s (built in 48 ms), on 9.3 s.
+  - A franchise switched on in Settings built in place in 6.1 s on Back, the
+    guide still on CH 2. Seven switches in a row built once.
+  - Every test passed on the TV.
 - **Collections step, on the 55R617:** 457 s at `d2e276d`, where the progress
   screen rebuilt itself on each of three updates per collection (25 collections'
   updates took 66 s, then 136 s, against a 1.1 s fetch); 10.3 s once a change

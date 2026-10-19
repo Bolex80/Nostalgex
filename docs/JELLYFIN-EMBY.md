@@ -153,6 +153,18 @@ servers, driven over ECP.
   playable. A launch now checks the token (`GET /Users/{id}`); on a 401 it
   signs out and says why, as a refused Plex token does.
 
+- **Emby restarts its transcode on every segment after a mid-file join**
+  (2026-10-19, Emby 4.10.1, Discussion #8). Joined 335 s into an MKV whose
+  audio it converts, the bedroom TV fetched each segment once, but Emby
+  started ffmpeg again for each one ("segmentGap is 53 … requestedIndex=55",
+  then 54, 55, …: 26 restarts in 11 s). curl alone does the same, so it's
+  Emby's, not the TV's: it seems to count the restarted ffmpeg's segments
+  from 0, not from its `-start_number`. A file whose streams are only copied
+  restarted once. This fits the maintainer's 500s ("Error starting ffmpeg")
+  and repeated fetches. `StartTimeTicks` on the playlist is dropped from the
+  segment requests, so it's no way round it. Not fixed here yet; a single
+  progressive stream for these files is the next thing to try.
+
 ## How it fits the app
 
 Channels, filtering, enrichment, the guide, saved libraries and package
