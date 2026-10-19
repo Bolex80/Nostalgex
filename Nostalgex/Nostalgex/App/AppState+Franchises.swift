@@ -195,9 +195,11 @@ extension AppState {
             guard let tmdbID = item.tmdbID else { return nil }
             return cache[tmdbID]
         }
-        // Music videos live in a movie-typed library; they are never franchise films.
-        let movies = allItems.filter { $0.type == .movie && ($0.librarySource ?? .movie) == .movie }
-        let tv = allItems.filter { $0.type == .episode }
+        // Music videos live in a movie-typed library; they are never franchise films. Items no
+        // channel may take (Emby Dolby Vision profile 5) are not franchise members either.
+        let channelItems = ChannelEligibility.onChannels(allItems, backend: backendKind)
+        let movies = channelItems.filter { $0.type == .movie && ($0.librarySource ?? .movie) == .movie }
+        let tv = channelItems.filter { $0.type == .episode }
 
         let groupings = FranchiseChannelBuilder.build(
             movies: movies,

@@ -331,7 +331,9 @@ extension AppState {
             // also grouped by show so a show in a collection expands to its episodes.
             // This used to index films only, which is where a collection of shows lost
             // every member and was skipped as "0 movies".
-            let serverItems = allItems.filter { ($0.serverID ?? "") == server.machineIdentifier }
+            // Items no channel may take (Emby Dolby Vision profile 5) are not members either.
+            let serverItems = ChannelEligibility.onChannels(allItems, backend: backendKind)
+                .filter { ($0.serverID ?? "") == server.machineIdentifier }
             let memberIndex = CollectionMemberIndex(items: serverItems)
             let serverMovieCount = serverItems.collectionMovieCount
 
@@ -1039,6 +1041,8 @@ extension AppState {
         let genresLowerSet: Set<String> // effective genres (Plex + music enrichment) lowercased
         let enrichment: MediaEnrichment?
         let itemStudioLower: String     // "" when item has no studio
+        /// `ChannelEligibility.isLeftOffChannels` for the active backend: no channel takes it.
+        var leftOffChannels = false
     }
 
     /// Build a snapshot cache for a set of items. Called once per filter pass —
@@ -1055,7 +1059,8 @@ extension AppState {
                 episodeTitleLower: (item.episodeTitle ?? "").lowercased(),
                 genresLowerSet: Set(effectiveGenres(for: item).map { $0.lowercased() }),
                 enrichment: enrichmentService.enrichment(for: item),
-                itemStudioLower: (item.studio ?? "").lowercased()
+                itemStudioLower: (item.studio ?? "").lowercased(),
+                leftOffChannels: ChannelEligibility.isLeftOffChannels(item, backend: backendKind)
             )
         }
     }
@@ -1073,7 +1078,7 @@ extension AppState {
         memberships: ChannelMemberships,
         exclusiveRules: [ExclusiveRule]
     ) -> [PlexMediaItem] {
-        guard let rules else { return cached.map(\.item) }
+        guard let rules else { return cached.filter { !$0.leftOffChannels }.map(\.item) }
         let currentYear = Calendar.current.component(.year, from: Date())
         let isKids = category == "kids"
         let hasFamilyGenre = rules.genres?.include.contains(where: { $0.lowercased() == "family" }) ?? false
@@ -1115,6 +1120,8 @@ extension AppState {
         let contentRatingsSet: Set<String>? = rules.contentRatings.map { Set($0) }
 
         return cached.compactMap { cache -> PlexMediaItem? in
+            // Emby Dolby Vision profile 5: on no channel, whatever the rules say.
+            if cache.leftOffChannels { return nil }
             let item = cache.item
             // Title used for matching is lowercased + has any trailing " (YYYY)"
             // suffix stripped (Plex's TMDB-Movie agent often appends release year

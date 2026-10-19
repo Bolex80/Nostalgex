@@ -848,10 +848,13 @@ struct JellyfinItem: Decodable {
             let Width: Int?
             let Height: Int?
             let BitDepth: Int?
+            /// Emby only: "DoviProfile50", "DoviProfile81", "Hdr10", "None". Jellyfin does
+            /// not send it. See `EmbyAPIService.doviProfile(extendedVideoSubType:)`.
+            let ExtendedVideoSubType: String?
 
             enum CodingKeys: String, CodingKey {
                 case streamType = "Type"
-                case Codec, Profile, Width, Height, BitDepth
+                case Codec, Profile, Width, Height, BitDepth, ExtendedVideoSubType
             }
         }
 
@@ -860,6 +863,7 @@ struct JellyfinItem: Decodable {
         var videoProfile: String? { MediaStreams?.first(where: { $0.streamType == "Video" })?.Profile }
         var videoHeight: Int? { MediaStreams?.first(where: { $0.streamType == "Video" })?.Height }
         var videoBitDepth: Int? { MediaStreams?.first(where: { $0.streamType == "Video" })?.BitDepth }
+        var videoExtendedSubType: String? { MediaStreams?.first(where: { $0.streamType == "Video" })?.ExtendedVideoSubType }
     }
 
     /// Highest-quality source: max bitrate, tie-broken on video height. Falls back to the first

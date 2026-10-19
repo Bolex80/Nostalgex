@@ -112,6 +112,25 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
 
     private static let pageSize = 200
 
+    /// The Dolby Vision profile from Emby's `ExtendedVideoSubType` on the video stream, or nil.
+    ///
+    /// Emby has no `DvProfile` field (that is Jellyfin's). It names the profile and the base
+    /// layer's compatibility id together: "DoviProfile50" is profile 5, "DoviProfile81" 8.1,
+    /// "DoviProfile76" 7.6. The last digit is the compatibility id, the digits before it the
+    /// profile. Anything else ("Hdr10", "None", missing, one digit) is nil, an unknown profile,
+    /// which keeps the item on channels. Measured 2026-10-19 on Emby 4.10.1.0: the list call the
+    /// scan already makes (`Fields=...MediaSources...`) carries it on `MediaSources[].MediaStreams`
+    /// for every film and episode, so the scan asks for nothing new.
+    static func doviProfile(extendedVideoSubType value: String?) -> Int? {
+        guard let value else { return nil }
+        let prefix = "doviprofile"
+        let lower = value.lowercased()
+        guard lower.hasPrefix(prefix) else { return nil }
+        let digits = lower.dropFirst(prefix.count)
+        guard digits.count >= 2, digits.allSatisfy({ ("0"..."9").contains($0) }) else { return nil }
+        return Int(digits.dropLast())
+    }
+
     func loadLibrary(progress: LoadProgress? = nil) async throws -> [PlexMediaItem] {
         let sections = try await loadSections()
         var allItems: [PlexMediaItem] = []
@@ -261,6 +280,7 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
                     librarySource: .tv,
                     serverID: serverID.isEmpty ? nil : serverID,
                     videoBitDepth: source?.videoBitDepth,
+                    doviProfile: Self.doviProfile(extendedVideoSubType: source?.videoExtendedSubType),
                     showKey: show.Id
                 )
             }
@@ -326,7 +346,8 @@ struct EmbyAPIService: MediaBackend, WatchActivityReporting {
             imdbID: item.imdbID,
             librarySource: isMusicVideo ? .musicVideo : .movie,
             serverID: serverID.isEmpty ? nil : serverID,
-            videoBitDepth: source?.videoBitDepth
+            videoBitDepth: source?.videoBitDepth,
+            doviProfile: Self.doviProfile(extendedVideoSubType: source?.videoExtendedSubType)
         )
         if let stack, stack.parts.count > 1 {
             built.additionalPartKeys = Array(stack.parts.dropFirst().map(\.id))
