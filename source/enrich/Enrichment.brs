@@ -476,6 +476,8 @@ function NxEnrichPickOMDb(list as Object, limit as Integer, rng as Object) as Ob
     a.Append(list)
     for i = a.Count() - 1 to 1 step -1
         j = Int(rng.draw() * (i + 1))
+        ' draw() is a Float: within 2^-24 of 1, times a big i + 1, it rounds up to i + 1.
+        if j > i then j = i
         tmp = a[i]
         a[i] = a[j]
         a[j] = tmp

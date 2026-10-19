@@ -130,9 +130,15 @@ end sub
 
 ' Drops saved servers the account no longer has.
 sub NxSnapshotForgetServers(dir as String, meta as Object, keepKeys as Object)
+    ' A key read back by `for each` may not keep its case on a TV, so the
+    ' compare doesn't either: a kept server must never lose its save.
+    keep = {}
+    for each k in keepKeys
+        keep[LCase(k)] = true
+    end for
     gone = []
     for each key in meta.servers
-        if not NxHasValue(keepKeys, key) then gone.Push(key)
+        if keep[LCase(key)] <> true then gone.Push(key)
     end for
     if gone.Count() = 0 then return
     for each key in gone

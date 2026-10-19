@@ -69,6 +69,8 @@ function NxRunSnapshotTests() as Integer
     meta = NxSnapshotReadMeta(dir)
     NxSnapCheck(r, "gone server forgotten", meta.servers.DoesExist("abc"), false)
     NxSnapCheck(r, "kept server stays", NxSnapshotLoadServer(dir, meta, "def", 1).items.Count(), 1)
+    NxSnapshotForgetServers(dir, meta, ["DEF"])
+    NxSnapCheck(r, "kept server stays whatever the key's case", NxSnapshotReadMeta(dir).servers.DoesExist("def"), true)
 
     ' Another format is ignored.
     NxSnapshotWriteFile(dir + "/meta.json", "{""format"":0,""servers"":{""def"":{}}}")
