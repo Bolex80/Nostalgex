@@ -53,6 +53,10 @@ sub init()
     m.video.ObserveField("state", "onVideoState")
     m.video.ObserveField("bufferingStatus", "onBuffering")
     m.video.ObserveField("availableSubtitleTracks", "applySubtitles")
+    ' Now Playing follows the player: a track switch, and the track lists
+    ' that arrive after a start (subtitles through applySubtitles).
+    m.video.ObserveField("currentAudioTrack", "refreshNowPlaying")
+    m.video.ObserveField("availableAudioTracks", "refreshNowPlaying")
     m.subs = NxSubtitleSettings()
     m.hasSubs = false
     restoreCaptionMode()
@@ -181,6 +185,18 @@ sub onGuide()
         if m.channels[i].id = focusId then m.focus = i
     end for
     NxTuneMoved(m.tuneQueue, m.tuned)
+    ' The mini strip and the sidebar hold channel indexes: with another
+    ' channel list, a pick would land on whatever took that place. An hourly
+    ' reschedule keeps the list, so they stay open then.
+    moved = previous.Count() <> m.channels.Count()
+    for i = 0 to m.channels.Count() - 1
+        if moved then exit for
+        if previous[i].id <> m.channels[i].id then moved = true
+    end for
+    if moved then
+        closeStrip()
+        if m.sidebarOpen = true then closeSidebar()
+    end if
     keepFocusVisible()
     renderGrid()
     renderInfo()
@@ -732,6 +748,7 @@ sub startTune(idx as Integer)
     m.tuneFormat = stream.content.streamFormat
     m.tuneRoute = stream.route
     print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing"
+    refreshNowPlaying()
 end sub
 
 sub onBuffering()
@@ -989,6 +1006,7 @@ sub applySubtitles()
         if show then m.video.subtitleTrack = tracks[idx].TrackName
     end if
     setCaptions(show)
+    refreshNowPlaying()
 end sub
 
 ' Roku draws subtitles only while its caption mode is on, and that mode is the
@@ -1097,6 +1115,10 @@ sub openNowPlaying()
     m.np.ObserveField("closed", "closeNowPlaying")
     m.top.AppendChild(m.np)
     m.np.callFunc("open", invalid)
+end sub
+
+sub refreshNowPlaying()
+    if m.np <> invalid and m.tuned >= 0 then m.np.state = npState()
 end sub
 
 sub closeNowPlaying()
