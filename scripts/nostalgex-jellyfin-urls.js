@@ -38,6 +38,16 @@
 // 6. Telling them apart: /System/Info/Public on Jellyfin carries ProductName "Jellyfin Server";
 //    Emby has no ProductName and lists LocalAddresses (plural). Emby's sign-in result also has
 //    no User.ServerName, so the server's name comes from the same public info.
+//
+// JELLYFIN QUICK CONNECT. Mirrors JellyfinAPIService.quickConnectInitiate on Apple TV.
+//
+// 7. Quick Connect starts with POST /QuickConnect/Initiate. Jellyfin 12.2.0 answers a GET
+//    405 with an empty body (measured 2026-10-19), and the tuner sent a GET, so it showed
+//    QUICK CONNECT IS NOT ENABLED ON THIS SERVER with Quick Connect on. Jellyfin's history
+//    (QuickConnectController.cs): 10.7 and 10.8 route only GET, 10.9 to 10.11 answer both,
+//    12.0 removed the GET. So POST first, and GET again only on 405 or 404. The poll
+//    (GET /QuickConnect/Connect) and POST /Users/AuthenticateWithQuickConnect are unchanged.
+//
 // Same on both, so shared: the MediaBrowser Authorization header (Emby 4.10 accepts it on every
 // call the tuner makes), AuthenticateByName with { Username, Pw }, /Items, PlaybackInfo, the
 // static stream, subtitle VTT, /Users/{id}/... watch state, and DELETE /Videos/ActiveEncodings,
@@ -53,6 +63,7 @@
 //   JU.userViewsPath(backend, userId);
 //   JU.serverStreamOnlyFields(backend, serverStreamOnly);
 //   JU.serverKindFromPublicInfo(json);
+//   await JU.quickConnectInitiate(serverUrl, headers[, fetchImpl]);   // the Response
 
 (function (global) {
   'use strict';
@@ -141,9 +152,24 @@
     return null;
   }
 
+  // Starts Quick Connect (see 7 above). Resolves to the server's Response; the caller reads
+  // it as before. A network failure rejects as fetch does.
+  function quickConnectInitiateRetriesWithGet(status) {
+    return status === 405 || status === 404;
+  }
+
+  async function quickConnectInitiate(serverUrl, headers, fetchImpl) {
+    const send = fetchImpl || ((url, init) => global.fetch(url, init));
+    const url = `${serverUrl}/QuickConnect/Initiate`;
+    const res = await send(url, { method: 'POST', headers });
+    if (!quickConnectInitiateRetriesWithGet(res.status)) return res;
+    return send(url, { method: 'GET', headers });
+  }
+
   const api = {
     isMp4Family, staticStreamUrl, withApiKey, newPlaySessionId, fallbackHlsUrl,
     isMediaBrowser, userViewsPath, serverStreamOnlyFields, serverKindFromPublicInfo,
+    quickConnectInitiateRetriesWithGet, quickConnectInitiate,
   };
 
   global.NostalgexJellyfinUrls = api;

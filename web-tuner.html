@@ -364,7 +364,7 @@
 
   <!-- Shared site script (theme toggle, nav scroll state). type="module" so Vite bundles it. -->
   <script type="module" src="./app.js"></script>
-  <!-- Tells Jellyfin and Emby apart after sign-in (serverKindFromPublicInfo). -->
+  <!-- Tells Jellyfin and Emby apart after sign-in (serverKindFromPublicInfo) and starts Quick Connect. -->
   <script src="scripts/nostalgex-jellyfin-urls.js"></script>
 
 <script>
@@ -735,9 +735,9 @@
     document.getElementById('connect-jellyfin-error').style.display = 'none';
     if (!url) return showJellyfinError('ENTER YOUR JELLYFIN SERVER URL');
     try {
-      const initRes = await fetch(`${url}/QuickConnect/Initiate`, {
-        headers: { 'Accept': 'application/json', 'Authorization': jellyfinAuthHeader('') },
-      });
+      // POST, then GET for Jellyfin 10.7 and 10.8 (scripts/nostalgex-jellyfin-urls.js, 7).
+      const initRes = await NostalgexJellyfinUrls.quickConnectInitiate(url,
+        { 'Accept': 'application/json', 'Authorization': jellyfinAuthHeader('') });
       if (!initRes.ok) return showJellyfinError('QUICK CONNECT IS NOT ENABLED ON THIS SERVER');
       const init = await initRes.json();
       if (!init.Code || !init.Secret) return showJellyfinError('QUICK CONNECT IS NOT ENABLED ON THIS SERVER');
