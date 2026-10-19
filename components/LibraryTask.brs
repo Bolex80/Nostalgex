@@ -203,6 +203,9 @@ sub loadLibrary()
     snapDir = NxSnapshotDir()
     snap = NxSnapshotReadMeta(snapDir)
     m.top.firstRun = type(snap.servers) <> "roAssociativeArray" or snap.servers.Count() = 0
+    ' A first run after an earlier save: the OS cleared cachefs: (a restart
+    ' does, as it lives in RAM). The registry outlasts that, not a sign-out.
+    m.top.savedBefore = m.top.firstRun and NxPlexRegistry().Read("librarySaved") = "1"
     nowSec& = NxFilterClock().nowSec
     ' Every server keeps its index, on or off, since items carry it, and its
     ' machine identifier keys its collections and its save.
@@ -216,6 +219,9 @@ sub loadLibrary()
     end for
     items = []
     scanned = []
+    ' Every server on, as NxSnapshotSaveServer takes it, so a save the OS
+    ' has cleared from cachefs: can be written again from memory.
+    saves = []
     serversOn = NxServersOn(servers, NxSavedServerChoices())
     setPhase("library")
     m.top.progress = "Connecting to your servers…"
@@ -256,6 +262,7 @@ sub loadLibrary()
                 else
                     collections.failed = collections.failed + 1
                 end if
+                saves.Push({ index: i, key: keys[i], signature: saved.entry.signature, collections: saved.collections, savedAt: saved.entry.savedAt })
                 print "library: "; saved.items.Count(); " items from the saved library, server "; i
             else
                 m.top.progress = "Reading your library from " + NxToStr(servers[i].name) + "…"
@@ -270,7 +277,9 @@ sub loadLibrary()
                     return
                 end if
                 items.Append(got)
-                scanned.Push({ index: i, key: keys[i], signature: info.signature, collections: invalid })
+                s = { index: i, key: keys[i], signature: info.signature, collections: invalid, savedAt: nowSec& }
+                scanned.Push(s)
+                saves.Push(s)
             end if
         end if
     end for
@@ -334,14 +343,22 @@ sub loadLibrary()
         NxSnapshotSaveServer(snapDir, snap, s.key, items, s.index, s.collections, s.signature, nowSec&)
     end for
     NxSnapshotForgetServers(snapDir, snap, keys)
+    reg = NxPlexRegistry()
+    if reg.Read("librarySaved") <> "1" and (scanned.Count() > 0 or not m.top.firstRun) then
+        reg.Write("librarySaved", "1")
+        reg.Flush()
+    end if
     if scanned.Count() > 0 then print "library: saved the library in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit"
-    ' Only the pools are scheduled from here on, for as long as the app runs:
-    ' let the rest of the library and every item's filter cache go.
+    ' Every item's filter cache goes; the library itself stays for package
+    ' switches (rebuildForBundles). The pools hold most of it anyway, and
+    ' reading it back from cachefs: for each switch kept two copies alive
+    ' (reused pools held the old one) and failed when the OS had cleared it.
     for each it in items
         it.Delete("nxFilter")
     end for
+    lib = { items: items, collections: collections, saves: saves, serversOn: NxSavedServersOnKey() }
     items = invalid
-    keepScheduling(built.ordered, built.guide, built.channels)
+    keepScheduling(built.ordered, built.guide, built.channels, lib)
 end sub
 
 ' Builds the switched-on channels from the library, schedules them and hands
@@ -355,6 +372,8 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' rebuildLineupAfterBundleChange does: a channel whose pool is unchanged
     ' keeps today's schedule instead of being packed again.
     if reuse = invalid then NxClearManifests()
+    ' The choices this build reads, for keepScheduling to compare.
+    m.builtChoices = NxChoicesKey()
     exclusive = NxFilterExclusiveRules(config.exclusiveRules)
     clock = NxFilterClock()
     nowSec& = clock.nowSec
@@ -534,16 +553,17 @@ end function
 ' Stay up with the pools, re-checking schedules whenever asked (MainScene asks
 ' every 30 s, as upstream's rebuildAllSchedules runs): a time restriction
 ' lifting at 9 PM, or a new day, re-packs exactly as it would upstream.
-sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object)
+sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object, lib as Object)
     port = CreateObject("roMessagePort")
     m.top.ObserveField("reschedule", port)
     m.top.ObserveField("bundleRequest", port)
-    ' A switch saved while this load was still running was missed by the
+    ' A switch saved while this load was still running (a package, or a
+    ' franchise or collection on the way out of Settings) was missed by the
     ' observer above: build for it now. Either way Settings hears which
     ' packages the guide holds.
     built = FormatJson(guide.enabledBundles)
-    if FormatJson(NxEnabledBundles()) <> built then
-        got = rebuildForBundles(builtChannels)
+    if FormatJson(NxEnabledBundles()) <> built or NxChoicesKey() <> m.builtChoices then
+        got = rebuildForBundles(builtChannels, lib)
         if got <> invalid then
             ordered = got.ordered
             guide = got.guide
@@ -565,7 +585,7 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object)
             ' Several switches while one builds: the saved packages are read
             ' afresh each time, so the last build covers them all.
             print "library: package change requested"
-            got = rebuildForBundles(builtChannels)
+            got = rebuildForBundles(builtChannels, lib)
             if got <> invalid then
                 ordered = got.ordered
                 guide = got.guide
@@ -595,72 +615,54 @@ end sub
 ' A package switched on or off in Settings, as upstream's
 ' rebuildLineupAfterBundleChange: only channels that weren't built last time
 ' (prev: buildGuide's channels, the guide's and those too small for it) are
-' filtered, from the saved library (source/plex/LibrarySnapshot.brs) and
-' the enrichment caches; every other channel keeps its filtered pool. The
-' franchise, collection, order and schedule steps run as in a full build.
-' Returns buildGuide's result, or invalid when a server on has no saved
-' library (Settings then rebuilds the whole guide, as before).
-function rebuildForBundles(prev as Object) as Dynamic
+' filtered, from the library the load kept in memory (lib); every other
+' channel keeps its filtered pool. The franchise, collection, order and
+' schedule steps run as in a full build. Returns buildGuide's result, or
+' invalid when the servers on have changed since the load (Settings then
+' rebuilds the whole guide).
+function rebuildForBundles(prev as Object, lib as Object) as Dynamic
     timer = CreateObject("roTimespan")
-    print "library: package change: memory before the saved library "; NxMemoryLine()
-    servers = ParseJson(NxPlexRegistry().Read("servers"))
-    if type(servers) <> "roArray" or servers.Count() = 0 then
-        print "library: package change needs a full rebuild: no servers saved"
+    if lib.serversOn <> NxSavedServersOnKey() then
+        print "library: package change needs a full rebuild: the servers on changed"
         return invalid
     end if
-    serversOn = NxServersOn(servers, NxSavedServerChoices())
-    snapDir = NxSnapshotDir()
-    snap = NxSnapshotReadMeta(snapDir)
-    items = []
-    collections = { raw: [], serverKeys: {}, failed: 0 }
-    for i = 0 to servers.Count() - 1
-        key = NxToStr(servers[i].machineIdentifier)
-        if key = "" then key = "plex"
-        collections.serverKeys[i.ToStr()] = key
-        if serversOn[i] and NxToStr(servers[i].uri) <> "" then
-            if type(snap.servers[key]) <> "roAssociativeArray" then
-                print "library: package change needs a full rebuild: server "; i; " has no saved library"
-                ' cachefs: files can be deleted by the OS to make room.
-                fs = CreateObject("roFileSystem")
-                print "library: saved library dir has "; ListDir(snapDir).Count(); " files, meta.json "; fs.Exists(snapDir + "/meta.json"); ", saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists("cachefs:/nostalgex-enrichment.json")
-                return invalid
-            end if
-            saved = NxSnapshotLoadServer(snapDir, snap, key, i)
-            if saved = invalid then
-                print "library: package change needs a full rebuild: server "; i; "'s saved library didn't load"
-                return invalid
-            end if
-            items.Append(saved.items)
-            if saved.collections <> invalid then
-                collections.raw.Append(saved.collections)
-            else
-                collections.failed = collections.failed + 1
-            end if
-        end if
-    end for
     config = ParseJson(ReadAsciiFile("pkg:/data/channels.json"))
     manifest = ParseJson(ReadAsciiFile("pkg:/data/channels-memberships.json"))
-    opts = {
-        config: NxEnrichmentConfig(), net: NxEnrichmentNet(),
-        cache: NxEnrichFileCache("cachefs:/nostalgex-enrichment.json"),
-        nowSec: NxFilterClock().nowSec, channels: config.channels,
-        backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: invalid
-    }
-    t = CreateObject("roTimespan")
-    NxEnrichFromCaches(items, opts)
-    print "library: package change: enrichment caches applied in "; t.TotalMilliseconds(); " ms; memory with the library "; NxMemoryLine()
     reuse = {}
     for each ch in prev
         if ch.filtered <> invalid then reuse[ch.id.ToStr()] = ch.filtered
     end for
-    print "library: package change: "; items.Count(); " items from the saved library in "; timer.TotalMilliseconds(); " ms"
-    built = buildGuide(items, config, manifest, collections, true, reuse)
-    for each it in items
+    print "library: package change: "; lib.items.Count(); " items in memory; memory "; NxMemoryLine()
+    built = buildGuide(lib.items, config, manifest, lib.collections, true, reuse)
+    for each it in lib.items
         it.Delete("nxFilter")
     end for
     print "library: package change built in "; timer.TotalMilliseconds(); " ms; memory "; NxMemoryLine()
+    resaveClearedLibrary(lib)
     return built
 end function
+
+' cachefs: lives in RAM, and the OS takes it back when it needs the space
+' (twice in 25 minutes on a Streaming Stick Plus, Discussion #8): a server
+' whose saved library has gone is saved again from memory, so the next
+' launch doesn't have to read the whole server. The guide and pools are
+' written by every build anyway.
+sub resaveClearedLibrary(lib as Object)
+    snapDir = NxSnapshotDir()
+    snap = NxSnapshotReadMeta(snapDir)
+    for each s in lib.saves
+        if type(snap.servers[s.key]) <> "roAssociativeArray" then
+            t = CreateObject("roTimespan")
+            fs = CreateObject("roFileSystem")
+            print "library: server "; s.index; "'s saved library is gone (dir has "; ListDir(snapDir).Count(); " files, saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists("cachefs:/nostalgex-enrichment.json"); "); saving it again"
+            ' Its first save time, so it still ages out a day after the scan.
+            ' From JSON it may be an Integer or a Double.
+            savedAt& = s.savedAt
+            NxSnapshotSaveServer(snapDir, snap, s.key, lib.items, s.index, s.collections, s.signature, savedAt&)
+            print "library: saved server "; s.index; "'s library again in "; t.TotalMilliseconds(); " ms"
+        end if
+    end for
+end sub
 
 ' The app's memory use, for the package-change log: percent of its limit and
 ' KB still available to it.

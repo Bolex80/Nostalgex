@@ -71,7 +71,7 @@ end function
 
 sub onTask()
     t = m.top.task
-    for each f in ["phase", "progress", "bar", "barCaption", "firstRun"]
+    for each f in ["phase", "progress", "bar", "barCaption", "firstRun", "savedBefore"]
         t.ObserveField(f, "render")
     end for
     render()
@@ -103,7 +103,7 @@ sub render()
     if detail = "" and st.id <> "channels" then detail = UCase(st.hint)
     value = t.bar
     if value > 1 then value = 1
-    layout = st.id + "|" + t.firstRun.ToStr() + "|" + (detail <> "").ToStr() + "|" + (t.bar >= 0).ToStr()
+    layout = st.id + "|" + t.firstRun.ToStr() + "|" + t.savedBefore.ToStr() + "|" + (detail <> "").ToStr() + "|" + (t.bar >= 0).ToStr()
     if layout = m.layout then
         if m.detail <> invalid then m.detail.text = detail
         if m.barFill <> invalid then
@@ -136,7 +136,9 @@ sub render()
     g.AppendChild(logo)
     y = y + 66 + 20 + gap
     if t.firstRun then
-        g.AppendChild(centred("First setup can take a few minutes to scan and build channels.", "DMMono-Regular", 22, "0xFFFFFF8C", y))
+        note = "First setup can take a few minutes to scan and build channels."
+        if t.savedBefore then note = "The TV cleared the saved library, so it's being read again. This can take a few minutes."
+        g.AppendChild(centred(note, "DMMono-Regular", 22, "0xFFFFFF8C", y))
         y = y + 30 + gap
     end if
     renderRail(g, y, current)

@@ -706,7 +706,9 @@ function NxEnrichFileCache(path as String) as Object
     c.load = sub()
         if m.loaded then return
         m.loaded = true
-        raw = ReadAsciiFile(m.path)
+        ' The OS may have cleared it; reading a missing file logs an error.
+        raw = ""
+        if CreateObject("roFileSystem").Exists(m.path) then raw = ReadAsciiFile(m.path)
         if raw <> "" then
             saved = ParseJson(raw)
             if type(saved) = "roAssociativeArray" then m.rows = saved

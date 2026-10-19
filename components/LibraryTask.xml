@@ -19,6 +19,8 @@
     <field id="bar" type="float" value="-1" />
     <field id="barCaption" type="string" value="" />
     <field id="firstRun" type="boolean" value="false" />
+    <!-- firstRun after a library was saved before: the OS cleared it. -->
+    <field id="savedBefore" type="boolean" value="false" />
     <field id="message" type="string" value="" />
     <field id="guide" type="assocarray" />
     <!-- Show the saved guide first when it is still what a fresh build would
