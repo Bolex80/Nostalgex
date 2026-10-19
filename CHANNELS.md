@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 41 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
+**Config version:** 42 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
 
 ---
 
@@ -64,7 +64,7 @@ only name the channel's own defining genre.
 | ARTHOUSE | `arthouse` | 4 | CH 107–110 | Criterion, foreign films, midnight movies, and cult classics |
 | NETWORKS | `streamers` | 12 | CH 118–129 | Channels by streaming service and studio |
 | SCREAM | `seasonal` | 8 | CH 137–144 | Horror, all year's worth, front and centre every October. Spotlighted Oct. Off until switched on, then on in any month. |
-| TIS THE SEASON | `tis-the-season` | 8 | CH 145–152 | Christmas, Thanksgiving and holiday channels. Spotlighted Dec. Off until switched on, then on in any month. |
+| TIS THE SEASON | `tis-the-season` | 8 | CH 145–152 | Christmas, Thanksgiving and holiday channels. Spotlighted from 7 days before US Thanksgiving (the fourth Thursday of November) through Dec. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
 Bundled channels: 139 of 139.
@@ -305,7 +305,7 @@ Spotlighted Oct. Off until switched on, then on in any month.
 
 _Christmas, Thanksgiving and holiday channels_
 
-Spotlighted Dec. Off until switched on, then on in any month.
+Spotlighted from 7 days before US Thanksgiving (the fourth Thursday of November) through Dec. Off until switched on, then on in any month.
 
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
@@ -440,4 +440,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v41 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v42 by `scripts/render-channels-doc.mjs`. Do not edit by hand._

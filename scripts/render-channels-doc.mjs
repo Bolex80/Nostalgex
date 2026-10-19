@@ -222,11 +222,23 @@ function numberRanges(nums) {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+/** "7 days before US Thanksgiving" for a bundle's `seasonStart`, or "" for none. */
+function seasonStartNote(start) {
+  if (!start || start.relativeTo !== "usThanksgiving") return "";
+  const days = Number.isInteger(start.days) ? start.days : 0;
+  const n = Math.abs(days);
+  const anchor = "US Thanksgiving (the fourth Thursday of November)";
+  if (days === 0) return `on ${anchor}`;
+  return `${n} day${n === 1 ? "" : "s"} ${days < 0 ? "before" : "after"} ${anchor}`;
+}
+
 /** "Spotlighted Oct, off until switched on, works in any month" for a seasonal bundle. */
-function seasonNote(activeMonths) {
+function seasonNote(activeMonths, seasonStart) {
   if (!activeMonths?.length) return "";
   const months = activeMonths.map((m) => MONTHS[m - 1]).filter(Boolean).join(", ");
-  return `Spotlighted ${months}. Off until switched on, then on in any month.`;
+  const early = seasonStartNote(seasonStart);
+  const when = early ? `from ${early} through ${months}` : months;
+  return `Spotlighted ${when}. Off until switched on, then on in any month.`;
 }
 
 const bundles = (data.bundles || [])
@@ -234,7 +246,7 @@ const bundles = (data.bundles || [])
     id: b.id,
     name: b.name,
     description: b.description || "",
-    season: seasonNote(b.activeMonths),
+    season: seasonNote(b.activeMonths, b.seasonStart),
     chans: (b.channelIDs || [])
       .map((id) => byId.get(id))
       .filter(Boolean)

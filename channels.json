@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "exclusiveRules": [
     {
       "channelIDs": [
@@ -345,7 +345,11 @@
       ],
       "activeMonths": [
         12
-      ]
+      ],
+      "seasonStart": {
+        "relativeTo": "usThanksgiving",
+        "days": -7
+      }
     },
     {
       "id": "high-rotation",
