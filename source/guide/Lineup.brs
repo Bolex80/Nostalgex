@@ -152,12 +152,15 @@ end function
 
 ' ── Lineup ──────────────────────────────────────────────────────────────────
 
-' Channel ids whose pools get built: those in switched-on bundles that are in
-' season (staticChannelIDsForPoolBuild, as on any load after the first).
-function NxPoolChannelIds(config as Object, enabledBundles as Object, month as Integer) as Object
+' Channel ids whose pools get built: those in switched-on bundles, in any
+' month (staticChannelIDsForPoolBuild, as on any load after the first). A
+' seasonal package's season decides only the invite and the guide's lead
+' (SeasonalPrompt.brs); upstream 8160f04 stopped it gating the build, so one
+' switched on outside its season kept its channels.
+function NxPoolChannelIds(config as Object, enabledBundles as Object) as Object
     ids = {}
     for each b in NxList(config.bundles)
-        if NxHasValue(enabledBundles, b.id) and NxBundleInSeason(b, month) then
+        if NxHasValue(enabledBundles, b.id) then
             for each id in NxList(b.channelIDs)
                 ids[id.ToStr()] = true
             end for
@@ -166,29 +169,23 @@ function NxPoolChannelIds(config as Object, enabledBundles as Object, month as I
     return ids
 end function
 
-function NxBundleInSeason(bundle as Object, month as Integer) as Boolean
-    if not NxTruthy(bundle.activeMonths) then return true
-    return NxHasValue(NxList(bundle.activeMonths), month)
-end function
-
 ' The guide's channels, in guide order: those in switched-on bundles
 ' (applyBundleFilter) and with enough items, seasonal packages that are on
-' and in season first, the rest by number (sortChannelsForGuide).
-' `channels` are channels.json entries with an `enabled` flag set.
-function NxGuideOrder(config as Object, channels as Object, enabledBundles as Object, month as Integer) as Object
+' and in season first (seasonalLeadIDs), the rest by number
+' (sortChannelsForGuide). `channels` are channels.json entries with an
+' `enabled` flag set; `now` a local date for NxIsInSeason.
+function NxGuideOrder(config as Object, channels as Object, enabledBundles as Object, now as Object) as Object
     inBundles = {}
-    lead = []
     for each b in NxList(config.bundles)
         if NxHasValue(enabledBundles, b.id) then
             for each id in NxList(b.channelIDs)
                 inBundles[id.ToStr()] = true
             end for
-            if NxTruthy(b.activeMonths) and NxBundleInSeason(b, month) then
-                for each id in NxList(b.channelIDs)
-                    if not NxHasValue(lead, id) then lead.Push(id)
-                end for
-            end if
         end if
+    end for
+    lead = []
+    for each id in NxSeasonalLeadIds(config.bundles, enabledBundles, now)
+        if not NxHasValue(lead, id) then lead.Push(id)
     end for
 
     leading = []

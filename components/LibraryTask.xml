@@ -53,6 +53,7 @@
   <script type="text/brightscript" uri="pkg:/source/filter/ChannelFilter.brs" />
   <script type="text/brightscript" uri="pkg:/source/schedule/DailyManifest.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/Lineup.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/GuideSchedule.brs" />
   <script type="text/brightscript" uri="pkg:/source/franchise/FranchiseBuilder.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />

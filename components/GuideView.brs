@@ -448,7 +448,7 @@ function renderInvite(y as Integer) as Object
     end if
     hc = colorOf(accent, "FF")
     if focused then hc = "0x000000FF"
-    head = newLabel(NxSeasonalHeadline(m.offer), "DMMono-Medium", 22, hc, 20, 25, 0)
+    head = newLabel(NxSeasonalHeadline(m.offer, NxSeasonNow()), "DMMono-Medium", 22, hc, 20, 25, 0)
     row.AppendChild(head)
     px = 20 + head.boundingRect().width + 14
     cta = newLabel("PRESS TO ADD THE " + UCase(NxToStr(m.offer.name)) + " PACKAGE", "DMMono-Medium", 14, "0x000000FF", px + 11, 31, 0)
@@ -1754,13 +1754,11 @@ end sub
 ' ── Seasonal invite ─────────────────────────────────────────────────────────
 
 sub refreshOffer()
-    dt = CreateObject("roDateTime")
-    dt.ToLocalTime()
     bundles = m.top.guide.bundles
     if bundles = invalid then bundles = []
     enabled = m.top.guide.enabledBundles
     if enabled = invalid then enabled = []
-    m.offer = NxSeasonalOffer(bundles, enabled, dt.GetMonth(), dt.GetYear(), NxSeasonalRegistry())
+    m.offer = NxSeasonalOffer(bundles, enabled, NxSeasonNow(), NxSeasonalRegistry())
     if m.offer = invalid and m.nav = "invite" then m.nav = "grid"
 end sub
 

@@ -336,7 +336,16 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         on = NxHasValue(m.enabled, b.id)
         label = b.name
         detail = b.channelIDs.Count().ToStr() + " CHANNELS"
-        if NxTruthy(b.activeMonths) then detail = detail + " · SEASONAL"
+        ' A seasonal package works in every month; outside its season the row
+        ' says when it's spotlighted, as upstream's rows do.
+        if NxIsSeasonal(b) then
+            now = NxSeasonNow()
+            if NxIsInSeason(b, now) then
+                detail = detail + " · SEASONAL"
+            else
+                detail = detail + " · " + NxSeasonSpotlightLabel(b, now)
+            end if
+        end if
         state = "OFF"
         stateColor = "0xFFFFFF59"
         if on then

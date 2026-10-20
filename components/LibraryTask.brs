@@ -43,14 +43,15 @@ end function
 ' (over a minute on a TV), and a pool rarely changes from one day to the
 ' next, so when the saved guide is a day old these are shuffled and
 ' scheduled for today instead, in seconds, and the full build still runs
-' behind them. Kept while the build, month (seasonal packages),
+' behind them. Kept while the build, the month and which packages are in
+' season (NxSeasonKey: the guide's lead, and the year the filter reads),
 ' packages, franchise and collection choices and servers on are the same.
 function NxPoolCachePath() as String
     return "cachefs:/nostalgex-pools.json"
 end function
 
-function NxPoolCacheKey(month as Integer, bundles as Object) as String
-    return NxBuildKey() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+function NxPoolCacheKey(season as String, bundles as Object) as String
+    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
 end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
@@ -64,9 +65,9 @@ end function
 ' Besides the guide's pools, every built channel's filter result (built:
 ' buildGuide's channels, those too small for the guide included), so a
 ' launch with an unchanged library reuses them (NxSavedFiltered).
-sub NxSavePools(ordered as Object, guide as Object, month as Integer, built as Object)
+sub NxSavePools(ordered as Object, guide as Object, now as Object, built as Object)
     path = NxPoolCachePath()
-    WriteAsciiFile(path, "{""key"":" + FormatJson(NxPoolCacheKey(month, guide.enabledBundles)) + ",""items"":[")
+    WriteAsciiFile(path, "{""key"":" + FormatJson(NxPoolCacheKey(NxSeasonKey(guide.bundles, now), guide.enabledBundles)) + ",""items"":[")
     st = { index: {}, count: 0, parts: [], path: path }
     chans = []
     for each ch in ordered
@@ -126,14 +127,14 @@ end function
 ' { <channel id>: [items] } over this run's items, as buildGuide's reuse.
 ' A channel whose rules read the clock to the day or finer (PREMIERES'
 ' addedWithinDays, releasedWithinMonths) is left out, so it's filtered
-' again; the rest read only the year, and the key holds the month. Invalid
+' again; the rest read only the year, which the key holds. Invalid
 ' when there is no match for these packages and choices, or an item isn't in
 ' the library.
-function NxSavedFiltered(items as Object, config as Object, month as Integer, bundles as Object) as Dynamic
+function NxSavedFiltered(items as Object, config as Object, now as Object, bundles as Object) as Dynamic
     if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
     saved = ParseJson(NxReadBigFile(NxPoolCachePath()))
     if type(saved) <> "roAssociativeArray" then return invalid
-    if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.filtered) <> "roAssociativeArray" or type(saved.items) <> "roArray" then return invalid
+    if saved.key <> NxPoolCacheKey(NxSeasonKey(config.bundles, now), bundles) or type(saved.filtered) <> "roAssociativeArray" or type(saved.items) <> "roArray" then return invalid
     byKey = {}
     for each it in items
         byKey[NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)] = it
@@ -191,7 +192,9 @@ end function
 ' there are none for this key.
 ' Only today is scheduled: the launch's guide goes up first, and the caller
 ' schedules tomorrow after.
-function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles as Object) as Dynamic
+' The season key comes from the file's own packages: a matching build key
+' means the same channels.json.
+function NxGuideFromSavedPools(nowSec as LongInteger, bundles as Object) as Dynamic
     if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
     timer = CreateObject("roTimespan")
     text = NxReadBigFile(NxPoolCachePath())
@@ -201,7 +204,8 @@ function NxGuideFromSavedPools(nowSec as LongInteger, month as Integer, bundles 
     text = ""
     print "library: saved pools read in "; readMs; " ms, parsed in "; timer.TotalMilliseconds(); " ms"
     if type(saved) <> "roAssociativeArray" then return invalid
-    if saved.key <> NxPoolCacheKey(month, bundles) or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
+    if type(saved.bundles) <> "roArray" or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
+    if saved.key <> NxPoolCacheKey(NxSeasonKey(saved.bundles, NxFilterClock(nowSec)), bundles) then return invalid
     ordered = []
     for each ch in saved.channels
         pool = []
@@ -250,7 +254,7 @@ sub loadLibrary()
         end if
         if not shown then
             m.top.progress = "Scheduling your channels…"
-            fromPools = NxGuideFromSavedPools(clock0.nowSec, clock0.month, NxEnabledBundles())
+            fromPools = NxGuideFromSavedPools(clock0.nowSec, NxEnabledBundles())
             if fromPools <> invalid then
                 m.top.fromCache = true
                 m.top.guide = fromPools.guide
@@ -412,7 +416,7 @@ sub loadLibrary()
     reuse = invalid
     if scanned.Count() = 0 then
         timer.Mark()
-        reuse = NxSavedFiltered(items, config, NxFilterClock().month, NxEnabledBundles())
+        reuse = NxSavedFiltered(items, config, NxFilterClock(), NxEnabledBundles())
         if reuse <> invalid then print "library: "; reuse.Count(); " channels' filter results from the last build, read in "; timer.TotalMilliseconds(); " ms"
     end if
     built = invalid
@@ -473,7 +477,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' file goes on no channel.
     backend = NxSignedInKind()
     bundles = NxEnabledBundles()
-    poolIds = NxPoolChannelIds(config, bundles, clock.month)
+    poolIds = NxPoolChannelIds(config, bundles)
 
     timer.Mark()
     setPhase("channels")
@@ -583,7 +587,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             ids = []
             ids.Append(NxList(bdl.channelIDs))
             ids.Append(foundIDs)
-            guideConfig.bundles.Push({ id: bdl.id, channelIDs: ids, activeMonths: bdl.activeMonths })
+            guideConfig.bundles.Push({ id: bdl.id, channelIDs: ids, activeMonths: bdl.activeMonths, seasonStart: bdl.seasonStart })
         else
             guideConfig.bundles.Push(bdl)
         end if
@@ -596,7 +600,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         guideConfig.bundles.Push({ id: "nx-collections", channelIDs: collectionIDs })
         guideBundles.Push("nx-collections")
     end if
-    ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock.month)
+    ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock)
     print "library: shuffled and ordered in "; timer.TotalMilliseconds(); " ms"
     print "library: pools fingerprint "; NxPoolsFingerprint(ordered); " ("; ordered.Count(); " channels)"
     timer.Mark()
@@ -604,7 +608,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     print "library: scheduled in "; timer.TotalMilliseconds(); " ms"
     bundleList = []
     for each bdl in NxList(config.bundles)
-        entry = { id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths }
+        entry = { id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths, seasonStart: bdl.seasonStart }
         ' The sidebar jumps to the first channel shown, found franchises included.
         if bdl.id = NxFranchisesBundleID() then
             jump = []
@@ -640,7 +644,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
     print "library: saved the guide in "; timer.TotalMilliseconds(); " ms"
     timer.Mark()
-    NxSavePools(ordered, guide, clock.month, channels)
+    NxSavePools(ordered, guide, clock, channels)
     print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
     return { ordered: ordered, guide: guide, channels: channels }
 end function
@@ -734,7 +738,7 @@ sub keepSavedGuide()
             lastHour = NxScheduleHourKey(nowSec&)
             if ordered = invalid then
                 clock = NxFilterClock(nowSec&)
-                fromPools = NxGuideFromSavedPools(nowSec&, clock.month, guide.enabledBundles)
+                fromPools = NxGuideFromSavedPools(nowSec&, guide.enabledBundles)
                 if fromPools <> invalid then
                     ordered = fromPools.ordered
                     guide = fromPools.guide

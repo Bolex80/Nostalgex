@@ -25,14 +25,14 @@ if [ -d "$upstream/.git" ]; then
     for f in channels.json channels-memberships.json franchises.json; do
         cmp -s "$pin_dir/$f" "data/$f" || { echo "FAIL data/$f differs from upstream ${pinned:0:7}" >&2; exit 1; }
     done
-    for g in franchise-golden.json filter-golden.json; do
+    for g in franchise-golden.json filter-golden.json season-golden.json; do
         cmp -s "$pin_dir/scripts/$g" "tests/vectors/$g" ||
             { echo "FAIL tests/vectors/$g differs from upstream ${pinned:0:7}" >&2; exit 1; }
     done
     # Upstream's own builder and filter must pass their golden files, or the files
     # prove nothing, and its collections module its own smoke test, or the vectors
     # from it don't.
-    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs)
+    (cd "$pin_dir" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
     NOSTALGEX_DIR=$pin_dir node tests/gen-vectors.mjs --check
     if ahead=$(git -C "$upstream" rev-list --count "$pinned..origin/main" 2>/dev/null) && [ "$ahead" -gt 0 ]; then
         echo "note: upstream origin/main is $ahead commits past the pinned ${pinned:0:7} (as of the clone's last fetch)"
