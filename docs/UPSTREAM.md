@@ -361,6 +361,69 @@ changes (`e1ef341`, the `dst` lineup cases, passing on the 43S45).
   a TV.
 - **Asked them to:** run `76d27d0` in place of `a18a256`.
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19074710)
+on 2026-10-20, on `5e925ba` on the Streaming Stick Plus (OS 15.3.4, Plex,
+11,686 items), installed over `49f5df7`, so the first launch was a new day.
+On Plex it clears their bar on the stick.
+- **Switches, all 14 on (123 channels):** off 17 to 20 s, the new lineup up
+  about 13 s after the press (was 33 to 35 s); on 21 to 35 s (was 43 to 57 s);
+  `scheduled in` 2.6 to 3.7 s (was 13 to 18 s). Fingerprints match a full
+  build. Idle in the guide about 2% CPU; the hour change about 4 s at 12%.
+- **Memory:** 32% to 66% turning on 11 packages in one task, then 66 to 68%
+  over 8 switches at all-on, about 40% after the next tune, 43% on a fresh
+  launch. No crash.
+- **cachefs:** the stick cleared it mid-session and the re-save caught it in
+  3.6 s with no rescan. The enrichment cache isn't saved again, so the next
+  launch re-read 1,928 ids from Supabase (16.8 s, behind the guide).
+- **Launch:** new day at 49 channels 7.1 s to AppLaunchComplete; same day
+  1.1 s at 49 channels and 2.5 s at 123; a second launch reuses 122 channels'
+  filter results and builds in 6.9 s (was 84 to 88 s). A cold deep link to
+  CH 4 1.1 s, picture in 1.3 s; `/input` to CH 85 2.1 s.
+- **Playback mid-programme:** HLS 1.3 to 3.8 s, direct MP4 3.7 to 6.3 s.
+- **Checked on the stick:** a server-switch rebuild back on CH 85, Now
+  Playing on RETRO MODE, the tuned row's name, the sliver gone, the BUILDING
+  hint.
+- **New ones:**
+  1. Queued switches each do a full pass: 11 presses in a minute made 11
+     builds, the last 6 no-ops of about 8.3 s each, busy 51 s. Drain pending
+     `bundleRequest` events before `rebuildForBundles`.
+  2. A launch that matches the saved guide still schedules both days (13 to
+     14 s at 123 channels) and saves the pools again (5 s).
+  3. A server switched on and back off in one visit still forces a full
+     rebuild.
+- **sca-cmd:** 0 errors, 4 warnings. Root `THIRD-PARTY-LICENSES.md` is an
+  extraneous file (`licenses/THIRD-PARTY-LICENSES.txt` clears it); still
+  missing `EnableMemoryWarningEvent`, `EnableLowGeneralMemoryEvent` and
+  `GetChannelMemoryLimit`.
+- **Two asks:** a QR code on the Plex sign-in screen
+  (`https://www.plex.tv/link/?pin=<code>`, about 200 px, "SCAN TO CONNECT",
+  after `QRCodeView` in `Views/SettingsView.swift`); and something in the
+  guide while a package builds.
+- **Upstream since `805c33e` (80 commits):**
+  - `channels.json` v43 and memberships, 415 to 422 (SLASHER, HORROR COMEDY,
+    FOUND FOOTAGE, WORLD HORROR, MYSTERY BOX TV, CRINGE TV, A24, TURKEY DAY);
+    HALLMARK is now MISTLETOE, the holiday block at 145 to 152. Needs
+    `2d1e237` first: episode rules on the item's own title, summary and air
+    date, `matchTmdbGenres`, `type`/`source` on exclusive locks; loaders need
+    `summary` and `originallyAvailableAt`. `filter-golden.json` has 87 cases.
+  - `seasonStart` (`d0f897a`, `b67b28b`, `scripts/season-golden.json` in
+    `f09fc86`): TIS THE SEASON from a week before US Thanksgiving (Nov 19).
+  - Emby Dolby Vision profile 5 kept off channels (`5d6d65f`, `ccb6854`,
+    golden cases in `95763c7`); Emby H.264 as TS segments (`72c844d`).
+  - A forced subtitle track in the viewer's language burned in (`31b1193`,
+    `a8ece18`); retro look values (`e48cdc1`).
+- **Emby question:** every mid-programme join restarts Emby's encode for them
+  too. Their problem was sync: with video copied and audio converted, fMP4
+  stamps both tracks from zero, so sound ran early by up to a GOP (-1,720 ms
+  vs TS +35 ms). The port sends `SegmentContainer=mp4` there; check sync on a
+  Roku with TS. `JELLYFIN-EMBY.md` still says they send GET for Quick Connect.
+- **Clock changes:** both are real and not changed on their side yet; keep
+  matching theirs.
+- **For a beta channel:** upstream caught up (holidays start Nov 19), the QR
+  code and the guide notice, plus the Emby TS and DV5 changes if Jellyfin and
+  Emby go in. Then name the commit; they'd import it into `roku/` with this
+  history, sign it, and put it up as a beta.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
