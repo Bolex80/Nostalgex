@@ -3,6 +3,32 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-20 (the web tuner says its version in Settings)
+
+**Shipped.** Nothing yet. Branch `web/tuner-version` on build-50 (473c5ca), this entry included, not pushed. nostalgex.app gets it when main is pushed, Docker with `tuner-v1.0.3`, cut right after.
+
+**Why.** Chad: "on the web tuner do we put anywhere the version number? I think we should do that". Nothing on the page said which tuner was running, so a support report from the web or a container could not name a build. The Apple TV app has `VERSION 1.0.26 (50)` at the bottom of Settings.
+
+**Changed.**
+- One number: `"tunerVersion"` in `package.json`, 1.0.3. The hosted build can't read it from git, because Vercel's clone is shallow and has no tags, so it is committed. Not package.json `"version"`: package-lock.json repeats that one, and `npm version` would tag `v1.0.x`, which in this repo means an Apple TV release.
+- New `scripts/tuner-version.mjs`. The build takes `NOSTALGEX_TUNER_VERSION` when it is set (the Docker release passes the tag's version), else package.json, and writes `<meta name="nostalgex-tuner-version" content="1.0.3">` into `plex-tuner.html` and `web-tuner.html` in both builds. A missing or malformed value fails the build. The self-host `config.json` default gets the same number instead of `dev`.
+- Settings, a last line under the footer: `WEB TUNER 1.0.3` on nostalgex.app, `WEB TUNER 1.0.3 · DOCKER` in the container. VT323 18px, 35% white, centred, selectable, after the Apple TV's VERSION line. The container's number comes from its `config.json`, else the page's meta tag. Anything that isn't a release number (dev, empty, a missing file) shows no line at all. The hosted page makes no extra request; the container makes one `config.json` fetch.
+- Docker. The build arg defaults to empty (was `dev`), so a plain `docker build .` carries package.json's number. `docker/40-config.sh` takes `NOSTALGEX_TUNER_VERSION`, else the version the build wrote into the image's own `config.json`, else an empty string. It no longer writes `dev`. A local build's `org.opencontainers.image.version` label is empty; the release sets it.
+- Release. `.github/workflows/docker.yml` stops before pushing when the tag and `tunerVersion` differ. RELEASING.md has the step: bump `tunerVersion` in the commit you tag. `ci.yml` checks both builds after `build:selfhost`, and the PR docker smoke checks the meta tag, the container's value and an environment override.
+
+**Measured.**
+- `npm run test:tuner-version`, now in `npm test`: 59 checks. The module; the page's own section in a VM with a fake DOM and fetch (20 cases: hosted, the container's value, the fallbacks, and dev, empty, a placeholder, "undefined" or a missing file hiding the line; the hosted page makes no request); three negative controls; where the line sits in the markup; and `40-config.sh` under sh with its two paths pointed at a temp dir. Breaking the DOCKER suffix fails 9 checks, breaking the script's fallback to the built file fails 4.
+- `npm test` green. `npm run build` and `npm run build:selfhost`, then `npm run test:tuner-version:builds`: 69 checks, 10 on the built files. No regenerated file changed.
+- A local image run three ways: no build arg gives 1.0.3, `--build-arg NOSTALGEX_TUNER_VERSION=1.0.3` gives 1.0.3, `-e NOSTALGEX_TUNER_VERSION=1.0.9` gives a `config.json` of 1.0.9 and `WEB TUNER 1.0.9 · DOCKER` in Settings. Built with the legacy builder (no buildx here), from a scratch copy of the Dockerfile without the platform pin and `--chmod`; the version path is the same. The `ci.yml` smoke lines pass against these containers, and the `docker.yml` check passes for `tuner-v1.0.3` and fails for `tuner-v1.0.2`.
+- Headless Chromium, signed out: the line is in view and inside the Settings panel at 1440x900, at 960x540 (the TV zoom, about 12px tall) and on a 390x844 phone (demo channels, MENU, SETTINGS in the drawer), for both builds, with no page errors. With the meta tag removed, or an empty value in the container, there is no line.
+
+**Unverified.** A real TV browser and a real phone. The release workflow itself, which only runs on a tag.
+
+**Next.**
+- Cut `tuner-v1.0.3` from the merge; `tunerVersion` already says 1.0.3. README's "Latest: `tuner-v1.0.2`" moves with it.
+- Seen on the way, not changed: on a phone the Settings footer's key hints (ESC, TABS, ENTER, DEL, coffee) don't fit and overlap. They mean nothing on touch.
+- Draft changelog line, not in `content/changelog.json`: "The web tuner shows its version at the bottom of Settings."
+
 ## 2026-10-19 (Emby A/V sync fix moved onto build 50)
 
 **Shipped.** Nothing. Branch `fix/emby-avsync-ts` is rebased onto `build-50`, not merged, not in any build. The 2026-10-16 entry below has the cause and the first measurements.
