@@ -93,7 +93,8 @@ sub NxSavePools(ordered as Object, guide as Object, now as Object, built as Obje
     st.parts.Push(",""libraryItems"":" + FormatJson(guide.items))
     st.parts.Push(",""bundles"":" + FormatJson(guide.bundles))
     st.parts.Push(",""franchises"":" + FormatJson(guide.franchises))
-    st.parts.Push(",""collections"":" + FormatJson(guide.collections) + "}")
+    st.parts.Push(",""collections"":" + FormatJson(guide.collections))
+    st.parts.Push(",""fingerprint"":" + FormatJson(NxToStr(guide.poolsFingerprint)) + "}")
     NxAppendText(path, st.parts)
 end sub
 
@@ -135,6 +136,8 @@ function NxSavedFiltered(items as Object, config as Object, now as Object, bundl
     saved = ParseJson(NxReadBigFile(NxPoolCachePath()))
     if type(saved) <> "roAssociativeArray" then return invalid
     if saved.key <> NxPoolCacheKey(NxSeasonKey(config.bundles, now), bundles) or type(saved.filtered) <> "roAssociativeArray" or type(saved.items) <> "roArray" then return invalid
+    m.savedPoolsKey = saved.key
+    m.savedPoolsFingerprint = NxToStr(saved.fingerprint)
     byKey = {}
     for each it in items
         byKey[NxToStr(it.ratingKey) + "@" + NxToStr(it.serverIndex)] = it
@@ -225,12 +228,19 @@ function NxGuideFromSavedPools(nowSec as LongInteger, bundles as Object) as Dyna
     guide = {
         channels: channels, builtAt: nowSec, items: saved.libraryItems,
         bundles: saved.bundles, enabledBundles: bundles, franchises: saved.franchises,
-        collections: saved.collections
+        collections: saved.collections, poolsFingerprint: NxToStr(saved.fingerprint)
     }
+    m.savedPoolsKey = saved.key
+    m.savedPoolsFingerprint = NxToStr(saved.fingerprint)
     return { ordered: ordered, guide: guide }
 end function
 
 sub loadLibrary()
+    ' The keys the saved guide and pools were last written or read under, and
+    ' the pools' fingerprint, so a build that would write the same skips it.
+    m.savedGuideKey = ""
+    m.savedPoolsKey = ""
+    m.savedPoolsFingerprint = ""
     m.top.status = "loading"
     setPhase("preparing")
     timer = CreateObject("roTimespan")
@@ -243,6 +253,7 @@ sub loadLibrary()
             saved = ParseJson(raw)
             if type(saved) = "roAssociativeArray" then
                 if saved.key = NxGuideCacheKey(clock0.nowSec, NxEnabledBundles()) and type(saved.guide) = "roAssociativeArray" then
+                    m.savedGuideKey = saved.key
                     m.top.fromCache = true
                     m.top.guide = saved.guide
                     m.shownGuide = saved.guide
@@ -452,7 +463,9 @@ sub loadLibrary()
     for each it in items
         it.Delete("nxFilter")
     end for
-    lib = { items: items, collections: collections, saves: saves, serversOn: NxSavedServersOnKey() }
+    ' The enrichment cache too, which holds its rows once read, so a cleared
+    ' cachefs: gets it back with the library (resaveClearedLibrary).
+    lib = { items: items, collections: collections, saves: saves, serversOn: NxSavedServersOnKey(), enrichCache: opts.cache }
     items = invalid
     keepScheduling(built.ordered, built.guide, built.channels, lib)
 end sub
@@ -609,10 +622,32 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     end if
     ordered = NxGuideOrder(guideConfig, channels, guideBundles, clock)
     print "library: shuffled and ordered in "; timer.TotalMilliseconds(); " ms"
-    print "library: pools fingerprint "; NxPoolsFingerprint(ordered); " ("; ordered.Count(); " channels)"
+    fingerprint = NxPoolsFingerprint(ordered)
+    print "library: pools fingerprint "; fingerprint; " ("; ordered.Count(); " channels)"
     timer.Mark()
-    out = NxScheduleGuide(ordered, nowSec&)
-    print "library: scheduled in "; timer.TotalMilliseconds(); " ms"
+    ' Pools the same as the guide on screen's, on the same local and UTC day
+    ' (the shuffle's seed): its schedules are what scheduling would give, so
+    ' they stand. A launch matching its saved guide scheduled both days again,
+    ' 13 to 14 s at 123 channels on a Streaming Stick Plus (Discussion #8).
+    ' The schedule keeps the time it was made, so a new hour since is
+    ' re-checked by keepScheduling as ever.
+    old = m.shownGuide
+    sameSchedule = false
+    builtAt& = nowSec&
+    if shown and old <> invalid then
+        if NxToStr(old.poolsFingerprint) = fingerprint and type(old.channels) = "roArray" and NxIsNumber(old.builtAt) then
+            oldAt& = old.builtAt
+            sameSchedule = oldAt& \ 86400 = nowSec& \ 86400 and NxLocalDay(oldAt&).dayKey = NxLocalDay(nowSec&).dayKey
+        end if
+    end if
+    if sameSchedule then
+        out = old.channels
+        builtAt& = oldAt&
+        print "library: pools match the guide on screen; its schedules stand"
+    else
+        out = NxScheduleGuide(ordered, nowSec&)
+        print "library: scheduled in "; timer.TotalMilliseconds(); " ms"
+    end if
     bundleList = []
     for each bdl in NxList(config.bundles)
         entry = { id: bdl.id, name: NxToStr(bdl.name), channelIDs: NxList(bdl.channelIDs), activeMonths: bdl.activeMonths, seasonStart: bdl.seasonStart }
@@ -626,7 +661,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         bundleList.Push(entry)
     end for
     guide = {
-        channels: out, builtAt: nowSec&, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
+        channels: out, builtAt: builtAt&, poolsFingerprint: fingerprint, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
         franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, scanned: collections.raw.Count(), failed: collections.failed }
     }
     ' Only hand over a refresh that differs, so an unchanged library leaves the
@@ -637,7 +672,6 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' Compared with the task's own copy: each read of m.top.guide copies the
     ' whole guide out of the node.
     timer.Mark()
-    old = m.shownGuide
     if shown and old <> invalid and FormatJson(guide.channels) = FormatJson(old.channels) and FormatJson(guide.bundles) = FormatJson(old.bundles) and FormatJson(guide.franchises) = FormatJson(old.franchises) and FormatJson(guide.collections) = FormatJson(old.collections) then
         print "library: background refresh matches the saved guide"
     else
@@ -647,12 +681,30 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         m.top.status = "ready"
     end if
     print "library: compared and handed over in "; timer.TotalMilliseconds(); " ms"
+    ' The saves, unless the file already holds this: the same schedules under
+    ' the same key, or the same pools under the same key from a build that
+    ' filtered nothing new (the clock-read channels it did filter are never
+    ' reused from the file). cachefs: can lose a file, so it must be there.
+    fs = CreateObject("roFileSystem")
     timer.Mark()
-    WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: NxGuideCacheKey(nowSec&, bundles), guide: guide }))
-    print "library: saved the guide in "; timer.TotalMilliseconds(); " ms"
+    guideKey = NxGuideCacheKey(nowSec&, bundles)
+    if sameSchedule and m.savedGuideKey = guideKey and fs.Exists(NxGuideCachePath()) then
+        print "library: the saved guide is this one; not saved again"
+    else
+        WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: guideKey, guide: guide }))
+        m.savedGuideKey = guideKey
+        print "library: saved the guide in "; timer.TotalMilliseconds(); " ms"
+    end if
     timer.Mark()
-    NxSavePools(ordered, guide, clock, channels)
-    print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
+    poolsKey = NxPoolCacheKey(NxSeasonKey(guide.bundles, clock), guide.enabledBundles)
+    if sameSchedule and reuse <> invalid and m.savedPoolsKey = poolsKey and m.savedPoolsFingerprint = fingerprint and fs.Exists(NxPoolCachePath()) then
+        print "library: the saved pools are these; not saved again"
+    else
+        NxSavePools(ordered, guide, clock, channels)
+        m.savedPoolsKey = poolsKey
+        m.savedPoolsFingerprint = fingerprint
+        print "library: saved the pools in "; timer.TotalMilliseconds(); " ms; memory "; CreateObject("roAppMemoryMonitor").GetMemoryLimitPercent(); "% of the app's limit; "; NxFileKB(NxPoolCachePath()); " KB"
+    end if
     return { ordered: ordered, guide: guide, channels: channels }
 end function
 
@@ -689,18 +741,27 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object, 
         msg = Wait(0, port)
         if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then
             ' Several switches while one builds: the saved packages are read
-            ' afresh each time, so the last build covers them all.
-            print "library: package change requested"
-            got = rebuildForBundles(builtChannels, lib)
-            if got <> invalid then
-                ordered = got.ordered
-                guide = got.guide
-                builtChannels = got.channels
-                last = FormatJson(guide.channels)
-                lastHour = NxScheduleHourKey(guide.builtAt)
+            ' afresh each time, so one build covers every request queued
+            ' behind it, and a request the guide already answers builds
+            ' nothing. Eleven presses in a minute were eleven builds, the last
+            ' six of them no-ops of 8 s each (Discussion #8).
+            dropped = NxDrainBundleRequests(port)
+            if FormatJson(NxEnabledBundles()) = FormatJson(guide.enabledBundles) and NxChoicesKey() = m.builtChoices then
+                print "library: package change requested; the guide already has it ("; dropped; " more queued)"
                 m.top.bundleBuilt = FormatJson(guide.enabledBundles)
             else
-                m.top.bundleBuilt = "rebuild"
+                print "library: package change requested ("; dropped; " more queued)"
+                got = rebuildForBundles(builtChannels, lib)
+                if got <> invalid then
+                    ordered = got.ordered
+                    guide = got.guide
+                    builtChannels = got.channels
+                    last = FormatJson(guide.channels)
+                    lastHour = NxScheduleHourKey(guide.builtAt)
+                    m.top.bundleBuilt = FormatJson(guide.enabledBundles)
+                else
+                    m.top.bundleBuilt = "rebuild"
+                end if
             end if
         else if type(msg) = "roSGNodeEvent" and NxScheduleHourKey(CreateObject("roDateTime").AsSeconds()) <> lastHour then
             nowSec& = CreateObject("roDateTime").AsSeconds()
@@ -717,6 +778,18 @@ sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object, 
         end if
     end while
 end sub
+
+' Takes the bundleRequest events waiting on the port, and returns how many.
+' Anything else waiting there is a 30 s re-check, which the next one repeats.
+function NxDrainBundleRequests(port as Object) as Integer
+    n = 0
+    msg = port.GetMessage()
+    while msg <> invalid
+        if type(msg) = "roSGNodeEvent" and msg.GetField() = "bundleRequest" then n = n + 1
+        msg = port.GetMessage()
+    end while
+    return n
+end function
 
 ' keepScheduling for a saved guide the background refresh couldn't follow
 ' with a library (no server reached, or its scan failed). The task stays up,
@@ -796,9 +869,21 @@ end function
 ' cachefs: lives in RAM, and the OS takes it back when it needs the space
 ' (twice in 25 minutes on a Streaming Stick Plus, Discussion #8): a server
 ' whose saved library has gone is saved again from memory, so the next
-' launch doesn't have to read the whole server. The guide and pools are
-' written by every build anyway.
+' launch doesn't have to read the whole server, and so is the enrichment
+' cache, or the next launch asks Supabase for every TMDB id again (1,928 ids,
+' 16.8 s on a Streaming Stick Plus). The guide and pools are written by every
+' build anyway.
 sub resaveClearedLibrary(lib as Object)
+    c = lib.enrichCache
+    if c <> invalid then
+        if c.loaded and type(c.rows) = "roAssociativeArray" then
+            if c.rows.Count() > 0 and not CreateObject("roFileSystem").Exists(c.path) then
+                t = CreateObject("roTimespan")
+                WriteAsciiFile(c.path, FormatJson(c.rows))
+                print "library: the enrichment cache was gone; saved "; c.rows.Count(); " records again in "; t.TotalMilliseconds(); " ms"
+            end if
+        end if
+    end if
     snapDir = NxSnapshotDir()
     snap = NxSnapshotReadMeta(snapDir)
     for each s in lib.saves

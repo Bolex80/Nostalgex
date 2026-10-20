@@ -58,7 +58,11 @@ once, behind Settings, reusing every pool already in the guide; a franchise
 or collection switch is built the same way on leaving Settings. Only a server
 switch rebuilds the channels from the saved library, reading only a server it
 doesn't have (Discussion #8, item 7). When the OS has cleared a server's save,
-the next switch writes it again from memory. A launch's background
+the next switch writes it again from memory, the enrichment cache with it.
+Switches queued behind a build are answered by one more build, or none when
+the guide already has them. A build whose pools match the guide on screen
+on the same day keeps its schedules, and writes the saved guide and pools
+only when they would change. A launch's background
 refresh asks each server for its section list first and skips the scan while
 the library signature (`LibraryChangeSignature.swift`: each section's
 `updatedAt` and `contentChangedAt`) is unchanged and the save is under a day

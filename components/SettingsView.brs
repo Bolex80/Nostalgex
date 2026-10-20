@@ -126,6 +126,9 @@ sub open(unused = invalid as Dynamic)
     m.servers = ParseJson(reg.Read("servers"))
     if type(m.servers) <> "roArray" then m.servers = []
     m.serversOn = NxServersOn(m.servers, NxSavedServerChoices())
+    ' A server switched on and back off in one visit changes nothing, so the
+    ' way out compares with this rather than counting presses.
+    m.serversOnAtOpen = FormatJson(m.serversOn)
     m.serversChanged = false
     m.collectionsOpen = false
     buildRows()
@@ -510,6 +513,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             if not found then
                 m.building[id] = true
                 m.dotTimer.control = "start"
+            else
+                m.building.Delete(id)
             end if
             if found then print "settings: package "; id; " switched off" else print "settings: package "; id; " switched on"
             m.top.bundleChange = true
@@ -560,6 +565,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "back" or key = "left" then
+        if m.serversChanged then m.serversChanged = FormatJson(m.serversOn) <> m.serversOnAtOpen
         if m.serversChanged then
             ' Every server's switch is saved, so a later default can't move it.
             choices = {}
