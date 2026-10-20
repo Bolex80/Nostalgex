@@ -1,9 +1,10 @@
 # Releasing Nostalgex
 
-Two things ship out of this repo and they ship independently:
+Three things ship out of this repo and they ship independently:
 
 - **The site** (`index.html`, `web-tuner.html`, `support.html`, `plex-tuner.html`) on Vercel.
 - **The tvOS app** (`Nostalgex/`) through App Store Connect.
+- **The Docker web tuner** (`ghcr.io/chadmueller/nostalgex`) from a `tuner-v*` tag.
 
 ---
 
@@ -24,6 +25,12 @@ grep -n "MARKETING_VERSION\|CURRENT_PROJECT_VERSION" Nostalgex/Nostalgex.xcodepr
 `TVOS_DEPLOYMENT_TARGET` is in the same file. It is currently **18.0**. If you raise it,
 the JSON-LD `operatingSystem` string in `index.html` and the App Store listing both have
 to move with it.
+
+**The web tuner** has its own number: `"tunerVersion"` in `package.json`, the same number as
+the `tuner-v*` tag cut from that commit. Settings shows it at the bottom, `WEB TUNER 1.0.3` on
+nostalgex.app and `WEB TUNER 1.0.3 · DOCKER` in the container, and both tuner pages carry it
+as `<meta name="nostalgex-tuner-version">`. package.json `"version"` is something else and
+nothing reads it.
 
 ---
 
@@ -65,6 +72,24 @@ uploaded is still free to reuse, but confirm that in TestFlight rather than assu
    names an exact count that is not the real one.
 4. Push to `main`. Vercel builds and deploys production on its own. No CLI step.
 5. Load nostalgex.app and the web tuner once and confirm nothing 404s.
+
+## Docker image release (web tuner)
+
+The container ships from a `tuner-vX.Y.Z` tag (`.github/workflows/docker.yml`), apart from
+the site and the app. Tag when a batch of tuner changes is worth shipping to self-hosters.
+
+1. **Bump `"tunerVersion"` in `package.json` to `X.Y.Z` in the commit you are about to tag.**
+   nostalgex.app shows the new number as soon as that commit is on `main`.
+2. `npm test`, `npm run build`, `npm run build:selfhost`, then
+   `npm run test:tuner-version:builds` (both builds carry `X.Y.Z`).
+3. Tag that commit and push the tag:
+   ```
+   git tag tuner-vX.Y.Z && git push origin tuner-vX.Y.Z
+   ```
+4. The workflow checks that the tag and `tunerVersion` agree and stops before pushing an
+   image if they don't. To recover: delete the tag (`git tag -d tuner-vX.Y.Z` and
+   `git push origin :refs/tags/tuner-vX.Y.Z`), commit the bump, tag again.
+5. Pull the image, open Settings, and check the bottom line reads `WEB TUNER X.Y.Z · DOCKER`.
 
 ## tvOS release
 

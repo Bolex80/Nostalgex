@@ -2,9 +2,14 @@
 #
 # Runs only on a `tuner-v*` tag (its own version line; `v1.0.x` still means the
 # Apple TV app reached Apple). Tag only when tuner files changed, after the PR
-# docker smoke in ci.yml and a local container run pass:
+# docker smoke in ci.yml and a local container run pass.
 #
-#   git tag tuner-v1.0.0 && git push origin tuner-v1.0.0
+# The tagged commit must say the same version in package.json "tunerVersion", which
+# is what Settings shows on nostalgex.app and in the image. Bump it in the commit you
+# tag; the job stops before pushing anything if the two differ (RELEASING.md):
+#
+#   "tunerVersion": "1.0.3" in package.json, committed, then
+#   git tag tuner-v1.0.3 && git push origin tuner-v1.0.3
 #
 # Pushes 1.0.0, 1.0 and latest for amd64 and arm64, with an SBOM and provenance.
 # A new GHCR package starts private; flip it to public once, at launch.
@@ -40,6 +45,19 @@ jobs:
       - name: Version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#tuner-v}" >> "$GITHUB_OUTPUT"
+
+      # nostalgex.app shows package.json "tunerVersion"; the image shows the tag's
+      # version. One release, one number: a tag without the bump fails here.
+      - name: Tag matches package.json tunerVersion
+        env:
+          TAG_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          committed="$(node -p "require('./package.json').tunerVersion")"
+          if [ "$committed" != "$TAG_VERSION" ]; then
+            echo "::error file=package.json::Tag ${GITHUB_REF_NAME} is $TAG_VERSION but package.json tunerVersion is $committed. Bump tunerVersion in the commit you tag."
+            exit 1
+          fi
+          echo "tunerVersion $committed matches ${GITHUB_REF_NAME}"
 
       # The build stage runs on the runner's own platform and the runtime stage has
       # no RUN steps, so QEMU is only a safety net for future changes.

@@ -135,7 +135,7 @@ services:
     restart: unless-stopped
 ```
 
-**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`.
+**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`. The bottom of Settings says which one you're running, e.g. `WEB TUNER 1.0.3 · DOCKER`.
 
 **Platforms:** amd64 and arm64 (Synology and Unraid on Intel or AMD, NUCs, Raspberry Pi 4 and 5 on a 64 bit OS). No armv7. Runs as a non root user (uid 101) and works with a read only root filesystem as long as `/tmp` is writable.
 
@@ -290,7 +290,7 @@ Issues and pull requests are welcome. A few things that make them land faster:
 Never commit real keys. `.gitignore` already covers `.env`, `Secrets.plist` and `*.xcconfig` secrets.
 
 <a id="deployment"></a>
-**Deployment:** the web app deploys to Vercel automatically on push to `main`. The Docker image is published to `ghcr.io/chadmueller/nostalgex` when a `tuner-v*` tag is pushed.
+**Deployment:** the web app deploys to Vercel automatically on push to `main`. The Docker image is published to `ghcr.io/chadmueller/nostalgex` when a `tuner-v*` tag is pushed; the tagged commit bumps `"tunerVersion"` in `package.json` to match (see `RELEASING.md`).
 
 </details>
 
