@@ -102,6 +102,13 @@ jobs:
               - 'scripts/franchise-golden.json'
               - 'scripts/nostalgex-franchise-smoke.mjs'
               - 'scripts/nostalgex-collections-smoke.mjs'
+              - 'scripts/nostalgex-jellyfin-urls.js'
+              - 'scripts/nostalgex-music-brainz.js'
+              - 'scripts/nostalgex-season.js'
+              - 'scripts/filter-golden.json'
+              - 'scripts/season-golden.json'
+              - 'scripts/nostalgex-filter-golden-smoke.mjs'
+              - 'scripts/nostalgex-season-smoke.mjs'
 
   channel-engine:
     name: Channel engine (rule parity, schedule order, docs)
