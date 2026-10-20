@@ -16,7 +16,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
 
-ARG NOSTALGEX_TUNER_VERSION=dev
+# The version Settings shows. Empty means package.json "tunerVersion"; the release
+# workflow passes the tag's version, and checks that the two agree.
+ARG NOSTALGEX_TUNER_VERSION=
 # The shared TMDB/OMDb metadata cache the Apple TV app also reads. The anon key is
 # public by design (row level security protects the table) and ends up in the page
 # either way. Left empty, enrichment is off in the image.
@@ -30,7 +32,8 @@ RUN NOSTALGEX_TUNER_VERSION="$NOSTALGEX_TUNER_VERSION" \
 # The stable nginx line. The plan's 1.27 tag stopped getting rebuilds in mid 2025.
 FROM nginxinc/nginx-unprivileged:1.30-alpine
 
-ARG NOSTALGEX_TUNER_VERSION=dev
+# Empty in a local build; docker/40-config.sh then reads the version the build wrote.
+ARG NOSTALGEX_TUNER_VERSION=
 ENV NOSTALGEX_TUNER_VERSION=$NOSTALGEX_TUNER_VERSION \
     NOSTALGEX_ENRICHMENT=on
 
