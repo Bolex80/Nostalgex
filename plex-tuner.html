@@ -2033,6 +2033,16 @@
     color: var(--cyan);
     margin-right: 6px;
   }
+  /* The tuner's version, last thing in Settings, as quiet as the Apple TV app's
+     VERSION line. Selectable, so it can be pasted into a support message. */
+  .config-version {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    user-select: text;
+  }
 
   /* Suggested channel rows */
   .config-suggested-row {
@@ -3620,6 +3630,8 @@
       <div class="config-footer-hint"><span>[DEL]</span> REMOVE</div>
       <div class="config-footer-hint"><span>[☕]</span> <a href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" style="color: rgba(0,255,255,0.45); text-decoration: none; border-bottom: 1px solid rgba(0,255,255,0.16); padding-bottom: 2px;">BUY ME A COFFEE</a></div>
     </div>
+    <!-- WEB TUNER 1.0.3, or WEB TUNER 1.0.3 · DOCKER. Filled in by loadTunerVersion(). -->
+    <div class="config-version" id="cfg-tuner-version" hidden></div>
   </div>
 </div>
 
@@ -7193,6 +7205,44 @@
     });
     renderSuggestedList();
   }
+
+  // ── Web tuner version (bottom of Settings) ──────────────────
+  // So support can ask which tuner someone is running, the way VERSION 1.0.26 (50)
+  // sits at the bottom of the Apple TV app's Settings.
+  //   nostalgex.app  WEB TUNER 1.0.3           the build's meta tag (package.json
+  //                                            "tunerVersion", see scripts/tuner-version.mjs)
+  //   Docker         WEB TUNER 1.0.3 · DOCKER  the container's config.json, written at
+  //                                            start by docker/40-config.sh; the meta
+  //                                            tag if that has none
+  // Anything that is not a release number (dev, empty, a missing file) shows nothing.
+  const TUNER_RELEASE_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+  function cleanTunerVersion(value) {
+    const v = typeof value === 'string' ? value.trim() : '';
+    return v.length <= 40 && TUNER_RELEASE_VERSION.test(v) ? v : '';
+  }
+
+  function pageMeta(name) {
+    const el = document.querySelector(`meta[name="${name}"]`);
+    return (el && el.getAttribute('content')) || '';
+  }
+
+  async function loadTunerVersion() {
+    const el = document.getElementById('cfg-tuner-version');
+    if (!el) return;
+    const docker = pageMeta('nostalgex-build') === 'selfhost';
+    let version = '';
+    if (docker) {
+      try {
+        const res = await fetch('config.json', { cache: 'no-store' });
+        if (res && res.ok) version = cleanTunerVersion(((await res.json()) || {}).tunerVersion);
+      } catch (err) { /* no config.json: fall back to the build's own */ }
+    }
+    if (!version) version = cleanTunerVersion(pageMeta('nostalgex-tuner-version'));
+    el.textContent = version ? `WEB TUNER ${version}${docker ? ' \u00b7 DOCKER' : ''}` : '';
+    el.hidden = !version;
+  }
+  loadTunerVersion();
 
   function showConfig() {
     configVisible = true;
