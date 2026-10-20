@@ -32,11 +32,14 @@ sub init()
     m.playing = invalid
     m.fullscreen = false
     m.fonts = {}
+    ' Packages switched on in Settings whose build hasn't answered: { id: true }.
+    m.building = {}
 
     styleLabel("graceTitle", "DMMono-Medium", 34, "0xFFFFFFFF")
     styleLabel("graceCount", "DMMono-Regular", 23, "0xFFFFFFD9")
     styleLabel("graceHint", "DMMono-Regular", 19, "0xFFFFFFA6")
     styleLabel("navSettings", "DMMono-Medium", 24, "0xFFFFFF80")
+    styleLabel("buildNotice", "DMMono-Medium", 22, "0xFFE500FF")
     styleLabel("title", "DMMono-Medium", 38, "0xFFFFFFFF")
     styleLabel("artist", "DMMono-Regular", 22, "0xFFFFFFB3")
     styleLabel("genres", "DMMono-Regular", 22, "0xFFFFFFBF")
@@ -1519,6 +1522,9 @@ sub openSettings()
     m.settings.ObserveField("bundleChange", "onSettingsBundleChange")
     m.top.AppendChild(m.settings)
     m.settings.callFunc("open", invalid)
+    m.settings.callFunc("setBuilding", m.building.Keys())
+    m.building = {}
+    renderBuildNotice()
 end sub
 
 sub onSettingsBundleChange()
@@ -1528,7 +1534,17 @@ end sub
 sub onBundleBuilt()
     if m.settings <> invalid then
         m.settings.bundleBuilt = m.top.bundleBuilt
+        return
+    end if
+    built = ParseJson(m.top.bundleBuilt)
+    if type(built) = "roArray" then
+        for each id in built
+            m.building.Delete(id)
+        end for
+        renderBuildNotice()
     else if m.top.bundleBuilt = "rebuild" then
+        m.building = {}
+        renderBuildNotice()
         ' A build asked for on the way out of Settings couldn't be done in
         ' place: the whole guide is rebuilt, as Settings would have.
         print "guide: the build after Settings needs a full rebuild"
@@ -1537,6 +1553,26 @@ sub onBundleBuilt()
         m.tick.control = "stop"
         m.top.action = "rebuild"
     end if
+end sub
+
+' The panel's line while packages switched on in Settings are building:
+' Settings says it on their rows, and back in the guide nothing did.
+sub renderBuildNotice()
+    label = m.top.FindNode("buildNotice")
+    if m.building.Count() = 0 then
+        label.visible = false
+        return
+    end if
+    names = []
+    for each b in NxList(m.top.guide.bundles)
+        if m.building.DoesExist(b.id) then names.Push(UCase(NxToStr(b.name)))
+    end for
+    if names.Count() = 1 then
+        label.text = "BUILDING " + names[0] + " · ITS CHANNELS SHOW UP WHEN READY"
+    else
+        label.text = "BUILDING " + m.building.Count().ToStr() + " PACKAGES · THEIR CHANNELS SHOW UP WHEN READY"
+    end if
+    label.visible = true
 end sub
 
 ' A guide built while Settings is open: its franchise and collection lists
@@ -1550,6 +1586,10 @@ end sub
 
 sub onSettingsResult()
     result = m.settings.result
+    for each id in m.settings.callFunc("buildingIds", invalid)
+        m.building[id] = true
+    end for
+    renderBuildNotice()
     m.top.RemoveChild(m.settings)
     m.settings = invalid
     linkWaiting = m.linkAfterSettings = true

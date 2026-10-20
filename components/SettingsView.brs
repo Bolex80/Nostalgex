@@ -33,6 +33,19 @@ sub onDots()
     render()
 end sub
 
+' The packages switched on whose channels are still being built.
+function buildingIds(unused = invalid as Dynamic) as Object
+    return m.building.Keys()
+end function
+
+' Builds the guide is still waiting on, from a visit before this one.
+sub setBuilding(ids as Object)
+    for each id in ids
+        m.building[id] = true
+    end for
+    if m.building.Count() > 0 then m.dotTimer.control = "start"
+end sub
+
 ' The library task's answer to a package switch (LibraryTask.bundleBuilt):
 ' the packages the guide now holds, or "rebuild".
 sub onBundleBuilt()

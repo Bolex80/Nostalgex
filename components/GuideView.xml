@@ -70,6 +70,9 @@
       <Poster id="logo" uri="pkg:/images/logo.png" translation="[40,54]" width="363" height="48" />
       <!-- TunerView's nav item: Up from the top row focuses it. -->
       <Label id="navSettings" text="SETTINGS" translation="[924,64]" width="200" horizAlign="right" />
+      <!-- While a package switched on in Settings is still building: its
+           channels are on the way (Discussion #8). -->
+      <Label id="buildNotice" text="" translation="[40,128]" width="1100" visible="false" />
       <Group id="info" translation="[40,204]">
         <!-- Letter-spaced text is a Label per character (VT323 is monospace). -->
         <Group id="tag" />

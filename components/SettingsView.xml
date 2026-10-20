@@ -21,6 +21,10 @@
     <field id="bundleBuilt" type="string" alwaysNotify="true" onChange="onBundleBuilt" />
     <function name="open" />
     <function name="refreshRows" />
+    <!-- The packages still building, for the guide to keep saying so once
+         Settings closes, and to hand back when it opens again. -->
+    <function name="buildingIds" />
+    <function name="setBuilding" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />

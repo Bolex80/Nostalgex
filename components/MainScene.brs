@@ -194,14 +194,14 @@ sub showQr(code as String)
         m.qr.visible = false
         return
     end if
-    box = 200
+    side = 200
     size = modules.Count()
     ' Two light modules of quiet zone each side, inside the white square.
-    cell = box \ (size + 4)
-    origin = (box - cell * size) \ 2
+    cell = side \ (size + 4)
+    origin = (side - cell * size) \ 2
     bg = CreateObject("roSGNode", "Rectangle")
-    bg.width = box
-    bg.height = box
+    bg.width = side
+    bg.height = side
     bg.color = "0xFFFFFFFF"
     m.qr.AppendChild(bg)
     for y = 0 to size - 1
@@ -231,9 +231,9 @@ sub showQr(code as String)
     f.size = 20
     caption.font = f
     caption.color = "0x8E8E9399"
-    caption.width = box
+    caption.width = side
     caption.horizAlign = "center"
-    caption.translation = [0, box + 12]
+    caption.translation = [0, side + 12]
     m.qr.AppendChild(caption)
     m.qr.visible = true
 end sub

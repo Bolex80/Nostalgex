@@ -63,6 +63,17 @@ if [ -n "$shadow" ]; then
     exit 1
 fi
 
+# The components never run here, so a parse error in one (a reserved word
+# such as `box` or `pos` as a name) would show only on a TV: parse each.
+for f in components/*.brs; do
+    parsed=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . "$f" 2>&1 || true)
+    if grep -q "Error occurred parsing" <<<"$parsed"; then
+        echo "FAIL $f doesn't parse:" >&2
+        grep -v "^Warning: XML\|^npm warn" <<<"$parsed" | head -5 >&2
+        exit 1
+    fi
+done
+
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
     tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/LineupTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/QrTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
