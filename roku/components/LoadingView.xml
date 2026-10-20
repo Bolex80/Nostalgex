@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The progress screen of a library load, as upstream's LoadingView and
+     LibraryLoadStepRail (App/Plex90App.swift): the logo, the first-run
+     warning, the step rail, the step's headline, a detail line and a bar.
+     It reads everything from the LibraryTask it is given. -->
+<component name="LoadingView" extends="Group">
+  <interface>
+    <field id="task" type="node" onChange="onTask" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/components/LoadingView.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x000000FF" />
+    <Group id="content" />
+  </children>
+</component>

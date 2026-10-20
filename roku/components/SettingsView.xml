@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings, in the order of the Apple TV app's SettingsPageView: support,
+     the Plex servers to read and signing out, RETRO MODE and subtitles,
+     channel packages with each franchise under FRANCHISES, then the server's
+     collections under MY COLLECTIONS, folded closed.
+     Choices are saved on the TV. A package switch is built at once, behind
+     Settings, building only that package's channels; a franchise,
+     collection or server change rebuilds the guide when Settings closes. -->
+<component name="SettingsView" extends="Group">
+  <interface>
+    <field id="bundles" type="array" />
+    <!-- The franchise list under FRANCHISES, from the last guide build. -->
+    <field id="franchises" type="array" />
+    <!-- MY COLLECTIONS from the last guide build: { rows, overCap, scanned, failed }. -->
+    <field id="collections" type="assocarray" />
+    <!-- Set when Settings closes: "close", "rebuild" or "signOut". -->
+    <field id="result" type="string" alwaysNotify="true" />
+    <!-- Set when a package switch has been saved, to have it built now. -->
+    <field id="bundleChange" type="boolean" alwaysNotify="true" />
+    <!-- The library task's answer: the packages built, as JSON, or "rebuild". -->
+    <field id="bundleBuilt" type="string" alwaysNotify="true" onChange="onBundleBuilt" />
+    <function name="open" />
+    <function name="refreshRows" />
+    <!-- The packages still building, for the guide to keep saying so once
+         Settings closes, and to hand back when it opens again. -->
+    <function name="buildingIds" />
+    <function name="setBuilding" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/RetroMode.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/CollectionChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/components/SettingsView.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0B1CFF" />
+    <Group id="page" translation="[120,80]" />
+  </children>
+</component>

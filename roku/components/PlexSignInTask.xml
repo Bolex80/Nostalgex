@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Signs in to Plex with a plex.tv/link code, then finds the account's
+     servers. Their addresses are checked later, by the library task, for the
+     servers that are on. No field carries a token;
+     tokens stay in the registry (see source/plex/PlexApi.brs). -->
+<component name="PlexSignInTask" extends="Task">
+  <interface>
+    <!-- checking | code | discovering | ready | error. Not "state": every Task has a built-in field of that name. -->
+    <field id="status" type="string" value="" />
+    <field id="code" type="string" value="" />
+    <field id="account" type="string" value="" />
+    <field id="message" type="string" value="" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
+  <script type="text/brightscript" uri="pkg:/components/PlexSignInTask.brs" />
+</component>

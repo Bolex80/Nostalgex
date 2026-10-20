@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The guide, laid out after the Nostalgex Apple TV app (TunerView,
+     InfoPanelView, ChannelGuideView): the focused channel's airing top left,
+     the live preview top right, the two-hour grid below. The panel comes
+     after the video so that RETRO MODE's 4:3 crop can run under it. Measurements are the
+     tvOS app's, which draws 1:1 on a 1920x1080 screen. -->
+<component name="GuideView" extends="Group">
+  <interface>
+    <field id="guide" type="assocarray" onChange="onGuide" />
+    <!-- For MainScene: "rebuild" after package changes, or "signOut". -->
+    <field id="action" type="string" alwaysNotify="true" />
+    <!-- A package switched in Settings, saved: MainScene asks the library
+         task to build for it, and hands back bundleBuilt (see LibraryTask). -->
+    <field id="bundleRequest" type="boolean" alwaysNotify="true" />
+    <field id="bundleBuilt" type="string" alwaysNotify="true" onChange="onBundleBuilt" />
+    <!-- A deep link from MainScene ({ contentId, mediaType }): tune that
+         channel fullscreen. -->
+    <field id="deepLink" type="assocarray" alwaysNotify="true" onChange="onDeepLink" />
+    <!-- Set before the first guide, after a full rebuild from Settings: the
+         channel to tune and focus instead of the top row, by id. -->
+    <field id="resumeId" type="string" />
+    <!-- The id of the channel tuned, as a string, or "" (resumeId's source). -->
+    <function name="tunedChannelId" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/TuneQueue.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Advance.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SleepTimer.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/DeepLink.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/RetroMode.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
+  <script type="text/brightscript" uri="pkg:/components/GuideView.brs" />
+  <children>
+    <Rectangle id="screen" width="1920" height="1080" color="0x000000FF" />
+    <Rectangle id="videoBg" translation="[1180,0]" width="740" height="555" color="0x05050DFF" />
+    <Video id="video" translation="[1180,0]" width="740" height="555" />
+    <!-- RETRO MODE's CRT overlay (CRTOverlayView): scanlines, the tracking
+         glitch, vignette and edge. Images from scripts/look-images.py. -->
+    <Group id="crt" translation="[1180,0]">
+      <Poster id="scanlines" uri="pkg:/images/look/scanlines.png" width="740" height="555" />
+      <Poster id="glitch" uri="pkg:/images/look/glitch.png" width="740" height="42" visible="false" />
+      <Poster id="vignette" uri="pkg:/images/look/vignette.png" width="740" height="555" />
+    </Group>
+    <Animation id="glitchAnim" repeat="false" easeFunction="linear">
+      <Vector2DFieldInterpolator id="glitchMove" key="[0.0, 1.0]" fieldToInterp="glitch.translation" />
+    </Animation>
+    <Group id="haze" visible="false" opacity="0">
+      <Rectangle id="hazeBg" translation="[1180,0]" width="740" height="555" color="0x000000FF" />
+      <Poster id="snow" uri="pkg:/images/look/snow_0.png" translation="[1180,0]" width="740" height="556" opacity="0.32" />
+      <Label id="hazeText" translation="[1180,261]" width="740" horizAlign="center" />
+    </Group>
+    <Animation id="hazeIn" duration="0.35" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="haze.opacity" />
+    </Animation>
+    <Animation id="snowSettle" duration="0.7" repeat="false" easeFunction="inOutQuad">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.32, 0.14]" fieldToInterp="snow.opacity" />
+    </Animation>
+    <Group id="panel">
+      <Rectangle width="1180" height="555" color="0x0B0B1CFF" />
+      <!-- TunerView's NavBar logo: the brand wordmark (scripts/icons.sh). -->
+      <Poster id="logo" uri="pkg:/images/logo.png" translation="[40,54]" width="363" height="48" />
+      <!-- TunerView's nav item: Up from the top row focuses it. -->
+      <Label id="navSettings" text="SETTINGS" translation="[924,64]" width="200" horizAlign="right" />
+      <!-- While a package switched on in Settings is still building: its
+           channels are on the way (Discussion #8). -->
+      <Label id="buildNotice" text="" translation="[40,128]" width="1100" visible="false" />
+      <Group id="info" translation="[40,204]">
+        <!-- Letter-spaced text is a Label per character (VT323 is monospace). -->
+        <Group id="tag" />
+        <Label id="title" translation="[0,56]" width="1100" wrap="true" maxLines="2" lineSpacing="2" />
+        <Label id="artist" width="1100" />
+        <Label id="genres" width="1100" wrap="true" maxLines="2" />
+        <Label id="subtitle" width="1100" />
+        <Rectangle id="rule" width="1100" height="1" />
+        <Label id="summary" width="1100" wrap="true" maxLines="2" lineSpacing="4" />
+        <Group id="meta">
+          <Group id="badges" />
+          <Rectangle id="progressTrack" height="4" color="0xFFFFFF14" />
+          <Rectangle id="progressFill" height="4" />
+          <Label id="clock" />
+        </Group>
+        <Group id="upNextLabel" />
+        <Label id="upNext" width="1000" />
+      </Group>
+    </Group>
+    <Group id="grid" translation="[0,555]">
+      <Rectangle width="1920" height="525" color="0x0D0D1FFF" />
+      <Rectangle width="1920" height="60" color="0x0A0A14FF" />
+      <Label id="channelHead" text="CHANNEL" translation="[12,18]" />
+      <Group id="slots" />
+      <Rectangle translation="[0,60]" width="1920" height="1" color="0xFFFFFF40" />
+      <Group id="rows" translation="[0,61]" clippingRect="[0,0,1920,464]" />
+      <Rectangle id="nowLine" width="2" height="525" color="0x00D4FFFF" />
+    </Group>
+    <Group id="sidebar" translation="[0,555]" visible="false" />
+    <!-- Full screen's channel OSD (PlayerView ChannelOSD), bottom left. -->
+    <Group id="osd" visible="false" />
+    <!-- The seasonal invite's question (ChannelGuideView's confirmationDialog). -->
+    <Group id="prompt" visible="false" />
+    <Label id="ccToast" visible="false" translation="[1460,60]" width="400" horizAlign="right" />
+    <!-- The sleep timer's STILL WATCHING? prompt (SleepGracePrompt). -->
+    <Group id="grace" visible="false">
+      <Rectangle width="1920" height="1080" color="0x000000CC" />
+      <Rectangle translation="[580,420]" width="760" height="240" color="0x0D0D12FF" />
+      <Rectangle translation="[580,420]" width="760" height="1" color="0xFFFFFF47" />
+      <Rectangle translation="[580,659]" width="760" height="1" color="0xFFFFFF47" />
+      <Rectangle translation="[580,420]" width="1" height="240" color="0xFFFFFF47" />
+      <Rectangle translation="[1339,420]" width="1" height="240" color="0xFFFFFF47" />
+      <Label id="graceTitle" text="STILL WATCHING?" translation="[580,464]" width="760" horizAlign="center" />
+      <Label id="graceCount" text="" translation="[580,524]" width="760" horizAlign="center" />
+      <Label id="graceHint" text="PRESS ANY BUTTON TO KEEP WATCHING" translation="[580,580]" width="760" horizAlign="center" />
+    </Group>
+    <Label id="notice" translation="[1200,500]" width="700" wrap="true" color="0xFF6B6BFF" />
+  </children>
+</component>

@@ -1,0 +1,562 @@
+{
+ "generatedBy": "tests/gen-vectors.mjs (tests/gen-enrichment.mjs)",
+ "upstream": {
+  "repo": "https://github.com/chadMueller/Nostalgex",
+  "commit": "1b5859b1a5c3ff21dc3e5887eef0eac92bb114ac",
+  "engine": "scripts/nostalgex-enrichment.js"
+ },
+ "fetchedAt": "2026-10-11T12:00:00.000Z",
+ "nowSec": 1791720000,
+ "constants": {
+  "supabaseChunk": 200,
+  "relayConcurrency": 6,
+  "cacheTtlSec": 604800,
+  "missTtlSec": 86400,
+  "omdbPerLoad": 50,
+  "omdbConcurrency": 4,
+  "tmdbColumns": "tmdb_id,media_type,keywords,networks,production_companies,tmdb_genres,franchise_id,franchise_name,fetched_at",
+  "omdbColumns": "tmdb_id,media_type,imdb_id,imdb_rating,imdb_votes,rt_score,metacritic_score,awards"
+ },
+ "tmdb": [
+  {
+   "doc": "{\"id\":603,\"belongs_to_collection\":{\"id\":2344,\"name\":\"The Matrix Collection\",\"poster_path\":\"/x.jpg\"},\"genres\":[{\"id\":28,\"name\":\"Action\"},{\"id\":878,\"name\":\"Science Fiction\"}],\"production_companies\":[{\"id\":79,\"name\":\"Village Roadshow Pictures\"},{\"id\":174,\"name\":\"Warner Bros. Pictures\"}],\"keywords\":{\"keywords\":[{\"id\":1,\"name\":\"artificial intelligence\"},{\"id\":2,\"name\":\"dystopia\"}]}}",
+   "tmdbID": "603",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":2344,\"franchiseName\":\"The Matrix Collection\",\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"artificial intelligence\",\"dystopia\"],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[\"Village Roadshow Pictures\",\"Warner Bros. Pictures\"],\"rottenTomatoesScore\":null,\"tmdbGenres\":[\"Action\",\"Science Fiction\"],\"tmdbID\":\"603\"}"
+  },
+  {
+   "doc": "{\"id\":550,\"belongs_to_collection\":null,\"keywords\":{\"keywords\":[{\"name\":\"fight\"}]}}",
+   "tmdbID": "550",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"fight\"],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"550\"}"
+  },
+  {
+   "doc": "{\"keywords\":{\"keywords\":[{\"name\":\"heist\"}]}}",
+   "tmdbID": "1",
+   "imdbID": null,
+   "mediaType": "tv",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"tv\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"1\"}"
+  },
+  {
+   "doc": "{\"id\":1399,\"genres\":[{\"name\":\"Sci-Fi & Fantasy\"},{\"name\":\"Drama\"}],\"networks\":[{\"id\":49,\"name\":\"HBO\"}],\"production_companies\":[{\"name\":\"Revolution Sun Studios\"}],\"keywords\":{\"results\":[{\"id\":1,\"name\":\"based on novel or book\"},{\"id\":2,\"name\":\"dragon\"}]}}",
+   "tmdbID": "1399",
+   "imdbID": null,
+   "mediaType": "tv",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"based on novel or book\",\"dragon\"],\"mediaType\":\"tv\",\"metacriticScore\":null,\"networks\":[\"HBO\"],\"productionCompanies\":[\"Revolution Sun Studios\"],\"rottenTomatoesScore\":null,\"tmdbGenres\":[\"Sci-Fi & Fantasy\",\"Drama\"],\"tmdbID\":\"1399\"}"
+  },
+  {
+   "doc": "{\"belongs_to_collection\":{\"id\":\"12\",\"name\":7},\"keywords\":{\"keywords\":[{\"name\":3},{\"name\":\"ok\"}]}}",
+   "tmdbID": "9",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"ok\"],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"9\"}"
+  },
+  {
+   "doc": "null",
+   "tmdbID": "9",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"9\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt0133093\"}",
+   "tmdbID": "603",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":\"tt0133093\",\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"603\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt0133093\"}",
+   "tmdbID": "603",
+   "imdbID": "tt7654321",
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":\"tt7654321\",\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"603\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"\"}",
+   "tmdbID": "603",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"603\"}"
+  },
+  {
+   "doc": "{\"belongs_to_collection\":{\"id\":12.5,\"name\":\"Half\"}}",
+   "tmdbID": "2",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":\"Half\",\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"2\"}"
+  },
+  {
+   "doc": "{\"belongs_to_collection\":{\"id\":12,\"name\":\"Whole\"}}",
+   "tmdbID": "2",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":12,\"franchiseName\":\"Whole\",\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"2\"}"
+  },
+  {
+   "doc": "{\"belongs_to_collection\":[1,2]}",
+   "tmdbID": "2",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"2\"}"
+  },
+  {
+   "doc": "{\"belongs_to_collection\":\"Star Wars\"}",
+   "tmdbID": "2",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"2\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt123456\"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt1234567890\"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt12345678\"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":\"tt12345678\",\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"TT1234567\"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt1234567 \"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":1234567}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"imdb_id\":\"tt0000001\"}",
+   "tmdbID": "3",
+   "imdbID": null,
+   "mediaType": "tv",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":\"tt0000001\",\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"tv\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"3\"}"
+  },
+  {
+   "doc": "{\"keywords\":[{\"name\":\"flat\"}]}",
+   "tmdbID": "4",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"4\"}"
+  },
+  {
+   "doc": "{\"keywords\":{\"keywords\":{\"name\":\"not a list\"}}}",
+   "tmdbID": "4",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"4\"}"
+  },
+  {
+   "doc": "{\"keywords\":{\"keywords\":[null,{\"name\":null},{},\"plain\",{\"name\":\"\"},{\"name\":\"Été\"}]}}",
+   "tmdbID": "4",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"\",\"\\u00c9t\\u00e9\"],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"4\"}"
+  },
+  {
+   "doc": "{\"keywords\":{\"results\":[{\"name\":\"tv only\"}],\"keywords\":[{\"name\":\"movie only\"}]}}",
+   "tmdbID": "4",
+   "imdbID": null,
+   "mediaType": "tv",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"tv only\"],\"mediaType\":\"tv\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"4\"}"
+  },
+  {
+   "doc": "{\"genres\":\"Drama\",\"networks\":{},\"production_companies\":[{\"name\":\"A\"},{\"name\":\"A\"}]}",
+   "tmdbID": "5",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[\"A\",\"A\"],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"5\"}"
+  },
+  {
+   "doc": "\"a string\"",
+   "tmdbID": "6",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"6\"}"
+  },
+  {
+   "doc": "[1,2]",
+   "tmdbID": "6",
+   "imdbID": null,
+   "mediaType": "movie",
+   "want": "{\"awards\":null,\"fetchedAt\":\"2026-10-11T12:00:00.000Z\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"movie\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"6\"}"
+  }
+ ],
+ "omdb": [
+  {
+   "doc": "{\"imdbRating\":\"8.7\",\"imdbVotes\":\"2,213,456\",\"Metascore\":\"73\",\"Awards\":\"Won 4 Oscars.\",\"Ratings\":[{\"Source\":\"Internet Movie Database\",\"Value\":\"8.7/10\"},{\"Source\":\"Rotten Tomatoes\",\"Value\":\"83%\"}],\"Response\":\"True\"}",
+   "want": "{\"awards\":\"Won 4 Oscars.\",\"imdbRating\":8.7,\"imdbVotes\":2213456,\"metacriticScore\":73,\"rottenTomatoesScore\":83}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\"N/A\",\"imdbVotes\":\"N/A\",\"Metascore\":\"N/A\",\"Awards\":\"N/A\",\"Response\":\"True\"}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Response\":\"False\",\"Error\":\"Incorrect IMDb ID.\"}",
+   "want": "null",
+   "limit": false
+  },
+  {
+   "doc": "{\"Response\":\"False\",\"Error\":\"Request limit reached!\"}",
+   "want": "null",
+   "limit": true
+  },
+  {
+   "doc": "null",
+   "want": "null",
+   "limit": false
+  },
+  {
+   "doc": "\"text\"",
+   "want": "null",
+   "limit": false
+  },
+  {
+   "doc": "{}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\"\",\"imdbVotes\":\"\",\"Metascore\":\"\",\"Awards\":\"\"}",
+   "want": "{\"awards\":\"\",\"imdbRating\":0,\"imdbVotes\":0,\"metacriticScore\":0,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\" 7.5 \",\"imdbVotes\":\" 1,234 \",\"Metascore\":\"07\"}",
+   "want": "{\"awards\":null,\"imdbRating\":7.5,\"imdbVotes\":1234,\"metacriticScore\":7,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\"7.5x\",\"imdbVotes\":\"1,2,3\",\"Metascore\":\"-5\"}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":123,\"metacriticScore\":-5,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\"1e1\",\"imdbVotes\":\"0x10\",\"Metascore\":\"Infinity\"}",
+   "want": "{\"awards\":null,\"imdbRating\":10,\"imdbVotes\":16,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\".5\",\"imdbVotes\":\"5.\",\"Metascore\":\"+8\"}",
+   "want": "{\"awards\":null,\"imdbRating\":0.5,\"imdbVotes\":5,\"metacriticScore\":8,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":\"-\",\"imdbVotes\":\",\",\"Metascore\":\"1e400\"}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":0,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"imdbRating\":8.1,\"imdbVotes\":1000,\"Metascore\":50,\"Awards\":3}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"N/A\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\" 9%\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":9}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"83.5%\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":83}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"-5%\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":-5}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"1%00\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":100}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":83},{\"Source\":\"Rotten Tomatoes\",\"Value\":\"70%\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":70}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"60%\"},{\"Source\":\"Rotten Tomatoes\",\"Value\":\"70%\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":60}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":[null,{\"Source\":\"Metacritic\",\"Value\":\"73/100\"}]}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Ratings\":{\"Source\":\"Rotten Tomatoes\",\"Value\":\"60%\"}}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  },
+  {
+   "doc": "{\"Response\":\"True\",\"Error\":\"limit reached anyway\"}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": true
+  },
+  {
+   "doc": "{\"Error\":\"Daily LIMIT REACHED\"}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": true
+  },
+  {
+   "doc": "{\"Error\":5}",
+   "want": "{\"awards\":null,\"imdbRating\":null,\"imdbVotes\":null,\"metacriticScore\":null,\"rottenTomatoesScore\":null}",
+   "limit": false
+  }
+ ],
+ "rows": [
+  {
+   "row": "{\"tmdb_id\":\"1891\",\"media_type\":\"movie\",\"keywords\":[\"rebel\"],\"networks\":null,\"production_companies\":[\"Lucasfilm Ltd.\"],\"tmdb_genres\":[\"Adventure\"],\"imdb_id\":\"tt0080684\",\"imdb_rating\":8.7,\"imdb_votes\":1400000,\"rt_score\":95,\"metacritic_score\":82,\"awards\":\"Won 1 Oscar.\",\"franchise_id\":10,\"franchise_name\":\"Star Wars Collection\",\"fetched_at\":\"2026-04-08T01:45:56+00:00\"}",
+   "want": "{\"awards\":\"Won 1 Oscar.\",\"fetchedAt\":\"2026-04-08T01:45:56+00:00\",\"franchiseID\":10,\"franchiseName\":\"Star Wars Collection\",\"imdbID\":\"tt0080684\",\"imdbRating\":8.7,\"imdbVotes\":1400000,\"keywords\":[\"rebel\"],\"mediaType\":\"movie\",\"metacriticScore\":82,\"networks\":[],\"productionCompanies\":[\"Lucasfilm Ltd.\"],\"rottenTomatoesScore\":95,\"tmdbGenres\":[\"Adventure\"],\"tmdbID\":\"1891\"}",
+   "tmdbRow": "{\"fetched_at\":\"2026-04-08T01:45:56+00:00\",\"franchise_id\":10,\"franchise_name\":\"Star Wars Collection\",\"keywords\":[\"rebel\"],\"media_type\":\"movie\",\"networks\":[],\"production_companies\":[\"Lucasfilm Ltd.\"],\"tmdb_genres\":[\"Adventure\"],\"tmdb_id\":\"1891\"}",
+   "omdbRow": "{\"awards\":\"Won 1 Oscar.\",\"imdb_id\":\"tt0080684\",\"imdb_rating\":8.7,\"imdb_votes\":1400000,\"media_type\":\"movie\",\"metacritic_score\":82,\"rt_score\":95,\"tmdb_id\":\"1891\"}"
+  },
+  {
+   "row": "{\"tmdb_id\":\"1\"}",
+   "want": "null",
+   "tmdbRow": "null",
+   "omdbRow": "null"
+  },
+  {
+   "row": "{\"tmdb_id\":77,\"media_type\":\"tv\",\"fetched_at\":\"x\"}",
+   "want": "{\"awards\":null,\"fetchedAt\":\"x\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"tv\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"77\"}",
+   "tmdbRow": "{\"fetched_at\":\"x\",\"franchise_id\":null,\"franchise_name\":null,\"keywords\":[],\"media_type\":\"tv\",\"networks\":[],\"production_companies\":[],\"tmdb_genres\":[],\"tmdb_id\":\"77\"}",
+   "omdbRow": "{\"awards\":null,\"imdb_id\":null,\"imdb_rating\":null,\"imdb_votes\":null,\"media_type\":\"tv\",\"metacritic_score\":null,\"rt_score\":null,\"tmdb_id\":\"77\"}"
+  },
+  {
+   "row": "{\"tmdb_id\":null,\"media_type\":\"movie\",\"fetched_at\":\"x\"}",
+   "want": "null",
+   "tmdbRow": "null",
+   "omdbRow": "null"
+  },
+  {
+   "row": "{\"media_type\":\"movie\",\"fetched_at\":\"x\"}",
+   "want": "null",
+   "tmdbRow": "null",
+   "omdbRow": "null"
+  },
+  {
+   "row": "{\"tmdb_id\":\"5\",\"media_type\":3,\"fetched_at\":\"x\"}",
+   "want": "null",
+   "tmdbRow": "null",
+   "omdbRow": "null"
+  },
+  {
+   "row": "{\"tmdb_id\":\"5\",\"media_type\":\"movie\",\"keywords\":[\"a\",1,null,\"b\"],\"networks\":\"HBO\",\"imdb_id\":5,\"imdb_rating\":\"8.1\",\"imdb_votes\":null,\"rt_score\":0,\"metacritic_score\":7.25,\"awards\":3,\"franchise_id\":\"10\",\"franchise_name\":10,\"fetched_at\":\"y\"}",
+   "want": "{\"awards\":null,\"fetchedAt\":\"y\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[\"a\",\"b\"],\"mediaType\":\"movie\",\"metacriticScore\":7.25,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":0,\"tmdbGenres\":[],\"tmdbID\":\"5\"}",
+   "tmdbRow": "{\"fetched_at\":\"y\",\"franchise_id\":null,\"franchise_name\":null,\"keywords\":[\"a\",\"b\"],\"media_type\":\"movie\",\"networks\":[],\"production_companies\":[],\"tmdb_genres\":[],\"tmdb_id\":\"5\"}",
+   "omdbRow": "{\"awards\":null,\"imdb_id\":null,\"imdb_rating\":null,\"imdb_votes\":null,\"media_type\":\"movie\",\"metacritic_score\":7.25,\"rt_score\":0,\"tmdb_id\":\"5\"}"
+  },
+  {
+   "row": "{\"tmdb_id\":0,\"media_type\":\"\",\"fetched_at\":\"x\"}",
+   "want": "{\"awards\":null,\"fetchedAt\":\"x\",\"franchiseID\":null,\"franchiseName\":null,\"imdbID\":null,\"imdbRating\":null,\"imdbVotes\":null,\"keywords\":[],\"mediaType\":\"\",\"metacriticScore\":null,\"networks\":[],\"productionCompanies\":[],\"rottenTomatoesScore\":null,\"tmdbGenres\":[],\"tmdbID\":\"0\"}",
+   "tmdbRow": "{\"fetched_at\":\"x\",\"franchise_id\":null,\"franchise_name\":null,\"keywords\":[],\"media_type\":\"\",\"networks\":[],\"production_companies\":[],\"tmdb_genres\":[],\"tmdb_id\":\"0\"}",
+   "omdbRow": "{\"awards\":null,\"imdb_id\":null,\"imdb_rating\":null,\"imdb_votes\":null,\"media_type\":\"\",\"metacritic_score\":null,\"rt_score\":null,\"tmdb_id\":\"0\"}"
+  },
+  {
+   "row": "null",
+   "want": "null",
+   "tmdbRow": "null",
+   "omdbRow": "null"
+  }
+ ],
+ "work": [
+  {
+   "items": "[{\"tmdbID\":1399,\"type\":\"episode\"},{\"tmdbID\":\"1399\",\"type\":\"movie\"},{\"tmdbID\":603,\"type\":\"movie\"},{\"tmdbID\":null},{\"tmdbID\":\"\"},{\"tmdbID\":\"12a\"},{\"tmdbID\":\"1 OR 1=1\"},null]",
+   "want": "[{\"mediaType\":\"tv\",\"tmdbID\":\"1399\"},{\"mediaType\":\"movie\",\"tmdbID\":\"603\"}]"
+  },
+  {
+   "items": "[{\"tmdbID\":\"12345678901\"},{\"tmdbID\":\"1234567890\"},{\"tmdbID\":\"0\"},{\"tmdbID\":\"007\",\"type\":\"episode\"},{\"tmdbID\":7},{\"tmdbID\":-3},{\"tmdbID\":4.5},{\"tmdbID\":\" 8\"},{\"tmdbID\":\"9\\n\"}]",
+   "want": "[{\"mediaType\":\"movie\",\"tmdbID\":\"1234567890\"},{\"mediaType\":\"movie\",\"tmdbID\":\"0\"},{\"mediaType\":\"tv\",\"tmdbID\":\"007\"},{\"mediaType\":\"movie\",\"tmdbID\":\"7\"}]"
+  },
+  {
+   "items": "[{\"tmdbID\":10,\"type\":\"show\"},{\"tmdbID\":11,\"type\":\"season\"},{\"tmdbID\":12}]",
+   "want": "[{\"mediaType\":\"movie\",\"tmdbID\":\"10\"},{\"mediaType\":\"movie\",\"tmdbID\":\"11\"},{\"mediaType\":\"movie\",\"tmdbID\":\"12\"}]"
+  }
+ ],
+ "gates": "[{\"genres\":[],\"keywords\":[\"foreign language film\",\"french cinema\",\"japanese cinema\",\"italian cinema\",\"german cinema\",\"world cinema\",\"arthouse\",\"art house\",\"european cinema\",\"subtitled\"],\"mediaType\":\"movie\"},{\"genres\":[],\"keywords\":[\"cult film\",\"cult following\",\"cult classic\",\"underground film\",\"cult favorite\"],\"mediaType\":\"movie\"}]",
+ "candidates": [
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "FOREIGN LANGUAGE FILM"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "FRENCH CINEMA"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "JAPANESE CINEMA"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "FOREIGN LANGUAGE FILM"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "FRENCH CINEMA"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "JAPANESE CINEMA"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "CULT FILM"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "CULT FOLLOWING"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "CULT CLASSIC"
+   ],
+   "genres": [],
+   "want": true
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "CULT FILM"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "CULT FOLLOWING"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [
+    "CULT CLASSIC"
+   ],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [],
+   "genres": [],
+   "want": false
+  },
+  {
+   "mediaType": "movie",
+   "keywords": [
+    "nothing at all"
+   ],
+   "genres": [
+    "Nothing"
+   ],
+   "want": false
+  },
+  {
+   "mediaType": "tv",
+   "keywords": [],
+   "genres": [
+    "Drama"
+   ],
+   "want": false
+  }
+ ],
+ "midnights": [
+  {
+   "nowSec": 1791763140,
+   "want": 1791763200
+  },
+  {
+   "nowSec": 1791763200,
+   "want": 1791849600
+  },
+  {
+   "nowSec": 1791732600,
+   "want": 1791763200
+  },
+  {
+   "nowSec": 1798761599,
+   "want": 1798761600
+  },
+  {
+   "nowSec": 1835352000,
+   "want": 1835395200
+  },
+  {
+   "nowSec": 1835395201,
+   "want": 1835481600
+  }
+ ]
+}

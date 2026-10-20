@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The network half of signing in to Jellyfin or Emby (ConnectView): one
+     `action` per run. The token never leaves the registry: the task saves the
+     sign-in itself (NxMbSaveSignIn). -->
+<component name="MediaBrowserSignInTask" extends="Task">
+  <interface>
+    <!-- discover | connect | quickConnect | password | check -->
+    <field id="action" type="string" />
+    <!-- jellyfin | emby: what the viewer chose; connect may find the other. -->
+    <field id="kind" type="string" />
+    <field id="address" type="string" />
+    <field id="username" type="string" />
+    <field id="password" type="string" />
+    <!-- Set true to end a Quick Connect wait. -->
+    <field id="cancel" type="boolean" />
+    <!-- found | connected | code | signedIn | error | rejected. Not "state": every Task has one. -->
+    <field id="status" type="string" alwaysNotify="true" />
+    <!-- discover: [{ name, address, id }] -->
+    <field id="found" type="array" />
+    <!-- connect: { name, kind, base } -->
+    <field id="server" type="assocarray" />
+    <field id="code" type="string" />
+    <field id="message" type="string" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/components/MediaBrowserSignInTask.brs" />
+</component>

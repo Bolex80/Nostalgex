@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Loads the signed-in Plex library, enriches it when the build has
+     enrichment, builds the switched-on channels and schedules them, as
+     upstream's library load does. Hands the render thread
+     the guide: channels in guide order with today's and tomorrow's blocks.
+     No field carries a token. -->
+<component name="LibraryTask" extends="Task">
+  <interface>
+    <!-- loading | ready | error. "ready" comes again for a fresh guide after
+         the saved one, a package build and a new day's schedules, so it
+         notifies when set to the value it already holds. -->
+    <field id="status" type="string" value="" alwaysNotify="true" />
+    <field id="progress" type="string" value="" />
+    <!-- The loading screen's step rail, as upstream's LibraryLoadPhase:
+         preparing | library | collections | metadata | channels | finishing.
+         bar is 0 to 1, or -1 for none; barCaption goes under it. firstRun:
+         no library saved yet, so the screen warns that it takes a while. -->
+    <field id="phase" type="string" value="" />
+    <field id="bar" type="float" value="-1" />
+    <field id="barCaption" type="string" value="" />
+    <field id="firstRun" type="boolean" value="false" />
+    <!-- firstRun after a library was saved before: the OS cleared it. -->
+    <field id="savedBefore" type="boolean" value="false" />
+    <field id="message" type="string" value="" />
+    <field id="guide" type="assocarray" />
+    <!-- Show the saved guide first when it is still what a fresh build would
+         give, then rebuild in the background. -->
+    <field id="useCache" type="boolean" value="false" />
+    <!-- A rebuild after a switch in Settings: build from the saved library,
+         reading only servers it lacks. -->
+    <field id="rebuild" type="boolean" value="false" />
+    <!-- True while the guide on screen is the saved one. -->
+    <field id="fromCache" type="boolean" value="false" />
+    <!-- Set (any value) after Settings saved a package switch: the guide is
+         rebuilt for the saved packages, building only the channels it lacks.
+         bundleBuilt then holds the packages built, as JSON, or "rebuild"
+         when that couldn't be done without a full load. -->
+    <field id="bundleRequest" type="boolean" alwaysNotify="true" />
+    <field id="bundleBuilt" type="string" alwaysNotify="true" />
+    <!-- Set (any value) to re-check schedules against the clock. -->
+    <field id="reschedule" type="boolean" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/ServerResolve.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexLibrary.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserLibrary.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/filter/ChannelFilter.brs" />
+  <script type="text/brightscript" uri="pkg:/source/schedule/DailyManifest.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Lineup.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/GuideSchedule.brs" />
+  <script type="text/brightscript" uri="pkg:/source/franchise/FranchiseBuilder.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/FranchiseChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Franchises.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/CollectionChoices.brs" />
+  <script type="text/brightscript" uri="pkg:/source/collections/Collections.brs" />
+  <script type="text/brightscript" uri="pkg:/source/enrich/Enrichment.brs" />
+  <script type="text/brightscript" uri="pkg:/source/enrich/EnrichmentNet.brs" />
+  <script type="text/brightscript" uri="pkg:/components/LibraryTask.brs" />
+</component>

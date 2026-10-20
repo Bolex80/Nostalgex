@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full screen's mini channel strip, Up from bare playback, as upstream's
+     MiniChannelStrip (Views/PlayerView.swift): one card per channel along
+     the bottom, focus on the channel playing, Left/Right to move, OK to tune,
+     Back to close. -->
+<component name="MiniStripView" extends="Group">
+  <interface>
+    <!-- [{ number, name, color ("0xRRGGBBFF"), line }], in guide order. -->
+    <field id="channels" type="array" />
+    <field id="current" type="integer" value="0" />
+    <!-- Set on OK: the index tuned to. -->
+    <field id="picked" type="integer" alwaysNotify="true" />
+    <!-- Set on Back. -->
+    <field id="closed" type="boolean" alwaysNotify="true" />
+    <function name="open" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/components/MiniStripView.brs" />
+  <children>
+    <Rectangle id="band" width="1920" height="170" translation="[0,910]" color="0x000000D9" />
+    <Group id="cards" />
+  </children>
+</component>

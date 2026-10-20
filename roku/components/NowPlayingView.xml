@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full screen's Now Playing panel, Down from bare playback, as upstream's
+     NowPlayingPanel (Views/NowPlayingPanel.swift): what is on at the left,
+     two columns of controls at the right. It only draws and reports: the
+     guide does what a row asks and sends the new state back. -->
+<component name="NowPlayingView" extends="Group">
+  <interface>
+    <!-- { number, name, color, nowLine, rating, upNext, hasSubs, ccOn,
+         autoOn, audio: [{ name, active }], retro, sleepMinutes,
+         sleepLeft (seconds, -1 when off), info: [{ label, value }] } -->
+    <field id="state" type="assocarray" onChange="render" />
+    <!-- What a row asked for: cc | auto | audio:<n> | retro | sleep:<minutes>. -->
+    <field id="action" type="string" alwaysNotify="true" />
+    <field id="closed" type="boolean" alwaysNotify="true" />
+    <function name="open" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/SleepTimer.brs" />
+  <script type="text/brightscript" uri="pkg:/components/NowPlayingView.brs" />
+  <children>
+    <Rectangle id="shade" width="1920" height="600" color="0x000000EB" />
+    <Group id="info" />
+    <Group id="controls" />
+  </children>
+</component>

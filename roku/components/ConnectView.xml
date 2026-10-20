@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CONNECT YOUR LIBRARY: the first screen when this TV isn't signed in.
+     Plex goes on to MainScene's plex.tv/link sign-in; Jellyfin and Emby are
+     signed in here: find the server on the network or type its address, then
+     Quick Connect (Jellyfin) or a username and password
+     (MediaBrowserSignInTask does the network part). Laid out as
+     ServerPickerView: the explanation on the left, choices on the right. -->
+<component name="ConnectView" extends="Group">
+  <interface>
+    <!-- Set once: "plex" when Plex is chosen, "jellyfin" or "emby" once signed in. -->
+    <field id="done" type="string" />
+    <!-- A reason shown on the first screen, such as a refused sign-in. -->
+    <field id="notice" type="string" onChange="onNotice" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ConnectView.brs" />
+  <children>
+    <Rectangle width="1920" height="1080" color="0x000000FF" />
+    <Group id="left" />
+    <Group id="list" />
+  </children>
+</component>

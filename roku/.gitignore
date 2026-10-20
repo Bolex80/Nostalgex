@@ -1,0 +1,6 @@
+.env
+out/
+*.zip
+node_modules/
+data/enrichment.json
+__pycache__/
