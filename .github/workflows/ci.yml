@@ -81,6 +81,7 @@ jobs:
               - 'docker/**'
               - 'vite.config.*'
               - 'scripts/selfhost-build.mjs'
+              - 'scripts/tuner-version.mjs'
               - 'package.json'
               - 'package-lock.json'
 
@@ -135,6 +136,10 @@ jobs:
       - name: Self-host build
         run: npm run build:selfhost
 
+      # Both builds carry package.json "tunerVersion" (the Settings version line).
+      - name: Tuner version in both builds
+        run: npm run test:tuner-version:builds
+
   docker-smoke:
     name: Docker image (build and run, no push)
     needs: changes
@@ -158,13 +163,20 @@ jobs:
         run: |
           set -eu
           docker run -d --name on -p 8080:8080 --read-only --tmpfs /tmp nostalgex:ci
-          docker run -d --name off -p 8081:8080 --read-only --tmpfs /tmp -e NOSTALGEX_ENRICHMENT=off nostalgex:ci
+          docker run -d --name off -p 8081:8080 --read-only --tmpfs /tmp -e NOSTALGEX_ENRICHMENT=off -e NOSTALGEX_TUNER_VERSION=9.9.9-ci nostalgex:ci
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break; sleep 1; done
           curl -fsS http://127.0.0.1:8080/ | grep -q 'name="nostalgex-build" content="selfhost"'
           curl -fsS http://127.0.0.1:8080/plex-tuner.html | grep -q 'vendor/hls.min.js'
           curl -fsS -o /dev/null -w '%{content_type}\n' http://127.0.0.1:8080/scripts/nostalgex-channel-filter.cjs | grep -q '^application/javascript'
           curl -fsS http://127.0.0.1:8080/config.json | grep -q '"enrichment":true'
           curl -fsS http://127.0.0.1:8081/config.json | grep -q '"enrichment":false'
+          # No build arg here, so the image carries package.json "tunerVersion"; the
+          # container's environment wins at start.
+          want="$(jq -r .tunerVersion package.json)"
+          tuner_page="$(curl -fsS http://127.0.0.1:8080/plex-tuner.html)"
+          grep -q "name=\"nostalgex-tuner-version\" content=\"$want\"" <<<"$tuner_page"
+          curl -fsS http://127.0.0.1:8080/config.json | grep -q "\"tunerVersion\":\"$want\""
+          curl -fsS http://127.0.0.1:8081/config.json | grep -q '"tunerVersion":"9.9.9-ci"'
           test "$(docker exec on id -u)" = "101"
           echo "docker smoke ok"
 
