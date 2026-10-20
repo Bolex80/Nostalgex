@@ -35,6 +35,10 @@ package bundles the same two fonts as the tvOS app, with their license texts in
 | DM Mono | SIL Open Font License 1.1, `roku/fonts/OFL-DMMono.txt` |
 | VT323 | SIL Open Font License 1.1, `roku/fonts/OFL-VT323.txt` |
 
+Its sign-in QR code is drawn on the TV by `roku/source/util/QrCode.brs`, which
+follows the design of Project Nayuki's QR Code generator library (MIT License),
+credited in `roku/THIRD-PARTY-LICENSES.md`.
+
 ## Swift packages
 
 | Package | License |
