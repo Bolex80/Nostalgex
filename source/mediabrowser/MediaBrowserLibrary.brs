@@ -141,19 +141,43 @@ end function
 ' mediaInfo: the best source's id, container and first video and audio codecs.
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, doviProfile: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
     v = NxMbStream(src, "Video")
     if v <> invalid then
         if NxTruthy(v.Codec) then out.videoCodec = LCase(NxToStr(v.Codec))
+        ' Emby only (Jellyfin has no ExtendedVideoSubType): a profile 5 file
+        ' goes on no channel (NxIsLeftOffChannels).
+        out.doviProfile = NxMbDoviProfile(v.ExtendedVideoSubType)
     end if
     a = NxMbStream(src, "Audio")
     if a <> invalid then
         if NxTruthy(a.Codec) then out.audioCodec = LCase(NxToStr(a.Codec))
     end if
     return out
+end function
+
+' Mirrors embyDoviProfile (upstream scripts/nostalgex-jellyfin-urls.js): Emby
+' names a file's Dolby Vision profile in ExtendedVideoSubType, "DoviProfile50"
+' for profile 5 and "DoviProfile81" for 8.1, the last digit the base layer's
+' compatibility id. Anything else is invalid, an unknown profile.
+function NxMbDoviProfile(subType as Dynamic) as Dynamic
+    if not NxIsString(subType) then return invalid
+    hit = CreateObject("roRegex", "^doviprofile(\d{2,})$", "i").Match(subType)
+    if hit.Count() <> 2 then return invalid
+    digits = hit[1]
+    return Left(digits, digits.Len() - 1).ToInt()
+end function
+
+' An episode's first-aired date as upstream keeps it: the episode's
+' PremiereDate, else the show's, date part only; invalid with neither.
+function NxMbAirDate(ep as Object, show as Object) as Dynamic
+    d = ep.PremiereDate
+    if not NxTruthy(d) then d = show.PremiereDate
+    if not NxTruthy(d) then return invalid
+    return Left(NxToStr(d), 10)
 end function
 
 function NxMbStudio(item as Object) as String
@@ -215,7 +239,8 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         addedAt: NxMbUnixSeconds(jf.DateCreated),
         studio: NxMbStudio(jf),
         librarySource: librarySource,
-        tmdbID: NxMbTmdb(jf.ProviderIds)
+        tmdbID: NxMbTmdb(jf.ProviderIds),
+        doviProfile: mi.doviProfile
     }
 end function
 
@@ -231,6 +256,7 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         episodeTitle: NxOr(ep.Name, ""),
         summary: NxOr(ep.Overview, NxOr(show.Overview, "")),
         year: NxOr(show.ProductionYear, ""),
+        originallyAvailableAt: NxMbAirDate(ep, show),
         contentRating: NxOr(show.OfficialRating, NxOr(ep.OfficialRating, "")),
         duration: durationMin,
         ratingKey: ep.Id,
@@ -253,7 +279,8 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         librarySource: librarySource,
         tmdbID: showTmdb,
         seasonNumber: ep.ParentIndexNumber,
-        episodeNumber: ep.IndexNumber
+        episodeNumber: ep.IndexNumber,
+        doviProfile: mi.doviProfile
     }
 end function
 

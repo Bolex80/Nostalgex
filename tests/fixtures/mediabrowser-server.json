@@ -62,7 +62,8 @@
         "Index": 0,
         "IsForced": false,
         "IsExternal": false,
-        "DisplayTitle": "4K HEVC HDR"
+        "DisplayTitle": "4K HEVC HDR",
+        "ExtendedVideoSubType": "DoviProfile50"
        },
        {
         "Type": "Audio",
@@ -151,7 +152,8 @@
         "Language": "und",
         "IsForced": false,
         "IsExternal": false,
-        "DisplayTitle": "1080p HEVC SDR"
+        "DisplayTitle": "1080p HEVC SDR",
+        "ExtendedVideoSubType": "DoviProfile81"
        },
        {
         "Type": "Audio",
@@ -194,7 +196,8 @@
         "Index": 0,
         "IsForced": false,
         "IsExternal": false,
-        "DisplayTitle": "1080p HEVC SDR"
+        "DisplayTitle": "1080p HEVC SDR",
+        "ExtendedVideoSubType": "Hdr10"
        },
        {
         "Type": "Audio",
@@ -274,7 +277,8 @@
         "Language": "eng",
         "IsForced": false,
         "IsExternal": false,
-        "DisplayTitle": "720p H264 SDR"
+        "DisplayTitle": "720p H264 SDR",
+        "ExtendedVideoSubType": "DoviProfile76"
        },
        {
         "Type": "Audio",
@@ -599,7 +603,8 @@
     "UserData": {
      "PlayCount": 0,
      "Played": false
-    }
+    },
+    "PremiereDate": "2006-10-11T00:00:00.0000000Z"
    },
    {
     "Name": "Broken Show",
@@ -675,7 +680,8 @@
         "Index": 0,
         "IsForced": false,
         "IsExternal": false,
-        "DisplayTitle": "1080p HEVC SDR"
+        "DisplayTitle": "1080p HEVC SDR",
+        "ExtendedVideoSubType": "DoviProfile50"
        },
        {
         "Type": "Audio",
@@ -698,7 +704,8 @@
        }
       ]
      }
-    ]
+    ],
+    "PremiereDate": "2006-12-14T00:00:00.0000000Z"
    },
    {
     "Name": "The Aftermath",

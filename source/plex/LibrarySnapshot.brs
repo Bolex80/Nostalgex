@@ -26,7 +26,7 @@ end function
 
 ' Bump when a saved item would no longer read the same; an old meta is ignored.
 function NxSnapshotFormat() as Integer
-    return 1
+    return 2
 end function
 
 ' Items per chunk file: about 1 MB of JSON, so a read or write never holds

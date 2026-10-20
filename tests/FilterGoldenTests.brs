@@ -4,7 +4,8 @@
 ' shipped channels.json, its exclusive rules and channels-memberships.json.
 ' `in` lists channel ids the item must reach, `out` ids it must not. The
 ' generated filter vectors don't reach these (the exclusive locks' whole-word
-' and own-title rules of upstream 805c33e). Returns the failure count.
+' and own-title rules of upstream 805c33e). `item.backend` is the case's
+' server kind (Plex when absent). Returns the failure count.
 
 function NxRunFilterGoldenTests(goldenPath as String, configPath as String, manifestPath as String) as Integer
     golden = ParseJson(ReadAsciiFile(goldenPath))
@@ -31,7 +32,9 @@ function NxRunFilterGoldenTests(goldenPath as String, configPath as String, mani
                     NxCheck(r, c.name + ": channel " + NxToStr(id) + " is in channels.json", "missing", "present")
                 else
                     ' A fresh item each time: the filter keeps a profile on it.
-                    got = NxItemPasses(NxGoldenItem(c.item), NxFilterChannel(def), manifest, exclusive, clock) <> ""
+                    backend = "plex"
+                    if NxTruthy(c.item.backend) then backend = c.item.backend
+                    got = NxItemPasses(NxGoldenItem(c.item), NxFilterChannel(def), manifest, exclusive, clock, backend) <> ""
                     label = c.name + ": on " + NxToStr(id) + " " + NxToStr(def.name)
                     if not want then label = c.name + ": not on " + NxToStr(id) + " " + NxToStr(def.name)
                     NxCheck(r, label, NxToStr(got), NxToStr(want))
@@ -51,10 +54,12 @@ function NxGoldenItem(g as Object) as Object
         if g.type = "episode" then source = "tv"
     end if
     item = {
-        title: g.title, artist: g.artist, episodeTitle: g.episodeTitle, year: g.year,
+        title: g.title, artist: g.artist, episodeTitle: g.episodeTitle, summary: NxOr(g.summary, ""),
+        originallyAvailableAt: g.originallyAvailableAt, year: g.year,
         type: "movie", librarySource: source, genres: NxList(g.genres),
         contentRating: g.contentRating, duration: 100, rating: 0, userRating: 0,
-        viewCount: 0, addedAt: 0, studio: g.studio, tmdbID: g.tmdbID, ratingKey: "golden"
+        viewCount: 0, addedAt: 0, studio: g.studio, tmdbID: g.tmdbID, ratingKey: "golden",
+        doviProfile: g.doviProfile
     }
     if NxTruthy(g.type) then item.type = g.type
     if g.duration <> invalid then item.duration = g.duration
@@ -63,7 +68,8 @@ function NxGoldenItem(g as Object) as Object
         item.enrichment = {
             keywords: NxList(g.enrichment.keywords),
             productionCompanies: NxList(g.enrichment.productionCompanies),
-            networks: NxList(g.enrichment.networks)
+            networks: NxList(g.enrichment.networks),
+            tmdbGenres: NxList(g.enrichment.tmdbGenres)
         }
     end if
     return item

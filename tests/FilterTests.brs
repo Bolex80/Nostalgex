@@ -1,7 +1,8 @@
 ' Runs source/filter/ChannelFilter.brs against tests/vectors/filter.json, the
 ' golden vectors generated from upstream's filter: every channel, real and
-' synthetic, over the generated library under each pinned clock, with the
-' vendored membership manifest. Returns the failure count.
+' synthetic, over the generated library under each pinned clock (each with
+' the backend it runs as), with the vendored membership manifest. Returns the
+' failure count.
 
 function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Integer
     timer = CreateObject("roTimespan")
@@ -26,7 +27,7 @@ function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Inte
         for i = 0 to compiled.Count() - 1
             parts = []
             evaluations = evaluations + v.items.Count()
-            for each row in NxFilterPool(v.items, compiled[i], manifest, exclusive, clock)
+            for each row in NxFilterPool(v.items, compiled[i], manifest, exclusive, clock, clock.backend)
                 parts.Push(row.item.ratingKey + ":" + row.via)
             end for
             label = "filter clock " + clock.name + " channel " + NxToStr(v.channels[i].id) + " (#" + i.ToStr() + ")"

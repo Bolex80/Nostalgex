@@ -225,6 +225,9 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
         episodeTitle: NxOr(ep.title, ""),
         summary: NxOr(ep.summary, NxOr(show.summary, "")),
         year: NxOr(show.year, ""),
+        ' First aired, the episode's else the show's: the holiday TV channels
+        ' read it (upstream 2d1e237).
+        originallyAvailableAt: NxOr(ep.originallyAvailableAt, NxOr(show.originallyAvailableAt, invalid)),
         contentRating: NxOr(show.contentRating, NxOr(ep.contentRating, "")),
         duration: durationMin,
         ratingKey: ep.ratingKey,

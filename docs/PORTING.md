@@ -41,7 +41,10 @@ and already pinned to the Apple TV.
 Start-up follows upstream's cached-library path. The last build's guide is
 saved on the TV and shown at once when a fresh build would give the same
 result: same local day, same UTC day (the pool shuffle's seed), same packages
-and same app version. The library is then refreshed in the background, and
+and same build. A build is the app version and the commit `scripts/deploy.sh`
+writes into the manifest (`nx_build`), since a sideload keeps the version:
+installed over another build, one with new channel data or filter rules
+would otherwise have kept the old one's results. The library is then refreshed in the background, and
 the guide is swapped only if it changed.
 
 The library itself is saved too, after the Apple TV app's
@@ -227,7 +230,9 @@ live (upstream `docs/DEVLOG.md`, 2026-10). This port does the same from the star
   writes `tests/vectors/filter.json`: every real channel, plus synthetic ones
   from upstream's filter smoke test, over a library built from the channels'
   own rules (a match, a near miss and real manifest claims for each), under
-  two pinned clocks. It reaches every reachable line of upstream's filter.
+  two pinned clocks, the second as an Emby library (Dolby Vision profile 5
+  goes on no channel there). It reaches every reachable line of upstream's
+  filter.
 - Reaching a line is not telling two rules apart: at 805c33e the generated
   filter vectors passed with the old substring locks as well as the
   whole-word, own-title ones. Upstream's `scripts/filter-golden.json`,

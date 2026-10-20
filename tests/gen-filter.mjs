@@ -10,6 +10,10 @@
 //
 // The filter reads the wall clock (`new Date()`) for the current year and the
 // releasedWithinMonths cutoff, so the caller must pin Date before running it.
+//
+// Clock B also runs as an Emby library (`backend`), the only input besides the
+// clock that changes a result: an Emby Dolby Vision profile 5 file goes on no
+// channel. Every other item answers the same on any backend.
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -29,8 +33,8 @@ function prng(seed) {
 // B is local midnight exactly, on a 31st, six months after a 30-day month:
 // JS setMonth rolls 2027-03-31 back to "2026-09-31", which is 2026-10-01.
 export const CLOCKS = [
-  { name: "A", iso: "2026-10-12T15:30:00Z" },
-  { name: "B", iso: "2027-03-31T00:00:00Z" },
+  { name: "A", iso: "2026-10-12T15:30:00Z", backend: "plex" },
+  { name: "B", iso: "2027-03-31T00:00:00Z", backend: "emby" },
 ];
 
 export function clockContext(iso) {
@@ -79,6 +83,16 @@ const SYNTHETIC = [
   { id: 922, rules: { genres: { include: ["Drama"], requireAll: ["Crime", "Thriller"] } } },
   { id: 923, rules: { editorialOverrides: ["Die Hard"], genres: { include: ["Family"] } } },
   { id: 924, rules: { type: "episode", episodeTitleContains: ["Christmas", "Holiday"] } },
+  // Episode rules of upstream 2d1e237: summary words, seasonal title words in an
+  // air window (one wrapping the new year), title vetoes, and no type rule, so a
+  // film's own title takes the same path.
+  { id: 930, rules: { episodeSummaryContains: ["christmas"], episodeTitleExcludes: ["scary"] } },
+  { id: 931, rules: { type: "episode", episodeSeasonalTitleContains: ["holiday", "jingle"], episodeAirWindow: { from: "11-15", to: "12-31" } } },
+  { id: 932, rules: { episodeSeasonalTitleContains: ["frost"], episodeAirWindow: { from: "12-20", to: "01-10" }, episodeTitleContains: ["snowman"] } },
+  { id: 933, rules: { episodeTitleContains: ["turkey"], episodeAirWindow: { from: "bad", to: "11-30" }, episodeSeasonalTitleContains: ["feast"], contentRatings: ["TV-PG", "TV-G"] } },
+  // matchTmdbGenres: TMDB genres join the server's for includes, excludes and locks.
+  { id: 934, rules: { matchTmdbGenres: true, genres: { include: ["Romance"], exclude: ["Horror"] } } },
+  { id: 935, rules: { matchTmdbGenres: true, genres: { include: ["Drama"] }, keywords: ["christmas"], keywordsRequireAnyGenre: ["TV Movie"] } },
   { id: 925, rules: { genres: { include: ["Reality"] } } },
   { id: 926, rules: { yearRange: { min: 2000 } } },
   { id: 927, rules: {} },
@@ -102,6 +116,8 @@ export function filterVectors(upstream) {
     titleContains: r.titleContains || [],
     editorialTitles: r.editorialTitles || [],
     manifestExclusive: !!r.manifestExclusive,
+    type: r.type || null,
+    source: r.source || null,
   }));
   const real = config.channels.map((c) => ({ id: c.id, category: c.category, rules: c.rules }));
   const channels = [...real, ...SYNTHETIC];
@@ -136,14 +152,26 @@ export function filterVectors(upstream) {
   // Built to match a channel: every rule it has, satisfied.
   function matching(c) {
     const r = c.rules || {};
-    const it = { type: r.type || (r.episodeTitleContains ? "episode" : "movie") };
+    const episodic = CF.hasEpisodeRules(r);
+    const it = { type: r.type || (episodic ? "episode" : "movie") };
     const include = r.genres?.include || [];
     it.genres = [...new Set([...(include.length ? [include[0]] : []), ...(r.genres?.requireAll || [])])];
+    // A matchTmdbGenres channel's include reached through TMDB genres alone.
+    if (r.matchTmdbGenres && include.length) { it.genres = it.genres.filter((g) => g !== include[0]); it.tmdbGenres = [include[0]]; }
     if (r.keywordsRequireAnyGenre?.length) it.genres.push(r.keywordsRequireAnyGenre[0]);
     if (r.titleContains?.length) it.title = `${pick(r.titleContains)}`;
     else if (r.editorialOverrides?.length) it.title = r.editorialOverrides[0];
     else it.title = `Feature ${nextKey}`;
     if (r.episodeTitleContains?.length) it.episodeTitle = `A Very ${r.episodeTitleContains[0]} Special`;
+    else if (r.episodeSeasonalTitleContains?.length) {
+      it.type = "episode";
+      it.episodeTitle = `The ${pick(r.episodeSeasonalTitleContains)} Show`;
+      it.originallyAvailableAt = `1999-${r.episodeAirWindow?.to || "12-01"}`;
+    } else if (r.episodeSummaryContains?.length) {
+      it.episodeTitle = "Pilot";
+      it.summary = `Everyone gathers for ${pick(r.episodeSummaryContains)} at the house.`;
+    }
+    if (episodic && it.type !== "episode") it.title = it.episodeTitle || it.title;
     if (r.studios?.length) it.studio = `${r.studios[0]} Pictures`;
     if (r.networks?.length) it.networks = [r.networks[0]];
     if (r.productionCompanies?.length) it.productionCompanies = [r.productionCompanies[0]];
@@ -182,6 +210,10 @@ export function filterVectors(upstream) {
     (it, r) => { if (r.keywords?.length) { it.genres = ["Horror"]; } else { it.genres = []; } },
     (it, r) => { it.viewCount = r.rewatched ? 2 : 1; },
     (it, r) => { it.studio = undefined; it.networks = undefined; it.productionCompanies = undefined; },
+    (it, r) => { it.episodeTitle = `${it.episodeTitle || "Pilot"} ${r.episodeTitleExcludes?.[0] || "Scary"}`; it.title = `${it.title} Scary`; },
+    (it, r) => { it.originallyAvailableAt = "2001-07-04"; it.summary = "A trip to the lake."; },
+    (it, r) => { it.tmdbGenres = ["Horror", ...(it.tmdbGenres || [])]; },
+    (it, r) => { it.doviProfile = 5; },
   ];
 
   channels.forEach((c, n) => {
@@ -238,7 +270,11 @@ export function filterVectors(upstream) {
     if (chance(0.2)) it.productionCompanies = [pick(V.companies)];
     if (chance(0.4)) it.tmdbKeywords = [pick(V.keywords), pick(V.keywords)];
     if (chance(0.2)) it.title = `${it.title} ${pick(V.excludes)}`;
-    if (it.type === "episode" && chance(0.3)) it.episodeTitle = pick(["The Christmas Party", "Holiday Armadillo", "Pilot", "Thanksgiving"]);
+    if (it.type === "episode" && chance(0.3)) it.episodeTitle = pick(["The Christmas Party", "Holiday Armadillo", "Pilot", "Thanksgiving", "Jingle Hell", "Merry Scary", "Roman Holiday", "Frosty Mornings"]);
+    if (chance(0.3)) it.summary = pick(["Christmas comes early.", "A Thanksgiving dinner goes wrong.", "The gang goes on holiday.", "Nothing much happens.", ""]);
+    if (it.type === "episode" && chance(0.4)) it.originallyAvailableAt = pick(["1994-12-15", "1996-11-21", "2003-09-02", "2010-01-05", "1999-12-31", "2015-02-17", "1999-11-15"]);
+    if (chance(0.25)) it.tmdbGenres = [pick(V.genres), pick(["TV Movie", "Romance", "Horror", "Animation", "Family"])];
+    if (chance(0.15)) it.doviProfile = pick([5, 8, 7, null]);
     add(it);
   }
 
@@ -260,6 +296,19 @@ export function filterVectors(upstream) {
   add({ title: "Unrated", genres: ["Drama"], contentRating: "" });
   add({ title: "Romantic Wedding", genres: ["Romantic Comedy"], tmdbKeywords: ["Wedding"] });
   add({ title: "Road Movie", genres: ["Drama"], tmdbKeywords: ["road trip movie"] });
+  // Upstream 2d1e237 and 5d6d65f: own titles, summaries, air windows, TMDB genres,
+  // scoped locks and Emby Dolby Vision profile 5.
+  add({ title: "A Charlie Brown Christmas", type: "movie", genres: ["Animation", "Family"], year: 1965, contentRating: "G", duration: 25 });
+  add({ title: "Santa Clarita Diet", type: "episode", episodeTitle: "Moral Gray Area", genres: ["Comedy", "Horror"], librarySource: "tv", year: 2017 });
+  add({ title: "Friends", type: "episode", episodeTitle: "The One with Phoebe's Dad", summary: "Phoebe goes to meet her father at Christmas.", genres: ["Comedy"], contentRating: "TV-PG", duration: 22, originallyAvailableAt: "1995-12-14" });
+  add({ title: "Emily in Paris", type: "episode", episodeTitle: "Roman Holiday", summary: "A vacation in Rome.", genres: ["Comedy", "Drama"], contentRating: "TV-MA", duration: 30, originallyAvailableAt: "2023-09-01" });
+  add({ title: "Window Edge", type: "episode", episodeTitle: "Holiday Frost", genres: ["Comedy"], contentRating: "TV-G", duration: 22, originallyAvailableAt: "2001-01-10T00:00:00Z" });
+  add({ title: "Window Short", type: "episode", episodeTitle: "Holiday Frost", genres: ["Comedy"], contentRating: "TV-G", duration: 22, originallyAvailableAt: "2001-1-10" });
+  add({ title: "The Princess Switch", genres: ["Comedy", "Family"], year: 2018, contentRating: "TV-G", tmdbGenres: ["Romance", "TV Movie"], tmdbKeywords: ["christmas"] });
+  add({ title: "Nested Genres", genres: ["Drama"], year: 2010, enrichment: { tmdbGenres: ["Romance", "TV Movie"], keywords: ["christmas"] } });
+  add({ title: "Lab Clip Comedy", genres: ["Comedy", "Action"], year: 2003, contentRating: "PG", doviProfile: 5 });
+  add({ title: "Lab Clip Show", type: "episode", episodeTitle: "Pilot", genres: ["Comedy", "Action"], year: 2003, contentRating: "TV-PG", duration: 25, doviProfile: 5 });
+  add({ title: "Lab Clip Eight", genres: ["Comedy", "Action"], year: 2003, contentRating: "PG", doviProfile: 8 });
 
   // Dates relative to each clock are resolved per clock; the item list itself
   // must be one fixed list, so relative markers become per-clock fields.
@@ -282,7 +331,7 @@ export function filterVectors(upstream) {
     const ctx = contexts[clock.name];
     results[clock.name] = withClock(clock.iso, () => {
       // One string per channel, aligned with `channels` (synthetic ids reuse real ones).
-      return channels.map((c) => CF.filterPool(items, c, { manifest, exclusiveRules, nowSec: ctx.nowSec })
+      return channels.map((c) => CF.filterPool(items, c, { manifest, exclusiveRules, nowSec: ctx.nowSec, backend: clock.backend })
         .items.map((i) => `${i.ratingKey}:${i.poolVia}`).join(","));
     });
   }

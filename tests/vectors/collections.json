@@ -2,7 +2,7 @@
  "generatedBy": "tests/gen-vectors.mjs (tests/gen-collections.mjs)",
  "upstream": {
   "repo": "https://github.com/chadMueller/Nostalgex",
-  "commit": "805c33e7407393c611b52a601251ea8591b01c1f",
+  "commit": "1b5859b1a5c3ff21dc3e5887eef0eac92bb114ac",
   "engine": "scripts/nostalgex-collections.js"
  },
  "constants": {
@@ -290,6 +290,26 @@
    "name": "NOSTALGEX HORROR"
   },
   {
+   "id": 415,
+   "number": 141,
+   "name": "SLASHER"
+  },
+  {
+   "id": 416,
+   "number": 142,
+   "name": "HORROR COMEDY"
+  },
+  {
+   "id": 417,
+   "number": 143,
+   "name": "FOUND FOOTAGE"
+  },
+  {
+   "id": 418,
+   "number": 144,
+   "name": "WORLD HORROR"
+  },
+  {
    "id": 20,
    "number": 20,
    "name": "FAMILY HOUR"
@@ -555,6 +575,11 @@
    "name": "CRIME TV"
   },
   {
+   "id": 419,
+   "number": 84,
+   "name": "MYSTERY BOX TV"
+  },
+  {
    "id": 90,
    "number": 90,
    "name": "THE 60S"
@@ -676,38 +701,43 @@
   },
   {
    "id": 130,
-   "number": 130,
+   "number": 145,
    "name": "HOLIDAZE"
   },
   {
    "id": 409,
-   "number": 131,
+   "number": 146,
    "name": "SANTA'S LIST"
   },
   {
    "id": 410,
-   "number": 132,
+   "number": 147,
    "name": "NAUGHTY LIST"
   },
   {
    "id": 411,
-   "number": 133,
+   "number": 148,
    "name": "NOSTALGEX CHRISTMAS"
   },
   {
    "id": 412,
-   "number": 134,
-   "name": "HALLMARK"
+   "number": 149,
+   "name": "MISTLETOE"
   },
   {
    "id": 413,
-   "number": 135,
+   "number": 150,
    "name": "CHRISTMAS SPECIALS"
   },
   {
    "id": 414,
-   "number": 136,
+   "number": 151,
    "name": "KIDS CHRISTMAS TV"
+  },
+  {
+   "id": 422,
+   "number": 152,
+   "name": "TURKEY DAY"
   },
   {
    "id": 131,
@@ -840,6 +870,11 @@
    "name": "MIRAMAX"
   },
   {
+   "id": 421,
+   "number": 118,
+   "name": "A24"
+  },
+  {
    "id": 402,
    "number": 53,
    "name": "R RATED COMEDY"
@@ -848,6 +883,11 @@
    "id": 403,
    "number": 54,
    "name": "PREMIERES"
+  },
+  {
+   "id": 420,
+   "number": 55,
+   "name": "CRINGE TV"
   }
  ],
  "smokeStock": [
@@ -1101,7 +1141,7 @@
   {
    "title": "Holidaze",
    "stock": "lineup",
-   "label": "CH 130 HOLIDAZE"
+   "label": "CH 145 HOLIDAZE"
   },
   {
    "title": "1960s",
@@ -1126,7 +1166,7 @@
   {
    "title": "Christmas",
    "stock": "lineup",
-   "label": "CH 133 NOSTALGEX CHRISTMAS"
+   "label": "CH 148 NOSTALGEX CHRISTMAS"
   },
   {
    "title": "Santa's List",
@@ -24111,6 +24151,26 @@
      "name": "NOSTALGEX HORROR"
     },
     {
+     "id": 415,
+     "number": 141,
+     "name": "SLASHER"
+    },
+    {
+     "id": 416,
+     "number": 142,
+     "name": "HORROR COMEDY"
+    },
+    {
+     "id": 417,
+     "number": 143,
+     "name": "FOUND FOOTAGE"
+    },
+    {
+     "id": 418,
+     "number": 144,
+     "name": "WORLD HORROR"
+    },
+    {
      "id": 20,
      "number": 20,
      "name": "FAMILY HOUR"
@@ -24376,6 +24436,11 @@
      "name": "CRIME TV"
     },
     {
+     "id": 419,
+     "number": 84,
+     "name": "MYSTERY BOX TV"
+    },
+    {
      "id": 90,
      "number": 90,
      "name": "THE 60S"
@@ -24497,38 +24562,43 @@
     },
     {
      "id": 130,
-     "number": 130,
+     "number": 145,
      "name": "HOLIDAZE"
     },
     {
      "id": 409,
-     "number": 131,
+     "number": 146,
      "name": "SANTA'S LIST"
     },
     {
      "id": 410,
-     "number": 132,
+     "number": 147,
      "name": "NAUGHTY LIST"
     },
     {
      "id": 411,
-     "number": 133,
+     "number": 148,
      "name": "NOSTALGEX CHRISTMAS"
     },
     {
      "id": 412,
-     "number": 134,
-     "name": "HALLMARK"
+     "number": 149,
+     "name": "MISTLETOE"
     },
     {
      "id": 413,
-     "number": 135,
+     "number": 150,
      "name": "CHRISTMAS SPECIALS"
     },
     {
      "id": 414,
-     "number": 136,
+     "number": 151,
      "name": "KIDS CHRISTMAS TV"
+    },
+    {
+     "id": 422,
+     "number": 152,
+     "name": "TURKEY DAY"
     },
     {
      "id": 131,
@@ -24661,6 +24731,11 @@
      "name": "MIRAMAX"
     },
     {
+     "id": 421,
+     "number": 118,
+     "name": "A24"
+    },
+    {
      "id": 402,
      "number": 53,
      "name": "R RATED COMEDY"
@@ -24669,6 +24744,11 @@
      "id": 403,
      "number": 54,
      "name": "PREMIERES"
+    },
+    {
+     "id": 420,
+     "number": 55,
+     "name": "CRINGE TV"
     }
    ],
    "channels": [
@@ -24768,6 +24848,26 @@
      "name": "NOSTALGEX HORROR"
     },
     {
+     "id": 415,
+     "number": 141,
+     "name": "SLASHER"
+    },
+    {
+     "id": 416,
+     "number": 142,
+     "name": "HORROR COMEDY"
+    },
+    {
+     "id": 417,
+     "number": 143,
+     "name": "FOUND FOOTAGE"
+    },
+    {
+     "id": 418,
+     "number": 144,
+     "name": "WORLD HORROR"
+    },
+    {
      "id": 20,
      "number": 20,
      "name": "FAMILY HOUR"
@@ -25033,6 +25133,11 @@
      "name": "CRIME TV"
     },
     {
+     "id": 419,
+     "number": 84,
+     "name": "MYSTERY BOX TV"
+    },
+    {
      "id": 90,
      "number": 90,
      "name": "THE 60S"
@@ -25154,38 +25259,43 @@
     },
     {
      "id": 130,
-     "number": 130,
+     "number": 145,
      "name": "HOLIDAZE"
     },
     {
      "id": 409,
-     "number": 131,
+     "number": 146,
      "name": "SANTA'S LIST"
     },
     {
      "id": 410,
-     "number": 132,
+     "number": 147,
      "name": "NAUGHTY LIST"
     },
     {
      "id": 411,
-     "number": 133,
+     "number": 148,
      "name": "NOSTALGEX CHRISTMAS"
     },
     {
      "id": 412,
-     "number": 134,
-     "name": "HALLMARK"
+     "number": 149,
+     "name": "MISTLETOE"
     },
     {
      "id": 413,
-     "number": 135,
+     "number": 150,
      "name": "CHRISTMAS SPECIALS"
     },
     {
      "id": 414,
-     "number": 136,
+     "number": 151,
      "name": "KIDS CHRISTMAS TV"
+    },
+    {
+     "id": 422,
+     "number": 152,
+     "name": "TURKEY DAY"
     },
     {
      "id": 131,
@@ -25318,6 +25428,11 @@
      "name": "MIRAMAX"
     },
     {
+     "id": 421,
+     "number": 118,
+     "name": "A24"
+    },
+    {
      "id": 402,
      "number": 53,
      "name": "R RATED COMEDY"
@@ -25326,6 +25441,11 @@
      "id": 403,
      "number": 54,
      "name": "PREMIERES"
+    },
+    {
+     "id": 420,
+     "number": 55,
+     "name": "CRINGE TV"
     }
    ],
    "franchiseChannels": [

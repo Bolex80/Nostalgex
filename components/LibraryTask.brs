@@ -7,15 +7,22 @@ end sub
 ' The saved guide: the last build's output, reused only while a fresh build
 ' would give the same thing (same local day and UTC day, since upstream's
 ' pool shuffle is seeded by the UTC day, same packages, same servers on,
-' same app version).
+' same build, NxBuildKey).
 ' It holds titles and schedules, nothing secret.
 function NxGuideCachePath() as String
     return "cachefs:/nostalgex-guide.json"
 end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
+    return NxBuildKey() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+end function
+
+' Which build this is, for the cache keys: the app version and the commit
+' scripts/deploy.sh writes into the manifest (`nx_build`). A sideload keeps
+' the version, and its channel data and filter may still have changed.
+function NxBuildKey() as String
     info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+    return info.GetVersion() + "+" + info.GetValue("nx_build")
 end function
 
 '' The viewer's franchise, collection and server switches, as part of a cache key.
@@ -36,15 +43,14 @@ end function
 ' (over a minute on a TV), and a pool rarely changes from one day to the
 ' next, so when the saved guide is a day old these are shuffled and
 ' scheduled for today instead, in seconds, and the full build still runs
-' behind them. Kept while the app version, month (seasonal packages),
+' behind them. Kept while the build, month (seasonal packages),
 ' packages, franchise and collection choices and servers on are the same.
 function NxPoolCachePath() as String
     return "cachefs:/nostalgex-pools.json"
 end function
 
 function NxPoolCacheKey(month as Integer, bundles as Object) as String
-    info = CreateObject("roAppInfo")
-    return info.GetVersion() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+    return NxBuildKey() + "|" + month.ToStr() + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
 end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
@@ -463,6 +469,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     exclusive = NxFilterExclusiveRules(config.exclusiveRules)
     clock = NxFilterClock()
     nowSec& = clock.nowSec
+    ' Which server kind the items are from: an Emby Dolby Vision profile 5
+    ' file goes on no channel.
+    backend = NxSignedInKind()
     bundles = NxEnabledBundles()
     poolIds = NxPoolChannelIds(config, bundles, clock.month)
 
@@ -489,7 +498,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             if matched = invalid then
                 if reuse <> invalid then print "library: filtering channel "; def.id; " (no earlier result to reuse)"
                 matched = []
-                for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock)
+                for each row in NxFilterPool(items, NxFilterChannel(def), manifest, exclusive, clock, backend)
                     matched.Push(row.item)
                 end for
             else

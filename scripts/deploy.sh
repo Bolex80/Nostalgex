@@ -32,6 +32,13 @@ stage=out/stage
 rm -rf "$stage" out/nostalgex-roku.zip
 mkdir -p "$stage"
 cp -r manifest source components "$stage"/
+# Which code this zip is (the commit, plus a hash of any uncommitted change),
+# for the saved guide and pools' keys: a sideload keeps the manifest's version,
+# so without it a build installed over another reused the old one's filter
+# results (components/LibraryTask.brs NxBuildKey).
+build=$(git rev-parse --short HEAD)
+if ! git diff --quiet HEAD; then build="$build-$(git diff HEAD | sha1sum | cut -c1-8)"; fi
+printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
 # The MIT notice and the fonts' licences travel with the app (the Channel
 # Store needs them; Discussion #8, item 6).
 cp LICENSE THIRD-PARTY-LICENSES.md "$stage"/

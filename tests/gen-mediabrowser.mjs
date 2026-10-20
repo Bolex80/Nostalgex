@@ -6,7 +6,8 @@
 // The answers in tests/fixtures/mediabrowser-server.json are trimmed from a
 // Jellyfin 12.2 test server (the fields the scan reads, no file paths) plus
 // made-up cases: paging past 200, a music-video library, several sources,
-// missing fields, an episode list that fails. Called by tests/gen-vectors.mjs,
+// missing fields, an episode list that fails, air dates, and Emby Dolby Vision
+// subtypes (ExtendedVideoSubType). Called by tests/gen-vectors.mjs,
 // which owns the output.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -53,6 +54,8 @@ export async function mediaBrowserVectors(upstream) {
   const html = readFileSync(join(upstream, "plex-tuner.html"), "utf8");
   const fx = JSON.parse(readFileSync(new URL("./fixtures/mediabrowser-server.json", import.meta.url), "utf8"));
   new Function("globalThis", "window", readFileSync(join(upstream, "scripts", "nostalgex-music-brainz.js"), "utf8"))(globalThis, globalThis);
+  // Its URL helpers, which the scan reads (embyDoviProfile since upstream ccb6854).
+  new Function("module", readFileSync(join(upstream, "scripts", "nostalgex-jellyfin-urls.js"), "utf8"))(undefined);
 
   const requests = [];
   let result = null;
@@ -84,7 +87,7 @@ export async function mediaBrowserVectors(upstream) {
     body,
   );
   const quiet = { log() {}, warn() {} };
-  const urls = globalThis.NostalgexJellyfinUrls || { userViewsPath: (b, id) => `/UserViews?userId=${id}` };
+  const urls = globalThis.NostalgexJellyfinUrls;
   await run(
     env.fetch, { ...globalThis, ...env }, "http://server.invalid", fx.userId, "jellyfin", [], new Set(),
     {}, () => "", () => "Jellyfin", () => {}, env.finalizeLibraryWithMusicBrainz, urls, [], () => {}, quiet,

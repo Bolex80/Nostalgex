@@ -47,9 +47,16 @@ function NxFilterExclusiveRules(rawRules as Dynamic) as Object
         g = GetGlobalAA()
         if g.nxRuleSeq = invalid then g.nxRuleSeq = 0
         g.nxRuleSeq = g.nxRuleSeq + 1
+        ' `type` and `source` scope a lock to one kind of item ("" for any).
+        ruleType = ""
+        if NxTruthy(r.type) then ruleType = NxToStr(r.type)
+        ruleSource = ""
+        if NxTruthy(r.source) then ruleSource = NxToStr(r.source)
         out.Push({
             uid: "x" + g.nxRuleSeq.ToStr(),
             ids: ids,
+            ruleType: ruleType,
+            ruleSource: ruleSource,
             genresLower: NxLowerList(r.genres),
             titleWordsRx: NxWordPatterns(r.titleContains),
             editorialLower: NxLowerList(r.editorialTitles),
@@ -78,6 +85,9 @@ function NxFilterChannel(channel as Object) as Object
         titleContainsRx: NxWordPatterns(r.titleContains),
         titleExcludesRx: NxWordPatterns(r.titleExcludes),
         episodeTitleRx: NxWordPatterns(r.episodeTitleContains),
+        episodeSummaryRx: NxWordPatterns(r.episodeSummaryContains),
+        episodeSeasonalRx: NxWordPatterns(r.episodeSeasonalTitleContains),
+        episodeExcludesRx: NxWordPatterns(r.episodeTitleExcludes),
         editorialLower: NxLowerList(r.editorialOverrides),
         editorialSet: NxSet(NxLowerList(r.editorialOverrides)),
         studiosLower: NxLowerList(r.studios),
@@ -94,14 +104,27 @@ function NxFilterChannel(channel as Object) as Object
     c.isStudioChannel = c.hasStudioRule and not c.hasGenreInclude
     ' From the raw lists: an empty needle gets no pattern but still makes a rule.
     c.hasTitleRule = NxList(r.titleContains).Count() > 0
-    c.hasEpisodeTitleRule = NxList(r.episodeTitleContains).Count() > 0
+    ' Upstream's hasEpisodeRules: any of the three makes the channel
+    ' episode-curated, its episode rules the allowlist.
+    c.isEpisodeCurated = NxList(r.episodeTitleContains).Count() > 0 or NxList(r.episodeSummaryContains).Count() > 0 or NxList(r.episodeSeasonalTitleContains).Count() > 0
+    c.hasEpisodeSummaryRule = NxList(r.episodeSummaryContains).Count() > 0
+    c.hasEpisodeSeasonalRule = NxList(r.episodeSeasonalTitleContains).Count() > 0
+    c.airFrom = invalid
+    c.airTo = invalid
+    if type(r.episodeAirWindow) = "roAssociativeArray" then
+        c.airFrom = NxMonthDay(r.episodeAirWindow.from)
+        c.airTo = NxMonthDay(r.episodeAirWindow.to)
+    end if
+    c.matchTmdbGenres = NxTruthy(r.matchTmdbGenres)
     c.hasProdCoRule = c.prodCoLower.Count() > 0
     c.hasKeywordRule = c.keywordsLower.Count() > 0
     c.hasNetworkRule = c.networksLower.Count() > 0
     c.isFamilySafe = c.isKids or NxHasExact(c.includeLower, "family")
 
     locks = NxGenreLocks()
-    c.allowsAnimation = c.isStudioChannel or NxAnyIn(c.includeLower, locks.animation) or c.isKids or c.hasTitleRule
+    ' Episode rules are a curated list as a title list is, so they open the
+    ' Animation lock too.
+    c.allowsAnimation = c.isStudioChannel or NxAnyIn(c.includeLower, locks.animation) or c.isKids or c.hasTitleRule or c.isEpisodeCurated
     c.allowsHorror = c.isStudioChannel or NxAnyIn(c.includeLower, locks.horror)
     c.allowsReality = c.isStudioChannel or NxAnyIn(c.includeLower, locks.reality)
     c.allowsDocumentary = c.isStudioChannel or NxAnyIn(c.includeLower, locks.documentary)
@@ -209,6 +232,46 @@ function NxFilterItem(item as Object) as Object
     return p
 end function
 
+' What a `matchTmdbGenres` channel reads: the server's genres and the
+' enrichment's TMDB genres together, with their genre locks, kept on the
+' profile `p`. The profile itself when the item has no TMDB genres, as
+' upstream then falls back to the server's. (`false` marks that case: the
+' profile kept inside itself would be a cycle, never freed.)
+function NxFilterTmdbGenres(item as Object, p as Object) as Object
+    t = p.tmdbGenres
+    if t = invalid then
+        extra = NxLowerList(NxEnriched(item, "tmdbGenres"))
+        if extra.Count() = 0 then
+            p.tmdbGenres = false
+            return p
+        end if
+        genres = []
+        genres.Append(p.genres)
+        seen = NxSet(genres)
+        for each g in extra
+            if not seen.DoesExist(g) then
+                seen[g] = true
+                genres.Push(g)
+            end if
+        end for
+        locks = NxGenreLocks()
+        t = {
+            genres: genres,
+            inHorror: NxAnyIn(genres, locks.horror),
+            inReality: NxAnyIn(genres, locks.reality),
+            inAnimation: NxAnyIn(genres, locks.animation),
+            inDocumentary: NxAnyIn(genres, locks.documentary),
+            inWar: NxAnyIn(genres, locks.war),
+            inWestern: NxAnyIn(genres, locks.western),
+            inTalkShow: NxAnyIn(genres, locks.talkShow)
+        }
+        p.tmdbGenres = t
+    else if type(t) <> "roAssociativeArray" then
+        return p
+    end if
+    return t
+end function
+
 ' ── The filter ──────────────────────────────────────────────────────────────
 
 ' Items that belong on the channel, as [{ item, via }]. `channel` is from
@@ -216,22 +279,32 @@ end function
 ' `exclusiveRules` is from NxFilterExclusiveRules; `clock` from NxFilterClock.
 ' Mirrors filterPool's item list. Its `shows` summary is a devtools aid and
 ' is not ported.
-function NxFilterPool(items as Object, channel as Object, manifest as Dynamic, exclusiveRules as Object, clock as Object) as Object
+' `backend` is the signed-in kind (plex, jellyfin or emby), upstream's
+' `opts.backend`.
+function NxFilterPool(items as Object, channel as Object, manifest as Dynamic, exclusiveRules as Object, clock as Object, backend = "plex" as String) as Object
     out = []
     for each it in items
-        via = NxItemPasses(it, channel, manifest, exclusiveRules, clock)
+        via = NxItemPasses(it, channel, manifest, exclusiveRules, clock, backend)
         if via <> "" then out.Push({ item: it, via: via })
     end for
     return out
 end function
 
-' The matching rule ("rules", "manifest", "editorial", "title", "keyword",
-' "network", "prodco"), or "" when the item doesn't belong. Mirrors itemPasses.
-function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiveRules as Object, clock as Object) as String
+' The matching rule ("rules", "manifest", "editorial", "episode", "title",
+' "keyword", "network", "prodco"), or "" when the item doesn't belong.
+' Mirrors itemPasses.
+function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiveRules as Object, clock as Object, backend = "plex" as String) as String
+    ' Emby Dolby Vision profile 5: on no channel, whatever the rules say.
+    if NxIsLeftOffChannels(item, backend) then return ""
     r = c.r
     p = NxFilterItem(item)
     titleLower = p.titleLower
-    itemGenres = p.genres
+    ' `g` has the genres this channel reads and their genre locks: the
+    ' server's, or with `matchTmdbGenres` the TMDB ones added. An exclusive
+    ' lock always reads the server's (p.genres).
+    g = p
+    if c.matchTmdbGenres then g = NxFilterTmdbGenres(item, p)
+    itemGenres = g.genres
 
     if c.hasSource then
         if p.source <> r.source then return ""
@@ -243,15 +316,15 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
         if NxGenreLocks().adultRatings.DoesExist(NxToStr(item.contentRating)) then return ""
     end if
 
-    if not c.allowsHorror and p.inHorror then return ""
-    if not c.allowsReality and p.inReality then return ""
-    if not c.allowsAnimation and p.inAnimation then return ""
-    if not c.allowsDocumentary and p.inDocumentary then return ""
-    if not c.allowsWar and p.inWar then return ""
-    if not c.allowsWestern and p.inWestern then return ""
-    if not c.allowsTalkShow and p.inTalkShow then return ""
+    if not c.allowsHorror and g.inHorror then return ""
+    if not c.allowsReality and g.inReality then return ""
+    if not c.allowsAnimation and g.inAnimation then return ""
+    if not c.allowsDocumentary and g.inDocumentary then return ""
+    if not c.allowsWar and g.inWar then return ""
+    if not c.allowsWestern and g.inWestern then return ""
+    if not c.allowsTalkShow and g.inTalkShow then return ""
 
-    if c.isExplicitReality and not p.inReality then return ""
+    if c.isExplicitReality and not g.inReality then return ""
 
     if c.editorialSet.DoesExist(titleLower) or (titleLower = "" and NxHasExact(c.editorialLower, "")) then return "editorial"
 
@@ -276,6 +349,9 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
         if c.hasType and item.type <> r.type then return ""
         if c.hasYearRange and not NxPassesYearRange(item, r) then return ""
         if c.hasTitleRule and not NxAnyWord(titleLower, c.titleContainsRx) then return ""
+        ' Nor past the episode rules: a claim for an episode-curated channel
+        ' still has to be a holiday episode.
+        if c.isEpisodeCurated and not NxEpisodeRulesMatch(item, p, c) then return ""
         ' A channel's own exclusions outrank a manifest claim; includes don't.
         if NxAnyWord(titleLower, c.titleExcludesRx) then return ""
         if NxAnySubstring(itemGenres, c.excludeLower) then return ""
@@ -289,10 +365,11 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     ' Channel exclusivity: block items owned by another channel.
     for each rule in exclusiveRules
-        if not NxHasValue(rule.ids, c.id) then
+        if not NxHasValue(rule.ids, c.id) and NxExclusiveRuleApplies(item, p, rule) then
             hit = p.exclusiveMatches[rule.uid]
             if hit = invalid then
-                hit = NxExclusiveRuleMatches(p, itemGenres, rule)
+                ' Server genres only, as Swift's ExclusiveRule.matches reads item.genres.
+                hit = NxExclusiveRuleMatches(p, p.genres, rule)
                 p.exclusiveMatches[rule.uid] = hit
             end if
             if hit then return ""
@@ -334,12 +411,11 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
     if c.unwatchedOnly and (viewCount > 0 or isNewRelease) then return ""
     if c.rewatched and viewCount < 3 then return ""
 
-    ' Episode-title channels are curated: the list is the allowlist. It
-    ' matches the episode title, not the show: a Christmas special lives in
-    ' "The One with the Holiday Armadillo", not in "Friends".
-    if c.hasEpisodeTitleRule then
-        if p.episodeTitleLower.Len() = 0 or not NxAnyWord(p.episodeTitleLower, c.episodeTitleRx) then return ""
-    end if
+    ' Episode-curated channels: the episode rules are the allowlist, and
+    ' nothing widens it. They read an episode's own title and summary, not
+    ' the show: a Christmas special lives in "The One with the Holiday
+    ' Armadillo", not in "Friends".
+    if c.isEpisodeCurated and not NxEpisodeRulesMatch(item, p, c) then return ""
 
     if NxAnySubstring(itemGenres, c.excludeLower) then return ""
 
@@ -431,6 +507,10 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     matchesProdCo = c.hasProdCoRule and p.prodCoHaystack.Count() > 0 and NxAnyContainsAny(p.prodCoHaystack, c.prodCoLower)
 
+    ' An episode-curated channel has passed its allowlist and every gate above;
+    ' Swift skips its content-matching block for these, and so does upstream.
+    if c.isEpisodeCurated then return "episode"
+
     matchesTitleRule = c.hasTitleRule and NxAnyWord(titleLower, c.titleContainsRx)
     if c.isTitleCurated then
         ' The title list is the allowlist (e.g. ADULT CARTOONS).
@@ -498,6 +578,76 @@ function NxExclusiveRuleMatches(p as Object, itemGenres as Object, rule as Objec
     if NxAnyWord(p.ownTitle, rule.titleWordsRx) then return true
     if rule.genresLower.Count() > 0 and NxAnySubstring(itemGenres, rule.genresLower) then return true
     return false
+end function
+
+' Mirrors exclusiveRuleApplies: a lock scoped with `type` (movie|episode) or
+' `source` (movie|tv|musicVideo) applies only to items of that kind. The
+' holiday lock reads a film's title, so without it Santa Clarita Diet was
+' locked to movie channels that never air it.
+function NxExclusiveRuleApplies(item as Object, p as Object, rule as Object) as Boolean
+    if rule.ruleType <> "" then
+        itemType = "movie"
+        if NxTruthy(item.type) then itemType = NxToStr(item.type)
+        if itemType <> rule.ruleType then return false
+    end if
+    if rule.ruleSource <> "" and p.source <> rule.ruleSource then return false
+    return true
+end function
+
+' Mirrors isLeftOffChannels: on Emby a Dolby Vision profile 5 file
+' (`doviProfile` 5, from its ExtendedVideoSubType) goes on no channel, as
+' Emby 4.10.1 sends it in a form drawn green and purple. Profile 8, an
+' unknown profile, and Plex and Jellyfin are untouched.
+function NxIsLeftOffChannels(item as Object, backend as String) as Boolean
+    if backend <> "emby" then return false
+    return NxIsNumber(item.doviProfile) and item.doviProfile = 5
+end function
+
+' Mirrors episodeRulesMatch. They read the item's own title: the episode
+' title for an episode, the title (year suffix stripped) for anything else,
+' so a special stored as a film matches as an episode does. Whole words.
+'   - episodeTitleExcludes: a word in the own title vetoes the item
+'   - episodeTitleContains: a word in the own title
+'   - episodeSummaryContains: a word in the summary
+'   - episodeSeasonalTitleContains: a word in the own title, counting only
+'     for an episode first aired inside `episodeAirWindow`
+function NxEpisodeRulesMatch(item as Object, p as Object, c as Object) as Boolean
+    if item.type = "episode" then
+        own = p.episodeTitleLower
+    else
+        own = NxRx("yearSuffix", " \(\d{4}\)(?![\s\S])").Replace(p.ownTitleRaw, "")
+    end if
+    if own <> "" then
+        if NxAnyWord(own, c.episodeExcludesRx) then return false
+        if NxAnyWord(own, c.episodeTitleRx) then return true
+    end if
+    if c.hasEpisodeSummaryRule then
+        summary = LCase(NxToStr(item.summary))
+        if summary <> "" and NxAnyWord(summary, c.episodeSummaryRx) then return true
+    end if
+    if c.hasEpisodeSeasonalRule and item.type = "episode" and own <> "" then
+        if NxInAirWindow(item, c.airFrom, c.airTo) and NxAnyWord(own, c.episodeSeasonalRx) then return true
+    end if
+    return false
+end function
+
+' "MM-DD" as month * 100 + day, or invalid.
+function NxMonthDay(s as Dynamic) as Dynamic
+    if not NxIsString(s) then return invalid
+    hit = NxRx("monthDay", "^(\d{1,2})-(\d{1,2})$").Match(s.Trim())
+    if hit.Count() <> 3 then return invalid
+    return hit[1].ToInt() * 100 + hit[2].ToInt()
+end function
+
+' Whether the item first aired (originallyAvailableAt, YYYY-MM-DD...) inside
+' from..to, inclusive, wrapping the new year when from > to.
+function NxInAirWindow(item as Object, from as Dynamic, upTo as Dynamic) as Boolean
+    if from = invalid or upTo = invalid or not NxIsString(item.originallyAvailableAt) then return false
+    hit = NxRx("isoDate", "^(\d{4})-(\d{2})-(\d{2})").Match(item.originallyAvailableAt)
+    if hit.Count() <> 4 then return false
+    md = hit[2].ToInt() * 100 + hit[3].ToInt()
+    if from <= upTo then return md >= from and md <= upTo
+    return md >= from or md <= upTo
 end function
 
 function NxPassesYearRange(item as Object, r as Object) as Boolean

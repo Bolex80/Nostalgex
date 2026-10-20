@@ -2,7 +2,7 @@
  "generatedBy": "tests/gen-vectors.mjs (tests/gen-franchise.mjs)",
  "upstream": {
   "repo": "https://github.com/chadMueller/Nostalgex",
-  "commit": "805c33e7407393c611b52a601251ea8591b01c1f",
+  "commit": "1b5859b1a5c3ff21dc3e5887eef0eac92bb114ac",
   "engine": "scripts/nostalgex-franchise-builder.js"
  },
  "text": [
