@@ -11,6 +11,7 @@
         "Retro mode looks more like an old TV, with scanlines in full screen too.",
         "Films with Blu-ray 7.1 audio that wouldn't start, like The Wild Robot, play now.",
         "Jellyfin Quick Connect works on Jellyfin 12. Thanks to @tydude001 for spotting it.",
+        "On Emby, tuning into a film part way through keeps the sound in sync with the picture. 4K HEVC files can still drift.",
         "Jellyfin and Emby no longer burn subtitles into the picture, which re-encoded the whole film. Forced subtitles in your language still show.",
         "Dolby Vision profile 5 from Jellyfin shows the right colours. On Emby those files are left off channels, since Emby sends them green and purple.",
         "TOON TOWN no longer airs The Hobbit.",

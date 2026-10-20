@@ -23,6 +23,8 @@ The same file joined at 247.3 s: -1832 / -15 ms. The flash-per-second H.264 + DT
 
 **Next.** The eye test on the living room Apple TV, Debug 1.0.27 (50) with and without the fix.
 
+**Checked on a real Apple TV 4K (2026-10-20)** against a real Emby 4.10.1 library: a DTS film (H.264 MKV, the audio converted by Emby) joined part way through had its voices clearly ahead of the lips before the fix, and in sync after. An AC-3 film plays in sync either way, because Emby copies AC-3 rather than converting it.
+
 ## 2026-10-19 (TIS THE SEASON: the invite from a week before Thanksgiving)
 
 **Shipped.** Nothing yet. Branch `holiday/invite-thanksgiving`, five commits on build-50 (0b1899c), this entry included, not pushed. Apple TV needs an App Store build; the web tuner gets it when main is pushed, and Docker with the next `tuner-v*` tag.
