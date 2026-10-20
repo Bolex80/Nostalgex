@@ -889,7 +889,8 @@ end sub
 ' Video only letterboxes, so the video is sized 16:9 at the box's height,
 ' centred on it, and the panel (drawn after it) covers the left overflow; the
 ' right runs off the screen. A 4:3 file then fills the box exactly. Full
-' screen keeps the whole picture, under the overlay without its scanlines.
+' screen keeps the whole picture, under the whole overlay, scanlines
+' included since upstream e48cdc1 (RetroLook).
 sub layoutVideo()
     crt = m.top.FindNode("crt")
     scan = m.top.FindNode("scanlines")
@@ -901,7 +902,9 @@ sub layoutVideo()
         m.video.height = 1080
         crt.translation = [0, 0]
         crt.clippingRect = [0, 0, 1920, 1080]
-        scan.visible = false
+        scan.uri = "pkg:/images/look/scanlines_full.png"
+        scan.width = 1920
+        scan.height = 1080
         vig.uri = "pkg:/images/look/vignette_full.png"
         vig.width = 1920
         vig.height = 1080
@@ -918,7 +921,9 @@ sub layoutVideo()
         m.video.height = 555
         crt.translation = [1180, 0]
         crt.clippingRect = [0, 0, 740, 555]
-        scan.visible = true
+        scan.uri = "pkg:/images/look/scanlines.png"
+        scan.width = 740
+        scan.height = 555
         vig.uri = "pkg:/images/look/vignette.png"
         vig.width = 740
         vig.height = 555
@@ -936,8 +941,9 @@ sub layoutVideo()
 end sub
 
 sub onFlicker()
-    if Rnd(0) > 0.95 then
-        m.top.FindNode("scanlines").opacity = 0.8 + Rnd(0) * 0.1
+    ' RetroLook: 8% of ticks, down to 0.76 to 0.88.
+    if Rnd(0) > 1 - 0.08 then
+        m.top.FindNode("scanlines").opacity = 0.76 + Rnd(0) * 0.12
         m.flickerBack.control = "start"
     end if
 end sub
@@ -952,7 +958,8 @@ sub scheduleGlitch()
 end sub
 
 sub onGlitchTimer()
-    if Rnd(0) > 0.7 then
+    ' RetroLook: 45% of the checks.
+    if Rnd(0) > 1 - 0.45 then
         ' A band 150-400 px long, starting within 200 px of the middle.
         y0! = m.crtHeight * 0.5 + (Rnd(0) * 400 - 200)
         travel! = 150 + Rnd(0) * 250

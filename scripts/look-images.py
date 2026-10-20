@@ -34,11 +34,20 @@ def lerp(a, b, t):
 
 # ── CRT (CRTOverlayView.swift) ──────────────────────────────────────────────
 
+# RetroLook (upstream e48cdc1): the look picked on a TV on 2026-10-18, in the
+# guide and in full screen alike. The flicker and tracking chances are
+# components/GuideView.brs's.
+SCANLINE_OPACITY = 0.18
+CORNER_SHADOW = 0.78
+TOP_BOTTOM_SHADOW = 0.58
+SIDE_SHADOW = 0.48
+GLITCH_BRIGHTNESS = 0.22
+
 def scanlines(w, h):
-    # Black 12% lines 1.5 wide every 3 px, centred on y = 0, 3, 6...: each
-    # covers three quarters of the pixel row above and below it.
+    # Black lines at SCANLINE_OPACITY, 1.5 wide every 3 px, centred on y = 0,
+    # 3, 6...: each covers three quarters of the pixel row above and below it.
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    a = round(255 * 0.12 * 0.75)
+    a = round(255 * SCANLINE_OPACITY * 0.75)
     px = img.load()
     for y in range(0, h + 1, 3):
         for row in (y - 1, y):
@@ -54,8 +63,9 @@ def vignette(w, h, scale=1.0):
     sw, sh = int(w * scale), int(h * scale)
     img = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
     px = img.load()
-    # RadialGradient [clear, clear, black 0.7] from min*0.3 to max*0.7: clear to
-    # the midpoint, then up to 0.7 at the end radius and held beyond it.
+    # RadialGradient [clear, clear, black CORNER_SHADOW] from min*0.3 to
+    # max*0.7: clear to the midpoint, then up to it at the end radius and held
+    # beyond it.
     r0 = min(w, h) * 0.3
     r1 = max(w, h) * 0.7
     mid = (r0 + r1) / 2
@@ -67,11 +77,11 @@ def vignette(w, h, scale=1.0):
         for i in range(sw):
             x = (i + 0.5) / scale
             d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-            radial = 0.0 if d <= mid else lerp(0, 0.7, (d - mid) / (r1 - mid))
-            top = lerp(0.5, 0, y / band_y) if y < band_y else 0
-            bottom = lerp(0, 0.5, (y - (h - band_y)) / band_y) if y > h - band_y else 0
-            left = lerp(0.4, 0, x / band_x) if x < band_x else 0
-            right = lerp(0, 0.4, (x - (w - band_x)) / band_x) if x > w - band_x else 0
+            radial = 0.0 if d <= mid else lerp(0, CORNER_SHADOW, (d - mid) / (r1 - mid))
+            top = lerp(TOP_BOTTOM_SHADOW, 0, y / band_y) if y < band_y else 0
+            bottom = lerp(0, TOP_BOTTOM_SHADOW, (y - (h - band_y)) / band_y) if y > h - band_y else 0
+            left = lerp(SIDE_SHADOW, 0, x / band_x) if x < band_x else 0
+            right = lerp(0, SIDE_SHADOW, (x - (w - band_x)) / band_x) if x > w - band_x else 0
             keep = 1.0
             for a in (radial, top, bottom, left, right):
                 keep *= 1 - a
@@ -86,18 +96,19 @@ def vignette(w, h, scale=1.0):
 
 
 def glitch(w):
-    # TrackingGlitchLine: a 12 px band (clear, 8%, 15%, 8%, clear), then 30 px
-    # from white 3% to clear.
+    # TrackingGlitchLine at brightness b: a 12 px band (clear, 0.53 b, b,
+    # 0.53 b, clear), then 30 px from white 0.2 b to clear.
     img = Image.new("RGBA", (w, 42), (0, 0, 0, 0))
     px = img.load()
-    stops = [0, 0.08, 0.15, 0.08, 0]
+    b = GLITCH_BRIGHTNESS
+    stops = [0, b * 0.53, b, b * 0.53, 0]
     for y in range(42):
         if y < 12:
             t = (y + 0.5) / 12 * 4
             k = min(int(t), 3)
             a = lerp(stops[k], stops[k + 1], t - k)
         else:
-            a = lerp(0.03, 0, (y - 12 + 0.5) / 30)
+            a = lerp(b * 0.2, 0, (y - 12 + 0.5) / 30)
         for x in range(w):
             px[x, y] = (255, 255, 255, round(255 * a))
     return img
@@ -264,6 +275,7 @@ def osd():
 
 
 save(scanlines(740, 555), "scanlines.png")
+save(scanlines(1920, 1080), "scanlines_full.png")
 save(vignette(740, 555), "vignette.png")
 save(vignette(1920, 1080, 0.5), "vignette_full.png")
 save(glitch(740), "glitch.png")

@@ -2,7 +2,8 @@
 '
 ' RETRO MODE, as the Apple TV app's (AppState.retroMode, on unless switched
 ' off; BundleManagerView): the guide's video cropped to 4:3 under a CRT
-' overlay, and full screen with the overlay less its scanlines.
+' overlay, and full screen under the same overlay (RetroLook, upstream
+' e48cdc1).
 
 function NxRetroMode() as Boolean
     return CreateObject("roRegistrySection", "player").Read("retro") <> "0"

@@ -41,7 +41,11 @@ if ! git diff --quiet HEAD; then build="$build-$(git diff HEAD | sha1sum | cut -
 printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
 # The MIT notice and the fonts' licences travel with the app (the Channel
 # Store needs them; Discussion #8, item 6).
-cp LICENSE THIRD-PARTY-LICENSES.md "$stage"/
+# The third-party notices go under licenses/: at the zip's root the static
+# analysis calls the file extraneous (the maintainer's sca-cmd run, Discussion #8).
+cp LICENSE "$stage"/
+mkdir -p "$stage"/licenses
+cp THIRD-PARTY-LICENSES.md "$stage"/licenses/THIRD-PARTY-LICENSES.txt
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" "$stage"/; done
 # Enrichment (source/enrich/Enrichment.brs) is in a build only when .env turns
 # it on and gives the Supabase project; the values go into the zip, never the

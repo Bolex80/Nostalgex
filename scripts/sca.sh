@@ -15,7 +15,11 @@ rm -rf out/sca && mkdir -p out/sca/stage
 cp -r manifest source components "out/sca/stage/"
 # The MIT notice and the fonts' licences travel with the app (the Channel
 # Store needs them; Discussion #8, item 6).
-cp LICENSE THIRD-PARTY-LICENSES.md out/sca/stage/
+# The third-party notices go under licenses/: at the zip's root the static
+# analysis calls the file extraneous (the maintainer's sca-cmd run, Discussion #8).
+cp LICENSE out/sca/stage/
+mkdir -p out/sca/stage/licenses
+cp THIRD-PARTY-LICENSES.md out/sca/stage/licenses/THIRD-PARTY-LICENSES.txt
 for d in images data fonts; do [ -d "$d" ] && cp -r "$d" out/sca/stage/; done
 rm -f out/sca/stage/data/enrichment.json
 (cd out/sca/stage && zip -qr ../app.zip .)
