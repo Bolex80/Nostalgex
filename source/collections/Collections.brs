@@ -442,13 +442,17 @@ function NxCollectionFoldPick(collection as Object, targets as Object, defs as O
     sid = NxFranchiseCollectionStockChannel(collection.items, defs, available)
     if sid <> invalid then
         t = stockByID[NxToStr(sid)]
-        if t <> invalid then return t
+        if t <> invalid then
+            collection.foldWhy = "franchise id"
+            return t
+        end if
     end if
 
     ' 2. Dictionary by title: into the stock channel when there is one, else
     '    the found franchise the same entry made.
     def = NxFranchiseMatchFilm(collection.title, defs)
     if def <> invalid then
+        collection.foldWhy = "title (" + NxToStr(def.canonicalName) + ")"
         if def.stockChannelID <> invalid then
             t = stockByID[NxToStr(def.stockChannelID)]
             if t <> invalid then return t
@@ -463,12 +467,18 @@ function NxCollectionFoldPick(collection as Object, targets as Object, defs as O
     ' 3. The scan's own signals, when they point at a stock franchise channel.
     if collection.matchedChannel <> invalid then
         for each t in targets
-            if t.stockChannelID <> invalid and t.label = collection.matchedChannel then return t
+            if t.stockChannelID <> invalid and t.label = collection.matchedChannel then
+                collection.foldWhy = "name match"
+                return t
+            end if
         end for
     end if
     if collection.contentOverlap <> invalid then
         t = stockByID[NxToStr(collection.contentOverlap.channelID)]
-        if t <> invalid then return t
+        if t <> invalid then
+            collection.foldWhy = "manifest overlap"
+            return t
+        end if
     end if
 
     ' 4. Plain item overlap: most of the collection already in one pool.
@@ -487,7 +497,10 @@ function NxCollectionFoldPick(collection as Object, targets as Object, defs as O
         end if
     end for
     if best <> invalid then
-        if NxCollectionsPercent(bestCount, total) >= threshold then return best
+        if NxCollectionsPercent(bestCount, total) >= threshold then
+            collection.foldWhy = "item overlap " + bestCount.ToStr() + " of " + total.ToStr()
+            return best
+        end if
     end if
     return invalid
 end function
@@ -644,7 +657,7 @@ function NxCollectionsStep(opts as Object) as Object
     folded = []
     for each c in candidates
         if c.foldedInto <> invalid then
-            folded.Push({ title: c.title, into: c.foldedInto })
+            folded.Push({ title: c.title, into: c.foldedInto, why: NxToStr(c.foldWhy), items: c.items.Count() })
         else
             detail = NxCollectionsDuplicateWarning(c)
             if detail = invalid then detail = NxCollectionsMemberSummary(c)

@@ -593,6 +593,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         collectionIDs.Push(ch.id)
     end for
     print "library: collections: "; cl.rows.Count(); " listed, "; cl.folded.Count(); " folded into franchises, "; collectionIDs.Count(); " channels, "; cl.overCap; " past CH 699, in "; timer.TotalMilliseconds(); " ms"
+    for each f in cl.folded
+        print "library: collection "; f.title; " ("; f.items; " items) folds into "; f.into; " by "; f.why
+    end for
     timer.Mark()
     for each ch in channels
         ' Collection channels air their collection unshuffled, as the web
