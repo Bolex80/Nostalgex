@@ -42,8 +42,9 @@ and already pinned to the Apple TV.
 Start-up follows upstream's cached-library path. The last build's guide is
 saved on the TV and shown at once when a fresh build would give the same
 result: same local day, same UTC day (the pool shuffle's seed), same packages
-and same build. A build is the app version and the commit `scripts/deploy.sh`
-writes into the manifest (`nx_build`), since a sideload keeps the version:
+and same build. A build is the app version and a hash of the zip's files
+that `scripts/deploy.sh` writes into the manifest (`nx_build`), since a
+sideload keeps the version:
 installed over another build, one with new channel data or filter rules
 would otherwise have kept the old one's results. The library is then refreshed in the background, and
 the guide is swapped only if it changed.

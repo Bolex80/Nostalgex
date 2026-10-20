@@ -17,8 +17,9 @@ function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
     return NxBuildKey() + "|" + (nowSec \ 86400).ToStr() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
 end function
 
-' Which build this is, for the cache keys: the app version and the commit
-' scripts/deploy.sh writes into the manifest (`nx_build`). A sideload keeps
+' Which build this is, for the cache keys: the app version and the hash of
+' the zip's files that scripts/deploy.sh writes into the manifest
+' (`nx_build`). A sideload keeps
 ' the version, and its channel data and filter may still have changed.
 function NxBuildKey() as String
     info = CreateObject("roAppInfo")

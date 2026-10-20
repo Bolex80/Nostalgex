@@ -32,17 +32,9 @@ stage=out/stage
 rm -rf "$stage" out/nostalgex-roku.zip
 mkdir -p "$stage"
 cp -r manifest source components "$stage"/
-# Which code this zip is (the commit, plus a hash of any uncommitted change),
-# for the saved guide and pools' keys: a sideload keeps the manifest's version,
-# so without it a build installed over another reused the old one's filter
-# results (components/LibraryTask.brs NxBuildKey).
-build=$(git rev-parse --short HEAD)
-if ! git diff --quiet HEAD; then build="$build-$(git diff HEAD | sha1sum | cut -c1-8)"; fi
-printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
 # The MIT notice and the fonts' licences travel with the app (the Channel
-# Store needs them; Discussion #8, item 6).
-# The third-party notices go under licenses/: at the zip's root the static
-# analysis calls the file extraneous (the maintainer's sca-cmd run, Discussion #8).
+# Store needs them; Discussion #8, item 6). The third-party notices go under
+# licenses/: at the zip's root the static analysis calls the file extraneous.
 cp LICENSE "$stage"/
 mkdir -p "$stage"/licenses
 cp THIRD-PARTY-LICENSES.md "$stage"/licenses/THIRD-PARTY-LICENSES.txt
@@ -64,6 +56,14 @@ if [ "$mode" = test ]; then
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs
 fi
+# Which build this zip is, for the saved guide and pools' keys: a sideload
+# keeps the manifest's version, so without it a build installed over another
+# reused the old one's filter results (components/LibraryTask.brs
+# NxBuildKey). A hash of every staged file, so it holds from a copy without
+# git too (the personal repo's build/).
+build=$(cd "$stage" && find . -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
+printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
+echo "build: $build"
 (cd "$stage" && zip -qr ../nostalgex-roku.zip .)
 
 failed=0
