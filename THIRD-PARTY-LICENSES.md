@@ -17,3 +17,10 @@ copyright Chad Mueller / Muell Haus Inc., MIT License. See [LICENSE](LICENSE).
 
 The Nostalgex wordmark in `images/` (`logo.png`, the icons and splash) is
 upstream's brand, from its `logo/png/`, used at the maintainer's request.
+
+## QR Code generator
+
+`source/util/QrCode.brs` follows the design of Project Nayuki's
+[QR Code generator library](https://www.nayuki.io/page/qr-code-generator-library),
+copyright (c) Project Nayuki, MIT License: its Reed-Solomon blocks, function
+patterns, codeword placement and mask penalty.

@@ -10,6 +10,7 @@ sub init()
     m.prompt = m.top.FindNode("prompt")
     m.code = m.top.FindNode("code")
     m.hint = m.top.FindNode("hint")
+    m.qr = m.top.FindNode("qr")
     m.top.SetFocus(true)
     reg = NxPlexRegistry()
     kind = NxSignedInKind()
@@ -51,6 +52,7 @@ sub showConnect()
     if m.connect <> invalid then return
     m.prompt.text = ""
     m.code.text = ""
+    m.qr.visible = false
     m.hint.text = ""
     m.connect = CreateObject("roSGNode", "ConnectView")
     m.connect.ObserveField("done", "onConnectDone")
@@ -84,6 +86,7 @@ end sub
 
 sub startSignIn()
     m.code.text = ""
+    m.qr.visible = false
     m.prompt.text = "Connecting to Plex…"
     m.hint.text = ""
     m.signIn = CreateObject("roSGNode", "PlexSignInTask")
@@ -97,6 +100,7 @@ end sub
 sub onSignInState()
     state = m.signIn.status
     m.code.text = ""
+    m.qr.visible = false
     if state = "checking" then
         m.prompt.text = "Checking your Plex sign-in…"
         m.hint.text = ""
@@ -106,6 +110,7 @@ sub onSignInState()
         m.codeShown = true
         m.prompt.text = "On your phone or computer, go to plex.tv/link and enter this code:"
         m.code.text = m.signIn.code
+        showQr(m.signIn.code)
         m.hint.text = "The code refreshes every few minutes."
         signInShown()
     else if state = "discovering" then
@@ -173,7 +178,64 @@ sub closePicker()
 end sub
 
 sub onSignInCode()
-    if m.signIn.status = "code" then m.code.text = m.signIn.code
+    if m.signIn.status = "code" then
+        m.code.text = m.signIn.code
+        showQr(m.signIn.code)
+    end if
+end sub
+
+' The code's plex.tv/link address as a QR code, 200 px square on white with
+' "SCAN TO CONNECT" under it (QRCodeView and its caption). Each run of dark
+' modules in a row is one rectangle.
+sub showQr(code as String)
+    m.qr.RemoveChildrenIndex(m.qr.GetChildCount(), 0)
+    modules = NxQrMatrix("https://www.plex.tv/link/?pin=" + code)
+    if modules = invalid or code = "" then
+        m.qr.visible = false
+        return
+    end if
+    box = 200
+    size = modules.Count()
+    ' Two light modules of quiet zone each side, inside the white square.
+    cell = box \ (size + 4)
+    origin = (box - cell * size) \ 2
+    bg = CreateObject("roSGNode", "Rectangle")
+    bg.width = box
+    bg.height = box
+    bg.color = "0xFFFFFFFF"
+    m.qr.AppendChild(bg)
+    for y = 0 to size - 1
+        row = modules[y]
+        x = 0
+        while x < size
+            if row[x] then
+                start = x
+                while x < size and row[x]
+                    x = x + 1
+                end while
+                r = CreateObject("roSGNode", "Rectangle")
+                r.translation = [origin + start * cell, origin + y * cell]
+                r.width = (x - start) * cell
+                r.height = cell
+                r.color = "0x000000FF"
+                m.qr.AppendChild(r)
+            else
+                x = x + 1
+            end if
+        end while
+    end for
+    caption = CreateObject("roSGNode", "Label")
+    caption.text = "SCAN TO CONNECT"
+    f = CreateObject("roSGNode", "Font")
+    f.uri = "pkg:/fonts/DMMono-Regular.ttf"
+    f.size = 20
+    caption.font = f
+    caption.color = "0x8E8E9399"
+    caption.width = box
+    caption.horizAlign = "center"
+    caption.translation = [0, box + 12]
+    m.qr.AppendChild(caption)
+    m.qr.visible = true
 end sub
 
 ' Roku certification times each launch to the AppLaunchComplete beacon, sent
