@@ -476,6 +476,13 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' Which server kind the items are from: an Emby Dolby Vision profile 5
     ' file goes on no channel.
     backend = NxSignedInKind()
+    if backend = "emby" then
+        leftOff = 0
+        for each it in items
+            if NxIsLeftOffChannels(it, backend) then leftOff = leftOff + 1
+        end for
+        print "library: Emby: "; leftOff; " Dolby Vision profile 5 item(s) left off channels"
+    end if
     bundles = NxEnabledBundles()
     poolIds = NxPoolChannelIds(config, bundles)
 

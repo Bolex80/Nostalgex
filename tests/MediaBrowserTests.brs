@@ -101,6 +101,18 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "auth, no token", FormatJson(NxMbReadAuth({ code: 200, json: { User: { Id: "u1" } } })), """""")
     NxCheck(r, "auth, unreachable", NxToStr(NxMbReadAuth({ code: -28, json: invalid }) = invalid), "true")
 
+    ' Emby's segment format, transcribed from upstream EmbySegmentContainerTests.swift.
+    for each codec in ["h264", "H264", "mpeg2video", "mpeg4", "msmpeg4v3", "vc1", "vp9", "av1"]
+        NxCheck(r, "emby segments, " + codec + " with HEVC", NxEmbySegmentContainer(codec, true), "ts")
+        NxCheck(r, "emby segments, " + codec + " without HEVC", NxEmbySegmentContainer(codec, false), "ts")
+    end for
+    for each codec in ["hevc", "HEVC", "h265"]
+        NxCheck(r, "emby segments, " + codec + " with HEVC", NxEmbySegmentContainer(codec, true), "mp4")
+        NxCheck(r, "emby segments, " + codec + " re-encoded to H.264", NxEmbySegmentContainer(codec, false), "ts")
+    end for
+    NxCheck(r, "emby segments, unknown codec with HEVC", NxEmbySegmentContainer("", true), "mp4")
+    NxCheck(r, "emby segments, unknown codec without HEVC", NxEmbySegmentContainer("", false), "ts")
+
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

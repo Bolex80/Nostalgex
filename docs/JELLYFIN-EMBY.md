@@ -71,7 +71,12 @@ code path.
 4. the retry after a failed direct play has to turn off both direct play and
    direct stream;
 5. collection members (episodes rather than series);
-6. how the server name is found.
+6. how the server name is found;
+7. HLS segments: TS for H.264 (above), fMP4 otherwise;
+8. a Dolby Vision profile 5 file goes on no channel. Emby names the profile
+   in the video stream's `ExtendedVideoSubType` ("DoviProfile50"), and 4.10.1
+   sends it in a form drawn green and purple (upstream `5d6d65f`,
+   `ccb6854`). It stays in the library; only the channels leave it out.
 
 ## What we checked on test servers
 
@@ -142,9 +147,8 @@ servers, driven over ECP.
   `tests/tools/check-includes.py` now fails the run when this happens.
 - **Quick Connect needs a POST.** Jellyfin 12.2 answers
   `GET /QuickConnect/Initiate` with 405; `POST` works. Upstream's Apple TV app
-  (`JellyfinAPIService.quickConnectInitiate`, a default GET) and its web tuner
-  (`web-tuner.html`, a `fetch` with no method) both send the GET, so their
-  Quick Connect may fail on current Jellyfin. That is worth telling upstream.
+  and web tuner sent the GET then. Told upstream, both start with a POST since
+  2026-10-19 (`1f1a55f`, `180fbd7`, in Docker `tuner-v1.0.2`).
 - **A string compared with an object stopped the sign-in task.** BrightScript
   raises a type mismatch where JavaScript would answer false.
 - **The password keyboard closed as soon as it opened.** The username
@@ -164,6 +168,13 @@ servers, driven over ECP.
   and repeated fetches. `StartTimeTicks` on the playlist is dropped from the
   segment requests, so it's no way round it. Not fixed here yet; a single
   progressive stream for these files is the next thing to try.
+- **What that restart costs is sync, upstream found** (Discussion #8,
+  2026-10-20). With the video copied and the audio converted, fMP4 stamps
+  both tracks from zero, so on their Apple TV the sound ran early by up to a
+  GOP (H.264 + DTS joined at 247 s: -1,720 ms on fMP4, +35 ms on TS). TS
+  segments carry the source timestamps. The port now asks Emby for TS when
+  the video is H.264, as upstream's `embySegmentContainer` (`72c844d`); a
+  file that may be HEVC stays fMP4. Not yet checked for sync on a Roku.
 
 ## How it fits the app
 

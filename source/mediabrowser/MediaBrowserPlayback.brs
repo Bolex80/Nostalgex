@@ -71,8 +71,10 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     ' Emby needs a PlaySessionId on a hand-built address or every segment
     ' fails (EmbyAPIService.buildTranscodeURL); Jellyfin takes one as well.
     session = LCase(CreateObject("roDeviceInfo").GetRandomUUID().Replace("-", ""))
+    segments = "mp4"
+    if NxServerKind(s) = "emby" then segments = NxEmbySegmentContainer(vcodec, hevc)
     videoCodecs = "h264"
-    if hevc then videoCodecs = "h264,hevc"
+    if hevc and segments <> "ts" then videoCodecs = "h264,hevc"
     q = "MediaSourceId=" + NxUrlEncode(msid)
     q = q + "&DeviceId=" + NxUrlEncode(NxPlexClientId())
     q = q + "&PlaySessionId=" + session
@@ -80,12 +82,28 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     ' High enough that the server copies the video rather than re-encode it
     ' to fit, as the web tuner asks.
     q = q + "&VideoBitrate=120000000&TranscodingMaxAudioChannels=6"
-    ' fMP4 segments, which carry HEVC as well as H.264.
-    q = q + "&SegmentContainer=mp4"
+    ' fMP4 segments, which carry HEVC as well as H.264; TS for H.264 on Emby.
+    q = q + "&SegmentContainer=" + segments
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
     return { content: content, stopUrl: stopUrl, route: route }
+end function
+
+' Mirrors JellyfinPlaybackResolver.embySegmentContainer (upstream 72c844d).
+' Emby restarts its encode at the segment a mid-programme join asks for. With
+' the video copied and the audio converted, fMP4 stamps both tracks from zero,
+' so the sound ran early by up to a GOP for the rest of the programme
+' (H.264 + DTS joined at 247 s: -1,720 ms on fMP4, +35 ms on TS, measured by
+' upstream with AVPlayer on Emby 4.8 to 4.10). TS carries the source
+' timestamps, so H.264 goes as TS. Anything that may be HEVC stays fMP4, and
+' TS is offered H.264 only (transcodeVideoCodecs). Jellyfin's fMP4 join
+' measured in sync and is unchanged.
+function NxEmbySegmentContainer(videoCodec as String, supportsHevc as Boolean) as String
+    codec = LCase(videoCodec)
+    mayBeHevc = supportsHevc and (codec = "" or codec = "hevc" or codec = "h265")
+    if mayBeHevc then return "mp4"
+    return "ts"
 end function
 
 ' The saved server an airing comes from, or invalid.
