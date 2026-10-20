@@ -490,12 +490,15 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' Which server kind the items are from: an Emby Dolby Vision profile 5
     ' file goes on no channel.
     backend = NxSignedInKind()
+    ' What the franchise and collection steps read, as upstream's onChannels:
+    ' the filter leaves those files out itself, and these must too.
+    onChannels = items
     if backend = "emby" then
-        leftOff = 0
+        onChannels = []
         for each it in items
-            if NxIsLeftOffChannels(it, backend) then leftOff = leftOff + 1
+            if not NxIsLeftOffChannels(it, backend) then onChannels.Push(it)
         end for
-        print "library: Emby: "; leftOff; " Dolby Vision profile 5 item(s) left off channels"
+        print "library: Emby: "; items.Count() - onChannels.Count(); " Dolby Vision profile 5 item(s) left off channels"
     end if
     bundles = NxEnabledBundles()
     poolIds = NxPoolChannelIds(config, bundles)
@@ -563,7 +566,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         m.top.progress = "Finding franchises…"
         defs = NxFranchiseDefinitions(ParseJson(ReadAsciiFile("pkg:/data/franchises.json")))
         fr = NxFranchiseStep({
-            channels: channels, items: items, defs: defs,
+            channels: channels, items: onChannels, defs: defs,
             choices: NxSavedFranchiseChoices(), bundleChannelIDs: franchiseBundleIDs,
             manifest: manifest, exclusiveRules: exclusive
         })
@@ -580,7 +583,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' package already carries folds into it instead, as on the Apple TV.
     timer.Mark()
     cl = NxCollectionsStep({
-        channels: channels, raw: collections.raw, items: items, serverKeys: collections.serverKeys,
+        channels: channels, raw: collections.raw, items: onChannels, serverKeys: collections.serverKeys,
         manifest: manifest, enabledKeys: NxSavedCollectionKeys(),
         franchise: fr, franchiseBundleIDs: franchiseBundleIDs, defs: defs
     })
@@ -673,7 +676,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' Compared with the task's own copy: each read of m.top.guide copies the
     ' whole guide out of the node.
     timer.Mark()
+    matched = false
     if shown and old <> invalid and FormatJson(guide.channels) = FormatJson(old.channels) and FormatJson(guide.bundles) = FormatJson(old.bundles) and FormatJson(guide.franchises) = FormatJson(old.franchises) and FormatJson(guide.collections) = FormatJson(old.collections) then
+        matched = true
         print "library: background refresh matches the saved guide"
     else
         m.top.fromCache = false
@@ -682,14 +687,15 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         m.top.status = "ready"
     end if
     print "library: compared and handed over in "; timer.TotalMilliseconds(); " ms"
-    ' The saves, unless the file already holds this: the same schedules under
-    ' the same key, or the same pools under the same key from a build that
-    ' filtered nothing new (the clock-read channels it did filter are never
-    ' reused from the file). cachefs: can lose a file, so it must be there.
+    ' The saves, unless the file already holds this: a guide that matched the
+    ' one on screen (so its packages, franchise and collection lists too) and
+    ' kept its schedules, under the same key; for the pools, also from a build
+    ' that filtered nothing new (the clock-read channels it did filter are
+    ' never reused from the file). cachefs: can lose a file, so it must be there.
     fs = CreateObject("roFileSystem")
     timer.Mark()
     guideKey = NxGuideCacheKey(nowSec&, bundles)
-    if sameSchedule and m.savedGuideKey = guideKey and fs.Exists(NxGuideCachePath()) then
+    if matched and sameSchedule and m.savedGuideKey = guideKey and fs.Exists(NxGuideCachePath()) then
         print "library: the saved guide is this one; not saved again"
     else
         WriteAsciiFile(NxGuideCachePath(), FormatJson({ key: guideKey, guide: guide }))
@@ -698,7 +704,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     end if
     timer.Mark()
     poolsKey = NxPoolCacheKey(NxSeasonKey(guide.bundles, clock), guide.enabledBundles)
-    if sameSchedule and reuse <> invalid and m.savedPoolsKey = poolsKey and m.savedPoolsFingerprint = fingerprint and fs.Exists(NxPoolCachePath()) then
+    if matched and sameSchedule and reuse <> invalid and m.savedPoolsKey = poolsKey and m.savedPoolsFingerprint = fingerprint and fs.Exists(NxPoolCachePath()) then
         print "library: the saved pools are these; not saved again"
     else
         NxSavePools(ordered, guide, clock, channels)

@@ -49,7 +49,7 @@ function NxSeasonStartDate(bundle as Dynamic, year as Integer) as Dynamic
     if start.relativeTo <> "usThanksgiving" then return invalid
     days = 0
     t = type(start.days)
-    if t = "roInt" or t = "Integer" or t = "roLongInteger" or t = "LongInteger" then days = start.days
+    if t = "roInt" or t = "roInteger" or t = "Integer" or t = "roLongInteger" or t = "LongInteger" then days = start.days
     dt = CreateObject("roDateTime")
     dt.FromISO8601String(year.ToStr() + "-11-" + Right("0" + NxUsThanksgivingDay(year).ToStr(), 2) + "T00:00:00Z")
     dt.FromSeconds(dt.AsSeconds() + days * 86400)
