@@ -29,8 +29,10 @@ sub Main(args = invalid as Dynamic)
             link = NxDeepLinkFrom(msg.GetInfo())
             if link <> invalid then scene.deepLink = link
         end if
-        if type(msg) = "roAppMemoryNotificationEvent" or type(msg) = "roDeviceInfoEvent" then
-            print "app: memory notice ("; type(msg); ") "; FormatJson(msg.GetInfo()); "; "; mem.GetMemoryLimitPercent(); "% of the limit"
-        end if
+        ' roDeviceInfo also sends the TV's power and mute changes here; only
+        ' one with a memory level is a memory notice.
+        notice = type(msg) = "roAppMemoryNotificationEvent"
+        if type(msg) = "roDeviceInfoEvent" then notice = msg.GetInfo().DoesExist("generalMemoryLevel")
+        if notice then print "app: memory notice ("; type(msg); ") "; FormatJson(msg.GetInfo()); "; "; mem.GetMemoryLimitPercent(); "% of the limit"
     end while
 end sub
