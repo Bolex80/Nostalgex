@@ -3,8 +3,12 @@
 ' synthetic, over the generated library under each pinned clock (each with
 ' the backend it runs as), with the vendored membership manifest. Returns the
 ' failure count.
+'
+' `shard` ({ index, count }, from tests/run.sh) checks only the channels whose
+' position is `index` mod `count`, so several interpreters split the work;
+' invalid checks them all, as on a TV.
 
-function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Integer
+function NxRunFilterTests(vectorsPath as String, manifestPath as String, shard = invalid as Dynamic) as Integer
     timer = CreateObject("roTimespan")
     v = ParseJson(ReadAsciiFile(vectorsPath))
     manifest = ParseJson(ReadAsciiFile(manifestPath))
@@ -22,9 +26,15 @@ function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Inte
         compiled.Push(NxFilterChannel(c))
     end for
 
+    shardIndex = 0
+    shardCount = 1
+    if shard <> invalid then
+        shardIndex = shard.index
+        shardCount = shard.count
+    end if
     for each clock in v.clocks
         results = v.results[clock.name]
-        for i = 0 to compiled.Count() - 1
+        for i = shardIndex to compiled.Count() - 1 step shardCount
             parts = []
             evaluations = evaluations + v.items.Count()
             for each row in NxFilterPool(v.items, compiled[i], manifest, exclusive, clock, clock.backend)
@@ -42,6 +52,7 @@ function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Inte
     ' key there. A TV keeps them apart, and a TV that didn't would fail here.
     folds = ParseJson("{""k"": 1, ""K"": 2}").Count() = 1
     for each c in v.parseTmdbIdFromPlex
+        if shardIndex <> 0 then exit for
         if NxTruthy(c.bothCases) and folds and NxTestRuntime() = "interpreter" then
             print "  skip parseTmdbIdFromPlex with guid and Guid: this interpreter folds JSON key case"
         else
@@ -54,6 +65,8 @@ function NxRunFilterTests(vectorsPath as String, manifestPath as String) as Inte
         end if
     end for
 
-    print "filter vectors (upstream "; Left(v.upstream.commit, 7); "): "; r.pass; " passed,"; r.fail; " failed"
+    which = ""
+    if shardCount > 1 then which = ", channels " + shardIndex.ToStr() + " mod " + shardCount.ToStr()
+    print "filter vectors (upstream "; Left(v.upstream.commit, 7); which; "): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

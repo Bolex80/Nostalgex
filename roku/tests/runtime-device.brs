@@ -3,3 +3,8 @@
 function NxTestRuntime() as String
     return "device"
 end function
+
+' A TV runs every suite, and every channel of the filter vectors.
+function NxTestShard() as Dynamic
+    return invalid
+end function
