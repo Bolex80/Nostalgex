@@ -82,14 +82,7 @@ final class SignInTourUITests: SignInTourCase {
         launchFresh()
         moveFocus(to: app.buttons["JELLYFIN"], .down)
         press(.select, "JELLYFIN")
-        let find = app.buttons["FIND MY SERVER"]
-        XCTAssertTrue(find.waitForExistence(timeout: 10))
-        sleep(1)
-        XCTAssertTrue(find.hasFocus, "FIND MY SERVER should start focused")
-        shot("after-08-jellyfin-find-focus-find")
-        gallery([(.down, "after-09-jellyfin-find-focus-type"), (.down, "after-10-jellyfin-find-focus-back"),
-                 (.up, ""), (.up, "")])
-        press(.select, "FIND MY SERVER")
+        // The search starts as the screen opens.
         shot("after-11-jellyfin-searching")
         // One Jellyfin answers and has Quick Connect on: no pick, no typing, straight to the code.
         guard let code = codeOnScreen(length: 6, timeout: 30) else { return XCTFail("no Quick Connect code") }
@@ -108,9 +101,6 @@ final class SignInTourUITests: SignInTourCase {
         launchFresh()
         moveFocus(to: app.buttons["JELLYFIN"], .down)
         press(.select, "JELLYFIN")
-        XCTAssertTrue(app.buttons["FIND MY SERVER"].waitForExistence(timeout: 10))
-        sleep(1)
-        press(.select, "FIND MY SERVER")
         guard codeOnScreen(length: 6, timeout: 30) != nil else { return XCTFail("no Quick Connect code") }
         let usePassword = app.buttons["SIGN IN WITH A PASSWORD"]
         XCTAssertTrue(usePassword.hasFocus)
@@ -119,7 +109,7 @@ final class SignInTourUITests: SignInTourCase {
         sleep(1)
         shot("after-15-jellyfin-password-focus-username")
         typeIntoFocusedField(env["NX_JF_USER"] ?? "")
-        moveFocus(to: app.secureTextFields.firstMatch, .down)
+        moveFocus(to: app.secureTextFields["jellyfinPasswordField"], .down)
         shot("after-16-jellyfin-password-focus-password")
         typeIntoFocusedField(env["NX_JF_PASS"] ?? "", secret: true)
         moveFocus(to: app.buttons["SIGN IN"], .down)
@@ -137,12 +127,6 @@ final class SignInTourUITests: SignInTourCase {
         launchFresh()
         moveFocus(to: app.buttons["EMBY"], .down)
         press(.select, "EMBY")
-        let find = app.buttons["FIND MY SERVER"]
-        XCTAssertTrue(find.waitForExistence(timeout: 10))
-        sleep(1)
-        XCTAssertTrue(find.hasFocus)
-        shot("after-19-emby-find-focus-find")
-        press(.select, "FIND MY SERVER")
         XCTAssertTrue(waitForText("SIGN IN TO"), "one Emby answering should open its sign-in with no pick")
         sleep(1)
         shot("after-20-emby-found-users-focus-first")
@@ -154,22 +138,28 @@ final class SignInTourUITests: SignInTourCase {
         writeLog("after-E-emby-discovered")
     }
 
+    /// Nothing answering the search (the stand-in), which is also what a declined Local
+    /// Network prompt looks like: focus has to land on TYPE AN ADDRESS by itself.
     func testF_EmbyTypedAddressToGuide() {
         let env = ProcessInfo.processInfo.environment
-        launchFresh()
+        launch(["-uiTestDiscovery", "none"])
+        XCTAssertTrue(app.buttons["CONNECT TO PLEX"].waitForExistence(timeout: 40))
+        sleep(2)
         moveFocus(to: app.buttons["EMBY"], .down)
         press(.select, "EMBY")
         let type = app.buttons["TYPE AN ADDRESS"]
-        XCTAssertTrue(type.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["embyNoServersFound"].waitForExistence(timeout: 10))
         sleep(1)
-        moveFocus(to: type, .down)
+        XCTAssertTrue(type.hasFocus, "nothing found should leave focus on TYPE AN ADDRESS")
+        shot("after-19-emby-nothing-answered-focus-type")
         press(.select, "TYPE AN ADDRESS")
-        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["serverAddressField"].waitForExistence(timeout: 10))
         sleep(1)
         shot("after-22-emby-address-focus-field")
         gallery([(.down, "after-23-emby-address-focus-back"), (.up, "")])
         typeIntoFocusedField(env["NX_EMBY_ADDR"] ?? "")
         // Closing the keyboard checks the address: no DOWN, no CONNECT.
+        if !app.staticTexts["SIGN IN TO"].waitForExistence(timeout: 3) { shot("debug-F-after-address") }
         XCTAssertTrue(waitForText("SIGN IN TO"))
         sleep(1)
         shot("after-24-emby-users-focus-first")
@@ -193,15 +183,17 @@ final class SignInTourUITests: SignInTourCase {
 
     func testG_EmbyUserWithNoPassword() {
         let env = ProcessInfo.processInfo.environment
-        launchFresh()
+        launch(["-uiTestDiscovery", "none"])
+        XCTAssertTrue(app.buttons["CONNECT TO PLEX"].waitForExistence(timeout: 40))
+        sleep(2)
         moveFocus(to: app.buttons["EMBY"], .down)
         press(.select, "EMBY")
         let type = app.buttons["TYPE AN ADDRESS"]
-        XCTAssertTrue(type.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["embyNoServersFound"].waitForExistence(timeout: 10))
         sleep(1)
         moveFocus(to: type, .down)
         press(.select, "TYPE AN ADDRESS")
-        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["serverAddressField"].waitForExistence(timeout: 10))
         sleep(1)
         typeIntoFocusedField(env["NX_EMBY_ADDR"] ?? "")
         XCTAssertTrue(waitForText("SIGN IN TO"))
@@ -226,9 +218,6 @@ final class SignInTourUITests: SignInTourCase {
         sleep(2)
         moveFocus(to: app.buttons["JELLYFIN"], .down)
         press(.select, "JELLYFIN")
-        XCTAssertTrue(app.buttons["FIND MY SERVER"].waitForExistence(timeout: 10))
-        sleep(1)
-        press(.select, "FIND MY SERVER")
         let first = app.buttons["jellyfinDiscoveredServer-fixture-1"]
         if !first.waitForExistence(timeout: 10) {
             shot("debug-H-after-find")
@@ -246,6 +235,8 @@ final class SignInTourUITests: SignInTourCase {
         sleep(1)
         shot("after-33-jellyfin-server-did-not-answer")
         note("after a failed check, focus: \(focusedDescription())")
+        gallery([(.down, ""), (.down, "after-33b-jellyfin-find-focus-search-again"), (.down, "after-33c-jellyfin-find-focus-type"),
+                 (.down, "after-33d-jellyfin-find-focus-back")])
         writeLog("after-H-several-and-dead")
     }
 
@@ -255,9 +246,6 @@ final class SignInTourUITests: SignInTourCase {
         sleep(2)
         moveFocus(to: app.buttons["EMBY"], .down)
         press(.select, "EMBY")
-        XCTAssertTrue(app.buttons["FIND MY SERVER"].waitForExistence(timeout: 10))
-        sleep(1)
-        press(.select, "FIND MY SERVER")
         XCTAssertTrue(app.staticTexts["embyNoServersFound"].waitForExistence(timeout: 10))
         sleep(1)
         XCTAssertTrue(app.buttons["TYPE AN ADDRESS"].hasFocus, "nothing found should move focus to TYPE AN ADDRESS")

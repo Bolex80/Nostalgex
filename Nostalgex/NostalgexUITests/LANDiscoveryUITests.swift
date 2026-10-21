@@ -1,7 +1,7 @@
 import XCTest
 
-/// Drives FIND MY SERVER on the Emby screen against whatever is really on the test
-/// machine's LAN. Needs a live Emby server, so it only runs when asked:
+/// Opens the Emby screen, whose search starts on its own, against whatever is really on
+/// the test machine's LAN. Needs a live Emby server, so it only runs when asked:
 ///
 ///   TEST_RUNNER_NOSTALGEX_LAN_DISCOVERY_UITEST=1 xcodebuild test ... -scheme NostalgexUITests -only-testing:NostalgexUITests/LANDiscoveryUITests
 ///
@@ -24,11 +24,7 @@ final class LANDiscoveryUITests: XCTestCase {
         moveFocus(to: app.buttons["EMBY"], pressing: .down)
         XCUIRemote.shared.press(.select)
 
-        let find = app.buttons["FIND MY SERVER"]
-        XCTAssertTrue(find.waitForExistence(timeout: 10))
-        sleep(1)
-        XCTAssertTrue(find.hasFocus, "FIND MY SERVER should start focused")
-        XCUIRemote.shared.press(.select)
+        // The search starts as the screen opens; FIND MY SERVER is only the retry.
 
         let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'embyDiscoveredServer-'")).firstMatch
         let signInTo = app.staticTexts["SIGN IN TO"]
