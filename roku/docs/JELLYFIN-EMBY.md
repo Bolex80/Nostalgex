@@ -217,7 +217,11 @@ upstream doesn't do.
 **HLS built on the TV, not taken from PlaybackInfo.** That would be a POST
 before every tune, and PlaybackInfo had Jellyfin burn subtitles into the
 picture (above). Direct play when the TV decodes the file (MKV only on the
-home network), else `master.m3u8` copying the video.
+home network), else `master.m3u8` copying the video. "Decodes" is the TV's
+own answer, as for Plex: `CanDecodeVideo` with the codec and profile and
+`CanDecodeAudio` with the codec (`source/util/DirectPlay.brs`), so a Main 10
+file on a TV that takes only 8-bit HEVC goes to the server. The answer with
+the channel count is printed but doesn't decide.
 
 **No reporting to the server.** The Roku app sends Plex nothing about what you
 watch, and its privacy policy says so; Jellyfin and Emby are the same, which

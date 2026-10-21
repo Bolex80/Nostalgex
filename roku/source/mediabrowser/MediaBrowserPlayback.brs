@@ -4,9 +4,9 @@
 ' Video node can play, joined at `offsetSec` as NxPlexStreamContent does for
 ' Plex, and the stream calls that pick between the two by the airing's server.
 '
-' Direct play when this TV decodes the file as stored
-' (/Videos/{id}/stream.<ext>?Static=true); otherwise the server's HLS
-' (/Videos/{id}/master.m3u8), copying the video when the TV decodes it and
+' Direct play when this TV decodes the file as stored, as
+' source/util/DirectPlay.brs asks it (/Videos/{id}/stream.<ext>?Static=true);
+' otherwise the server's HLS (/Videos/{id}/master.m3u8), copying the video when the TV decodes it and
 ' converting only what it doesn't. The HLS address is built here, as the
 ' Apple TV app's fallback is, rather than asked of PlaybackInfo:
 '   - that needs a POST, and network requests can't run on the render thread;
@@ -53,6 +53,8 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     containers = ["mp4", "mov", "m4v"]
     if onLan then containers.Push("mkv")
     direct = NxHasValue(containers, container) and videoOk and audioOk
+    ' And only what this TV decodes, profile and channels included.
+    if direct then direct = NxDeviceDecodes(b)
 
     if direct then
         ' .mp4 on the MP4 family: Jellyfin labels a static stream by the

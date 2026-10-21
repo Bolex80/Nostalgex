@@ -13,8 +13,9 @@
 '   - Items carry `serverIndex`, not upstream's serverUrl and serverToken: the
 '     token stays in the registry, never on an item.
 '   - `meta` (a display string) is built by the guide, not here.
-'   - Items also carry the chosen version's videoCodec and audioCodec, for
-'     the player's direct-play decision, and episodes their season and episode
+'   - Items also carry the chosen version's videoCodec, audioCodec,
+'     videoProfile and audioChannels, for the player's direct-play decision
+'     (source/util/DirectPlay.brs), and episodes their season and episode
 '     numbers, for the info panel. No rule reads them.
 '   - Shows' episodes are fetched five at a time, as upstream's are, and kept
 '     in show order as its Promise.all keeps them; other requests run one at
@@ -209,10 +210,10 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
     media = NxPickBestVersion(ep.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -251,7 +252,9 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
         seasonNumber: ep.parentIndex,
         episodeNumber: ep.index,
         videoCodec: codecs.video,
-        audioCodec: codecs.audio
+        audioCodec: codecs.audio,
+        videoProfile: codecs.videoProfile,
+        audioChannels: codecs.audioChannels
     }
 end function
 
@@ -273,10 +276,10 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
     media = NxPickBestVersion(item.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -320,7 +323,9 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
         librarySource: librarySource,
         tmdbID: NxParseTmdbIdFromPlex(item, false),
         videoCodec: codecs.video,
-        audioCodec: codecs.audio
+        audioCodec: codecs.audio,
+        videoProfile: codecs.videoProfile,
+        audioChannels: codecs.audioChannels
     }
 end function
 
