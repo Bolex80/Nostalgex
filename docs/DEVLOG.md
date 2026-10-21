@@ -3,6 +3,37 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (clock changes: a day runs to the next midnight, on every surface)
+
+**Shipped.** Nothing yet. Branch `release/dst` = main `6ea626a` + `dst-fix` (merged, hashes kept) + the Roku port, not pushed. nostalgex.app gets it when main is pushed, Docker with `tuner-v1.0.4` from the same commit. The Apple TV app and the Roku app get it in their next builds.
+
+**Why.** Where the clocks change, a local day is 23 or 25 hours long (23.5 or 24.5 on Lord Howe), and all three engines packed every day as 86,400 s from midnight and found yesterday 86,400 s before it.
+- The day the clocks go back: its schedule ended at 11 PM. From 11 PM to midnight the Apple TV tuned to the logo and SELECT A CHANNEL, and the web tuner handed the player the day's last programme at a start point past its end. The Roku port does what the web tuner does.
+- The day after they go forward: the 23-hour day's schedule ran an hour into the next one, and the next day's no-repeat check read two days back, so it aired titles from the day before.
+
+**Changed.**
+- Swift and JS (`901a99a`, on `dst-fix` since 2026-10-20): a day packs from its midnight to the next local midnight, the start of the day 36 hours on, and yesterday is the day 12 hours before midnight. `DailyManifestStore.startOfNextLocalDay` and `previousLocalDayKey`, and `startOfNextLocalDayMs` and `previousLocalDayKey` in `scripts/nostalgex-daily-manifest.js`. Days that aren't change days come out byte for byte as before.
+- Shared vectors (`901a99a`): `scripts/schedule-dst-golden.json`, 60 days in 10 zones (US, EU, Sydney, Lord Howe, Santiago where midnight is skipped, and Phoenix, Kolkata and UTC as controls). The harness behind it is `scripts/dst-harness/` (`f8eefe3`).
+- Roku port: the same two changes. `roku/source/guide/Lineup.brs` gets `NxStartOfNextLocalDaySec` and `NxPreviousLocalDayKey`, and `NxPackDay` takes the day's end, as the Swift `packDay` does. @tydude001 found the bug and pointed out that the port's start of day was already right, so only these two needed porting. New `roku/tests/ScheduleDSTGoldenTests.brs` reads the shared golden file, byte-copied into `tests/vectors/` like the other golden files. `roku/tests/gen-dst.mjs` writes each zone's UTC offsets from the tz database so the test can pin the zone. The packDay vectors now carry the day's end. `roku/docs/PORTING.md` says the port no longer keeps the 24-hour day.
+- `npm run test:schedule-dst` checked the golden file's midnights with Temporal, which node 22, the CI runner, doesn't have, so `npm test` would have stopped there in CI. It reads the tz database through Intl now. On node 26 the two agree on all 60 midnights.
+- CI path filters: the golden file now triggers the roku, tvos and channel engine jobs, and its smoke test the channel engine job.
+- `tunerVersion` 1.0.4, and README's Docker lines point at `tuner-v1.0.4`. One line in the unreleased 1.0.27 changelog entry.
+
+**Measured.**
+- DST harness, web, before (`f8eefe3`): 45 to 60 minutes past the last block on each 25-hour day (20 to 30 on Lord Howe's 24.5), and 16 to 21 repeats the day after each 23-hour day on the big channel, 63 in London, a full rerun. After: 0 minutes past the last block, 0 with nothing on, 0 repeats. The small and medium channels start and end exactly at midnight every day.
+- DST harness, Apple TV, after (`DSTHarnessTests` over the same plan): 0 minutes with nothing on, 0 repeats, and the same blocks as the web tuner on every day and every sampled minute in all 18 scenarios.
+- Roku: lineup vectors 154 passed (8 `dst` cases failed before the port), DST golden 320 passed. With the old arithmetic put back, the golden fails exactly 21 cases, the 14 days that aren't 24 hours and the 7 days after a short one, none in Phoenix, Kolkata or UTC: the same 21 as the node test's negative control.
+- `npm test` green on node 26 and node 22. `npm run build` and `build:selfhost` green, both at 1.0.4. NostalgexTests 854 passed, 0 failed, 13 skipped (opt-in harnesses). `roku/tests/run.sh` ALL TESTS PASSED.
+- Not run on hardware. The Roku change ran in the off-device interpreter only, not with `scripts/deploy.sh --test` on a TV. The Apple TV side ran in the simulator, which checks the schedule, not playback.
+
+**Not fixed.**
+- The web guide's last hour before midnight shows a programme that won't air, because the guide has no tomorrow yet: 60 minutes every night in every zone. Not a clock-change bug.
+- London, Dublin and Lisbon: the day after the spring change gets the same day number as the day before (its midnight is 23:00 UTC), so it shuffles with the same seed. The no-repeat check still keeps the day before's titles off. It first matters on 29 March 2027.
+
+**Half-done.** `release/dst` is not pushed, `tuner-v1.0.4` is not tagged, and its release note is drafted, not posted.
+
+**Next.** Push main, tag `tuner-v1.0.4`, post the release note. The Apple TV build and the Roku package carry the same fix.
+
 ## 2026-10-21 (terms of use page, Roku privacy for Jellyfin and Emby)
 
 **Shipped.** `https://www.nostalgex.app/terms` (new) and an updated `https://www.nostalgex.app/privacy`, live when this lands on main.
