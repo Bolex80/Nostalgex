@@ -3,6 +3,21 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (terms of use page, Roku privacy for Jellyfin and Emby)
+
+**Shipped.** `https://www.nostalgex.app/terms` (new) and an updated `https://www.nostalgex.app/privacy`, live when this lands on main.
+
+**Why.** The Roku Streaming Store listing asks for a terms of use URL, and the site had no terms page. The privacy page's Roku section still said Plex only, but the Roku app imported into `roku/` on 2026-10-20 (tydude's `7bde5df`) also signs in to Jellyfin and Emby.
+
+**Changed.**
+- New `terms.html`, laid out like `privacy.html` (same inline styles, back link, no site chrome). Covers the Apple TV app, the Roku app, the web tuner and the self-hosted container: publisher Muell Haus Inc. and support@nostalgex.app; Nostalgex supplies no video and the user is responsible for their server and the rights to their media; Plex, Jellyfin, Emby, TMDB, OMDb, MusicBrainz, Apple and Roku are third parties with their own terms, with TMDB's attribution line; MIT for the code (root `LICENSE` and `roku/LICENSE`) with the name, logo and nostalgex.app outside the grant, as the README says; Apple TV tips are optional in-app purchases that unlock nothing, refunds through Apple; as is, no warranty; liability limited as far as the law allows; privacy at /privacy; changes posted with a new effective date. No governing law, jurisdiction or address, since none is on record. Effective October 21, 2026.
+- `/terms` wired in wherever `/privacy` is: `vercel.json` rewrite, `vite.config.js` input, `public/sitemap.xml` (privacy lastmod moved to 2026-10-21 too), the Help list in `public/llms.txt`, the footer of every hand-written page and of `scripts/site-chrome.mjs` (blog and channel guide), the support page's closing line, and the `web` path filter in `ci.yml`. All outside generated regions.
+- `privacy.html` and `Nostalgex/PRIVACY_POLICY.md`, Roku section, read from the code in `roku/`: Plex, Jellyfin and Emby; the plex.tv/link QR code is drawn on the TV (`source/util/QrCode.brs`), so the code goes to no QR service; Jellyfin and Emby are found by a UDP broadcast to port 7359 on the home network (`NxMbDiscover`) or a typed address, sign in by Quick Connect (Jellyfin) or username and password, and only the access token is saved (`NxMbSaveSignIn`), never the username or password; server requests are HTTPS or plain HTTP to a private address only, with the token in the `Authorization` header and never in a URL (`NxServerTransfer`, `NxMbStreamContent`); no playback reporting to any of the three, but leaving a converted stream asks the server to stop it (`NxStopStream`); what the TV stores for a Jellyfin or Emby sign-in; memory warnings (`source/main.brs`) are printed to the TV's debug log and sent nowhere. Effective date October 21, 2026 in both files.
+
+**Checked.** No analytics library, no `GetRIDA` or advertising id, and the only hosts in the Roku code are plex.tv, the user's server, the relay on www.nostalgex.app and the Supabase project a build is given. Enrichment is on only when a build sets `NOSTALGEX_ENRICHMENT=on`; the relay bullet stays, written for a build with it on, as before.
+
+**Next.** Enter `https://www.nostalgex.app/terms` in the Roku developer dashboard's terms field.
+
 ## 2026-10-21 (publish Plex remote streaming post)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-remote-streaming-changes-explained`.
