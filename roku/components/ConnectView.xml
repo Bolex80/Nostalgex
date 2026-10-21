@@ -26,6 +26,7 @@
     <field id="dryRun" type="boolean" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/AppVersion.brs" />
   <script type="text/brightscript" uri="pkg:/source/util/QrCode.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
@@ -36,5 +37,8 @@
     <Rectangle width="1920" height="1080" color="0x000000FF" />
     <Group id="left" />
     <Group id="right" />
+    <!-- Which build this is, before any sign-in exists, as upstream's
+         connect screen: a support report has to be able to say. -->
+    <Label id="version" translation="[100,990]" color="0xFFFFFF40" />
   </children>
 </component>

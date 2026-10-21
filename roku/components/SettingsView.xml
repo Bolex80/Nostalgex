@@ -2,7 +2,7 @@
 <!-- Settings, in the order of the Apple TV app's SettingsPageView: support,
      the Plex servers to read and signing out, RETRO MODE and subtitles,
      channel packages with each franchise under FRANCHISES, then the server's
-     collections under MY COLLECTIONS, folded closed.
+     collections under MY COLLECTIONS, folded closed, and the VERSION line.
      Choices are saved on the TV. A package switch is built at once, behind
      Settings, building only that package's channels; a franchise,
      collection or server change rebuilds the guide when Settings closes. -->
@@ -27,6 +27,7 @@
     <function name="setBuilding" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/AppVersion.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />

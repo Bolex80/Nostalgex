@@ -190,10 +190,11 @@ sub buildRows()
             end for
         end if
     end if
+    m.rows.Push({ kind: "version", text: NxVersionLabel() })
 end sub
 
 function focusable(row as Object) as Boolean
-    return row.kind <> "header" and row.kind <> "subheader" and row.kind <> "info" and row.kind <> "support"
+    return row.kind <> "header" and row.kind <> "subheader" and row.kind <> "info" and row.kind <> "support" and row.kind <> "version"
 end function
 
 ' The next row focus can land on from i, going d (1 or -1); i if none.
@@ -212,6 +213,7 @@ function rowHeight(row as Object) as Integer
         return 112
     end if
     if row.kind = "subheader" or row.kind = "info" then return 44
+    if row.kind = "version" then return 56
     return 74
 end function
 
@@ -308,6 +310,12 @@ sub render()
         top = tops[k]
         k = k - 1
     end while
+    ' At the last row focus can reach, the lines after it (the VERSION line)
+    ' come into view too, as the end of upstream's scroll does.
+    if nextFocusable(m.focus, 1) = m.focus then
+        last = rowCount() - 1
+        if tops[last] + rowHeight(m.rows[last]) - top <= m.listH then bottom = tops[last] + rowHeight(m.rows[last])
+    end if
     if top < m.scroll then m.scroll = top
     if bottom > m.scroll + m.listH then m.scroll = bottom - m.listH
 
@@ -327,6 +335,11 @@ sub render()
                 page.AppendChild(newLabel("NOSTALGEX.APP", "DMMono-Medium", 24, "0xFFFFFFBF", 30, y + 10))
                 page.AppendChild(newLabel("Open it on a phone or computer", "VT323-Regular", 24, "0xFFFFFF80", 30, y + 40))
                 page.AppendChild(newRect(0, y, 4, 72, "0xFFE50066"))
+            else if row.kind = "version" then
+                version = newLabel(row.text, "DMMono-Regular", 20, "0xFFFFFFB3", 0, y + 20)
+                version.width = 1680
+                version.horizAlign = "center"
+                page.AppendChild(version)
             else
                 drawRow(page, i, row, y)
             end if
@@ -520,6 +533,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             m.top.bundleChange = true
             buildRows()
             if m.focus > rowCount() - 1 then m.focus = rowCount() - 1
+            if not focusable(m.rows[m.focus]) then m.focus = nextFocusable(m.focus, -1)
             render()
         else if row.kind = "franchiseAll" then
             ' setAllFranchises: one explicit choice for every row.
