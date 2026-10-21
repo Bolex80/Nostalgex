@@ -337,11 +337,13 @@ end function
 
 ' ── One day's schedule ──────────────────────────────────────────────────────
 
-' Returns [{ ratingKey, startSec, endSec }] covering dayStartSec..+24h.
+' Returns [{ ratingKey, startSec, endSec }] covering dayStartSec to dayEndSec.
+' dayEndSec is the next local midnight (NxStartOfNextLocalDaySec), not
+' dayStartSec + 86,400: a 25-hour day packed for 24 left its last hour empty,
+' and a 23-hour one ran an hour into the next day.
 ' yesterdayAired is an AA used as a set of ratingKeys; yesterdayLastRatingKey
 ' is a String or invalid. Mirrors DailyManifestScheduler.packDay.
-function NxPackDay(pool as Object, dayStartSec as Integer, dayNumber as Integer, channelId as Integer, yesterdayAired as Object, isPremiereChannel as Boolean, yesterdayLastRatingKey as Dynamic) as Object
-    dayEndSec = dayStartSec + 86400
+function NxPackDay(pool as Object, dayStartSec as Integer, dayEndSec as Integer, dayNumber as Integer, channelId as Integer, yesterdayAired as Object, isPremiereChannel as Boolean, yesterdayLastRatingKey as Dynamic) as Object
     totalPoolSec = 0&
     for each item in pool
         totalPoolSec = totalPoolSec + NxDuration(item) * 60

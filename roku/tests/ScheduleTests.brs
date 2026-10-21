@@ -39,7 +39,7 @@ function NxRunScheduleTests(vectorsPath as String) as Integer
         for each k in c.aired
             aired[k] = true
         end for
-        got = NxPackDay(v.fixtures[c.pool].pool, c.dayStart, c.day, c.channel, aired, c.premiere, c.last)
+        got = NxPackDay(v.fixtures[c.pool].pool, c.dayStart, c.dayEnd, c.day, c.channel, aired, c.premiere, c.last)
         parts = []
         for each b in got
             parts.Push(b.ratingKey + "@" + b.startSec.ToStr() + "-" + b.endSec.ToStr())

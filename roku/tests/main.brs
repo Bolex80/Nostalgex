@@ -13,6 +13,9 @@ sub Main(args = invalid as Dynamic)
     failures = failures + NxRunLineupTests("pkg:/tests/vectors/lineup.json")
     print "  lineup took "; timer.TotalMilliseconds(); " ms"
     timer.Mark()
+    failures = failures + NxRunScheduleDSTGoldenTests("pkg:/tests/vectors/schedule-dst-golden.json", "pkg:/tests/vectors/schedule-dst-zones.json")
+    print "  schedule dst took "; timer.TotalMilliseconds(); " ms"
+    timer.Mark()
     failures = failures + NxRunFranchiseTests("pkg:/tests/vectors/franchise-golden.json", "pkg:/tests/vectors/franchise.json", "pkg:/data/franchises.json")
     print "  franchise took "; timer.TotalMilliseconds(); " ms"
     timer.Mark()

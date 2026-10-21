@@ -89,11 +89,16 @@ switch as the Apple TV's `DailyManifestStore` is.
 A day starts at local midnight as `setHours(0, 0, 0, 0)` has it, also on the
 days the clocks change, when the clock's time since midnight is an hour off
 the real one (`NxLocalDay`). `lineup.json`'s `dst` cases hold the port to
-upstream in America/New_York either side of each change. Two things upstream
-does on those days are ported as they are: a day packs 24 hours, so a
-25-hour day can run out before its midnight and the next programme start early,
-and the day after a 23-hour day reads "yesterday" as the day before it
-(`dayStart - 86400`, also in `DailyManifestScheduler.swift`).
+upstream in America/New_York either side of each change. A day runs to the
+next local midnight, the start of the day 36 hours after its start
+(`NxStartOfNextLocalDaySec`), and yesterday is the day 12 hours before its
+midnight (`NxPreviousLocalDayKey`), as upstream has had since `901a99a`: a
+25-hour day has no empty last hour, a 23-hour day doesn't run into tomorrow,
+and the day after one reads the right yesterday. Upstream's
+`scripts/schedule-dst-golden.json`, vendored unchanged and read by
+`tests/ScheduleDSTGoldenTests.brs` as `nostalgex-schedule-dst-smoke.mjs`
+reads it, holds the port to that in ten zones, with each zone's offsets from
+the tz database (`tests/gen-dst.mjs`).
 
 Not ported from the filter module: `filterPool`'s `shows` summary and the
 animation flags on its rows, which only devtools read. Two changes don't

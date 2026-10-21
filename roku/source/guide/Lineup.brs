@@ -39,6 +39,23 @@ function NxLocalDay(epochSec as LongInteger) as Object
     return { dayStartSec: dayStart&, dayKey: key, dayNumber: NxFloorDivLong(dayStart&, 86400), hour: dt.GetHours(), month: dt.GetMonth() }
 end function
 
+' The start of the local day after the one holding epochSec, as
+' startOfNextLocalDayMs. A day is 23 to 25 hours long where the clocks change
+' (23.5 or 24.5 on Lord Howe), so its start plus 86,400 s falls an hour short
+' of the next midnight when they go back and an hour into the next day when
+' they go forward. 36 hours after a day's start is always inside the next
+' day, and that day's start is the answer, even where midnight is skipped.
+function NxStartOfNextLocalDaySec(epochSec as LongInteger) as LongInteger
+    return NxLocalDay(NxLocalDay(epochSec).dayStartSec + 36 * 3600).dayStartSec
+end function
+
+' The key of the local day before the one holding epochSec, as
+' previousLocalDayKey. 12 hours before a day's start is always inside the day
+' before; 24 hours before the day after the clocks go forward is two days back.
+function NxPreviousLocalDayKey(epochSec as LongInteger) as String
+    return NxLocalDay(NxLocalDay(epochSec).dayStartSec - 12 * 3600).dayKey
+end function
+
 ' An roDateTime showing the local wall clock at epochSec. nxTzOffsets is
 ' [{ fromSec, offsetSec }] in time order, each offset holding from its
 ' fromSec on.
@@ -287,7 +304,9 @@ function NxManifestBlocks(channel as Object, pool as Object, atSec as LongIntege
     key = channel.id.ToStr() + "_" + day.dayKey
     cached = cache[key]
     if cached = invalid or cached.fp <> fp then
-        yesterday = cache[channel.id.ToStr() + "_" + NxLocalDay(day.dayStartSec - 86400).dayKey]
+        ' Yesterday by the calendar, and today up to the next midnight, not
+        ' 86,400 s either way: see NxStartOfNextLocalDaySec.
+        yesterday = cache[channel.id.ToStr() + "_" + NxPreviousLocalDayKey(day.dayStartSec)]
         aired = {}
         aired.SetModeCaseSensitive()
         last = invalid
@@ -297,7 +316,7 @@ function NxManifestBlocks(channel as Object, pool as Object, atSec as LongIntege
             end for
             if yesterday.blocks.Count() > 0 then last = yesterday.blocks.Peek().ratingKey
         end if
-        packed = NxPackDay(valid, day.dayStartSec, day.dayNumber, channel.id, aired, NxTruthy(channel.isPremiereChannel), last)
+        packed = NxPackDay(valid, day.dayStartSec, NxStartOfNextLocalDaySec(day.dayStartSec), day.dayNumber, channel.id, aired, NxTruthy(channel.isPremiereChannel), last)
         cached = { fp: fp, blocks: packed }
         cache[key] = cached
     end if

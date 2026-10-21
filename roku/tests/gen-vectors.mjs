@@ -4,15 +4,16 @@
 // the Apple TV Swift. The BrightScript port must reproduce every vector; a
 // divergence is a bug in the port, never a reason to regenerate.
 //
-//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise,enrichment,collections,mediabrowser}.json
+//   node tests/gen-vectors.mjs            # write tests/vectors/{schedule,filter,lineup,franchise,enrichment,collections,mediabrowser,schedule-dst-zones}.json
 //   node tests/gen-vectors.mjs --check    # fail if the file is stale
 //
 // Upstream: $NOSTALGEX_DIR, default the Nostalgex repo this port lives in
 // (roku/..), so the vectors always come from the same tree as the data the
 // port reads. tests/vectors/ is generated, git-ignored, and rewritten by
 // tests/run.sh and scripts/deploy.sh --test on every run. It also gets byte
-// copies of upstream's scripts/franchise-golden.json, filter-golden.json and
-// season-golden.json, which the Franchise, FilterGolden and Seasonal tests read.
+// copies of upstream's scripts/franchise-golden.json, filter-golden.json,
+// season-golden.json and schedule-dst-golden.json, which the Franchise,
+// FilterGolden, Seasonal and ScheduleDSTGolden tests read.
 // Every number in the output fits a 32-bit Integer, and 64-bit values travel as
 // hex strings, so the Roku's ParseJson reads them without loss.
 // The filter's date rules run in local time; pin it so the vectors don't
@@ -28,6 +29,7 @@ import { franchiseVectors } from "./gen-franchise.mjs";
 import { enrichmentVectors } from "./gen-enrichment.mjs";
 import { collectionsVectors } from "./gen-collections.mjs";
 import { mediaBrowserVectors } from "./gen-mediabrowser.mjs";
+import { dstZones } from "./gen-dst.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", ".."));
@@ -183,10 +185,14 @@ for (const base of [packCases[0], packCases[4], packCases[6]]) {
   const first = M.packDay(base.pool, DAY_START_B, base.day, base.ch, new Set(base.aired), base.premiere, null)[0].ratingKey;
   packCases.push({ ...base, name: `${base.name}-seam`, last: first });
 }
+// packDay ends the day after the local day's length (its localDayLengthSec),
+// which the port takes as dayEnd, as the Swift does: 86,400 s here, in UTC.
+const dayEndB = DAY_START_B + (M.startOfNextLocalDayMs(DAY_START_B * 1000) - M.startOfLocalDayMs(DAY_START_B * 1000)) / 1000;
 const packDay = packCases.map((c) => ({
   name: c.name,
   pool: c.pool === poolB ? "B" : c.pool === small ? "small" : "single",
   dayStart: DAY_START_B,
+  dayEnd: dayEndB,
   day: c.day,
   channel: c.ch,
   aired: c.aired,
@@ -242,9 +248,15 @@ const files = [
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "plex-tuner.html fetchJellyfinLibraryFromServer" },
     ...(await mediaBrowserVectors(upstream)),
   }],
+  [join(here, "vectors", "schedule-dst-zones.json"), {
+    generatedBy: "tests/gen-vectors.mjs (tests/gen-dst.mjs)",
+    upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, source: "the tz database (Intl), for scripts/schedule-dst-golden.json's zones" },
+    ...dstZones(upstream),
+  }],
   // Upstream's own golden files, copied byte for byte: FranchiseTests.brs,
-  // FilterGoldenTests.brs and SeasonalTests.brs read them.
-  ...["franchise-golden.json", "filter-golden.json", "season-golden.json"].map((g) =>
+  // FilterGoldenTests.brs, SeasonalTests.brs and ScheduleDSTGoldenTests.brs
+  // read them.
+  ...["franchise-golden.json", "filter-golden.json", "season-golden.json", "schedule-dst-golden.json"].map((g) =>
     [join(here, "vectors", g), readFileSync(join(upstream, "scripts", g), "utf8")]),
 ];
 let stale = false;

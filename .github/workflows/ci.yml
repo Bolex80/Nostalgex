@@ -108,6 +108,7 @@ jobs:
               - 'scripts/nostalgex-season.js'
               - 'scripts/filter-golden.json'
               - 'scripts/season-golden.json'
+              - 'scripts/schedule-dst-golden.json'
               - 'scripts/nostalgex-filter-golden-smoke.mjs'
               - 'scripts/nostalgex-season-smoke.mjs'
 
