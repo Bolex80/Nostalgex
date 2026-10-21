@@ -3,6 +3,24 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (nostalgex.app/roku: the Roku beta page, live and unlinked)
+
+**Shipped.** `https://www.nostalgex.app/roku`, live with this push to main and unlinked on purpose: no footer link, not in the sitemap or `llms.txt`, and no home page change. Chad reviews the live page first; the links come after.
+
+**Why.** The Roku app is a beta with 20 tester spots, added by access code, and the site had no page to send people to.
+
+**Changed.**
+- `roku.html`: the page. Hero with the Roku guide, three steps, what you get, how to join the beta, credit to tydude001 with links to the official source in `roku/` and to this repo, four FAQs, and two colour tiles for Apple TV and the web tuner. The Apple TV tile carries the App Store campaign token `ct=site_roku_page`. Copy is Chad's, with facts checked against `channels.json` and `roku/README.md`: KIDZ ZONE, SCREAM and TIS THE SEASON are real bundle names, and the tip jar is named as Apple TV only, because the Roku app has none. Step 3 points at the Nostalgex Discord in general; there is no Roku channel there, by Chad's choice.
+- `content/roku.json` + `scripts/render-roku.mjs`: the hero button and the beta card are generated, the same arrangement as `/self-host`. `betaFull` is the one switch for when the 20 spots are taken: true takes the add link and the access code off the page and leads with the Discord button. `announcementPost` links a blog post from the credits once one exists, and the render fails if that post is missing or still a draft. `npm run build` renders it; `npm test` fails if `roku.html` is stale.
+- `public/og-roku-1200.png` and `public/screens/roku-*.webp`: the share card and two screenshots, from the Roku listing screenshots of 2026-10-18.
+- Wiring: the `vite.config.js` input and the `/roku` rewrite in `vercel.json`. Nothing else on the site links to it yet.
+
+**Measured.** `npm test` and `npm run build` pass. Checked at 1440 and 390 px in both themes: no horizontal scroll, no console errors. The full state rendered and screenshotted, then flipped back. `my.roku.com/account/add/JRLVTGL` answers 302 to `/account/add?channel=JRLVTGL`, then sends a signed-out browser to Roku sign-in with that page as the return address. The signed-in page is not checked.
+
+**Half-done.** The links. Once Chad OKs the live page: `/roku` in every footer (the static pages and `scripts/site-chrome.mjs`), in `public/sitemap.xml` and `public/llms.txt`, the home page Roku tile (it still reads "Coming" and links Discussion #8), and the Roku row on `/self-host` (`content/self-host.json`).
+
+**Next.** Flip `betaFull` when the beta reaches 20 testers.
+
 ## 2026-10-21 (Roku 1.0.2: the clock-change fix, and a one-command signed release)
 
 **Shipped.** Nothing yet. Branch `roku/1.0.2` = main `9efefa4` (which has the clock-change fix) + the release script + the version bump, not pushed. No package signed or uploaded.

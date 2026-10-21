@@ -37,6 +37,7 @@
     { "source": "/web-tuner", "destination": "/web-tuner.html" },
     { "source": "/plex", "destination": "/plex.html" },
     { "source": "/jellyfin", "destination": "/jellyfin.html" },
-    { "source": "/emby", "destination": "/emby.html" }
+    { "source": "/emby", "destination": "/emby.html" },
+    { "source": "/roku", "destination": "/roku.html" }
   ]
 }

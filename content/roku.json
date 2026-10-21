@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "Source of truth for the generated regions of roku.html: the hero button, the",
+    "beta section and the blog link in the credits.",
+    "Rendered by scripts/render-roku.mjs, which runs as part of `npm run build`;",
+    "`npm test` fails if roku.html is out of date with this file.",
+    "Never hand-edit between the ROKU-* markers in roku.html; edit this and re-render.",
+    "",
+    "betaFull is the one switch. false: the beta has room, so the hero button and",
+    "step 1 go to the Roku add link and the page shows the access code. true: Roku's",
+    "20 tester spots are taken, so the add link and the code come off the page and",
+    "the hero and the beta section lead with the Discord button. Flip it, run",
+    "`npm run roku:render` (or `npm run build`), and commit roku.html with it.",
+    "",
+    "announcementPost: the slug of the Roku announcement post in content/blog/, or",
+    "null. Once set, the credits section links to /blog/<slug>. The render fails if",
+    "the post does not exist or is still a draft, so the page never links a 404."
+  ],
+  "betaFull": false,
+  "accessCode": "JRLVTGL",
+  "addUrl": "https://my.roku.com/account/add/JRLVTGL",
+  "discordUrl": "https://discord.gg/FgnZcr5bDT",
+  "announcementPost": null
+}
