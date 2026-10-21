@@ -3,40 +3,43 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
-## 2026-10-21 (Apple TV sign-in: FIND MY SERVER first, Quick Connect by default, focus you can see)
+## 2026-10-21 (Apple TV sign-in: the search starts on its own, Quick Connect by default, focus you can see)
 
-**Shipped.** Nothing. Branch `signin-redesign` off main `2f68a9e`, meant for 1.0.28. Waiting on Chad's look at the screenshots; not in any build.
+**Shipped.** Nothing. Branch `signin-redesign` off main `2f68a9e`, meant for 1.0.28, with Chad's first review folded in. Not in any build. The 1.0.28 changelog entry is `released: false`.
 
 **Why.** Chad: the Jellyfin and Emby sign-in took too many presses, and on every connect screen it was hard to tell which control the remote was on. Measured in the simulator first: a focused button differed from the rest only by an outline going from 55% to 100% and a fill from 8% to 16%, so an unfocused CONNECT TO PLEX looked brighter than a focused JELLYFIN; a fresh launch started with nothing focused, so the first press only found the screen; Jellyfin took 10 presses by Quick Connect and 15 by password, Emby 15.
 
 **Changed.**
-- One focus style for every connect screen (`Views/OnboardingStyle.swift`): the focused control is a solid cyan slab with dark text, 7% bigger, with a glow; the others are outlines. A focused text field gets a 4 pt cyan frame and dark text, because white text and password dots were close to invisible on tvOS's own light focus pill. The Plex library picker, the loading screen's STOP WAITING and the empty-library buttons use the same style.
+- One focus style for every connect screen (`Views/OnboardingStyle.swift`): the focused control is a solid cyan slab with dark text, 7% bigger, with a glow; the others are outlines. On the two code screens (Plex and Jellyfin Quick Connect) the buttons light up as a cyan outline and glow instead, so the code stays the brightest thing on screen. The Plex library picker, the loading screen's STOP WAITING and the empty-library buttons use the same style.
+- Text fields are drawn by us. A SwiftUI TextField on tvOS always paints the system platter inside it (a white pill when focused, which white text and password dots all but vanished on, and a grey one when not), and neither `.plain` nor `focusEffectDisabled()` turns it off. The real field now sits shrunk under an opaque drawing made from the same text and focus state: focused is a dark well with a cyan frame and glow, white text and a light caret; unfocused is a dim well with a grey edge. Contrast is checked in `OnboardingContrastTests`: typed text and dots 17.9:1 focused and 11.7:1 unfocused, placeholder 7.0:1 and 5.0:1.
 - Each screen puts focus on its first choice when it appears. A fresh launch starts on CONNECT TO PLEX. The Plex library picker starts on CONTINUE, since the usual choice is already ticked.
-- Jellyfin and Emby: FIND MY SERVER is the first button and starts focused. One server answering opens it with no pick; several are listed; none moves focus to TYPE AN ADDRESS. Discovery still runs only when the button is pressed.
+- Jellyfin and Emby: picking one starts the network search straight away; FIND MY SERVER is first and focused as the retry. One server answering opens it with no pick; several are listed; none, or a declined Local Network prompt, leaves focus on TYPE AN ADDRESS. That first search is what brings up tvOS's Local Network prompt, so when the app comes back from the prompt it searches once more. Coming BACK to the screen does not search again, or one server answering would bounce the viewer straight back.
 - Before anything is typed, the app asks the address who it is (`Views/SignInFlow.swift`, `check`): `/System/Info/Public`, then `/QuickConnect/Enabled` on Jellyfin, then `/Users/Public`. A Jellyfin server with Quick Connect on opens straight on the code, with SIGN IN WITH A PASSWORD as the other way in. A server that lists its users (Emby does by default) shows them as tiles, so the name is a press instead of typing, and a user with no password signs in on that press. The server's own answer decides Jellyfin or Emby, and a wrong address fails on the address screen with the reason instead of after the password.
-- Closing the keyboard, with Done or Back, moves on: the address gets checked, the username goes to the password, the password goes to SIGN IN.
+- Closing the keyboard, with Done or Back, moves on: the address gets checked, the username goes to the password, the password goes to SIGN IN (Done on the password signs in). The move waits for tvOS to hand focus back to the field, then goes on at once.
+- The keychain and storage diagnostics line on the connect screen shows in Debug builds only. VERSION stays in every build.
 - Sign-in itself is unchanged: the same `authenticateJellyfin`, `startJellyfinQuickConnect` and `authenticateEmby`, given the address the check found.
-- The connect screen's accessibility identifier no longer replaces every control's own (`.accessibilityElement(children: .contain)`), so UI tests can find its buttons by id.
+- The connect screen's accessibility identifier no longer replaces every control's own (`.accessibilityElement(children: .contain)`), so UI tests can find its controls by id.
+- The shared scheme carries three launch arguments, off by default: `-uiTestForceSettings 1`, `-uiTestDiscovery several` and `-uiTestDiscovery none`.
 
-**Measured.** Remote presses from a fresh launch to a signed-in library, in the simulator, against a lab Jellyfin 12.2.0 (Quick Connect on) and a lab Emby 4.10.1.0 on the test Mac, plus a real Emby on the same network for discovery. Typing into a field counts as 2 presses (open the keyboard, close it); the characters are not counted. The UI tour that measured it is `NostalgexUITests/SignInTourUITests` (opt-in, needs those servers).
+**Measured.** Remote presses from a fresh launch to a signed-in library, in the simulator, against a lab Jellyfin 12.2.0 (Quick Connect on) and a lab Emby 4.10.1.0 on the test Mac, plus a real Emby on the same network for discovery. Typing into a field counts as 2 presses (open the keyboard, close it); the characters are not counted. The UI tour that measured it is `NostalgexUITests/SignInTourUITests` (opt-in, needs those servers); all 9 runs pass.
 
 | Path | Before | After |
 |---|---|---|
 | Plex (code entered at plex.tv/link) | 2 | 1 |
-| Jellyfin, Quick Connect | 10 | 3 |
-| Jellyfin, password | 15 | 9 |
-| Emby, server found on the network | 15 | 8 |
-| Emby, typed address | 15 | 12 (9 for a user with no password) |
+| Jellyfin, Quick Connect | 10 | 2 |
+| Jellyfin, password | 15 | 8 |
+| Emby, server found on the network | 15 | 7 (4 for a user with no password) |
+| Emby, typed address | 15 | 11 (8 for a user with no password) |
 
-Emby has no Quick Connect (`/QuickConnect/Enabled` is a 404 on 4.10.1.0), so its shortest path is the user tiles: a found server and a user with no password is 5 presses. The Emby "found" count is 5 measured to the password field on the real Emby (no password to finish with) plus 3 measured on the lab Emby. NostalgexTests: 875 passed, 0 failed, 13 skipped (opt-in harnesses), with 21 new in `SignInFlowTests` (one server goes straight to it, the same server heard twice is still one, Quick Connect first only when Jellyfin says it is on, Emby never asked about it, the address check's candidates and kind). All 9 tour runs pass.
+Emby has no Quick Connect (`/QuickConnect/Enabled` is a 404 on 4.10.1.0), so its shortest path is the user tiles. The Emby "found" count is 4 measured to the password field on the real Emby (no password to finish with) plus 3 measured on the lab Emby. NostalgexTests: 880 passed, 0 failed, 13 skipped (opt-in harnesses), with 21 in `SignInFlowTests` and 5 in `OnboardingContrastTests`. A Release build for the simulator shows VERSION without the diagnostics line.
 
 **Half-done.**
-- Not looked at on a real Apple TV: the focus style from the couch, the Local Network prompt on the first FIND MY SERVER, and the keyboard-close focus move (it waits for tvOS to hand focus back to the field: 350 ms, then 800 ms if needed; timed only in the simulator).
-- Several servers answering and none answering were seen only through a test stand-in (`-uiTestDiscovery several|none`).
+- Not looked at on a real Apple TV: the focus style from the couch, the Local Network prompt appearing as the Jellyfin or Emby screen opens and the search after it is answered (the simulator never shows that prompt), and the keyboard-close focus move.
+- Several servers answering and none answering were seen only through the `-uiTestDiscovery` stand-in.
 - The Plex library picker starting on CONTINUE was not reached: the test account has one server.
 - The lab Jellyfin library is too small to fill a channel, so its runs end at NO CHANNELS FOUND rather than a guide.
 
-**Next.** Chad's look at the screenshots, then a pass on a real Apple TV. The web tuner and Roku connect screens should follow the same flow.
+**Next.** Chad tries it in Xcode, then a pass on a real Apple TV. The web tuner and Roku connect screens should follow the same flow. The Apple TV privacy page does not describe the network search yet; it says nothing about it today either.
 
 ## 2026-10-21 (/apple-tv linked from the home page and the footers)
 
