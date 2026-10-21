@@ -3,6 +3,39 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (ratings from other countries count like their US equivalents, GitHub #41)
+
+**Shipped.** The web tuner on nostalgex.app and Docker `tuner-v1.0.5`, from the same commit. The Apple TV app gets it in 1.0.28 and Roku in beta 1.0.3.
+
+**Why.** Every rating rule matched exact US labels. Jellyfin and Emby store a certificate from outside the US with its country in front (`TmdbUtils.BuildParentalRating`: `GB-15`, `GB-12A`, and Germany as `FSK-16`), and a UK library in #41 also showed `TV-12A`. On a UK server:
+- the 27 channels with a `contentRatings` allow-list turned down `GB-U` and `GB-PG`, so the kids and family channels came out thin;
+- the kids and family adult gate didn't see `GB-18` as adult, and MINION HQ leans on that gate alone;
+- VHS VAULT's 9 PM rule (`blockRatings` R and NC-17) aired `GB-18` films by day.
+
+**Changed.**
+- One normaliser per engine: `usContentRating` in `scripts/nostalgex-channel-filter.cjs`, `ContentRating.usLabel` in the new `Nostalgex/Nostalgex/Models/ContentRating.swift`, and `NxUsContentRating` in `roku/source/filter/ChannelFilter.brs`. A label it recognises becomes the US label of its age band, by item type: a film reads G, PG, PG-13, R or NC-17, an episode TV-G, TV-PG, TV-14 or TV-MA. TWEEN TV lists only TV labels and FAMILY HOUR only film labels, so `GB-U` has to be TV-G on one and G on the other. US labels, empty ratings and anything it doesn't recognise come back unchanged.
+- Bands: 0 is all ages, up to 10 is PG, 11 to 14 is PG-13 or TV-14, 15 and up is R or TV-MA, and adult-only certificates (BBFC R18, Australia's X18+) are NC-17. Word labels for the UK (U, PG, 12A, R18), Ireland, Australia, New Zealand, Canada, France and the Netherlands; a number from any country, Germany's FSK included, reads as an age. It takes `GB-15`, `gb/15` (Plex style, not seen on a real server), `FSK-16`, `FSK 16`, a bare `12A` and `TV-12A`. The labels come from Jellyfin's `Localization/Ratings` tables, and a label between two bands takes the stricter one.
+- Used in every rating check: the adult gate, the allow-list and VHS VAULT's `blockRatings` (`getTimeFilteredPool` in `plex-tuner.html`, `Channel.filteredPool`, Roku `NxTimeFilteredPool`). Swift works the label out once per item in `FilterCache`. The guide and Now Playing still show the label the server sent. If the browser ever pairs a fresh page with a cached older filter script, VHS VAULT's check reads the raw label instead of throwing, which would have left the channel without a schedule.
+- Shared tests: new `scripts/rating-golden.json`, 296 cases read by `npm run test:ratings`, `RatingGoldenTests.swift` and `roku/tests/RatingGoldenTests.brs`. The node test also fails when a label in the table has no case. 15 GB, FSK and `TV-12A` cases in `scripts/filter-golden.json`, 12 of which fail on the old engine. Roku's generated filter and lineup vectors now carry GB, FSK, IE, AU and NZ labels.
+- CI path filters: the two golden files and their tests now start the tvOS, channel engine and Roku jobs, and `plex-tuner.html` the channel engine job, since the ratings test reads VHS VAULT's rule from it.
+- `tunerVersion` 1.0.5, and README's Docker lines point at `tuner-v1.0.5`. A 1.0.28 changelog entry, `released: false`.
+
+**Measured.** A test library of 11,641 items (2,961 films, 8,680 episodes, all US labels) through all 139 channels, on the old engine (`2f68a9e`) and the new one:
+- With its US labels, every pool is the same byte for byte: 29,892 placements, the same hash. The all-channel filter took 5.0 s both ways.
+- Relabelled the way a UK Jellyfin server stores it (G, TV-Y, TV-Y7 and TV-G to GB-U, PG and TV-PG to GB-PG, PG-13 to GB-12A, TV-14 to GB-12, and R, NC-17 and TV-MA split between GB-15 and GB-18), the 16 kids and family channels hold 1,291 items before and 12,095 after (10,871 with US labels). FAMILY HOUR 0 to 234, DIZ TV 0 to 813, TWEEN TV 374 to 966, SAT MORNING CARTOONS 40 to 698. No GB-15 or GB-18 item is on a kids or family channel, before or after. The 111 channels with no rating rule don't change.
+- AFTER SCHOOL TV (1,240) and FAMILY TV (4,896) end up wider than with US labels (1,053 and 3,859). The UK has no label for shows made for young children, so a TV-Y7 show is U there and reads as TV-G, which those two take.
+- VHS VAULT holds 113 of its 269 films until 9 PM with US labels. With GB labels it held 0 before and holds 113 now.
+- In Chromium, the Docker build against a real Plex server (11,763 items, playback and enrichment requests blocked), old and new filters run over the same loaded items in the page: with the server's US labels, all 139 channels match (34,292 placements each). With the library rewritten to GB labels in flight, only the 25 channels with a rating rule change, all upward (FAMILY HOUR 0 to 239, FAMILY TV 395 to 4,452), and VHS VAULT at 4 PM airs 163 of its 278 films, the same as with US labels. Loaded and tuned with no page errors at 960x540, 1440x900, 820x1180 and 390x844. A page paired with the old filter script still tunes.
+- `npm test`, `npm run build` and `build:selfhost` green, both builds at 1.0.5. NostalgexTests 858 passed, 0 failed, 13 skipped. `roku/tests/run.sh` ALL TESTS PASSED: rating golden 296, filter golden 235, filter vectors 371, lineup 154.
+- Not checked against a real UK library, or a Plex server with non-US ratings. The Roku change ran in the off-device interpreter only, not on a TV.
+
+**Calls worth a second look.**
+- `GB-18` on a film is R, not NC-17. Both are adult to every check, and R keeps 18-rated films on R RATED COMEDY, NAUGHTY LIST and CHRISTMAS SPECIALS, which don't list NC-17. Jellyfin's older table puts GB-18 level with R too.
+- `GB-15` on an episode is TV-MA, the stricter side; Jellyfin's older table put it level with TV-14. Australia's M (advised for 15 and up) and New Zealand's M (16 and up) are R or TV-MA for the same reason.
+- A foreign label it doesn't recognise is left alone, so it passes the adult gate and fails every allow-list, as before.
+
+**Next.** Push main and tag `tuner-v1.0.5`. Apple TV in 1.0.28. Roku 1.0.3 needs a manifest bump and a signed package.
+
 ## 2026-10-21 (a real /apple-tv page, the 404 in the house style, one CTA button everywhere)
 
 **Shipped.** Nothing until this lands on main. Branch `site/apple-tv-404`, a Vercel preview for Chad's review.

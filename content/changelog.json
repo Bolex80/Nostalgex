@@ -1,6 +1,15 @@
 {
   "entries": [
     {
+      "version": "1.0.28",
+      "date": "OCT 2026",
+      "released": false,
+      "title": "Ratings from outside the US",
+      "bullets": [
+        "Ratings from outside the US count like their US equivalents. On a Jellyfin or Emby server with UK ratings, films and shows rated U and PG now fill the kids and family channels, while 15 and 18 stay off them and wait until 9 PM on VHS VAULT. German FSK ratings and a few other countries work the same way."
+      ]
+    },
+    {
       "version": "1.0.27",
       "date": "OCT 2026",
       "released": false,
