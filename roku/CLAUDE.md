@@ -5,8 +5,9 @@ Plex. It lives at `roku/` in the Nostalgex repo; the repo root's CLAUDE.md
 applies here too. Its scripts run from anywhere (`roku/tests/run.sh`); each
 one changes into `roku/` first. [README.md](README.md) covers what it is and
 how to sideload. [docs/PORTING.md](docs/PORTING.md) covers what comes from
-upstream and how parity is proven. [docs/UPSTREAM.md](docs/UPSTREAM.md) covers
-the relationship with the Nostalgex maintainer.
+upstream and how parity is proven. Decisions made with the maintainer are on
+[Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8); the
+docs link the post where each was made.
 
 ## Rules that are decisions, not oversights
 
@@ -30,9 +31,8 @@ the relationship with the Nostalgex maintainer.
   comment, a PR) is drafted, checked claim by claim, and shown to the person
   the session works for first. Re-read the whole thread, replies under
   comments included, just before posting: a follow-up the draft never saw
-  went unanswered once. A session posts only when told to post that draft;
-  `scripts/post-upstream.sh` is the port author's tool for Discussions, and
-  what it posts is recorded in `docs/UPSTREAM.md`.
+  went unanswered once. A session posts only when told to post that draft.
+  The thread is the record: posts aren't copied into the repo.
 - **One kind of server at a time.** A TV is signed in to Plex, or to one
   Jellyfin or Emby server, as the Apple TV app holds one backend
   ([docs/JELLYFIN-EMBY.md](docs/JELLYFIN-EMBY.md)).

@@ -35,7 +35,7 @@ and already pinned to the Apple TV.
 | Playback | BrightScript | Roku's Video node over Plex, Jellyfin or Emby; with the guide |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen, and a row of the Now Playing panel. No language picker, as Plex sends one track (below) |
-| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash are the nostalgex.app wordmark from upstream's `logo/png/` (`scripts/icons.sh`), as the maintainer asked on 2026-10-17 ([UPSTREAM.md](UPSTREAM.md)); the Apple TV app itself still shows its earlier lightning-bolt logo |
+| Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash are the nostalgex.app wordmark from upstream's `logo/png/` (`scripts/icons.sh`), as the maintainer asked ([Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19003344)); the Apple TV app itself still shows its earlier lightning-bolt logo |
 | RETRO MODE (`AppState.retroMode`, on by default; `BundleManagerView`) | `source/guide/RetroMode.brs`, Settings › RETRO MODE | ported: the guide's video cropped to 4:3 under the CRT overlay, full screen under it too, at upstream's `RetroLook` values (e48cdc1: scanlines 0.18, a darker vignette, more flicker and tracking) |
 | `scripts/nostalgex-season.js` (Swift: `ChannelBundle.swift` `isInSeason`, `SeasonalPrompt.swift`, `GuideChannelOrder.swift` `seasonalLeadIDs`); `SeasonalInviteRow` | `source/guide/SeasonalPrompt.brs`, the row above channel one, the guide's lead, Settings' SPOTLIGHTED note | ported, `seasonStart` included (TIS THE SEASON from a week before US Thanksgiving); upstream's `scripts/season-golden.json` vendored and passing, plus cases transcribed from `SeasonalPromptTests.swift`. A switched-on seasonal package builds in every month, as upstream's `staticChannelIDsForPoolBuild` (8160f04) |
 
@@ -115,7 +115,7 @@ affect results:
 Franchise channels follow the Apple TV app, not the web tuner. The web tuner
 doesn't call the franchise builder yet (upstream `docs/DEVLOG.md`: wiring waits
 on its enrichment work), and the maintainer asked for the Roku to follow the
-Apple TV app ([UPSTREAM.md](UPSTREAM.md)). While the FRANCHISES package is on,
+Apple TV app ([Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18953180)). While the FRANCHISES package is on,
 a film series the dictionary gives a classic (CH 100-106) joins that channel's
 pool, The Mandalorian on STAR WARS for example, unless another channel owns the
 item. Every other series the library has gets a switch in Settings under
@@ -156,7 +156,7 @@ edge cases differs.
 Enrichment follows the web tuner's `nostalgex-enrichment.js`: the
 local cache, then upstream's shared Supabase cache, then TMDB and OMDb
 through upstream's relay, asked as `X-Nostalgex-Client: roku`, which the
-maintainer agreed to ([UPSTREAM.md](UPSTREAM.md)). Records attach as
+maintainer agreed to ([Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18953180)). Records attach as
 `item.enrichment`, which the filter and the franchise builder already read.
 The library load builds the guide from the caches first and rebuilds only if
 the relay or OMDb added anything. Where it differs from upstream, and why, is
@@ -165,6 +165,11 @@ in the header of `source/enrich/Enrichment.brs`.
 It is in a build only when `.env` sets `NOSTALGEX_ENRICHMENT=on` with
 `NOSTALGEX_SUPABASE_URL` and `NOSTALGEX_SUPABASE_ANON_KEY`. `scripts/deploy.sh`
 then writes them to `data/enrichment.json` in the zip, never in the repo.
+Builds use the web tuner's Supabase project
+([Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18982798)),
+and the relay is asked only on a cache miss, since OMDb's free tier is 1,000
+requests a day across every client
+([the same thread](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18961197)).
 Without that, rules that need enrichment behave as on an Apple TV with no
 record: keyword and network matches don't fire, production companies match on
 Plex's studio alone, and the IMDb gates leave FOREIGN FILMS and CULT CLASSICS
@@ -335,7 +340,7 @@ transcoded film joined 70 minutes in had Plex's transcode window at minutes
 server, so the rows don't show) and the sign-in code changing after 5 minutes.
 `*` in the guide was pressed on a TV and did nothing, as intended.
 
-The Channel Store bar, on the 43S45 (Roku OS 16.0.4), 2026-10-16
+[The Channel Store bar](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18982978), on the 43S45 (Roku OS 16.0.4), 2026-10-16
 at `6f05937` with 5,363 items on one server:
 
 - **No rescan on a switch:** with the saved library there, a package switch

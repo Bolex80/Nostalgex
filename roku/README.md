@@ -139,14 +139,12 @@ check, and fails on any error it reports.
 | `scripts/icons.sh` | Draws the icons, splash and logo: the Nostalgex wordmark, from upstream's `logo/` |
 | `scripts/look-images.py` | Draws `images/look/` (scanlines, vignette, focus outline, static) from the Apple TV app's drawing code |
 | `scripts/sca.sh` | Roku's Static Channel Analysis, the Channel Store's own check (`out/sca/report.txt`) |
-| `scripts/post-upstream.sh` | Posts to upstream's GitHub Discussions; it can reach nothing else |
 | `scripts/release.sh` | The maintainer's signed release: build with enrichment, install, sign, download the `.pkg` (`--dry-run` stops before the TV); see the repo's `RELEASING.md` |
 | `releases.tsv` | Every signed release's version, date and md5; `release.sh` refuses a version that isn't past the last |
 | `tests/` | Golden vectors from upstream's code, and the runner |
 | `tests/live/` | Live checks against a real Plex server (`plex-link.mjs`, `compare.mjs`, `collections.mjs`) |
 | `tests/bench/` | Channel build, franchise step and schedule benchmarks over a saved library; their logs diff two builds result by result |
 | `docs/PORTING.md` | What is ported from where, and how parity is proven |
-| `docs/UPSTREAM.md` | Working with the Nostalgex project |
 
 ## License
 
