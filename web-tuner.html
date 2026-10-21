@@ -8,8 +8,8 @@
 <meta name="description" content="Watch your Plex, Jellyfin or Emby library as live channels with a retro guide in your browser. Free, no account. Jellyfin and Emby need an https address.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://www.nostalgex.app/web-tuner">
-<link rel="icon" type="image/png" sizes="48x48" href="/logo/favicon-48.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="48x48" href="./tuner/logo/favicon-48.png">
+<link rel="apple-touch-icon" href="./tuner/logo/apple-touch-icon.png">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Nostalgex Web Tuner: Watch Your Library as Live TV">
@@ -29,7 +29,7 @@
 <meta name="twitter:image" content="https://www.nostalgex.app/og-image-1200.png">
 <!-- selfhost:strip:end -->
 <!-- selfhost:only: <meta name="robots" content="noindex, nofollow"> -->
-<!-- selfhost:only: <link rel="icon" type="image/png" href="./logo/favicon.png"> -->
+<!-- selfhost:only: <link rel="icon" type="image/png" href="./tuner/logo/favicon.png"> -->
 
 <script>
   /* Theme boot — runs before first paint so there's no flash on reload.
@@ -48,14 +48,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css">
-<!-- Tuner-only styles (the sign-in screens). The site never loads this file. -->
-<link rel="stylesheet" href="./tuner.css">
+<!-- The tuner's own styles. Nothing from the marketing site loads here (tuner/connect.css says why). -->
+<link rel="stylesheet" href="./tuner/connect.css">
+<link rel="stylesheet" href="./tuner/signin.css">
 <!-- Required by the Plex PIN flow below (renders the plex.tv/link QR code). -->
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
 <!-- selfhost:strip:start -->
 <script>
-  /* Analytics loads after the page has, so a slow third party never holds up the load event. */
+  /* The tuner's own copy of the analytics loader, hosted only (the Docker build strips it).
+     Loads after the page has, so a slow third party never holds up the load event. */
   window.addEventListener("load", function () {
     var s = document.createElement("script");
     s.src = "https://statsngraphs.lol/s.js";
@@ -364,8 +365,8 @@
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
-        <img src="./logo/nostalgex-black.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-day" loading="lazy">
-        <img src="./logo/nostalgex-white.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-nite" loading="lazy">
+        <img src="./tuner/logo/nostalgex-black.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-day" loading="lazy">
+        <img src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-nite" loading="lazy">
         <p>Retro cable TV for your own library.</p>
       </div>
       <nav class="footer-links" aria-label="Footer">
@@ -383,8 +384,8 @@
   <!-- selfhost:strip:end -->
   <!-- selfhost:only: <footer class="footer"><div class="container footer-inner"><p class="footer-note">Nostalgex self-hosted web tuner. <a href="https://github.com/chadMueller/Nostalgex" target="_blank" rel="noopener">Source on GitHub</a>. Not affiliated with Plex, Jellyfin, Emby, or Apple.</p></div></footer> -->
 
-  <!-- Shared site script (theme toggle, nav scroll state). type="module" so Vite bundles it. -->
-  <script type="module" src="./app.js"></script>
+  <!-- The connect page's own script: theme toggle, nav, mobile menu, email signup. -->
+  <script type="module" src="./tuner/connect.js"></script>
   <!-- Starts Quick Connect (quickConnectInitiate: POST, then GET on older Jellyfin). -->
   <script src="scripts/nostalgex-jellyfin-urls.js"></script>
   <!-- The connect screens' logic, shared with the Apple TV spec: address check, find, Quick Connect. -->

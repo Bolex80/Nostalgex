@@ -6,11 +6,12 @@ import { selfhostPlugins, hostedMarkerPlugin } from './scripts/selfhost-build.mj
 import { writeBundlesToDist } from './scripts/build-bundles.mjs'
 import { resolveTunerVersion, tunerVersionPlugin } from './scripts/tuner-version.mjs'
 
-// The browser-loaded helper scripts (scripts/nostalgex-*.js|.cjs) are referenced
-// by plex-tuner.html with a plain <script src>. Vite can't bundle non-module scripts,
-// and they live outside public/, so the default build leaves them out of dist and
-// production 404s them — which breaks the entire library load. Copy them into dist/scripts.
-function copyBrowserScripts() {
+// Browser-loaded scripts referenced with a plain <script src>. Vite can't bundle
+// non-module scripts, and they live outside public/, so the default build leaves them
+// out of dist and production 404s them, which breaks the entire library load. Copy
+// them into dist/scripts: the tuner's engine (scripts/nostalgex-*.js|.cjs) from the
+// tuner build, the site's newsletter.js from the site build.
+function copyBrowserScripts(pattern) {
   return {
     name: 'copy-browser-scripts',
     closeBundle() {
@@ -18,12 +19,22 @@ function copyBrowserScripts() {
       const outDir = resolve(__dirname, 'dist', 'scripts')
       mkdirSync(outDir, { recursive: true })
       for (const file of readdirSync(srcDir)) {
-        if (/^(nostalgex-.*\.(js|cjs)|newsletter\.js)$/.test(file)) {
+        if (pattern.test(file)) {
           copyFileSync(resolve(srcDir, file), resolve(outDir, file))
         }
       }
     },
   }
+}
+
+// The web tuner's two pages, built on their own: `vite build --mode tuner`, after the
+// site build, into the same dist/ (npm run build runs both). No public/, its own
+// assets folder, none of the site's plugins, and the site build doesn't see these
+// pages, so nothing on the marketing site can change what the tuner ships (Chad,
+// 2026-10-21). scripts/tuner-isolation-check.mjs holds that in place.
+export const TUNER_PAGES = {
+  'web-tuner': resolve(__dirname, 'web-tuner.html'),
+  'plex-tuner': resolve(__dirname, 'plex-tuner.html'),
 }
 
 // Render content/blog/*.md into static pages at dist/blog/index.html and
@@ -92,25 +103,30 @@ export default defineConfig(({ mode }) => {
         tunerVersionPlugin(tunerVersion),
       ],
       build: {
-        rollupOptions: {
-          input: {
-            'web-tuner': resolve(__dirname, 'web-tuner.html'),
-            'plex-tuner': resolve(__dirname, 'plex-tuner.html'),
-          },
-        },
+        rollupOptions: { input: TUNER_PAGES },
+      },
+    }
+  }
+
+  if (mode === 'tuner') {
+    return {
+      publicDir: false,
+      plugins: [hostedMarkerPlugin(), tunerVersionPlugin(tunerVersion), copyBrowserScripts(/^nostalgex-.*\.(js|cjs)$/)],
+      build: {
+        emptyOutDir: false,
+        assetsDir: 'tuner-assets',
+        rollupOptions: { input: TUNER_PAGES },
       },
     }
   }
 
   return {
-    plugins: [hostedMarkerPlugin(), tunerVersionPlugin(tunerVersion), copyBrowserScripts(), emitBlog(), emitBundles()],
+    plugins: [hostedMarkerPlugin(), copyBrowserScripts(/^newsletter\.js$/), emitBlog(), emitBundles()],
     build: {
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
-          'web-tuner': resolve(__dirname, 'web-tuner.html'),
           'apple-tv': resolve(__dirname, 'apple-tv.html'),
-          'plex-tuner': resolve(__dirname, 'plex-tuner.html'),
           privacy: resolve(__dirname, 'privacy.html'),
           terms: resolve(__dirname, 'terms.html'),
           support: resolve(__dirname, 'support.html'),
