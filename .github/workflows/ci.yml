@@ -59,6 +59,7 @@ jobs:
               - 'Nostalgex/**'
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
+              - 'scripts/schedule-dst-golden.json'
             config:
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -71,6 +72,8 @@ jobs:
               - 'scripts/nostalgex-daily-manifest.js'
               - 'scripts/nostalgex-filter-smoke.mjs'
               - 'scripts/nostalgex-schedule-order-smoke.mjs'
+              - 'scripts/nostalgex-schedule-dst-smoke.mjs'
+              - 'scripts/schedule-dst-golden.json'
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
               - 'scripts/nostalgex-franchise-builder.js'

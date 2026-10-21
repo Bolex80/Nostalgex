@@ -2,7 +2,8 @@
 /**
  * The schedule on the days the clocks change, on the web tuner and in the Docker image.
  *
- *   1. scripts/schedule-dst-golden.json's local midnights are the zones' real ones (Temporal).
+ *   1. scripts/schedule-dst-golden.json's local midnights are the zones' real ones, from the
+ *      tz database through Intl. CI runs node 22, which has no Temporal.
  *   2. scripts/nostalgex-daily-manifest.js against those vectors, the ones
  *      NostalgexTests/ScheduleDSTGoldenTests.swift also runs, each in its own zone: the day's
  *      start, the next day's start and yesterday's key; a full day of schedule with no empty
@@ -47,6 +48,31 @@ const pool = (rows) => rows.map(([ratingKey, title, type, duration]) => ({ ratin
 const small = { id: 201, name: "SMALL", itemPool: pool(golden.pools.small) };
 const big = { id: 203, name: "BIG", itemPool: pool(golden.pools.big) };
 const dayOf = (zone, date) => golden.days.find((d) => d.zone === zone && d.date === date);
+
+// The first second of `date` in `zone`: its local midnight, or the first moment after it where
+// midnight is skipped. 15 hours before UTC midnight is the day before in every zone (offsets
+// run from -12 to +14) and 15 hours after is the day itself, and local dates only move forward
+// in between, so a binary search finds it.
+const dateFormats = new Map();
+function localDate(zone, sec) {
+  let f = dateFormats.get(zone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" });
+    dateFormats.set(zone, f);
+  }
+  return f.format(new Date(sec * 1000));
+}
+function startOfDate(zone, date) {
+  const utcMidnight = Date.parse(`${date}T00:00:00Z`) / 1000;
+  let lo = utcMidnight - 15 * 3600, hi = utcMidnight + 15 * 3600;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (localDate(zone, mid) < date) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+const dateAfter = (date) => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
 const originalTZ = process.env.TZ;
 
 /** The fill and yesterday vectors that fail for module `M`. */
@@ -73,11 +99,10 @@ function behaviourFailures(M) {
 
 // 1. The golden file's midnights are the real ones.
 for (const d of golden.days) {
-  const date = Temporal.PlainDate.from(d.date);
-  const start = date.toZonedDateTime({ timeZone: d.zone }).epochMilliseconds / 1000;
-  const next = date.add({ days: 1 }).toZonedDateTime({ timeZone: d.zone }).epochMilliseconds / 1000;
+  const start = startOfDate(d.zone, d.date);
+  const next = startOfDate(d.zone, dateAfter(d.date));
   check(`golden ${d.zone} ${d.date} matches the tz database`, start === d.start && next === d.nextStart,
-    `file ${d.start}..${d.nextStart}, Temporal ${start}..${next}`);
+    `file ${d.start}..${d.nextStart}, tz database ${start}..${next}`);
 }
 
 // 2. The module.
