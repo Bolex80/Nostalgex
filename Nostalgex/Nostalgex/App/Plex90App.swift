@@ -223,17 +223,10 @@ struct LoadingView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 760)
 
-            Button {
+            Button("STOP WAITING") {
                 appState.stopWaitingForLibraryScan()
-            } label: {
-                Text("STOP WAITING")
-                    .font(.custom("DMMono-Medium", size: 22))
-                    .foregroundStyle(Color("BrandCyan"))
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 16)
-                    .background(RoundedRectangle(cornerRadius: 8).stroke(Color("BrandCyan").opacity(0.5), lineWidth: 1.5))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(OnboardingButtonStyle(role: .primary, fullWidth: false, fontSize: 24))
 
             Text("Keeps whatever has loaded so far and finishes the rest later.")
                 .font(.custom("DMMono-Regular", size: 17))
@@ -450,39 +443,32 @@ struct ServerPickerView: View {
                     }
                     .frame(maxHeight: 560)
 
-                    Button {
+                    Button("CONTINUE") {
                         let chosen = appState.availableServers.filter { selectedIDs.contains($0.machineIdentifier) }
                         appState.confirmServerSelection(chosen)
-                    } label: {
-                        Text("CONTINUE")
-                            .font(.custom("DMMono-Medium", size: 30))
-                            .foregroundStyle(selectedIDs.isEmpty ? .white.opacity(0.3) : Color("BrandCyan"))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 22)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(focusedID == "continue" ? Color("BrandCyan").opacity(0.12) : .clear)
-                            )
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(
-                                selectedIDs.isEmpty
-                                    ? Color.white.opacity(0.15)
-                                    : Color("BrandCyan").opacity(focusedID == "continue" ? 1.0 : 0.55),
-                                lineWidth: focusedID == "continue" ? 2.5 : 1.5))
                     }
-                    .buttonStyle(PickerRowButtonStyle())
+                    .buttonStyle(OnboardingButtonStyle(role: .primary))
                     .disabled(selectedIDs.isEmpty)
                     .focused($focusedID, equals: "continue")
+                    .accessibilityIdentifier("serverPickerContinue")
                 }
                 .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 100)
             .padding(.vertical, 60)
         }
+        .defaultFocus($focusedID, "continue")
         .onAppear {
             // Default selection: owned servers, or all if none are owned.
             let owned = appState.availableServers.filter(\.owned)
             let defaults = owned.isEmpty ? appState.availableServers : owned
             selectedIDs = Set(defaults.map(\.machineIdentifier))
+            // The usual choice is already ticked, so the remote starts on CONTINUE: one
+            // press to go on, instead of walking down past every server first.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                focusedID = "continue"
+            }
         }
     }
 
@@ -494,28 +480,32 @@ struct ServerPickerView: View {
             if isOn { selectedIDs.remove(server.machineIdentifier) }
             else { selectedIDs.insert(server.machineIdentifier) }
         } label: {
+            // Same focus language as the connect screens: the focused row is a solid cyan
+            // slab with dark text that grows and glows; the rest are dim outlines.
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(server.name)
                         .font(.custom("DMMono-Medium", size: 28))
-                        .foregroundStyle(isOn ? .white : .white.opacity(0.55))
+                        .foregroundStyle(isFocused ? OnboardingPalette.onFocus : (isOn ? .white : .white.opacity(0.55)))
                     Text(server.owned ? "Your server" : "Shared with you")
                         .font(.custom("DMMono-Regular", size: 18))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(isFocused ? OnboardingPalette.onFocus.opacity(0.75) : .white.opacity(0.4))
                 }
                 Spacer()
                 Text(isOn ? "INCLUDED" : "OFF")
                     .font(.custom("DMMono-Medium", size: 22))
-                    .foregroundStyle(isOn ? Color("BrandCyan") : .white.opacity(0.35))
+                    .foregroundStyle(isFocused ? OnboardingPalette.onFocus : (isOn ? OnboardingPalette.cyan : .white.opacity(0.35)))
             }
             .padding(.horizontal, 32)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(
-                isFocused ? Color("BrandCyan").opacity(0.1) : .white.opacity(0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(
-                isFocused ? Color("BrandCyan").opacity(0.6) : .white.opacity(0.08),
-                lineWidth: isFocused ? 2.5 : 1))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
+                isFocused ? OnboardingPalette.cyan : .white.opacity(0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(
+                isFocused ? .clear : .white.opacity(0.18), lineWidth: 1.5))
+            .shadow(color: OnboardingPalette.cyan.opacity(isFocused ? 0.6 : 0), radius: 28)
+            .scaleEffect(isFocused ? 1.04 : 1.0)
+            .animation(.easeOut(duration: 0.14), value: isFocused)
         }
         .buttonStyle(PickerRowButtonStyle())
         .focused($focusedID, equals: server.machineIdentifier)
@@ -576,32 +566,18 @@ struct EmptyChannelsView: View {
                     }
 
                     HStack(spacing: 16) {
-                        Button {
+                        Button("RETRY") {
                             Task {
                                 appState.errorMessage = nil
                                 await appState.loadLibrary()
                             }
-                        } label: {
-                            Text("RETRY")
-                                .font(.custom("DMMono-Medium", size: 22))
-                                .foregroundStyle(Color("BrandCyan"))
-                                .padding(.horizontal, 40)
-                                .padding(.vertical, 16)
-                                .background(RoundedRectangle(cornerRadius: 8).stroke(Color("BrandCyan").opacity(0.5), lineWidth: 1.5))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(OnboardingButtonStyle(role: .primary, fullWidth: false, fontSize: 24))
 
-                        Button {
+                        Button("SETTINGS") {
                             navigationPath.append(AppDestination.settings)
-                        } label: {
-                            Text("SETTINGS")
-                                .font(.custom("DMMono-Medium", size: 22))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .padding(.horizontal, 40)
-                                .padding(.vertical, 16)
-                                .background(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.2), lineWidth: 1.5))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(OnboardingButtonStyle(role: .secondary, fullWidth: false, fontSize: 24))
                     }
                 } else {
                     // Library loaded fine but no channels meet minItems — true "not enough content"
@@ -614,17 +590,10 @@ struct EmptyChannelsView: View {
                         .foregroundStyle(.white.opacity(0.3))
                         .multilineTextAlignment(.center)
 
-                    Button {
+                    Button("OPEN SETTINGS") {
                         navigationPath.append(AppDestination.settings)
-                    } label: {
-                        Text("OPEN SETTINGS")
-                            .font(.custom("DMMono-Medium", size: 22))
-                            .foregroundStyle(Color("BrandCyan"))
-                            .padding(.horizontal, 40)
-                            .padding(.vertical, 16)
-                            .background(RoundedRectangle(cornerRadius: 8).stroke(Color("BrandCyan").opacity(0.5), lineWidth: 1.5))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(OnboardingButtonStyle(role: .primary, fullWidth: false, fontSize: 24))
                 }
             }
         }

@@ -24,7 +24,7 @@ struct DiscoveredServer: Equatable, Identifiable, Sendable {
 /// Measured on macOS 15 with Xcode 26; the simulator shares that stack.
 ///
 /// Nothing here is stored or sent off the local network. It runs only when the user
-/// presses the button on the connect form.
+/// presses FIND MY SERVER on the Jellyfin or Emby connect screen.
 enum LANServerDiscovery {
 
     static let port: UInt16 = 7359
@@ -34,9 +34,9 @@ enum LANServerDiscovery {
     /// Copy shown on the connect forms. Kept here so the no-em-dash, no-emoji test can
     /// read every string the feature puts on screen.
     enum Copy {
-        static let findButton = "FIND SERVERS ON MY NETWORK"
+        static let findButton = "FIND MY SERVER"
         static let searching = "SEARCHING..."
-        static let noneFound = "No servers found. Check the Apple TV and the server are on the same network, then try again."
+        static let noneFound = "No server answered. Check the Apple TV and the server are on the same network, or type its address."
         static let all: [String] = [findButton, searching, noneFound]
     }
 
