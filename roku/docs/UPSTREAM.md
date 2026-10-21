@@ -481,7 +481,10 @@ small ones stay as upstream has them unless they change theirs:
 - The screensaver is kept off by playback, as their idle timer is.
 - The QR's 2-module quiet zone was deliberate; we offered 4 if they want it.
 
-Emby sync after a join on TS is ours to check.
+[Reported](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19087038)
+on 2026-10-20: Emby TS in sync after a join (0 and -1 ms), fMP4 sound
+2,048 ms early, measured off the stream and not yet watched on a TV
+([JELLYFIN-EMBY.md](JELLYFIN-EMBY.md)).
 
 ## Channel ideas: Discussion #29
 
