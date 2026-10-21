@@ -60,6 +60,8 @@ jobs:
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
               - 'scripts/schedule-dst-golden.json'
+              - 'scripts/filter-golden.json'
+              - 'scripts/rating-golden.json'
             config:
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -78,6 +80,12 @@ jobs:
               - 'scripts/franchise-golden.json'
               - 'scripts/nostalgex-franchise-builder.js'
               - 'scripts/nostalgex-franchise-smoke.mjs'
+              - 'scripts/filter-golden.json'
+              - 'scripts/nostalgex-filter-golden-smoke.mjs'
+              - 'scripts/rating-golden.json'
+              - 'scripts/nostalgex-rating-smoke.mjs'
+              # The ratings smoke test reads VHS VAULT's 9 PM rule out of the page.
+              - 'plex-tuner.html'
             docker:
               - '.github/workflows/ci.yml'
               - '.github/workflows/docker.yml'
@@ -114,6 +122,8 @@ jobs:
               - 'scripts/schedule-dst-golden.json'
               - 'scripts/nostalgex-filter-golden-smoke.mjs'
               - 'scripts/nostalgex-season-smoke.mjs'
+              - 'scripts/rating-golden.json'
+              - 'scripts/nostalgex-rating-smoke.mjs'
 
   channel-engine:
     name: Channel engine (rule parity, schedule order, docs)
