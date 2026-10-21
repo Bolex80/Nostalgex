@@ -3,6 +3,34 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (the web tuner, apart from the marketing site)
+
+**Shipped.** Nothing. Branch `web/separate`, on top of `web/signin`. Not on main.
+
+**Why.** Chad: "anything that touches the marketing site should never affect the web tuner or the docker container - those should feel very separate." Today it did. `web-tuner.html` linked the site's `styles.css` and `app.js`, and the hosted build compiled it with the site, so `dist/web-tuner.html` loaded the very same `assets/styles-*.css` and `assets/app-*.js` as the home page. The Docker build bundled the same two files. A site CSS change reached the tuner's connect page and the next Docker image.
+
+**What was coupled, and what was not.**
+- Coupled: the stylesheet and script above; the hosted build (one Vite run for site and tuner, with the site's plugins and `public/`); the logo and icon files in `logo/` and `public/`; the Docker context, which let in `styles.css`, `app.js` and `logo/`; the analytics loader on the connect page, edited as site code today.
+- Not coupled: `plex-tuner.html` has its own inline styles and loads no site script. `scripts/site-chrome.mjs` is only used by the blog and channel-page generators. No site page loads the tuner's engine scripts.
+- Shared on purpose and kept: `vercel.json` (routes and one set of headers for the whole domain) and the Google Fonts links.
+
+**Changed.**
+- `tuner/` is the tuner's own: `connect.css` holds the 108 of `styles.css`'s 630 rules the connect page uses, picked by testing every selector against the page in each state (both themes, menu open, scrolled, every sign-in screen) on the hosted and Docker builds, then frozen. `signin.css` is the sign-in (it was `tuner.css`). `connect.js` is the theme toggle, nav scroll state, mobile menu and email signup, copied word for word from `app.js`. `logo/` has copies of the logo and icons both pages use.
+- `vite build --mode tuner` builds the two tuner pages on their own, with no `public/` and assets in `tuner-assets/`, after the site build, which no longer sees them. `npm run build` runs both. URLs are unchanged.
+- The Docker context takes `tuner/` and no site file.
+- The connect page's analytics loader is the tuner's own copy, hosted only as before.
+- `npm run test:tuner-isolation` (in `npm test`) fails when a tuner page loads a site file, `tuner/` imports anything, a site generator reads a tuner page, either build takes the other's pages, the Docker context lets a site file in, or `vercel.json`'s CSP drops a source the tuner loads. `npm run test:tuner-isolation:builds` (CI web job) builds a temporary copy, makes site-only edits (`styles.css`, `app.js`, `index.html`, `site-chrome.mjs`, a `public/` file), builds again, and fails unless every file the tuner ships hashes the same.
+- `web/signin` also got a fix found here: on the hosted build Vite loaded the site stylesheet after the tuner's, so its `:focus-visible` rule squared off focused fields and buttons (2px corners) where Docker had the spec's 14px. The panel's corners now win in either order.
+
+**Measured.**
+- Screenshots, hosted and Docker builds, 960x540 and 1440x900, dark and light: the page, the full page, the menu, and every sign-in screen, 46 hosted and 44 Docker. Before against after: 0 pixels differ. Two runs of the unchanged build differ by nothing except, sometimes, the hero headline's anti-aliasing at 960x540 in the light theme (up to 4,985 pixels, at most 51 levels per channel); that flicker showed once in an after run and not on the rerun.
+- The build check: 91 tuner files hash the same after the site-only edits. On today's layout it fails as it should: 11 of 93 files change on origin/main `a2bc1bb`, 11 of 96 on `web/signin`.
+- Docker image 94.6 MB (94.7 MB before). It now holds the two pages, their bundle, the tuner's engine scripts, vendored libraries and fonts, and the data files.
+- Signing in and tuning, headless: on the Docker build and on the hosted build, the lab Emby by typed address and a no-password user, then the guide loaded 11 items into 4 channels and started channel 406, no page errors. The Docker sign-in tour (Jellyfin Quick Connect in 2 presses, password, wrong password, Escape) passed as on `web/signin`.
+- `npm test`, `npm run build`, `build:selfhost` green.
+
+**Next.** Chad's look at the preview. The connect page can now change its own look without touching the site; that's a separate design step if he wants it.
+
 ## 2026-10-21 (web tuner: the Apple TV sign-in, screen by screen)
 
 **Shipped.** Nothing. Branch `web/signin`, not pushed. A Vercel preview of the hosted page exists; Docker was built and run locally only. No `tunerVersion` bump: it goes out with whichever `tuner-v` tag Chad picks.
