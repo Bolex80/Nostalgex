@@ -50,6 +50,7 @@
     "test:watch-state": "node scripts/nostalgex-watch-state-smoke.mjs",
     "test:jellyfin-urls": "node scripts/nostalgex-jellyfin-urls-smoke.mjs",
     "test:jellyfin-quick-connect": "node scripts/nostalgex-jellyfin-quick-connect-smoke.mjs",
+    "test:signin": "node scripts/nostalgex-signin-smoke.mjs",
     "test:jellyfin-subtitles": "node scripts/nostalgex-jellyfin-subtitles-smoke.mjs",
     "media:measure": "node scripts/measure-media.mjs",
     "test:reporting-controls": "node scripts/playback-reporting-controls-smoke.mjs"
