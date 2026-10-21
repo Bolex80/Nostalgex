@@ -137,7 +137,20 @@ function NxRunSignInFlowTests() as Integer
     NxCheck(r, "msg host", NxSignInCheckMessage("unreachable", -6, "jellyfin"), "Could not find that host. Check the address.")
     NxCheck(r, "msg timeout", NxSignInCheckMessage("unreachable", -28, "emby"), "The Emby server took too long to answer. Check the address, or that the Roku can reach it.")
     NxCheck(r, "msg certificate", NxSignInCheckMessage("unreachable", -60, "jellyfin"), "The server's HTTPS certificate is not trusted by the Roku (error -60).")
-    NxCheck(r, "msg other", NxSignInCheckMessage("unreachable", -3, "jellyfin"), "Could not reach the Jellyfin server (error -3). Check the URL.")
+    NxCheck(r, "msg other", NxSignInCheckMessage("unreachable", -3, "jellyfin"), "Could not reach the Jellyfin server (error -3). Check the address.")
+    NxCheck(r, "msg no code (a sign-in answered, not 401)", NxSignInCheckMessage("unreachable", 0, "emby"), "Could not reach the Emby server. Check the address.")
+
+    ' ── plex.tv, on the first screen (SIGNIN-FLOW.md, Errors) ──
+    NxCheck(r, "plex 429", NxSignInPlexMessage(429), "plex.tv is rate-limiting sign-in requests from this device. Wait a minute, then press CONNECT TO PLEX again.")
+    NxCheck(r, "plex offline", NxSignInPlexMessage(-6), "No internet connection. Check the Roku's Wi-Fi or Ethernet, then press CONNECT TO PLEX again.")
+    NxCheck(r, "plex timeout", NxSignInPlexMessage(-28), "plex.tv took too long to respond. Check your connection, then press CONNECT TO PLEX again.")
+    NxCheck(r, "plex other network error", NxSignInPlexMessage(-35), "Could not reach plex.tv (error -35). Check your connection, then press CONNECT TO PLEX again.")
+    NxCheck(r, "plex HTTP error", NxSignInPlexMessage(503), "plex.tv returned an error (HTTP 503). Try again in a moment.")
+    NxCheck(r, "plex no detail", NxSignInPlexMessage(0), "Could not reach plex.tv. Check your connection, then press CONNECT TO PLEX again.")
+    NxCheck(r, "plex answered but no PIN", NxSignInPlexMessage(201), "Could not reach plex.tv. Check your connection, then press CONNECT TO PLEX again.")
+    c = NxSignInCopy()
+    NxCheck(r, "plex code expired", c.plexCodeExpired, "The code expired. Press CONNECT TO PLEX for a new one.")
+    NxCheck(r, "Quick Connect code expired", c.codeExpired, "The code expired. Press USE QUICK CONNECT for a new one, or sign in with your password.")
     NxCheck(r, "msg refused", Left(NxSignInCheckMessage("refused", 0, "emby"), 40), "Nostalgex reaches a server over HTTPS, o")
 
     ' ── Quick Connect polling ──
@@ -185,6 +198,10 @@ function NxRunSignInFlowTests() as Integer
         all.Push(NxSignInFindIntro(kind))
         all.Push(NxSignInSwitchedKind(kind))
         all.Push(NxSignInCheckMessage("unreachable", -28, kind))
+        all.Push(NxSignInCheckMessage("unreachable", 0, kind))
+    end for
+    for each code in [429, -6, -28, -35, 503, 0]
+        all.Push(NxSignInPlexMessage(code))
     end for
     all.Push(NxSignInConnecting("server"))
     bad = []
@@ -198,6 +215,14 @@ function NxRunSignInFlowTests() as Integer
         end for
     end for
     NxCheck(r, "copy is plain text: no em dash, no emoji (" + all.Count().ToStr() + " lines)", bad.Join(" | "), "")
+    ' The remote has no touch: a line names a button by its label and says
+    ' press, never tap (the spec's rule for ports).
+    tap = CreateObject("roRegex", "\btap\b", "i")
+    taps = []
+    for each text in all
+        if tap.IsMatch(text) then taps.Push(text)
+    end for
+    NxCheck(r, "no line says tap", taps.Join(" | "), "")
 
     print "sign-in flow cases (upstream SignInFlowTests):"; r.pass; " passed,"; r.fail; " failed"
     return r.fail

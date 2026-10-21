@@ -201,7 +201,22 @@ function NxSignInCheckMessage(reason as String, code as Integer, kind as String)
     if code = -35 or code = -51 or code = -53 or code = -58 or code = -59 or code = -60 or code = -77 or code = -83 then
         return "The server's HTTPS certificate is not trusted by the Roku (error " + code.ToStr() + ")."
     end if
-    return "Could not reach the " + name + " server (error " + code.ToStr() + "). Check the URL."
+    if code = 0 then return "Could not reach the " + name + " server. Check the address."
+    return "Could not reach the " + name + " server (error " + code.ToStr() + "). Check the address."
+end function
+
+' A plex.tv/link code that couldn't be had, by the request's code: an HTTP
+' status, a negative curl code, or 0 with no detail. The spec's plex.tv lines
+' (SIGNIN-FLOW.md, Errors); they show on the first screen, where CONNECT TO
+' PLEX is focused, so each names it. curl -6 (no DNS) stands in for "no
+' internet connection".
+function NxSignInPlexMessage(code as Integer) as String
+    if code = 429 then return "plex.tv is rate-limiting sign-in requests from this device. Wait a minute, then press CONNECT TO PLEX again."
+    if code = -6 then return "No internet connection. Check the Roku's Wi-Fi or Ethernet, then press CONNECT TO PLEX again."
+    if code = -28 then return "plex.tv took too long to respond. Check your connection, then press CONNECT TO PLEX again."
+    if code < 0 then return "Could not reach plex.tv (error " + code.ToStr() + "). Check your connection, then press CONNECT TO PLEX again."
+    if code > 0 and (code < 200 or code > 299) then return "plex.tv returned an error (HTTP " + code.ToStr() + "). Try again in a moment."
+    return "Could not reach plex.tv. Check your connection, then press CONNECT TO PLEX again."
 end function
 
 ' The real send: GETs through NxServerTransfer (HTTPS, or plain HTTP to a
@@ -228,8 +243,9 @@ end function
 
 ' Polling as upstream's startJellyfinQuickConnect: every 2 s, up to 150 polls
 ' (5 minutes). A poll that fails is not an answer, so it waits on; past the
-' last poll the code has expired. attempt counts from 1; res is
-' NxMbQuickConnectApproved's true, false or invalid.
+' last poll the code has expired. attempt counts from 1; approved is true,
+' false or invalid. Plex's plex.tv/link code polls the same way
+' (PlexSignInTask), with a token for true.
 function NxSignInQuickConnectStep(attempt as Integer, approved as Dynamic) as String
     if attempt > 150 then return "expired"
     if NxSignInIsBool(approved) then
@@ -300,7 +316,10 @@ function NxSignInCopy() as Object
         waitingForApproval: "WAITING FOR APPROVAL",
         signingIn: "SIGNING IN",
         notAServer: "That address answered, but it isn't a Jellyfin or Emby server. Check the port (both use 8096 unless you changed it).",
-        codeExpired: "Code expired. Tap Connect to try again.",
+        codeExpired: "The code expired. Press USE QUICK CONNECT for a new one, or sign in with your password.",
+        plexCodeExpired: "The code expired. Press CONNECT TO PLEX for a new one.",
+        plexNoServers: "Signed in, but no Plex Media Server was found on your account. Set up Plex on a computer or NAS (with media), make sure it's running, then try again.",
+        plexCantList: "Signed in, but couldn't reach plex.tv to find your servers. Check your connection and try again.",
         quickConnectOff: "Quick Connect is off on this server. Turn it on in Jellyfin (Dashboard, then General), or sign in with your password.",
         quickConnectFailed: "Could not start Quick Connect. Check the server address, or sign in with your password.",
         quickConnectNotJellyfin: "That address answered, but it isn't Jellyfin. Check the address and port (Jellyfin uses 8096).",

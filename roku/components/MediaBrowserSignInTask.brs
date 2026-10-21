@@ -100,7 +100,7 @@ sub finish(auth as Dynamic)
         return
     end if
     if auth = invalid then
-        fail("Couldn't reach the server to sign in. Try again.")
+        fail(NxSignInCheckMessage("unreachable", 0, m.top.server.kind))
         return
     end if
     if type(auth) <> "roAssociativeArray" then

@@ -9,6 +9,7 @@
 '   discovery=none|several   stands in for the network search
 '                            (upstream's -uiTestDiscovery)
 '   picker=1                 the Plex library picker over made-up servers
+'   plexerror=1              the made-up Plex code expires after 3 s
 ' CONNECT TO PLEX shows a made-up plex.tv/link code: the tour runs no Plex
 ' sign-in.
 sub Main(args = invalid as Dynamic)

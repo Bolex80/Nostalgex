@@ -25,26 +25,38 @@ sub runSignIn()
         end if
     end if
 
-    while token = ""
+    if token = "" then
         print "plex: requesting a link code"
-        pin = NxPlexCreatePin()
+        out = {}
+        pin = NxPlexCreatePin(out)
         if pin = invalid then
-            fail("Can't reach plex.tv. Check the TV's internet connection, then press OK to try again.")
+            ' On the first screen (MainScene), where CONNECT TO PLEX is.
+            fail(NxSignInPlexMessage(NxNumberOr0(out.code)))
             return
         end if
         m.top.code = pin.code
         m.top.status = "code"
-        ' Poll every 2 s for 5 minutes, as upstream does, then show a fresh code.
-        for attempt = 1 to 150
+        ' Poll every 2 s, as upstream does. After 150 polls (5 minutes), or
+        ' when plex.tv says the PIN is gone, the code has expired: back to
+        ' the first screen, where CONNECT TO PLEX makes a new one.
+        attempt = 0
+        while token = ""
             Sleep(2000)
-            got = NxPlexCheckPin(pin.id)
-            if got = invalid then exit for
-            if got <> "" then
-                token = got
-                exit for
+            attempt = attempt + 1
+            got = ""
+            if attempt <= 150 then got = NxPlexCheckPin(pin.id)
+            ' Two checks: got may be invalid, which can't be compared to text.
+            if got = invalid then
+                fail(NxSignInCopy().plexCodeExpired)
+                return
             end if
-        end for
-    end while
+            if NxSignInQuickConnectStep(attempt, got <> "") = "expired" then
+                fail(NxSignInCopy().plexCodeExpired)
+                return
+            end if
+            token = got
+        end while
+    end if
     NxPlexSaveToken(token)
     if type(account) <> "roAssociativeArray" then account = NxPlexAccount(token)
     ' Caches the deleted app left behind may be another account's library.
@@ -69,11 +81,11 @@ sub runSignIn()
     m.top.status = "discovering"
     servers = NxPlexServers(token)
     if servers = invalid then
-        fail("Signed in, but can't list your Plex servers. Press OK to try again.")
+        fail(NxSignInCopy().plexCantList)
         return
     end if
     if servers.Count() = 0 then
-        fail("This Plex account has no servers. Press OK to try again.")
+        fail(NxSignInCopy().plexNoServers)
         return
     end if
 

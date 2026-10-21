@@ -10,11 +10,14 @@ end sub
 
 sub onArgs()
     a = m.top.args
-    if a.discovery <> invalid then m.connect.discoveryFixture = a.discovery
+    m.connect.discoveryFixture = NxToStr(a.discovery)
+    ' plexerror=1: the made-up code expires after 3 s, and the error goes
+    ' back to the connect screen as MainScene sends a Plex sign-in error.
+    m.plexError = NxToStr(a.plexerror) = "1"
     print "TOUR args: discovery "; m.connect.discoveryFixture
     ' picker=1: the Plex library picker (ServerPickerView) over made-up
     ' servers, for its look; nothing is saved from it here.
-    if a.picker = "1" then
+    if NxToStr(a.picker) = "1" then
         m.picker = CreateObject("roSGNode", "ServerPickerView")
         m.picker.ObserveField("choices", "onPicked")
         m.top.AppendChild(m.picker)
@@ -36,9 +39,23 @@ sub onDone()
     if done = "plex" then
         m.connect.plexCode = "TOUR"
         m.connect.plexState = "code"
+        if m.plexError = true then
+            m.expiry = CreateObject("roSGNode", "Timer")
+            m.expiry.duration = 3
+            m.expiry.ObserveField("fire", "onExpired")
+            m.top.AppendChild(m.expiry)
+            m.expiry.control = "start"
+        end if
     else
         print "TOUR SIGNED IN to "; done
     end if
+end sub
+
+' As MainScene's onSignInState for "error" with the connect screen up.
+sub onExpired()
+    m.connect.plexState = ""
+    m.connect.notice = NxSignInCopy().plexCodeExpired
+    print "TOUR plex code expired"
 end sub
 
 sub onPlexCancel()
