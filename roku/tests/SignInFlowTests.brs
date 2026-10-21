@@ -148,6 +148,25 @@ function NxRunSignInFlowTests() as Integer
     fake.delays = { "http://192.0.2.7:8096": 20000 }
     got = NxSignInCheck("http://192.0.2.7:8096", fake)
     NxCheck(r, "8 s: one request", got.reason + " " + got.code.ToStr() + " " + fake.clock.ToStr(), "unreachable -28 8000")
+    ' A clock that moves on each reading: the check found the server at
+    ' 11,999 ms, and reading the time left twice would hand Quick Connect's
+    ' request 0 ms (Wait(0) waits forever on a Roku). Every request gets 1 ms
+    ' or more.
+    fake = NxSignInFake({
+        "http://192.0.2.8/System/Info/Public": { code: 200, text: jellyfinInfo },
+        "http://192.0.2.8/QuickConnect/Enabled": { code: 200, text: "true" }
+    }, ["http://192.0.2.8:8096"])
+    ' Readings at 0 and 8,000 ms (each moves the clock 1 ms), answers after
+    ' 7,999 and 3,998: Quick Connect's time left is read at 11,999.
+    fake.delays = { "http://192.0.2.8:8096": 7999, "http://192.0.2.8/System": 3998 }
+    fake.tick = 1
+    got = NxSignInCheck("192.0.2.8", fake)
+    shortest = 99999
+    for each t in fake.timeouts
+        if t < shortest then shortest = t
+    end for
+    NxCheck(r, "no request gets 0 ms", NxToStr(shortest >= 1) + " " + got.server.kind + " " + FormatJson(got.server.quickConnect), "true jellyfin true")
+    NxCheck(r, "Wait never gets 0", NxSignInWaitMs(0).ToStr() + " " + NxSignInWaitMs(-40).ToStr() + " " + NxSignInWaitMs(8000).ToStr(), "1 1 8000")
 
     ' ── Finishing a sign-in, and the tour's dry run ──
     saver = { calls: 0, save: NxSignInTestSave }
@@ -297,17 +316,22 @@ end function
 ' zero: every request refused by NxServerTransfer (code 0). timeout: a URL
 ' prefix that times out (-28). asked: every URL requested.
 function NxSignInFake(routes as Object, refused as Object) as Object
-    return { routes: routes, refused: refused, asked: [], zero: false, timeout: "", delays: {}, clock: 0, fetch: NxSignInFakeFetch, elapsedMs: NxSignInFakeElapsed }
+    return { routes: routes, refused: refused, asked: [], timeouts: [], zero: false, timeout: "", delays: {}, clock: 0, tick: 0, fetch: NxSignInFakeFetch, elapsedMs: NxSignInFakeElapsed }
 end function
 
+' tick: ms the fake clock moves on each reading, as a real one does between
+' two readings.
 function NxSignInFakeElapsed() as Integer
-    return m.clock
+    v = m.clock
+    m.clock = m.clock + m.tick
+    return v
 end function
 
 ' delays: URL prefix to the ms an answer takes on the fake clock; one that
 ' takes longer than the request may answers -28 when its time is up.
 function NxSignInFakeFetch(url as String, timeoutMs = 8000 as Integer) as Object
     m.asked.Push(url)
+    m.timeouts.Push(timeoutMs)
     delay = 0
     ' Case-blind: on a TV an AA literal's keys come back lowercased.
     for each prefix in m.delays

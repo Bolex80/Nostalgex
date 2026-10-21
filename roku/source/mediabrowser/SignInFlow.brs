@@ -179,14 +179,18 @@ function NxSignInCheck(address as String, send as Object) as Object
         return { server: invalid, reason: "notAServer", code: 0 }
     end if
 
+    ' The time left is read once per request: read twice, the clock could pass
+    ' 12 s in between and hand the request 0 ms.
     quickConnect = invalid
-    if info.kind = "jellyfin" and NxSignInTimeLeft(send) > 0 then
-        res = send.fetch(base + "/QuickConnect/Enabled", NxSignInTimeLeft(send))
+    left = NxSignInTimeLeft(send)
+    if info.kind = "jellyfin" and left > 0 then
+        res = send.fetch(base + "/QuickConnect/Enabled", left)
         quickConnect = NxSignInQuickConnectEnabled(res.code, res.text)
     end if
     users = []
-    if NxSignInTimeLeft(send) > 0 then
-        res = send.fetch(base + "/Users/Public", NxSignInTimeLeft(send))
+    left = NxSignInTimeLeft(send)
+    if left > 0 then
+        res = send.fetch(base + "/Users/Public", left)
         if res.code >= 200 and res.code <= 299 then users = NxSignInPublicUsers(NxParseJsonBody(res.text))
     end if
     server = { kind: info.kind, url: base, name: info.name, id: info.id, users: users }
@@ -233,6 +237,13 @@ function NxSignInTimeLeft(send as Object) as Integer
     return left
 end function
 
+' A request's timeout as Wait takes it: at least 1 ms, since Wait(0) on a
+' Roku waits forever.
+function NxSignInWaitMs(timeoutMs as Integer) as Integer
+    if timeoutMs < 1 then return 1
+    return timeoutMs
+end function
+
 ' The real send: GETs through NxServerTransfer (HTTPS, or plain HTTP to a
 ' private address only). Its clock starts when it is made, at the check.
 function NxSignInLiveSend() as Object
@@ -249,7 +260,7 @@ function NxSignInLiveFetch(url as String, timeoutMs = 8000 as Integer) as Object
     port = CreateObject("roMessagePort")
     xfer.SetMessagePort(port)
     if not xfer.AsyncGetToString() then return { code: -1, text: "" }
-    msg = Wait(timeoutMs, port)
+    msg = Wait(NxSignInWaitMs(timeoutMs), port)
     if type(msg) <> "roUrlEvent" then
         xfer.AsyncCancel()
         return { code: -28, text: "" }
