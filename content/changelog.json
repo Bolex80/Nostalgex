@@ -4,8 +4,15 @@
       "version": "1.0.28",
       "date": "OCT 2026",
       "released": false,
-      "title": "Ratings from outside the US",
+      "title": "Signing in to Jellyfin and Emby in a few presses, and ratings from outside the US",
       "bullets": [
+        "Pick Jellyfin or Emby and Nostalgex starts looking for your server on your network right away. If one answers, it goes straight to it, no list to pick from. FIND MY SERVER looks again, and TYPE AN ADDRESS is there if nothing answers.",
+        "The first time, your Apple TV asks whether Nostalgex can look for devices on your local network. Say no and you can still type your server's address.",
+        "On Jellyfin with Quick Connect switched on, the code is on screen as soon as your server is found. Approve it in Jellyfin on your phone or computer and you are in, with nothing to type. Signing in with a password is one press away.",
+        "If your server shows its users on its login screen, as Emby does out of the box, Nostalgex shows them too. Pick your name instead of typing it. A user with no password is signed in on that press.",
+        "Nostalgex checks the address before you type a password, so a wrong address tells you right away.",
+        "Closing the keyboard takes you to the next step.",
+        "On every connect screen the button the remote is on is easy to spot from the couch: a bright cyan bar that grows a little. Text boxes are dark with a cyan frame, so what you type stays readable.",
         "Ratings from outside the US count like their US equivalents. On a Jellyfin or Emby server with UK ratings, films and shows rated U and PG now fill the kids and family channels, while 15 and 18 stay off them and wait until 9 PM on VHS VAULT. German FSK ratings and a few other countries work the same way."
       ]
     },
