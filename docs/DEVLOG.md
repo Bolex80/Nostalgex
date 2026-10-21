@@ -3,6 +3,26 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (Roku 1.0.2: the clock-change fix, and a one-command signed release)
+
+**Shipped.** Nothing yet. Branch `roku/1.0.2` = main `9efefa4` (which has the clock-change fix) + the release script + the version bump, not pushed. No package signed or uploaded.
+
+**Why.** The Roku beta runs 1.0.1, which packs every day as 86,400 s, and the US clocks go back on Sun Nov 1. The Roku dashboard only takes a version past the last one it saw.
+
+**Changed.**
+- `roku/manifest`: `build_version=2`, so the app is Nostalgex 1.0.2. It carries the Roku port of the clock-change fix (`85cb3a1`, see the entry below).
+- `roku/scripts/release.sh`, `roku/releases.tsv` and the Roku section of `RELEASING.md`, from `roku/release-script` (`a0d0f3d`, rebased): build as `scripts/deploy.sh` does with enrichment on, check the stick holds the signing key's Dev ID, install, sign, download the `.pkg` and log it. The script refuses a version that isn't past `releases.tsv` and every `roku-v*` tag.
+
+**Measured.**
+- `roku/tests/run.sh` on this branch: ALL TESTS PASSED. Lineup vectors 154, DST golden 320, schedule 174.
+- `release.sh --dry-run`: version 1.0.2 past 1.0.1, enrichment on, build `cca0d38c709d` (95 files, 671 KB).
+- Roku static analysis (`sca-cmd`, Java 21) on 1.0.2: nothing reported at any severity.
+- The stick reports the signing key's Dev ID.
+- On a Roku Streaming Stick Plus (OS 15.3.4), `scripts/deploy.sh --test`: ALL TESTS PASSED. Lineup 154, DST golden 320, schedule 174, filter 373, collections 2,586, mediabrowser 5,395, all with 0 failed. That closes the clock-change entry's hardware gap for Roku. On macOS, `deploy.sh` needs stand-ins for GNU `timeout` and `stat -c`.
+- The saved sign-in survived the test build and then the app build. The beta from the store and the sideloaded build share one saved-data store, because they are signed with the same key.
+
+**Next.** Sign 1.0.2, upload it to the beta and tag `roku-v1.0.2`.
+
 ## 2026-10-21 (clock changes: a day runs to the next midnight, on every surface)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.4` from the same commit. The Apple TV app in 1.0.27 build 51 (TestFlight 2026-10-21, App Review next). The Roku app in its next package, 1.0.2.
