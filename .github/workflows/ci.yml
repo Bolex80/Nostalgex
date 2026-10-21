@@ -43,6 +43,7 @@ jobs:
               - 'terms.html'
               - '404.html'
               - 'styles.css'
+              - 'tuner.css'
               - 'channels.json'
               - 'franchises.json'
               - 'api/**'
@@ -86,6 +87,12 @@ jobs:
               - 'scripts/nostalgex-rating-smoke.mjs'
               # The ratings smoke test reads VHS VAULT's 9 PM rule out of the page.
               - 'plex-tuner.html'
+              # The sign-in screens: npm test runs their logic and the Quick Connect test.
+              - 'web-tuner.html'
+              - 'scripts/nostalgex-signin.js'
+              - 'scripts/nostalgex-signin-smoke.mjs'
+              - 'scripts/signin-golden.json'
+              - 'scripts/nostalgex-jellyfin-quick-connect-smoke.mjs'
             docker:
               - '.github/workflows/ci.yml'
               - '.github/workflows/docker.yml'
@@ -94,6 +101,8 @@ jobs:
               - 'docker/**'
               - 'vite.config.*'
               - 'scripts/selfhost-build.mjs'
+              - 'tuner.css'
+              - 'web-tuner.html'
               - 'scripts/tuner-version.mjs'
               - 'package.json'
               - 'package-lock.json'
