@@ -3,6 +3,37 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (Roku: the Apple TV sign-in redesign, ported)
+
+**Shipped.** Nothing. Branch `roku/signin` off main `9662edb`, not pushed, for a Roku beta after Chad's go. Not in any package.
+
+**Why.** Chad wants the same login on every platform, after the Apple TV's sign-in redesign (`signin-redesign`, `562c9f3`; spec in the internal `SIGNIN-FLOW.md`). The Roku took 4 presses to a Jellyfin Quick Connect code (counted from the code), asked the viewer to pick a found server and then Quick Connect, checked nothing but the address's kind before the password, closed its keyboards only from the dialog's own OK button (Back abandoned what was typed), and focus was a faint outline.
+
+**Changed.**
+- `components/ConnectView.*`: the Apple TV's screens, order, focus defaults, words and colours. Picking Jellyfin or Emby starts the network search; one server answering opens it with no pick; none puts focus on TYPE AN ADDRESS. The address is asked who it is before anyone types, so Jellyfin with Quick Connect on opens straight on the code, and an Emby server's users show as tiles (one with no password signs in on the press). Closing the keyboard moves on: OK is Done, Back keeps the text and moves to the next control.
+- Plex's plex.tv/link code and QR code now show on the connect screen with CANCEL, and a Plex sign-in error shows there in red (`components/MainScene.brs`). The library picker starts on CONTINUE and has the same look (`components/ServerPickerView.brs`).
+- `source/mediabrowser/SignInFlow.brs`: the decisions, after `SignInFlow.swift`: discovery outcome, the address check (`/System/Info/Public`, `/QuickConnect/Enabled` on Jellyfin, `/Users/Public`), which way in, where focus starts, Quick Connect polling (a failed poll waits on, as upstream), every line of copy. Discovery replies are read and merged by server Id as upstream's, listening 3 s.
+- The look: `images/look/ob_*.9.png` from `scripts/look-images.py`, the focused slab, edges, field frame and pills with their glows.
+- Copy from the spec: "Incorrect username or password.", and "That address answered, but it isn't Jellyfin..." when Quick Connect can't start on a non-Jellyfin address.
+- `scripts/deploy.sh --tour`: the connect screens on their own (`tests/signin`), to walk with a remote and count presses; `?discovery=none|several` and `?picker=1` stand in where one network can't show a screen.
+- `scripts/deploy.sh --test`: the console listener is `exec cat`, so stopping it closes the TV's one console connection. A `cat` left over from an earlier run held it for over three hours.
+
+**Measured.** On a Roku Streaming Stick Plus (OS 15.3.4), lab Jellyfin 12.2.0 (Quick Connect on) and an Emby 4.10.1.0 with one password user, counted as upstream counts (typing is 2 presses). The last press of each sign-in was not made on the stick, which holds a real sign-in, and is added to the count.
+
+| Path | Apple TV | Roku before (from the code) | Roku now |
+|---|---|---|---|
+| Plex | 1 | 1 | 1 |
+| Jellyfin, Quick Connect | 2 | 4 | 2 |
+| Jellyfin, password | 8 | 7 | 8 |
+| Emby, server found | 7 (4 with no password) | 7 | 7 (4) |
+| Emby, typed address | 11 (8) | 8 | 10 (7) |
+
+"Roku before" is counted from the old code, not on a TV, closing each keyboard as 1 press. The old flow opened the password keyboard by itself and signed in on its OK, so by that count it was a press shorter on the password paths; but its keyboards closed only from the dialog's OK button, several presses away on a Roku keyboard, where the new one closes with Back. "Roku now" counts the Apple TV's way (Back, then SIGN IN); OK on the password keyboard signs in a press sooner. The no-password counts follow from the code (no such user on the test server). `tests/SignInFlowTests.brs`: 74 cases, `SignInFlowTests.swift`'s plus the port's, passing off the TV and on the stick (`deploy.sh --test` ALL TESTS PASSED); a broken merge and a broken Quick Connect default fail 4 of them. `run.sh` ALL TESTS PASSED. Static analysis: nothing reported. Back on the first screen leaves the app.
+
+**Not like the Apple TV.** No demo mode (the store's test credentials stand in); the port's own wordmark; one limited broadcast for the search, where upstream also sends a directed one per subnet (it found the Emby on a /22 anyway); no letter spacing and no animation on focus; long field text cut at the end. The VERSION line under the intro is tydude001's item on #8, not here.
+
+**Next.** Chad's go for a beta. tydude001's VERSION line and home-hostname changes touch the same screen and `NxIsPrivateHost`; whichever lands second rebases.
+
 ## 2026-10-21 (Apple TV sign-in: the search starts on its own, Quick Connect by default, focus you can see)
 
 **Shipped.** Not yet. On main for 1.0.28 (from branch `signin-redesign`, rebased onto `5a4a873`); not in any build. The 1.0.28 changelog entry, shared with the ratings fix, stays `released: false`.
@@ -52,6 +83,7 @@ Emby has no Quick Connect (`/QuickConnect/Enabled` is a 404 on 4.10.1.0), so its
 - `index.html`: the Apple TV tile goes to `/apple-tv` instead of the App Store. Same look.
 - The footer on every site page now says "Apple TV" and goes to `/apple-tv`: the eight static pages with a footer, and `scripts/site-chrome.mjs` for the blog and the channel guide. The buttons to the App Store, the nav's "Get the tvOS app" included, still go straight there with their `ct`.
 - The tuner pages are left as they are, so `web-tuner.html` keeps its own footer, which still says "Apple TV app" and goes to the App Store. Their build output is unchanged.
+
 
 ## 2026-10-21 (the web tuner, apart from the marketing site)
 
@@ -120,6 +152,7 @@ Emby has no Quick Connect (`/QuickConnect/Enabled` is a 404 on 4.10.1.0), so its
 
 **Next.** See the entry above.
 
+
 ## 2026-10-21 (ratings from other countries count like their US equivalents, GitHub #41)
 
 **Shipped.** The web tuner on nostalgex.app and Docker `tuner-v1.0.5`, from the same commit. The Apple TV app gets it in 1.0.28 and Roku in beta 1.0.3.
@@ -152,6 +185,7 @@ Emby has no Quick Connect (`/QuickConnect/Enabled` is a 404 on 4.10.1.0), so its
 - A foreign label it doesn't recognise is left alone, so it passes the adult gate and fails every allow-list, as before.
 
 **Next.** Push main and tag `tuner-v1.0.5`. Apple TV in 1.0.28. Roku 1.0.3 needs a manifest bump and a signed package.
+
 
 ## 2026-10-21 (a real /apple-tv page, the 404 in the house style, one CTA button everywhere)
 
