@@ -23,6 +23,7 @@
         "A Plex library with a file or folder name in an old text encoding loads again instead of stopping with an unexpected data error.",
         "A channel where nothing will play stops after five tries and says so, instead of retrying forever.",
         "Emby's backup stream works, and stalled Jellyfin and Emby streams recover by asking the server again.",
+        "Channels no longer go dark for the last hour of the day when the clocks go back, and the day after they go forward no longer reruns what aired the day before.",
         "The app sends far fewer anonymous usage signals."
       ]
     },
