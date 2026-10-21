@@ -11,6 +11,8 @@ SwiftUI drawing code (upstream Nostalgex/Nostalgex/Views):
   stands in for the meta row's "★", which none of the bundled fonts has.
   App/Plex90App.swift    step_ring.png, step_dot.png, step_check.png
                          (LibraryLoadStepRail: Roku draws no circles)
+  OnboardingStyle.swift  ob_*.9.png: the connect screens' slab, edges, field
+                         frame and capsules, each with its glow
 
 White art is tinted on the TV with a Poster's blendColor. Run it again after
 changing it; the PNGs are committed. Needs Pillow.
@@ -173,6 +175,56 @@ def capsule(h):
     return out
 
 
+# ── Connect screens (OnboardingStyle.swift) ────────────────────────────────
+# The sign-in look: a focused control is a solid slab that glows, the others
+# are outlines, a text field is a well with a frame. All white, tinted on the
+# TV with blendColor; translucency comes from the Poster's opacity. Each has
+# `margin` px of transparent room around the shape for its glow, so the
+# Poster goes at the control's place minus margin, margin bigger each way.
+
+def nine_patch_xy(art, fixed_x, fixed_y):
+    """nine_patch with its own fixed size for each axis."""
+    w, h = art.size
+    out = Image.new("RGBA", (w + 2, h + 2), (0, 0, 0, 0))
+    out.paste(art, (1, 1))
+    d = ImageDraw.Draw(out)
+    d.line([(1 + fixed_x, 0), (w - fixed_x, 0)], fill=(0, 0, 0, 255))
+    d.line([(0, 1 + fixed_y), (0, h - fixed_y)], fill=(0, 0, 0, 255))
+    return out
+
+
+def onboarding_shape(w, h, radius, fill, stroke, glow_radius, glow_alpha, margin):
+    """A w x h rounded rectangle (a capsule when radius is h / 2), filled or
+    stroked inside its edge as SwiftUI's strokeBorder, with a shadow of
+    glow_radius at glow_alpha around it. Drawn 4x and scaled down."""
+    s = 4
+    big_w, big_h = (w + 2 * margin) * s, (h + 2 * margin) * s
+    shape = Image.new("RGBA", (big_w, big_h), (0, 0, 0, 0))
+    box = [margin * s, margin * s, (margin + w) * s - 1, (margin + h) * s - 1]
+    d = ImageDraw.Draw(shape)
+    if fill:
+        d.rounded_rectangle(box, radius=radius * s, fill=(255, 255, 255, 255))
+    else:
+        d.rounded_rectangle(box, radius=radius * s, outline=(255, 255, 255, 255), width=round(stroke * s))
+    shape = shape.resize((w + 2 * margin, h + 2 * margin), Image.LANCZOS)
+    if glow_radius:
+        # A SwiftUI shadow's radius is close to a Gaussian's 2 sigma.
+        glow = shape.filter(ImageFilter.GaussianBlur(glow_radius / 2))
+        glow.putalpha(glow.getchannel("A").point(lambda v: round(v * glow_alpha)))
+        glow.alpha_composite(shape)
+        shape = glow
+    return shape
+
+
+def onboarding(w, h, radius, fill=False, stroke=0, glow_radius=0, glow_alpha=0, margin=0):
+    art = onboarding_shape(w, h, radius, fill, stroke, glow_radius, glow_alpha, margin)
+    edge = margin + radius + int(stroke + 0.99)
+    if radius * 2 >= h:
+        # A capsule: only its middle row stretches, so the ends stay round.
+        return nine_patch_xy(art, edge, margin + h // 2)
+    return nine_patch_xy(art, edge, edge)
+
+
 # ── Icons ───────────────────────────────────────────────────────────────────
 
 def bolt():
@@ -284,6 +336,15 @@ save(outline(64, 6, 2, 2, 7, 0.3, 16), "seasonal.9.png")
 save(outline(64, 6, 4, 2, 14, 0.7, 16), "seasonal_focus.9.png")
 save(badge(), "badge.9.png")
 save(capsule(28), "capsule.9.png")
+# Connect screens: radius 14 boxes, the quiet buttons' 56 px capsules.
+save(onboarding(80, 80, 14, fill=True), "ob_fill.9.png")
+save(onboarding(80, 80, 14, stroke=1.5), "ob_edge.9.png")
+save(onboarding(80, 80, 14, stroke=2.5), "ob_edge_primary.9.png")
+save(onboarding(80, 80, 14, fill=True, glow_radius=28, glow_alpha=0.6, margin=44), "ob_slab.9.png")
+save(onboarding(80, 80, 14, stroke=3, glow_radius=18, glow_alpha=0.45, margin=32), "ob_ring.9.png")
+save(onboarding(80, 80, 14, stroke=4, glow_radius=26, glow_alpha=0.55, margin=44), "ob_field_ring.9.png")
+save(onboarding(112, 56, 28, fill=True, glow_radius=28, glow_alpha=0.6, margin=44), "ob_pill.9.png")
+save(onboarding(112, 56, 28, stroke=3, glow_radius=18, glow_alpha=0.45, margin=32), "ob_pill_ring.9.png")
 save(bolt(), "bolt.png")
 save(gear(), "gear.png")
 save(star(), "star.png")
