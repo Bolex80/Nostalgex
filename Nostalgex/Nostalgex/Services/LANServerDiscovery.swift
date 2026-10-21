@@ -23,8 +23,9 @@ struct DiscoveredServer: Equatable, Identifiable, Sendable {
 /// peer. The `NWListener` plus bound-sender pattern was tried too and received nothing.
 /// Measured on macOS 15 with Xcode 26; the simulator shares that stack.
 ///
-/// Nothing here is stored or sent off the local network. It runs only when the user
-/// presses FIND MY SERVER on the Jellyfin or Emby connect screen.
+/// Nothing here is stored or sent off the local network. It runs when the viewer opens
+/// the Jellyfin or Emby connect screen (the first run brings up tvOS's Local Network
+/// prompt), and again on FIND MY SERVER.
 enum LANServerDiscovery {
 
     static let port: UInt16 = 7359

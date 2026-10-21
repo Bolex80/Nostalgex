@@ -37,6 +37,7 @@ final class SignInFlowTests: XCTestCase {
         XCTAssertNil(SignInFlow.uiTestDiscoveryFixture(kind: .emby, arguments: ["app"]))
         XCTAssertNil(SignInFlow.uiTestDiscoveryFixture(kind: .emby, arguments: ["app", "-uiTestDiscovery"]))
         XCTAssertEqual(SignInFlow.uiTestDiscoveryFixture(kind: .emby, arguments: ["app", "-uiTestDiscovery", "none"]), [])
+        XCTAssertEqual(SignInFlow.uiTestDiscoveryFixture(kind: .emby, arguments: ["app", "-uiTestDiscovery none"]), [])
         let several = SignInFlow.uiTestDiscoveryFixture(kind: .jellyfin, arguments: ["-uiTestDiscovery", "several"]) ?? []
         XCTAssertEqual(several.count, 2)
         XCTAssertTrue(several.allSatisfy { $0.kind == .jellyfin })

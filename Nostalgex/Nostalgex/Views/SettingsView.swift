@@ -6,11 +6,14 @@ import CoreImage.CIFilterBuiltins
 /// the server, check it, and sign in the shortest way it allows.
 ///
 /// Jellyfin and Emby, as few presses as the server allows:
-/// - FIND MY SERVER is first and focused. One server answering goes straight to it.
+/// - The search starts as the screen opens; FIND MY SERVER is first and focused as the
+///   retry. One server answering goes straight to it. Nothing answering (or the Local
+///   Network prompt declined) leaves focus on TYPE AN ADDRESS.
 /// - The address is checked before anyone types, so a Jellyfin server with Quick Connect
 ///   on opens straight on the code (nothing typed), and a server that lists its users
 ///   (Emby does by default) shows them as tiles, so the name is a press, not typing.
-/// - Done on the keyboard moves on: username to password, password to sign in.
+/// - Closing the keyboard moves on: address to the check, username to password,
+///   password to SIGN IN (or straight to sign-in with Done).
 /// The decisions live in `SignInFlow`; sign-in itself is still AppState's.
 struct SettingsView: View {
     @Environment(AppState.self) var appState
@@ -49,9 +52,19 @@ struct SettingsView: View {
     @State private var typingName = false
     /// True while the in-progress auth is Quick Connect (drives which waiting UI shows).
     @State private var usingQuickConnect = false
+    /// Set by the search that starts when a Jellyfin or Emby screen opens. That first
+    /// search is what brings up tvOS's Local Network prompt, and while the prompt is up
+    /// nothing can answer, so when the app comes back from the prompt it searches once more.
+    /// Where focus goes once the keyboard closes. tvOS hands focus back to the field the
+    /// keyboard came from a moment after it closes, so the move waits for that hand-back
+    /// (see the focusedControl onChange) rather than racing it with a timer.
+    @State private var focusAfterKeyboard: (from: String, to: String)?
     /// The text field the keyboard was last opened from. While the keyboard is up, focus
     /// belongs to the keyboard, so this is how its closing knows which field it was.
     @State private var lastField: String?
+    @State private var retryAfterPrompt = false
+    @State private var retryWhenSearchEnds = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -88,10 +101,14 @@ struct SettingsView: View {
                     Text(connectScreenVersionLabel)
                         .font(.custom("DMMono-Regular", size: 15))
                         .foregroundStyle(.white.opacity(0.25))
+                    #if DEBUG
+                    // Keychain and storage diagnostics for credential debugging. Debug
+                    // builds only: on a customer's TV it read as noise.
                     Text(InstallDiagnostics.summary())
                         .font(.custom("DMMono-Regular", size: 13))
                         .foregroundStyle(.white.opacity(0.25))
                         .fixedSize(horizontal: false, vertical: true)
+                    #endif
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -128,14 +145,33 @@ struct SettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focusedControl, defaultFocusID)
         .onChange(of: focusKey, initial: true) { _, _ in focusSoon(defaultFocusID) }
-        .onChange(of: focusedControl) { _, id in
-            if let id, ["address", "username", "password"].contains(id) { lastField = id }
+        .onChange(of: focusedControl) { _, now in
+            if let now, ["address", "username", "password"].contains(now) { lastField = now }
+            guard let pending = focusAfterKeyboard else { return }
+            if now == pending.from {
+                focusAfterKeyboard = nil
+                focusedControl = pending.to
+            } else if now == pending.to {
+                focusAfterKeyboard = nil
+            }
         }
         // The keyboard closing, by Done or by Back, is the viewer saying "that's it": the
         // address gets checked, and the name and password move on to the next control, so
         // no DOWN-then-SELECT is needed after typing.
         .onReceive(NotificationCenter.default.publisher(for: UITextField.textDidEndEditingNotification)) { _ in
             keyboardClosed()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, retryAfterPrompt, case .find(let kind) = screen else { return }
+            switch discovery {
+            case .searching:
+                retryWhenSearchEnds = true
+            case .nothingFound:
+                retryAfterPrompt = false
+                findServers(kind)
+            case .idle, .several:
+                break
+            }
         }
     }
 
@@ -145,9 +181,9 @@ struct SettingsView: View {
         case ("address", .typeAddress(let kind)):
             submitAddress(kind)
         case ("username", .signIn):
-            focusSoon("password", afterKeyboard: true)
+            focusSoon("password", leaving: "username")
         case ("password", .signIn):
-            focusSoon("signin", afterKeyboard: true)
+            focusSoon("signin", leaving: "password")
         default:
             break
         }
@@ -208,23 +244,36 @@ struct SettingsView: View {
 
     /// Focus set in the same pass as the view appears is dropped on tvOS; a beat later sticks.
     /// After the keyboard closes, tvOS hands focus back to the field it was opened from,
-    /// so a move away from the field has to wait for that first (`afterKeyboard`).
-    private func focusSoon(_ id: String, afterKeyboard: Bool = false) {
-        let field = lastField
+    /// so a move away from that field (`leaving`) has to wait for that first.
+    private func focusSoon(_ id: String, leaving field: String? = nil) {
+        guard let field else {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                focusedControl = id
+            }
+            return
+        }
+        // Moves the moment tvOS hands focus back to `field`; the timer is only a fallback
+        // for a hand-back that never comes.
+        focusAfterKeyboard = (field, id)
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(afterKeyboard ? 350 : 120))
-            focusedControl = id
-            guard afterKeyboard else { return }
-            // If tvOS pulled focus back to the field after that, move it once more.
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(900))
+            guard let pending = focusAfterKeyboard, pending.to == id else { return }
+            focusAfterKeyboard = nil
             if focusedControl == nil || focusedControl == field { focusedControl = id }
         }
     }
 
     // MARK: - Navigation
 
-    private func go(to next: Screen) {
+    /// `search` starts discovery as the screen opens. Only the picker asks for it: coming
+    /// BACK to the find screen must not search again, or one server answering would bounce
+    /// the viewer straight back to the screen they just left.
+    private func go(to next: Screen, search: Bool = false) {
         flowToken += 1
+        retryAfterPrompt = false
+        retryWhenSearchEnds = false
+        focusAfterKeyboard = nil
         checkTask?.cancel()
         checkTask = nil
         checkingLabel = nil
@@ -237,6 +286,10 @@ struct SettingsView: View {
         pickedUser = nil
         typingName = false
         screen = next
+        if search, case .find(let kind) = next {
+            retryAfterPrompt = true
+            findServers(kind)
+        }
     }
 
     private func findServers(_ kind: MediaBackendKind) {
@@ -249,13 +302,21 @@ struct SettingsView: View {
             let servers = await SignInFlow.discover(kind: kind)
             guard token == flowToken, screen == .find(kind) else { return }
             switch SignInFlow.outcome(of: servers) {
+            case .none where retryWhenSearchEnds:
+                // The Local Network prompt was answered while this search ran: ask again.
+                retryWhenSearchEnds = false
+                retryAfterPrompt = false
+                discovery = .idle
+                findServers(kind)
             case .none:
                 discovery = .nothingFound
             case .single(let server):
                 // One answer: no pick, straight to it.
+                retryAfterPrompt = false
                 discovery = .idle
                 checkServer(kind, address: server.address, label: server.name)
             case .several(let list):
+                retryAfterPrompt = false
                 discovery = .several(list)
             }
         }
@@ -378,12 +439,12 @@ struct SettingsView: View {
                 .tracking(2)
                 .padding(.top, 10)
 
-            Button("JELLYFIN") { go(to: .find(.jellyfin)) }
+            Button("JELLYFIN") { go(to: .find(.jellyfin), search: true) }
                 .buttonStyle(OnboardingButtonStyle(role: .secondary))
                 .focused($focusedControl, equals: "jellyfin")
                 .accessibilityIdentifier("connectToJellyfinButton")
 
-            Button("EMBY") { go(to: .find(.emby)) }
+            Button("EMBY") { go(to: .find(.emby), search: true) }
                 .buttonStyle(OnboardingButtonStyle(role: .secondary))
                 .focused($focusedControl, equals: "emby")
                 .accessibilityIdentifier("connectToEmbyButton")
@@ -474,11 +535,12 @@ struct SettingsView: View {
         VStack(spacing: 24) {
             stepTitle(SignInFlow.Copy.connectTitle(kind))
             flowMessageView
-            // Closing the keyboard checks the address (keyboardClosed); CONNECT is there
+            // Closing the keyboard, by Done or Back, checks the address; CONNECT is there
             // for anyone who comes back to the field without retyping.
             OnboardingField(caption: SignInFlow.Copy.addressTitle, placeholder: SignInFlow.Copy.addressPlaceholder,
-                            text: $address, submitLabel: .go, id: "address", focus: $focusedControl)
-                .accessibilityIdentifier("serverAddressField")
+                            text: $address, submitLabel: .go, contentType: .URL, keyboardType: .URL,
+                            id: "address", focus: $focusedControl)
+            .accessibilityIdentifier("serverAddressField")
             Text(SignInFlow.Copy.addressHint)
                 .font(.custom("DMMono-Regular", size: 19))
                 .foregroundStyle(.white.opacity(0.4))
@@ -530,15 +592,18 @@ struct SettingsView: View {
                 caption(SignInFlow.Copy.whoIsWatching)
                 userTiles(server)
             } else {
-                OnboardingField(caption: SignInFlow.Copy.username, placeholder: "", text: $username,
-                                submitLabel: .next, id: "username", focus: $focusedControl)
+                OnboardingField(caption: SignInFlow.Copy.username, placeholder: SignInFlow.Copy.pressToType,
+                                text: $username, submitLabel: .next, contentType: .username,
+                                id: "username", focus: $focusedControl)
                 .accessibilityIdentifier("\(prefix)UsernameField")
             }
 
             if !showTiles || pickedUser?.hasPassword == true {
                 OnboardingField(caption: pickedUser.map { "PASSWORD FOR \($0.name.uppercased())" } ?? SignInFlow.Copy.password,
-                                placeholder: "", text: $password, secure: true, submitLabel: .go,
+                                placeholder: SignInFlow.Copy.pressToType, text: $password, secure: true,
+                                submitLabel: .go, contentType: .password,
                                 id: "password", focus: $focusedControl) {
+                    // Done on the keyboard signs in; Back moves to SIGN IN (keyboardClosed).
                     signIn(server)
                 }
                 .accessibilityIdentifier("\(prefix)PasswordField")
@@ -630,17 +695,19 @@ struct SettingsView: View {
                     .lineLimit(1)
             }
 
+            // On a code screen the code is the thing to look at, so the buttons here light
+            // up with an outline glow instead of the solid slab (quietFocus).
             Button(SignInFlow.Copy.usePassword) {
                 usingQuickConnect = false
                 appState.cancelPINAuth()
                 focusSoon(server?.users.isEmpty == false ? "user-\(server!.users[0].id)" : "username")
             }
-            .buttonStyle(OnboardingButtonStyle(role: .secondary))
+            .buttonStyle(OnboardingButtonStyle(role: .secondary, quietFocus: true))
             .focused($focusedControl, equals: "usePassword")
             .accessibilityIdentifier("quickConnectUsePasswordButton")
             .padding(.top, 10)
 
-            backButton {
+            backButton(quietFocus: true) {
                 usingQuickConnect = false
                 appState.cancelPINAuth()
                 go(to: .find(currentKind))
@@ -690,7 +757,7 @@ struct SettingsView: View {
                     ? "FINDING YOUR SERVERS"
                     : appState.pinCode.isEmpty ? "CONNECTING TO PLEX.TV" : "WAITING FOR AUTHORIZATION")
 
-                cancelButton { appState.cancelPINAuth() }
+                cancelButton(quietFocus: true) { appState.cancelPINAuth() }
             }
 
             // Right: QR code
@@ -736,16 +803,16 @@ struct SettingsView: View {
         }
     }
 
-    private func backButton(_ action: @escaping () -> Void) -> some View {
+    private func backButton(quietFocus: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(SignInFlow.Copy.back, action: action)
-            .buttonStyle(OnboardingButtonStyle(role: .quiet, fullWidth: false))
+            .buttonStyle(OnboardingButtonStyle(role: .quiet, fullWidth: false, quietFocus: quietFocus))
             .focused($focusedControl, equals: "back")
             .padding(.top, 6)
     }
 
-    private func cancelButton(_ action: @escaping () -> Void) -> some View {
+    private func cancelButton(quietFocus: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(SignInFlow.Copy.cancel, action: action)
-            .buttonStyle(OnboardingButtonStyle(role: .quiet, fullWidth: false))
+            .buttonStyle(OnboardingButtonStyle(role: .quiet, fullWidth: false, quietFocus: quietFocus))
             .focused($focusedControl, equals: "cancel")
             .accessibilityIdentifier("signInCancelButton")
     }

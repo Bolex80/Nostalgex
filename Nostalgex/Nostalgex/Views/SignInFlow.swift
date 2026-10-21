@@ -31,8 +31,11 @@ enum SignInFlow {
     }
 
     static func uiTestDiscoveryFixture(kind: MediaBackendKind, arguments: [String]) -> [DiscoveredServer]? {
-        guard let flag = arguments.firstIndex(of: "-uiTestDiscovery"), flag + 1 < arguments.count else { return nil }
-        switch arguments[flag + 1] {
+        // Split on spaces too, so the flag works whether a scheme passes it as two
+        // arguments or as one "-uiTestDiscovery several" string.
+        let tokens = arguments.flatMap { $0.split(separator: " ").map(String.init) }
+        guard let flag = tokens.firstIndex(of: "-uiTestDiscovery"), flag + 1 < tokens.count else { return nil }
+        switch tokens[flag + 1] {
         case "none":
             return []
         case "several":
@@ -218,6 +221,7 @@ enum SignInFlow {
         static let addressHint = "The address and port, like 192.168.1.10:8096"
         static let addressPlaceholder = "192.168.1.10:8096"
         static let connect = "CONNECT"
+        static let pressToType = "Press to type"
         static func connecting(_ what: String) -> String { "CONNECTING TO \(what.uppercased())" }
         static let signInTo = "SIGN IN TO"
         static let whoIsWatching = "WHO'S WATCHING?"
@@ -238,7 +242,7 @@ enum SignInFlow {
         static var all: [String] {
             let kinds: [MediaBackendKind] = [.jellyfin, .emby]
             return kinds.flatMap { [connectTitle($0), findIntro($0), switchedKind($0)] } + [
-                typeAddress, searchAgain, pickServer, addressTitle, addressHint, addressPlaceholder, connect,
+                typeAddress, searchAgain, pickServer, addressTitle, addressHint, addressPlaceholder, connect, pressToType,
                 connecting("server"), signInTo, whoIsWatching, someoneElse, username, password, signIn,
                 useQuickConnect, usePassword, back, cancel, quickConnectTitle, quickConnectSteps,
                 waitingForApproval, notAServer,
