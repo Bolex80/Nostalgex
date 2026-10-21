@@ -63,15 +63,17 @@ curl -d '' "http://<tv>:8060/input?contentId=12&mediaType=live"     # while runn
   reached at its plain-HTTP address on your home network, as Plex's own
   apps do at home, because on some networks a TV's traffic over the public
   address stalls and the secure in-house address doesn't resolve. The app
-  only does that for a private address (192.168.x, 10.x, 172.16-31.x), so
-  the token never leaves the house unencrypted, and it travels in a header,
-  never in a URL. If your server isn't found at all, set Plex's
+  only does that for a home-network address: a private one (192.168.x,
+  10.x, 172.16-31.x), a Tailscale one (100.64-127.x, or a name ending
+  .ts.net), or a home name (ending .local, .lan or .home.arpa, or one word
+  such as `nas`). So the token never crosses the internet unencrypted, and
+  it travels in a header, never in a URL. If your server isn't found at all, set Plex's
   *Settings > Network > Secure connections* to *Preferred*.
 - **Jellyfin and Emby** sign in with Jellyfin's Quick Connect code, a user
   picked from the server's own list, or a username and password. The password goes to your server once and is
   cleared; only the access token the server returns is kept. Server requests
-  follow the same rule as Plex: HTTPS, or plain HTTP to a private address
-  only, with the token in a header.
+  follow the same rule as Plex: HTTPS, or plain HTTP to a home-network
+  address only, with the token in a header.
 - **Read-only.** The app never reports playback to your server and never
   changes watch status or anything else in your library.
 - **The saved guide** (`cachefs:`) holds titles and schedules, and the saved

@@ -227,21 +227,29 @@ function NxParseJsonBody(text as String) as Dynamic
 end function
 
 ' A transfer for one server request, or invalid when the URL is refused:
-' HTTPS with verification, or plain HTTP to a private address only.
+' HTTPS with verification, or plain HTTP to a home-network address only.
 function NxServerTransfer(url as String, headers as Object) as Dynamic
+    if not NxServerUrlAllowed(url) then
+        print "nxhttp: refused plain HTTP to a non-private address"
+        return invalid
+    end if
     xfer = CreateObject("roUrlTransfer")
     if LCase(Left(url, 8)) = "https://" then
         xfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
         xfer.EnablePeerVerification(true)
         xfer.EnableHostVerification(true)
-    else if LCase(Left(url, 7)) <> "http://" or not NxIsPrivateHost(NxUrlHost(url)) then
-        print "nxhttp: refused plain HTTP to a non-private address"
-        return invalid
     end if
     xfer.RetainBodyOnError(true)
     xfer.SetUrl(url)
     xfer.SetHeaders(headers)
     return xfer
+end function
+
+' HTTPS anywhere, plain HTTP to a home-network host only (NxIsPrivateHost).
+function NxServerUrlAllowed(url as String) as Boolean
+    lower = LCase(url)
+    if Left(lower, 8) = "https://" then return true
+    return Left(lower, 7) = "http://" and NxIsPrivateHost(NxUrlHost(url))
 end function
 
 ' A transfer for one Plex GET, or invalid when the URL is refused.
@@ -271,10 +279,24 @@ function NxUrlEncode(s as String) as String
     return out
 end function
 
+' The host a request to url goes to. Anything before an "@" is user info,
+' not the host: `http://10.0.0.1:80@example.com/` goes to example.com.
 function NxUrlHost(url as String) as String
     rest = Mid(url, Instr(1, url, "//") + 2)
     cut = Instr(1, rest, "/")
     if cut > 0 then rest = Left(rest, cut - 1)
+    for each ch in ["?", "#"]
+        cut = Instr(1, rest, ch)
+        if cut > 0 then rest = Left(rest, cut - 1)
+    end for
+    at = 0
+    for i = Len(rest) to 1 step -1
+        if Mid(rest, i, 1) = "@" then
+            at = i
+            exit for
+        end if
+    end for
+    if at > 0 then rest = Mid(rest, at + 1)
     colon = Instr(1, rest, ":")
     if colon > 0 then rest = Left(rest, colon - 1)
     return rest
@@ -340,17 +362,41 @@ function NxPlexServers(token as String) as Dynamic
     return out
 end function
 
-' True for RFC 1918 IPv4 addresses: 10/8, 172.16/12, 192.168/16.
+' True for a host on the home network, the only place plain HTTP may go
+' (Discussion #8, phase 1 item 3; upstream allows plain http anywhere):
+'   - RFC 1918 IPv4 addresses (10/8, 172.16/12, 192.168/16) and Tailscale's
+'     100.64.0.0/10;
+'   - names ending .local, .lan, .home.arpa or .ts.net (Tailscale's MagicDNS);
+'   - single-label names such as `nas`, which only a home resolver answers.
+' The examples on screen use a single word: on a 43S45 (OS 16.0.4) a server's
+' one-word name, answered by the router's DNS, worked, while the same
+' server's .local name, announced by mDNS, got no answer, so a Roku looks
+' like it doesn't resolve .local (2026-10-21).
+' A name that is all digits, or hex, is refused: curl and inet_aton read
+' `134744072` and `0x8080808` as 8.8.8.8. So is an octet with a leading zero,
+' which they read as octal (`010.0.0.1` is 8.0.0.1). Unchecked on a TV, so
+' refused rather than trusted.
 function NxIsPrivateHost(host as String) as Boolean
-    parts = host.Split(".")
-    if parts.Count() <> 4 then return false
-    for each p in parts
-        if not CreateObject("roRegex", "^\d{1,3}$", "").IsMatch(p) then return false
+    h = LCase(host)
+    if Right(h, 1) = "." then h = Left(h, Len(h) - 1)
+    if CreateObject("roRegex", "^\d+(\.\d+)*$", "").IsMatch(h) then
+        parts = h.Split(".")
+        if parts.Count() <> 4 then return false
+        for each p in parts
+            if not CreateObject("roRegex", "^(0|[1-9]\d{0,2})$", "").IsMatch(p) then return false
+        end for
+        a = parts[0].ToInt()
+        b = parts[1].ToInt()
+        if a = 10 then return true
+        if a = 192 and b = 168 then return true
+        if a = 172 and b >= 16 and b <= 31 then return true
+        if a = 100 and b >= 64 and b <= 127 then return true
+        return false
+    end if
+    if not CreateObject("roRegex", "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$", "").IsMatch(h) then return false
+    if Instr(1, h, ".") = 0 then return not CreateObject("roRegex", "^0x[0-9a-f]+$", "").IsMatch(h)
+    for each suffix in [".local", ".lan", ".home.arpa", ".ts.net"]
+        if Len(h) > Len(suffix) and Right(h, Len(suffix)) = suffix then return true
     end for
-    a = parts[0].ToInt()
-    b = parts[1].ToInt()
-    if a = 10 then return true
-    if a = 192 and b = 168 then return true
-    if a = 172 and b >= 16 and b <= 31 then return true
     return false
 end function
