@@ -486,6 +486,19 @@ on 2026-10-20: Emby TS in sync after a join (0 and -1 ms), fMP4 sound
 2,048 ms early, measured off the stream and not yet watched on a TV
 ([JELLYFIN-EMBY.md](JELLYFIN-EMBY.md)).
 
+[Answered](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19099058)
+on 2026-10-21: the beta is live, `7bde5df` as Nostalgex 1.0.1, signed on
+their account (20 installs, until Feb 18), and #43 is merged.
+- The four small ones stay as they are; the 2-module QR border scans fine.
+- From here it's PRs into `roku/`, and they package and sign each release.
+- Their fix for both clock changes (a day's length, "yesterday") is on a
+  branch, not `main`; they'll say when it lands so the port can match.
+
+[Replied](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19099229)
+on 2026-10-21: the beta goes on both TVs this evening, `nostalgex-roku` is
+archived with a pointer to `roku/`, and the clock fix comes as a PR once it
+is on their `main`.
+
 ## Channel ideas: Discussion #29
 
 [Posted](https://github.com/chadMueller/Nostalgex/discussions/29) on
