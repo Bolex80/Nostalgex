@@ -292,7 +292,8 @@ struct Channel: Identifiable {
             let isBlocked = (br.blockBefore.map { hour < $0 } ?? false)
                          || (br.blockAfter.map { hour >= $0 } ?? false)
             if isBlocked {
-                let filtered = pool.filter { !br.ratings.contains($0.contentRating ?? "") }
+                // A rating from another country counts as its US label: GB-18 waits for 9 PM like R.
+                let filtered = pool.filter { !br.ratings.contains(ContentRating.usLabel($0.contentRating, type: $0.type) ?? "") }
                 if filtered.count >= 2 { pool = filtered }
             }
         }

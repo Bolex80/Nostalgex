@@ -1086,6 +1086,22 @@ extension AppState {
         let itemStudioLower: String     // "" when item has no studio
         /// `ChannelEligibility.isLeftOffChannels` for the active backend: no channel takes it.
         var leftOffChannels = false
+        /// The item's rating as the US label the rules read (`ContentRating.usLabel`): GB-15 is R on
+        /// a film, TV-MA on an episode. Worked out once here, not once per channel. Display keeps
+        /// the raw label.
+        let usContentRating: String?
+
+        init(item: PlexMediaItem, titleLower: String, episodeTitleLower: String, genresLowerSet: Set<String>,
+             enrichment: MediaEnrichment?, itemStudioLower: String, leftOffChannels: Bool = false) {
+            self.item = item
+            self.titleLower = titleLower
+            self.episodeTitleLower = episodeTitleLower
+            self.genresLowerSet = genresLowerSet
+            self.enrichment = enrichment
+            self.itemStudioLower = itemStudioLower
+            self.leftOffChannels = leftOffChannels
+            self.usContentRating = ContentRating.usLabel(item.contentRating, type: item.type)
+        }
     }
 
     /// Build a snapshot cache for a set of items. Called once per filter pass —
@@ -1215,9 +1231,10 @@ extension AppState {
                 return nil
             }
 
-            // Safety: kids and family channels exclude R/18+ content
+            // Safety: kids and family channels exclude R/18+ content. A rating from another
+            // country counts as its US label (GB-18 is R), as it does in the allow-list below.
             if isFamilySafe {
-                if let rating = item.contentRating, Self.adultRatings.contains(rating) {
+                if let rating = cache.usContentRating, Self.adultRatings.contains(rating) {
                     return nil
                 }
             }
@@ -1535,7 +1552,7 @@ extension AppState {
 
             // Content ratings whitelist
             if let ratings = contentRatingsSet, !ratings.isEmpty {
-                let rating = item.contentRating ?? ""
+                let rating = cache.usContentRating ?? ""
                 if rating.isEmpty && rules.allowUnrated { /* pass */ }
                 else if !ratings.contains(rating) { return nil }
             }
