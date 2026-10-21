@@ -67,9 +67,11 @@ for host in $ROKU_HOSTS; do
         # Connect to the debug console before installing, because installing
         # launches the app. On connect the console replays recent output, which
         # can hold an older run's result, so only what arrives after the replay
-        # (past $mark) counts.
+        # (past $mark) counts. `exec cat`: the listener's process is cat
+        # itself, so killing it closes the console. A cat left as bash's
+        # child held the TV's one console connection for hours (2026-10-21).
         log=out/$mode-"$host".log
-        timeout "$((wait_s + 10))" bash -c 'exec 3<>"/dev/tcp/$0/8085" && cat <&3' "$host" >"$log" 2>&1 &
+        timeout "$((wait_s + 10))" bash -c 'exec 3<>"/dev/tcp/$0/8085" && exec cat <&3' "$host" >"$log" 2>&1 &
         listener=$!
         sleep 3
         mark=$(stat -c %s "$log")
