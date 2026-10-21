@@ -41,6 +41,90 @@ const WESTERN = new Set(["western"]);
 const TALKSHOW = new Set(["talk show", "talk", "news"]);
 const ADULT_RATINGS = new Set(["R", "NC-17", "TV-MA", "18", "18+", "X", "NR"]);
 
+// Ratings from other countries. Every rating rule is written in US labels: the
+// kids and family adult gate below, `contentRatings` allow-lists and VHS VAULT's
+// 9 PM `blockRatings`. Jellyfin and Emby store a certificate from anywhere else
+// with its country in front (TmdbUtils.BuildParentalRating: "GB-15", "GB-12A",
+// and Germany as "FSK-16"), Plex as "gb/15", and some libraries carry the bare
+// label ("12A") or "TV-12A". usContentRating() turns a label it recognises into
+// the US label of the same age band, a film label for a film and a TV label for
+// an episode (TWEEN TV lists only TV labels, FAMILY HOUR only film ones).
+// Anything else comes back exactly as it went in, every US label included, so a
+// US library builds the same pools as before. Where a label sits between two
+// bands it takes the stricter one. The bands and labels follow Jellyfin's
+// Localization/Ratings tables.
+// Keep in sync with Nostalgex/Nostalgex/Models/ContentRating.swift and
+// roku/source/filter/ChannelFilter.brs (NxUsContentRating); all three read
+// scripts/rating-golden.json.
+const RATING_BANDS = {
+  all: ["G", "TV-G"],
+  pg: ["PG", "TV-PG"],
+  teen: ["PG-13", "TV-14"],
+  mature: ["R", "TV-MA"],
+  adult: ["NC-17", "TV-MA"],
+};
+// Compared upper-cased with spaces removed, so "pg-13" or "TV-14 " is left alone too.
+const US_RATINGS = new Set(["G", "PG", "PG-13", "R", "NC-17", "NR", "TV-Y", "TV-Y7", "TV-Y7-FV", "TV-G", "TV-PG", "TV-14", "TV-MA"]);
+// Word labels by country. Numbers ("15", "FSK-16", "12+") go by age in
+// ratingAgeBand, for any country.
+const RATING_WORDS = {
+  GB: { U: "all", UC: "all", PG: "pg", "12A": "teen", "12PG": "teen", R18: "adult" },
+  IE: { G: "all", PG: "pg", "12A": "teen", "12PG": "teen", "15A": "mature", "15PG": "mature" },
+  AU: { P: "all", C: "all", G: "all", PG: "pg", M: "mature", "MA15+": "mature", "AV15+": "mature", "R18+": "mature", "X18+": "adult" },
+  NZ: { G: "all", PG: "pg", R13: "teen", RP13: "teen", M: "mature", R15: "mature", R16: "mature", RP16: "mature", R18: "mature", RP18: "mature", R: "adult" },
+  CA: { C: "all", G: "all", C8: "pg", PG: "pg", "14A": "teen", "18A": "mature", R: "adult", A: "adult" },
+  FR: { U: "all", TP: "all" },
+  NL: { AL: "all", MG6: "pg" },
+};
+// A label with no country, or after "TV-". Only labels with one meaning
+// everywhere; "M" and "A" mean different things in different countries.
+const RATING_BARE = {
+  U: "all", UC: "all", "12A": "teen", "12PG": "teen", "14A": "teen", "15A": "mature", "18A": "mature",
+  "MA15+": "mature", "R18+": "mature", R18: "adult", "X18+": "adult",
+};
+
+/** "0" is everyone, up to 10 is PG, up to 14 is PG-13 / TV-14, older is R / TV-MA. */
+function ratingAgeBand(label) {
+  const m = /^(\d{1,2})\+?$/.exec(label);
+  if (!m) return null;
+  const age = Number(m[1]);
+  if (age === 0) return "all";
+  if (age <= 10) return "pg";
+  if (age <= 14) return "teen";
+  return "mature";
+}
+
+/**
+ * The US label the channel rules read for this rating. `type` is the item's type:
+ * an episode gets a TV label, anything else a film label. Returns `raw` itself
+ * (null, "", a US label, anything unrecognised) when there is nothing to map.
+ */
+function usContentRating(raw, type) {
+  if (typeof raw !== "string") return raw;
+  const key = raw.toUpperCase().replace(/\s+/g, "");
+  if (key === "" || US_RATINGS.has(key)) return raw;
+  let country = null;
+  let label = key;
+  if (key.startsWith("FSK")) {
+    country = "DE";
+    label = key.slice(3).replace(/^-/, "");
+  } else {
+    const m = /^([A-Z]{2})[-/](.+)$/.exec(key);
+    if (m) {
+      // "TV-12A" is a bare 12A, not a country called TV.
+      if (m[1] !== "TV") country = m[1] === "UK" ? "GB" : m[1];
+      label = m[2];
+    }
+  }
+  let band = ratingAgeBand(label);
+  if (!band) {
+    if (country) band = RATING_WORDS[country]?.[label] ?? (label === "X" ? "adult" : null);
+    else band = RATING_BARE[label] ?? null;
+  }
+  if (!band) return raw;
+  return RATING_BANDS[band][type === "episode" ? 1 : 0];
+}
+
 function includeList(rules) {
   return rules?.genres?.include || [];
 }
@@ -314,7 +398,7 @@ function itemPasses(item, channel, opts = {}) {
   const isKids = category === "kids";
   const hasFamilyGenre = includeList(r).some((g) => g.toLowerCase() === "family");
   const isFamilySafe = isKids || hasFamilyGenre;
-  if (isFamilySafe && item.contentRating && ADULT_RATINGS.has(item.contentRating)) {
+  if (isFamilySafe && item.contentRating && ADULT_RATINGS.has(usContentRating(item.contentRating, item.type))) {
     return false;
   }
 
@@ -434,7 +518,7 @@ function itemPasses(item, channel, opts = {}) {
   if (!passesYearRange(item, r)) return false;
 
   if (Array.isArray(r.contentRatings) && r.contentRatings.length) {
-    const rating = item.contentRating || "";
+    const rating = usContentRating(item.contentRating, item.type) || "";
     if (rating === "" && r.allowUnrated) {
       /* pass */
     } else if (!r.contentRatings.includes(rating)) {
@@ -744,6 +828,8 @@ const api = {
   parseTmdbIdFromPlex,
   passesYearRange,
   releaseYear,
+  usContentRating,
+  ratingTables: { bands: RATING_BANDS, us: US_RATINGS, words: RATING_WORDS, bare: RATING_BARE },
   enrichedValue,
   titleContainsWord,
   exclusiveRuleMatches,

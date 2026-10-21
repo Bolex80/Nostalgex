@@ -4040,7 +4040,11 @@
       const isBlocked = (blockBefore != null && hour < blockBefore)
                      || (blockAfter != null && hour >= blockAfter);
       if (isBlocked) {
-        const filtered = pool.filter(item => !ratings.includes(item.contentRating));
+        // A rating from another country counts as its US label: GB-18 waits for 9 PM like R.
+        // A cached older filter script has no usContentRating; read the raw label then,
+        // rather than throw and leave the channel without a schedule.
+        const usRating = globalThis.NostalgexChannelFilter?.usContentRating || ((rating) => rating);
+        const filtered = pool.filter(item => !ratings.includes(usRating(item.contentRating, item.type)));
         if (filtered.length >= 2) pool = filtered;
       }
     }

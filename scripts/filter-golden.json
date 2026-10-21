@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Golden vectors for the channel pool filter. Read by BOTH Nostalgex/NostalgexTests/FilterGoldenTests.swift (AppState.filterItems, tvOS) and scripts/nostalgex-filter-golden-smoke.mjs (scripts/nostalgex-channel-filter.cjs, web tuner and Docker; npm run test:filter-golden). Each case is one item run against the SHIPPED channels.json, its exclusiveRules and channels-memberships.json. `in` lists channel ids (not numbers) the item must reach, `out` the ids it must not. Item fields: title, artist (music videos), episodeTitle, summary, originallyAvailableAt (YYYY-MM-DD, first aired), year, type (movie|episode), librarySource (movie|tv|musicVideo), genres, contentRating, duration (minutes, default 100), rating, studio, tmdbID (string; only when the case is about a manifest claim), and enrichment ({ keywords, productionCompanies, networks, tmdbGenres }; absent means not enriched), backend (plex|jellyfin|emby, default plex; the server the item came from) and doviProfile (Dolby Vision profile; absent means unknown). When a rule changes, change both engines, then update or add a case here.",
+  "about": "Golden vectors for the channel pool filter. Read by BOTH Nostalgex/NostalgexTests/FilterGoldenTests.swift (AppState.filterItems, tvOS) and scripts/nostalgex-filter-golden-smoke.mjs (scripts/nostalgex-channel-filter.cjs, web tuner and Docker; npm run test:filter-golden). Each case is one item run against the SHIPPED channels.json, its exclusiveRules and channels-memberships.json. `in` lists channel ids (not numbers) the item must reach, `out` the ids it must not. Item fields: title, artist (music videos), episodeTitle, summary, originallyAvailableAt (YYYY-MM-DD, first aired), year, type (movie|episode), librarySource (movie|tv|musicVideo), genres, contentRating (as the server sends it, so GB-15 or FSK-16 for a Jellyfin library outside the US), duration (minutes, default 100), rating, studio, tmdbID (string; only when the case is about a manifest claim), and enrichment ({ keywords, productionCompanies, networks, tmdbGenres }; absent means not enriched), backend (plex|jellyfin|emby, default plex; the server the item came from) and doviProfile (Dolby Vision profile; absent means unknown). When a rule changes, change both engines, then update or add a case here.",
   "cases": [
     {
       "name": "kicking-and-screaming-is-not-a-scream-film",
@@ -1892,6 +1892,285 @@
       "out": [
         132,
         415
+      ]
+    },
+    {
+      "name": "gb-u-animated-film-reaches-family-hour-and-animation",
+      "about": "GitHub #41: Jellyfin stores a UK certificate as GB-U, which no allow-list named, so UK libraries had thin kids channels. GB-U on a film reads as G.",
+      "item": {
+        "title": "Wallace & Gromit: The Curse of the Were-Rabbit",
+        "year": 2005,
+        "type": "movie",
+        "genres": [
+          "Animation",
+          "Family",
+          "Comedy"
+        ],
+        "contentRating": "GB-U"
+      },
+      "in": [
+        20,
+        25
+      ],
+      "out": [
+        402
+      ]
+    },
+    {
+      "name": "gb-pg-family-film-reaches-family-hour",
+      "item": {
+        "title": "Paddington",
+        "year": 2014,
+        "type": "movie",
+        "genres": [
+          "Family",
+          "Comedy",
+          "Adventure"
+        ],
+        "contentRating": "GB-PG"
+      },
+      "in": [
+        20
+      ],
+      "out": [
+        402
+      ]
+    },
+    {
+      "name": "gb-12a-family-film-reads-as-pg-13",
+      "item": {
+        "title": "Harry Potter and the Goblet of Fire",
+        "year": 2005,
+        "type": "movie",
+        "genres": [
+          "Adventure",
+          "Fantasy",
+          "Family"
+        ],
+        "contentRating": "GB-12A"
+      },
+      "in": [
+        20
+      ]
+    },
+    {
+      "name": "gb-u-cartoon-episode-reads-as-tv-g",
+      "about": "SAT MORNING CARTOONS lists TV-G and G, so either would do here; the next case pins the episode side.",
+      "item": {
+        "title": "Danger Mouse",
+        "episodeTitle": "Rogue Robots",
+        "year": 1981,
+        "type": "episode",
+        "genres": [
+          "Animation",
+          "Kids",
+          "Comedy"
+        ],
+        "contentRating": "GB-U"
+      },
+      "in": [
+        4
+      ]
+    },
+    {
+      "name": "gb-u-episode-reads-as-tv-g-on-tween-tv",
+      "about": "TWEEN TV lists only TV labels (TV-G, TV-PG, TV-Y7). GB-U on an episode has to read as TV-G, not G, to get on.",
+      "item": {
+        "title": "Even Stevens",
+        "episodeTitle": "Pilot",
+        "year": 2000,
+        "type": "episode",
+        "genres": [
+          "Comedy",
+          "Family"
+        ],
+        "studio": "Disney Channel",
+        "contentRating": "GB-U"
+      },
+      "in": [
+        29
+      ]
+    },
+    {
+      "name": "gb-pg-episode-reaches-tween-tv-and-family-tv",
+      "item": {
+        "title": "Lizzie McGuire",
+        "episodeTitle": "Pilot",
+        "year": 2001,
+        "type": "episode",
+        "genres": [
+          "Comedy",
+          "Family"
+        ],
+        "studio": "Disney Channel",
+        "contentRating": "GB-PG"
+      },
+      "in": [
+        29,
+        33
+      ]
+    },
+    {
+      "name": "tv-12a-episode-reads-as-tv-14",
+      "about": "The #41 reporter's library showed one title as TV-12A. That is a 12A, so TV-14 on an episode: FAMILY TV takes it, TWEEN TV (no TV-14) does not.",
+      "item": {
+        "title": "Merlin",
+        "episodeTitle": "The Dragon's Call",
+        "year": 2008,
+        "type": "episode",
+        "genres": [
+          "Drama",
+          "Family",
+          "Fantasy"
+        ],
+        "contentRating": "TV-12A"
+      },
+      "in": [
+        33
+      ],
+      "out": [
+        29
+      ]
+    },
+    {
+      "name": "gb-18-film-is-adult-on-minion-hq",
+      "about": "MINION HQ has no allow-list and leans on the kids adult gate alone, which matched GB-18 against US labels and let it through. GB-18 reads as R now.",
+      "item": {
+        "title": "Illumination Test Film",
+        "year": 2020,
+        "type": "movie",
+        "genres": [
+          "Comedy"
+        ],
+        "studio": "Illumination Entertainment",
+        "contentRating": "GB-18"
+      },
+      "out": [
+        28
+      ]
+    },
+    {
+      "name": "gb-u-film-still-on-minion-hq",
+      "item": {
+        "title": "Despicable Me",
+        "year": 2010,
+        "type": "movie",
+        "genres": [
+          "Animation",
+          "Family",
+          "Comedy"
+        ],
+        "studio": "Illumination Entertainment",
+        "contentRating": "GB-U"
+      },
+      "in": [
+        28
+      ]
+    },
+    {
+      "name": "fsk-16-film-is-adult-on-minion-hq",
+      "item": {
+        "title": "Illumination Test Film",
+        "year": 2020,
+        "type": "movie",
+        "genres": [
+          "Comedy"
+        ],
+        "studio": "Illumination Entertainment",
+        "contentRating": "FSK-16"
+      },
+      "out": [
+        28
+      ]
+    },
+    {
+      "name": "fsk-0-family-film-reaches-family-hour",
+      "item": {
+        "title": "Maya the Bee Movie",
+        "year": 2014,
+        "type": "movie",
+        "genres": [
+          "Animation",
+          "Family",
+          "Adventure"
+        ],
+        "contentRating": "FSK-0"
+      },
+      "in": [
+        20,
+        25
+      ]
+    },
+    {
+      "name": "gb-15-comedy-reaches-r-rated-comedy",
+      "item": {
+        "title": "Superbad",
+        "year": 2007,
+        "type": "movie",
+        "genres": [
+          "Comedy"
+        ],
+        "contentRating": "GB-15"
+      },
+      "in": [
+        402
+      ],
+      "out": [
+        20
+      ]
+    },
+    {
+      "name": "gb-18-comedy-reaches-r-rated-comedy",
+      "item": {
+        "title": "The Wolf of Wall Street",
+        "year": 2013,
+        "type": "movie",
+        "genres": [
+          "Comedy",
+          "Crime",
+          "Drama"
+        ],
+        "contentRating": "GB-18"
+      },
+      "in": [
+        402
+      ]
+    },
+    {
+      "name": "gb-15-episode-is-tv-ma-not-family-tv",
+      "about": "A 15 sits between TV-14 and TV-MA, so it takes the stricter one: off FAMILY TV.",
+      "item": {
+        "title": "Skins",
+        "episodeTitle": "Tony",
+        "year": 2007,
+        "type": "episode",
+        "genres": [
+          "Drama",
+          "Comedy"
+        ],
+        "contentRating": "GB-15"
+      },
+      "out": [
+        33,
+        6
+      ]
+    },
+    {
+      "name": "us-labels-unchanged-r-film-still-on-r-rated-comedy",
+      "item": {
+        "title": "Superbad",
+        "year": 2007,
+        "type": "movie",
+        "genres": [
+          "Comedy"
+        ],
+        "contentRating": "R"
+      },
+      "in": [
+        402
+      ],
+      "out": [
+        20
       ]
     }
   ]
