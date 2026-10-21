@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import os
 import CoreImage.CIFilterBuiltins
 
 /// The connect screens: pick a backend, then Plex's code, or for Jellyfin and Emby find
@@ -101,14 +102,6 @@ struct SettingsView: View {
                     Text(connectScreenVersionLabel)
                         .font(.custom("DMMono-Regular", size: 15))
                         .foregroundStyle(.white.opacity(0.25))
-                    #if DEBUG
-                    // Keychain and storage diagnostics for credential debugging. Debug
-                    // builds only: on a customer's TV it read as noise.
-                    Text(InstallDiagnostics.summary())
-                        .font(.custom("DMMono-Regular", size: 13))
-                        .foregroundStyle(.white.opacity(0.25))
-                        .fixedSize(horizontal: false, vertical: true)
-                    #endif
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -142,6 +135,12 @@ struct SettingsView: View {
         // replaced every child's, so no button on this screen could be found by id.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settingsScreen")
+        // The keychain and storage diagnostics used to sit under VERSION on this screen.
+        // They go to the log now (subsystem com.muellhaus.nostalgex, category auth), where
+        // a sign-in that didn't survive a restart can still be read off a device.
+        .onAppear {
+            InstallDiagnostics.log.notice("connect screen: \(InstallDiagnostics.summary(), privacy: .public)")
+        }
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focusedControl, defaultFocusID)
         .onChange(of: focusKey, initial: true) { _, _ in focusSoon(defaultFocusID) }

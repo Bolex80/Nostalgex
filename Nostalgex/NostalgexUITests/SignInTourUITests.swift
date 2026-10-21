@@ -48,6 +48,10 @@ final class SignInTourUITests: SignInTourCase {
     func testA_Picker() {
         launchFresh()
         XCTAssertTrue(app.buttons["CONNECT TO PLEX"].hasFocus, "a fresh launch should start on CONNECT TO PLEX")
+        // VERSION stays; the keychain and storage diagnostics line is gone from every build.
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'VERSION '")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'DEFAULTS' AND label CONTAINS 'MARKER'")).firstMatch.exists,
+                       "the diagnostics line should not be on the connect screen")
         shot("after-01-picker-focus-plex")
         gallery([(.down, "after-02-picker-focus-jellyfin"), (.down, "after-03-picker-focus-emby"),
                  (.down, "after-04-picker-focus-demo")])
