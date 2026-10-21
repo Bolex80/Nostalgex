@@ -9,6 +9,7 @@ sub Main(args = invalid as Dynamic)
     print "  filter took "; timer.TotalMilliseconds(); " ms"
     timer.Mark()
     failures = failures + NxRunFilterGoldenTests("pkg:/tests/vectors/filter-golden.json", "pkg:/data/channels.json", "pkg:/data/channels-memberships.json")
+    failures = failures + NxRunRatingGoldenTests("pkg:/tests/vectors/rating-golden.json")
     timer.Mark()
     failures = failures + NxRunLineupTests("pkg:/tests/vectors/lineup.json")
     print "  lineup took "; timer.TotalMilliseconds(); " ms"

@@ -5,6 +5,7 @@
 // row, so yesterday's schedule feeds today's as it does in the browser.
 // Called by tests/gen-vectors.mjs, which owns the output, with TZ=UTC.
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 export function liftFunction(html, name) {
@@ -27,6 +28,8 @@ function withClock(ms, fn) {
 }
 
 export function lineupVectors(upstream, M, pool) {
+  // getTimeFilteredPool reads ratings through the page's channel filter global.
+  createRequire(import.meta.url)(join(upstream, "scripts", "nostalgex-channel-filter.cjs"));
   const html = readFileSync(join(upstream, "plex-tuner.html"), "utf8");
   const lifted = new Function(`${liftFunction(html, "shuffleArray")}\n${liftFunction(html, "getTimeFilteredPool")}\nreturn { shuffleArray, getTimeFilteredPool };`)();
   const ids = (arr) => arr.map((i) => i.ratingKey).join(",");
@@ -41,7 +44,8 @@ export function lineupVectors(upstream, M, pool) {
   }
 
   // getTimeFilteredPool at each hour, for every kind of restriction.
-  const rated = pool.map((it, k) => ({ ...it, contentRating: ["R", "PG", "NC-17", "TV-MA"][k % 4] }));
+  // Ratings from other countries count as their US labels (upstream GitHub #41).
+  const rated = pool.map((it, k) => ({ ...it, contentRating: ["R", "PG", "NC-17", "TV-MA", "GB-18", "GB-PG", "FSK-16", "TV-12A", "gb/15"][k % 9] }));
   const restrictions = [
     { blockRatings: { ratings: ["R", "NC-17"], blockBefore: 21 } },
     { blockRatings: { ratings: ["R", "PG", "NC-17", "TV-MA"], blockAfter: 22 } },

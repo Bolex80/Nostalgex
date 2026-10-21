@@ -309,6 +309,23 @@ export function filterVectors(upstream) {
   add({ title: "Lab Clip Comedy", genres: ["Comedy", "Action"], year: 2003, contentRating: "PG", doviProfile: 5 });
   add({ title: "Lab Clip Show", type: "episode", episodeTitle: "Pilot", genres: ["Comedy", "Action"], year: 2003, contentRating: "TV-PG", duration: 25, doviProfile: 5 });
   add({ title: "Lab Clip Eight", genres: ["Comedy", "Action"], year: 2003, contentRating: "PG", doviProfile: 8 });
+  // Ratings from other countries (upstream GitHub #41): every channel reads them
+  // as US labels, a film label on a film and a TV label on an episode.
+  add({ title: "Wallace & Gromit: The Curse of the Were-Rabbit", genres: ["Animation", "Family", "Comedy"], year: 2005, contentRating: "GB-U" });
+  add({ title: "Paddington", genres: ["Family", "Comedy", "Adventure"], year: 2014, contentRating: "GB-PG" });
+  add({ title: "Harry Potter and the Goblet of Fire", genres: ["Adventure", "Fantasy", "Family"], year: 2005, contentRating: "GB-12A" });
+  add({ title: "Danger Mouse", type: "episode", episodeTitle: "Rogue Robots", genres: ["Animation", "Kids", "Comedy"], year: 1981, contentRating: "GB-U", duration: 22 });
+  add({ title: "Even Stevens", type: "episode", episodeTitle: "Pilot", genres: ["Comedy", "Family"], studio: "Disney Channel", year: 2000, contentRating: "GB-U", duration: 22 });
+  add({ title: "Merlin", type: "episode", episodeTitle: "The Dragon's Call", genres: ["Drama", "Family", "Fantasy"], year: 2008, contentRating: "TV-12A", duration: 44 });
+  add({ title: "Skins", type: "episode", episodeTitle: "Tony", genres: ["Drama", "Comedy"], year: 2007, contentRating: "gb/15", duration: 44 });
+  add({ title: "Illumination Test Film", genres: ["Comedy", "Family"], studio: "Illumination Entertainment", year: 2020, contentRating: "GB-18" });
+  add({ title: "Despicable Me", genres: ["Animation", "Family", "Comedy"], studio: "Illumination Entertainment", year: 2010, contentRating: "FSK-0" });
+  add({ title: "Superbad", genres: ["Comedy"], year: 2007, contentRating: "GB-15" });
+  add({ title: "The Wolf of Wall Street", genres: ["Comedy", "Crime", "Drama"], year: 2013, contentRating: "FSK 16" });
+  add({ title: "Black Christmas", genres: ["Horror", "Holiday"], year: 1974, contentRating: "IE-18" });
+  add({ title: "Home Alone", genres: ["Comedy", "Family", "Holiday"], year: 1990, contentRating: "AU-PG" });
+  add({ title: "Scream", genres: ["Horror", "Mystery"], year: 1996, contentRating: "NZ-R18" });
+  add({ title: "Bluey", type: "episode", episodeTitle: "Christmas Swim", genres: ["Animation", "Kids"], year: 2021, contentRating: "AU-P", duration: 8 });
 
   // Dates relative to each clock are resolved per clock; the item list itself
   // must be one fixed list, so relative markers become per-clock fields.

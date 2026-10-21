@@ -16,10 +16,10 @@ upstream=$(cd .. && pwd)
 for f in channels.json channels-memberships.json franchises.json; do
     [ -f "data/$f" ] || { echo "FAIL data/$f does not resolve; it links to the repo root's $f" >&2; exit 1; }
 done
-# Upstream's own builder, filter and seasons must pass their golden files, or
+# Upstream's own builder, filter, ratings and seasons must pass their golden files, or
 # the files prove nothing, and its collections module its own smoke test, or
 # the vectors from it don't.
-(cd "$upstream" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
+(cd "$upstream" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-rating-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
 NOSTALGEX_DIR=$upstream node tests/gen-vectors.mjs
 # Secrets never reach the debug console, which anyone on the network can read:
 # no print statement may output a variable named like a token, URL or header.
@@ -56,6 +56,6 @@ for f in components/*.brs; do
 done
 
 out=$(npx -y -p @rokucommunity/brs@0.47.6 brs --root . \
-    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/QrTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs 2>&1 | grep -v '^npm warn')
+    tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/QrTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs 2>&1 | grep -v '^npm warn')
 echo "$out"
 grep -q '^ALL TESTS PASSED' <<<"$out"

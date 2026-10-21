@@ -226,7 +226,8 @@ function NxFilterItem(item as Object) as Object
         studioLower: studioLower,
         source: source,
         year: NxParseYear(item),
-        manifestKey: manifestKey
+        manifestKey: manifestKey,
+        usRating: NxUsContentRating(item.contentRating, item.type)
     }
     item.nxFilter = p
     return p
@@ -312,8 +313,9 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
         return ""
     end if
 
+    ' A rating from another country counts as its US label (GB-18 is R).
     if c.isFamilySafe and NxTruthy(item.contentRating) then
-        if NxGenreLocks().adultRatings.DoesExist(NxToStr(item.contentRating)) then return ""
+        if NxGenreLocks().adultRatings.DoesExist(NxToStr(p.usRating)) then return ""
     end if
 
     if not c.allowsHorror and g.inHorror then return ""
@@ -388,7 +390,7 @@ function NxItemPasses(item as Object, c as Object, manifest as Dynamic, exclusiv
 
     if c.contentRatings.Count() > 0 then
         rating = ""
-        if NxTruthy(item.contentRating) then rating = NxToStr(item.contentRating)
+        if NxTruthy(item.contentRating) then rating = NxToStr(p.usRating)
         if not (rating = "" and c.allowUnrated) then
             if not NxHasValue(c.contentRatings, rating) then return ""
         end if
@@ -732,6 +734,99 @@ function NxGenreLocks() as Object
         }
     end if
     return g.nxGenreLocks
+end function
+
+' Ratings from other countries, read as the US labels the channel rules use.
+' Mirrors upstream's usContentRating (scripts/nostalgex-channel-filter.cjs)
+' and the Swift ContentRating.usLabel; scripts/rating-golden.json holds all
+' three to it (tests/RatingGoldenTests.brs). Jellyfin and Emby store a
+' certificate from outside the US with its country in front ("GB-15", and
+' Germany as "FSK-16"), Plex as "gb/15", and some libraries carry the bare
+' label ("12A") or "TV-12A". A label it recognises becomes the US label of
+' the same age band, a TV label for an episode and a film label for anything
+' else. Anything else comes back as it went in, every US label included.
+function NxUsContentRating(raw as Dynamic, itemType as Dynamic) as Dynamic
+    if not NxIsString(raw) then return raw
+    t = NxRatingTables()
+    key = t.space.ReplaceAll(UCase(raw), "")
+    if key = "" or t.us.DoesExist(key) then return raw
+    country = invalid
+    label = key
+    if Left(key, 3) = "FSK" then
+        country = "DE"
+        label = Mid(key, 4)
+        if Left(label, 1) = "-" then label = Mid(label, 2)
+    else
+        parts = t.prefix.Match(key)
+        if parts.Count() = 3 then
+            ' "TV-12A" is a bare 12A, not a country called TV.
+            if parts[1] <> "TV" then
+                country = parts[1]
+                if country = "UK" then country = "GB"
+            end if
+            label = parts[2]
+        end if
+    end if
+    band = NxRatingAgeBand(label, t)
+    if band = invalid then
+        if country <> invalid then
+            words = t.words[country]
+            if words <> invalid then band = words[label]
+            if band = invalid and label = "X" then band = "adult"
+        else
+            band = t.bare[label]
+        end if
+    end if
+    if band = invalid then return raw
+    if NxToStr(itemType) = "episode" then return t.bands[band][1]
+    return t.bands[band][0]
+end function
+
+' One or two digits, then an optional "+": an age. 0 is everyone, up to 10 is
+' PG, up to 14 is PG-13 / TV-14, older is R / TV-MA.
+function NxRatingAgeBand(label as String, t as Object) as Dynamic
+    digits = t.age.Match(label)
+    if digits.Count() < 2 then return invalid
+    age = digits[1].ToInt()
+    if age = 0 then return "all"
+    if age <= 10 then return "pg"
+    if age <= 14 then return "teen"
+    return "mature"
+end function
+
+' The rating tables, built once per thread. Keys are upper case, and the
+' labels looked up in them are upper-cased first.
+function NxRatingTables() as Object
+    g = GetGlobalAA()
+    if g.nxRatingTables = invalid then
+        g.nxRatingTables = {
+            bands: {
+                all: ["G", "TV-G"],
+                pg: ["PG", "TV-PG"],
+                teen: ["PG-13", "TV-14"],
+                mature: ["R", "TV-MA"],
+                adult: ["NC-17", "TV-MA"]
+            },
+            us: NxSet(["G", "PG", "PG-13", "R", "NC-17", "NR", "TV-Y", "TV-Y7", "TV-Y7-FV", "TV-G", "TV-PG", "TV-14", "TV-MA"]),
+            ' Word labels by country. Numbers go by age, for any country.
+            words: {
+                GB: { "U": "all", "UC": "all", "PG": "pg", "12A": "teen", "12PG": "teen", "R18": "adult" },
+                IE: { "G": "all", "PG": "pg", "12A": "teen", "12PG": "teen", "15A": "mature", "15PG": "mature" },
+                AU: { "P": "all", "C": "all", "G": "all", "PG": "pg", "M": "mature", "MA15+": "mature", "AV15+": "mature", "R18+": "mature", "X18+": "adult" },
+                NZ: { "G": "all", "PG": "pg", "R13": "teen", "RP13": "teen", "M": "mature", "R15": "mature", "R16": "mature", "RP16": "mature", "R18": "mature", "RP18": "mature", "R": "adult" },
+                CA: { "C": "all", "G": "all", "C8": "pg", "PG": "pg", "14A": "teen", "18A": "mature", "R": "adult", "A": "adult" },
+                FR: { "U": "all", "TP": "all" },
+                NL: { "AL": "all", "MG6": "pg" }
+            },
+            ' A label with no country, or after "TV-": only labels with one
+            ' meaning everywhere.
+            bare: { "U": "all", "UC": "all", "12A": "teen", "12PG": "teen", "14A": "teen", "15A": "mature", "18A": "mature", "MA15+": "mature", "R18+": "mature", "R18": "adult", "X18+": "adult" },
+            space: CreateObject("roRegex", "\s+", ""),
+            prefix: CreateObject("roRegex", "^([A-Z]{2})[-/](.+)$", ""),
+            age: CreateObject("roRegex", "^(\d{1,2})\+?$", "")
+        }
+    end if
+    return g.nxRatingTables
 end function
 
 ' Regexes, compiled once per thread.

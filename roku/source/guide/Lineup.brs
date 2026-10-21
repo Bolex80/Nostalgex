@@ -145,7 +145,8 @@ function NxTimeFilteredPool(channel as Object, pool as Object, hour as Integer) 
         if blocked then
             filtered = []
             for each it in out
-                if not NxHasValue(NxList(br.ratings), it.contentRating) then filtered.Push(it)
+                ' A rating from another country counts as its US label: GB-18 waits like R.
+                if not NxHasValue(NxList(br.ratings), NxUsContentRating(it.contentRating, it.type)) then filtered.Push(it)
             end for
             if filtered.Count() >= 2 then out = filtered
         end if
