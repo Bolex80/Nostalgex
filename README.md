@@ -55,14 +55,14 @@ docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/cha
 
 Then open `http://YOUR-SERVER-IP:8080`. Step by step help is in the [Docker container guide](https://www.nostalgex.app/self-host).
 
-**Latest: `tuner-v1.0.3`.** Holiday channels (MISTLETOE, CHRISTMAS SPECIALS, KIDS CHRISTMAS TV, TURKEY DAY), no more burned-in subtitles on Jellyfin and Emby, and the version shows at the bottom of Settings. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.3). Already running it? `docker compose pull && docker compose up -d`.
+**Latest: `tuner-v1.0.4`.** Channels keep playing right up to midnight on the night the clocks go back, and the day after they go forward no longer reruns the day before. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.4). Already running it? `docker compose pull && docker compose up -d`.
 
 <a id="whats-new-in-1026"></a>
 ## What's new in 1.0.26
 
 The App Store went straight from 1.0.23 to 1.0.26, so this rolls up 1.0.24, 1.0.25 and 1.0.26. [Full release notes](https://github.com/chadMueller/Nostalgex/releases/tag/v1.0.26)
 
-- **The Docker container launched** as `tuner-v1.0.0`. It's on [`tuner-v1.0.3`](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.3) now.
+- **The Docker container launched** as `tuner-v1.0.0`. It's on [`tuner-v1.0.4`](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.4) now.
 - **Emby is officially supported.** Thank you to the Emby community for all the logs and testing.
 - **Franchises.** Each film series in your library (Star Wars, Rocky, whatever you own) gets its own channel and its own switch in Settings. Server collections land in FRANCHISES or OTHER COLLECTIONS. NOTABLE STARS is retired.
 - **iCloud sync** (Settings > CONNECTION). Every Apple TV on your Apple ID shares the same lineup and settings. Off by default, and server logins never leave the device.
@@ -135,7 +135,7 @@ services:
     restart: unless-stopped
 ```
 
-**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`. The bottom of Settings says which one you're running, e.g. `WEB TUNER 1.0.3 · DOCKER`.
+**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`. The bottom of Settings says which one you're running, e.g. `WEB TUNER 1.0.4 · DOCKER`.
 
 **Platforms:** amd64 and arm64 (Synology and Unraid on Intel or AMD, NUCs, Raspberry Pi 4 and 5 on a 64 bit OS). No armv7. Runs as a non root user (uid 101) and works with a read only root filesystem as long as `/tmp` is writable.
 
