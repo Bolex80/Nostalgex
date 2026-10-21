@@ -40,6 +40,7 @@ jobs:
               - 'web-tuner.html'
               - 'support.html'
               - 'privacy.html'
+              - 'terms.html'
               - '404.html'
               - 'styles.css'
               - 'channels.json'

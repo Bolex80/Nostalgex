@@ -112,6 +112,7 @@ export default defineConfig(({ mode }) => {
           'apple-tv': resolve(__dirname, 'apple-tv.html'),
           'plex-tuner': resolve(__dirname, 'plex-tuner.html'),
           privacy: resolve(__dirname, 'privacy.html'),
+          terms: resolve(__dirname, 'terms.html'),
           support: resolve(__dirname, 'support.html'),
           'self-host': resolve(__dirname, 'self-host.html'),
           plex: resolve(__dirname, 'plex.html'),
