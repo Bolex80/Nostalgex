@@ -499,7 +499,7 @@ extension AppState {
         if let urlErr {
             switch urlErr.code {
             case .timedOut:
-                return "Timed out loading your library. Large libraries can need a second attempt, so tap Retry. If it keeps timing out, use Settings to pick a closer server URL."
+                return "Timed out loading your library. Large libraries can need a second attempt, so press RETRY. If it keeps timing out, use Settings to pick a closer server address."
             case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .networkConnectionLost:
                 return "Can't reach the server address saved on this device. Open Settings and reconnect while on the same network as your server."
             case .notConnectedToInternet:
@@ -570,6 +570,14 @@ extension AppState {
 
     static let pinRequestAttempts = 4
 
+    /// Shown on the picker when a Plex code runs out (5 minutes). The picker is where the
+    /// viewer lands, so the line names the button that gets a new code.
+    static let plexCodeExpiredMessage = "The code expired. Press CONNECT TO PLEX for a new one."
+
+    /// Shown on the Jellyfin password screen when a Quick Connect code runs out. That screen
+    /// has USE QUICK CONNECT and the password fields, so the line names both.
+    static let quickConnectCodeExpiredMessage = "The code expired. Press USE QUICK CONNECT for a new one, or sign in with your password."
+
     static func isTransientPINRequestError(_ error: Error) -> Bool {
         if let api = error as? PlexAPIService.APIError {
             if case .httpFailure(let code) = api { return (500...599).contains(code) }
@@ -605,30 +613,30 @@ extension AppState {
             case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .secureConnectionFailed:
                 return "The server's HTTPS certificate is not trusted by the Apple TV (error \(urlError.code.rawValue))."
             default:
-                return "Could not reach the \(backend) server (error \(urlError.code.rawValue)). Check the URL."
+                return "Could not reach the \(backend) server (error \(urlError.code.rawValue)). Check the address."
             }
         }
-        return "Could not reach the \(backend) server. Check the URL."
+        return "Could not reach the \(backend) server. Check the address."
     }
 
     static func pinRequestFailureMessage(_ error: Error?) -> String {
         if let api = error as? PlexAPIService.APIError, case .httpFailure(let code) = api {
             if code == 429 {
-                return "plex.tv is rate-limiting sign-in requests from this device. Wait a minute, then tap Connect again."
+                return "plex.tv is rate-limiting sign-in requests from this device. Wait a minute, then press CONNECT TO PLEX again."
             }
             return "plex.tv returned an error (HTTP \(code)). Try again in a moment."
         }
         if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet, .networkConnectionLost:
-                return "No internet connection. Check the Apple TV's Wi‑Fi or Ethernet, then tap Connect again."
+                return "No internet connection. Check the Apple TV's Wi‑Fi or Ethernet, then press CONNECT TO PLEX again."
             case .timedOut:
-                return "plex.tv took too long to respond. Check your connection, then tap Connect again."
+                return "plex.tv took too long to respond. Check your connection, then press CONNECT TO PLEX again."
             default:
-                return "Could not reach plex.tv (error \(urlError.code.rawValue)). Check your connection, then tap Connect again."
+                return "Could not reach plex.tv (error \(urlError.code.rawValue)). Check your connection, then press CONNECT TO PLEX again."
             }
         }
-        return "Could not reach plex.tv. Check your connection, then tap Connect again."
+        return "Could not reach plex.tv. Check your connection, then press CONNECT TO PLEX again."
     }
 
     func cancelPINAuth() {
@@ -713,7 +721,7 @@ extension AppState {
                 attempts += 1
                 if attempts > 150 {
                     Analytics.track(.connectCodeExpired(backend: .plex, method: .pin))
-                    authError = "Code expired. Tap Connect to try again."
+                    authError = Self.plexCodeExpiredMessage
                     isAuthInProgress = false
                     currentAuthAttempt = nil
                     break
@@ -806,7 +814,7 @@ extension AppState {
                 Analytics.track(.connectFailed(backend: .jellyfin, reason: "jellyfin_auth_failed"))
                 authError = api == .unauthorized
                     ? "Incorrect username or password."
-                    : "Could not reach the Jellyfin server. Check the URL."
+                    : "Could not reach the Jellyfin server. Check the address."
             } catch {
                 guard !Task.isCancelled else { return }
                 isAuthInProgress = false
@@ -844,7 +852,7 @@ extension AppState {
                     attempts += 1
                     if attempts > 150 {
                         Analytics.track(.connectCodeExpired(backend: .jellyfin, method: .quickConnect))
-                        authError = "Code expired. Tap Connect to try again."
+                        authError = Self.quickConnectCodeExpiredMessage
                         isAuthInProgress = false
                         currentAuthAttempt = nil
                         jellyfinQuickConnectCode = ""
@@ -921,7 +929,7 @@ extension AppState {
                 Analytics.track(.connectFailed(backend: .emby, reason: "emby_auth_failed"))
                 authError = api == .unauthorized
                     ? "Incorrect username or password."
-                    : "Could not reach the Emby server. Check the URL."
+                    : "Could not reach the Emby server. Check the address."
             } catch {
                 guard !Task.isCancelled else { return }
                 isAuthInProgress = false
