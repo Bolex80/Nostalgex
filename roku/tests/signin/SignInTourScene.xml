@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sign-in tour's scene (tests/signin/SignInTourMain.brs): ConnectView
+     alone, with a stand-in Plex code. Copied into the build by deploy.sh
+     tour mode, never part of the app. -->
+<component name="SignInTourScene" extends="Scene">
+  <interface>
+    <field id="args" type="assocarray" onChange="onArgs" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/SignInTourScene.brs" />
+  <children>
+    <ConnectView id="connect" />
+  </children>
+</component>

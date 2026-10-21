@@ -11,6 +11,10 @@
 #   scripts/deploy.sh --live   a live-check build: tests/live/LiveMain.brs loads
 #                              the signed-in Plex library and prints fingerprints
 #                              to out/live-<tv>.log for tests/live/compare.mjs.
+#   scripts/deploy.sh --tour   the sign-in tour: the connect screens on their own
+#                              (tests/signin), to walk with a remote and count
+#                              presses. Relaunch with ?discovery=none|several to
+#                              stand in for the network search.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test_build=false
@@ -18,6 +22,7 @@ mode=app
 case "${1:-}" in
     --test) test_build=true; mode=test ;;
     --live) test_build=true; mode=live ;;
+    --tour) mode=tour ;;
 esac
 wait_s=${TEST_TIMEOUT:-600} # seconds to wait for a TV's test result
 [ -f .env ] || { echo "no .env — copy .env.example" >&2; exit 1; }
@@ -43,13 +48,16 @@ if [ "${NOSTALGEX_ENRICHMENT:-off}" = on ]; then
     echo "build: enrichment on"
 fi
 if [ "$mode" = test ]; then
-    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/QrTests.brs "$stage"/source/
+    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs "$stage"/source/
     # The vectors are generated from this tree's JS engine, never committed
     # (qr.json, from tests/gen-qr.mjs, is the one kept in git).
     NOSTALGEX_DIR=.. node tests/gen-vectors.mjs >/dev/null
     mkdir -p "$stage"/tests && cp -r tests/vectors tests/fixtures "$stage"/tests/
 elif [ "$mode" = live ]; then
     cp tests/live/LiveMain.brs "$stage"/source/main.brs
+elif [ "$mode" = tour ]; then
+    cp tests/signin/SignInTourMain.brs "$stage"/source/main.brs
+    cp tests/signin/SignInTourScene.xml tests/signin/SignInTourScene.brs "$stage"/components/
 fi
 # Which build this zip is, for the saved guide and pools' keys: a sideload
 # keeps the manifest's version, so without it a build installed over another
