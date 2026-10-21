@@ -45,7 +45,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css">
 <link rel="preload" as="image" href="/screens/guide-hero-1280.webp" fetchpriority="high">
-<script async data-site="nostalgex" src="https://statsngraphs.lol/s.js"></script>
+<script>
+  /* Analytics loads after the page has, so a slow third party never holds up the load event. */
+  window.addEventListener("load", function () {
+    var s = document.createElement("script");
+    s.src = "https://statsngraphs.lol/s.js";
+    s.async = true;
+    s.setAttribute("data-site", "nostalgex");
+    document.head.appendChild(s);
+  });
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -213,7 +222,7 @@
           <span class="btn-icon-text">Web app</span>
         </a>
         <a class="btn btn-ink btn-sm btn-icon" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener" aria-label="Get the tvOS app" title="Get the tvOS app">
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.28 2.47-4.35-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-.99-1.94.03-3.73 1.13-4.72 2.86-2.02 3.5-.52 8.67 1.45 11.51.96 1.39 2.1 2.95 3.6 2.9 1.45-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.41 3.49-2.81 1.1-1.61 1.55-3.17 1.58-3.25-.04-.02-3.03-1.16-3.06-4.62zM14.16 4.06c.8-.97 1.34-2.31 1.19-3.65-1.15.05-2.55.77-3.37 1.73-.74.86-1.39 2.23-1.22 3.54 1.29.1 2.6-.65 3.4-1.62z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="13" rx="2.5"/><path d="M8 3.5l4 4 4-4"/></svg>
           <span class="btn-icon-text">Get the tvOS app</span>
         </a>
         <div class="nav-social" aria-label="Nostalgex elsewhere">
@@ -287,10 +296,11 @@
             <div class="cta-row">
               <a class="btn btn-ink btn-lg" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener">
                 
-                Get it on Apple TV
+                <svg class="btn-glyph" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="13" rx="2.5"/><path d="M8 3.5l4 4 4-4"/></svg>Get it on Apple TV
               </a>
               <a class="btn btn-paper btn-lg" href="/web-tuner">Try the web tuner, free</a>
             </div>
+            <a class="store-badge" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener"><img src="/badges/download-on-apple-tv-black.svg" alt="Download on Apple TV" width="125" height="44"></a>
           </div>
           <p class="hero-note server-note"><svg class="server-mark" viewBox="0 0 24 24" fill="#EBAF00" aria-hidden="true"><path d="M3.987 8.409c-.96 0-1.587.28-2.12.933v-.72H0v8.88s.038.018.127.037c.138.03.821.187 1.331-.249.441-.377.542-.814.542-1.318v-1.283c.533.573 1.147.813 2 .813 1.84 0 3.253-1.493 3.253-3.48 0-2.12-1.36-3.613-3.266-3.613Zm16.748 5.595.406.591c.391.614.894.906 1.492.908.621-.012 1.064-.562 1.226-.755 0 0-.307-.27-.686-.72-.517-.614-1.214-1.755-1.24-1.803l-1.198 1.779Zm-3.205-1.955c0-2.08-1.52-3.64-3.52-3.64s-3.467 1.587-3.467 3.573a3.48 3.48 0 0 0 3.507 3.52c1.413 0 2.626-.84 3.253-2.293h-2.04l-.093.093c-.427.4-.72.533-1.227.533-.787 0-1.373-.506-1.453-1.266h4.986c.04-.214.054-.307.054-.52Zm-7.671-.219c0 .769.11 1.701.868 2.722l.056.069c-.306.526-.742.88-1.248.88-.399 0-.814-.211-1.138-.579a2.177 2.177 0 0 1-.538-1.441V6.409H9.86l-.001 5.421Zm9.283 3.46h-2.39l2.247-3.332-2.247-3.335h2.39l2.248 3.335-2.248 3.332Zm1.593-1.286Zm-17.162-.342c-.933 0-1.68-.773-1.68-1.72s.76-1.666 1.68-1.666c.92 0 1.68.733 1.68 1.68 0 .946-.733 1.706-1.68 1.706Zm18.361-1.974L24 8.622h-2.391l-.87 1.293 1.195 1.773Zm-9.404-.466c.16-.706.72-1.133 1.493-1.133.773 0 1.373.467 1.507 1.133h-3Z"/></svg><span>Works with Plex on Apple TV (tvOS 18 or later) and in the free web tuner.</span></p>
         </div>
@@ -508,7 +518,7 @@
         <h2>Cable's back. Now on Apple TV.</h2>
         <p>Free, native, open source, and built for the couch.</p>
         <div class="cta-row cta-center">
-          <a class="btn btn-ink btn-lg" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener">Get it on Apple TV</a>
+          <a class="btn btn-ink btn-lg" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener"><svg class="btn-glyph" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="13" rx="2.5"/><path d="M8 3.5l4 4 4-4"/></svg>Get it on Apple TV</a>
           <a class="btn btn-paper btn-lg" href="/web-tuner">Open the web tuner</a>
         </div>
       </div>
@@ -547,7 +557,7 @@
         </form>
         <p class="subscribe-msg" role="status" aria-live="polite"></p>
       </div>
-      <p class="footer-note">Not affiliated with Plex, Jellyfin, Emby, or Apple.</p>
+      <p class="footer-note">Not affiliated with Plex, Jellyfin, Emby, or Apple. Apple, the Apple logo, Apple TV and App Store are trademarks of Apple Inc., registered in the U.S. and other countries.</p>
     </div>
   </footer>
 

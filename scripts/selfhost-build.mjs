@@ -155,6 +155,10 @@ export function rewriteForSelfhost(html, file = 'page') {
   // Lets the shared scripts tell the two builds apart (enrichment relay, music lookups).
   out = out.replace(/<meta charset="UTF-8">/i, (m) => `${m}\n<meta name="nostalgex-build" content="selfhost">`)
   if (!out.includes('name="nostalgex-build"')) throw new Error(`${file}: no <meta charset> to put the build marker after`)
+  // The hosted pages load analytics from an inline loader after the load event, which
+  // REMOTE_SUBRESOURCE cannot see. web-tuner.html keeps it between strip markers; this
+  // catches it if those markers ever go missing.
+  if (/statsngraphs/i.test(out)) throw new Error(`${file}: analytics left in the self-host build`)
   const remote = out.match(REMOTE_SUBRESOURCE)
   if (remote) throw new Error(`${file}: remote subresource left in the self-host build:\n  ${remote.join('\n  ')}`)
   return out

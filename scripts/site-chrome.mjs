@@ -74,7 +74,7 @@ export function renderNav() {
           <span class="btn-icon-text">Web app</span>
         </a>
         <a class="btn btn-ink btn-sm btn-icon" href="${APPLE_TV_URL}" target="_blank" rel="noopener" aria-label="Get the tvOS app" title="Get the tvOS app">
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M17.05 12.54c-.03-2.89 2.36-4.28 2.47-4.35-1.35-1.97-3.44-2.24-4.18-2.27-1.78-.18-3.47 1.05-4.37 1.05-.9 0-2.29-1.02-3.77-.99-1.94.03-3.73 1.13-4.72 2.86-2.02 3.5-.52 8.67 1.45 11.51.96 1.39 2.1 2.95 3.6 2.9 1.45-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.41 3.49-2.81 1.1-1.61 1.55-3.17 1.58-3.25-.04-.02-3.03-1.16-3.06-4.62zM14.16 4.06c.8-.97 1.34-2.31 1.19-3.65-1.15.05-2.55.77-3.37 1.73-.74.86-1.39 2.23-1.22 3.54 1.29.1 2.6-.65 3.4-1.62z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="13" rx="2.5"/><path d="M8 3.5l4 4 4-4"/></svg>
           <span class="btn-icon-text">Get the tvOS app</span>
         </a>
         <div class="nav-social" aria-label="Nostalgex elsewhere">
@@ -142,8 +142,8 @@ export function renderFooter({ includeEmby = true } = {}) {
         <a href="/emby">Emby</a>`
     : "";
   const notAffiliated = includeEmby
-    ? "Not affiliated with Plex, Jellyfin, Emby, or Apple."
-    : "Not affiliated with Plex, Jellyfin, or Apple.";
+    ? "Not affiliated with Plex, Jellyfin, Emby, or Apple. Apple, the Apple logo, Apple TV and App Store are trademarks of Apple Inc., registered in the U.S. and other countries."
+    : "Not affiliated with Plex, Jellyfin, or Apple. Apple, the Apple logo, Apple TV and App Store are trademarks of Apple Inc., registered in the U.S. and other countries.";
   return `
   <footer class="footer">
     <div class="container footer-inner">
@@ -221,7 +221,16 @@ export function renderHead({
     `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
     `<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">`,
     `<link rel="stylesheet" href="${escapeAttr(stylesHref)}">`,
-    `<script async data-site="nostalgex" src="https://statsngraphs.lol/s.js"></script>`,
+    `<script>
+  /* Analytics loads after the page has, so a slow third party never holds up the load event. */
+  window.addEventListener("load", function () {
+    var s = document.createElement("script");
+    s.src = "https://statsngraphs.lol/s.js";
+    s.async = true;
+    s.setAttribute("data-site", "nostalgex");
+    document.head.appendChild(s);
+  });
+</script>`,
   ].join("\n");
 
   // jsonLd may be a single object or an array; emit one script tag per entry.

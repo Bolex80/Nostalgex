@@ -5,6 +5,7 @@ Where the third-party badges on nostalgex.app come from, and the rules that come
 ## Apple: "Download on Apple TV"
 
 - **File:** `public/badges/download-on-apple-tv-black.svg`, unaltered.
+- **Where it goes:** it is a supporting mark, never the main button. Once per page, 44 px tall, next to the page's main Apple TV button: under the hero buttons where the hero has one (home, Plex, Jellyfin, Emby, Apple TV), under the buttons at the end of a blog post, and in the Apple TV tile on a page whose hero has no Apple TV button (Roku). The buttons themselves are the house `.btn`, and a button to the App Store leads with the TV glyph, not the Apple logo.
 - **Source:** Apple's App Store Marketing Tools, `https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-apple-tv/black/en-us`. It is the same file the App Store Marketing Guidelines page shows (`badge-download-on-apple-tv.svg`, 8,699 bytes, its title reads `Download_on_Apple_TV_Badge_US-UK_RGB_blk_092917`).
 - **Terms:** the App Store Marketing Guidelines, `https://developer.apple.com/app-store/marketing/guidelines/`. The ones that matter here:
   - Use only Apple's artwork. Don't modify, angle or animate it. The gray border is part of the black badge.

@@ -64,8 +64,6 @@
   /* sunset closer gets its own tunables so dark can deepen it */
   --final-grad: var(--grad-sunset);
   --final-note: rgba(20, 20, 20, 0.78);
-  --final-btn-ink-shadow: rgba(255, 255, 255, 0.9);
-  --final-btn-paper-shadow: #141414;
 
   /* type */
   --font-display: "Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
@@ -109,8 +107,6 @@
      block against the dark page instead of a floodlight */
   --final-grad: linear-gradient(100deg, #d31f92 5%, #e56f24 48%, #e9bd0f 95%);
   --final-note: rgba(16, 14, 10, 0.8);
-  --final-btn-ink-shadow: rgba(15, 13, 10, 0.9);
-  --final-btn-paper-shadow: rgba(247, 241, 227, 0.95);
 }
 
 /* ---------- Reset / base ---------- */
@@ -216,7 +212,12 @@ a { color: inherit; }
   transform: rotate(6deg);
 }
 
-/* ---------- Buttons (offset hard shadow) ---------- */
+/* ---------- Buttons (offset hard shadow) ----------
+   The one call-to-action button on every page. .btn-ink is the main action,
+   .btn-paper the second one, .btn-outline the quiet nav one. .btn-lg and
+   .btn-sm are the only things that change with context. A button that goes
+   to the App Store leads with the TV glyph (never the Apple logo, which
+   Apple's rules keep to their badge). */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -236,6 +237,7 @@ a { color: inherit; }
 .btn-lg { padding: 15px 24px; }
 .btn-sm { padding: 8px 15px; font-size: 12.5px; }
 .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; gap: 0; }
+.btn > svg { flex: none; }
 .btn-icon svg { width: 16px; height: 16px; display: block; }
 .btn-icon-text { display: none; }
 
@@ -1036,10 +1038,6 @@ a { color: inherit; }
   color: var(--final-note);
 }
 .final-inner .cta-row { margin-top: 44px; }
-.section-final .btn-ink { box-shadow: 5px 5px 0 var(--final-btn-ink-shadow); }
-.section-final .btn-ink:hover { box-shadow: 7px 7px 0 var(--final-btn-ink-shadow); }
-.section-final .btn-paper { box-shadow: 5px 5px 0 var(--final-btn-paper-shadow); }
-.section-final .btn-paper:hover { box-shadow: 7px 7px 0 var(--final-btn-paper-shadow); }
 
 /* ---------- Footer ---------- */
 .footer {
@@ -2862,6 +2860,9 @@ pre.has-copy .copy-btn.is-copied { color: var(--cyan); border-color: var(--cyan)
   .page-lost .lost-static { animation: none; }
 }
 
+/* Registered mark after a name (Roku asks for it on the first use on a page). */
+sup.tm { font-size: 0.32em; vertical-align: top; position: relative; top: 0.35em; margin-left: 0.04em; }
+
 /* ══════════════════════════════════════════════════════════════════
    STORE BADGE  (Apple's "Download on Apple TV", unaltered)
    Apple's rules: never modify or animate it, at least 40 px tall on
@@ -2871,11 +2872,14 @@ pre.has-copy .copy-btn.is-copied { color: var(--cyan); border-color: var(--cyan)
    ══════════════════════════════════════════════════════════════════ */
 
 .store-badge {
-  display: inline-block;
+  display: block;
+  width: max-content;
+  margin-top: 22px;   /* clear space: Apple asks for a quarter of the badge's height */
   line-height: 0;
   border-radius: 9px;
 }
-.store-badge img { height: 56px; width: auto; }
+.store-badge img { height: 44px; width: auto; }
+.blog-post-cta .store-badge { margin: 22px auto 0; }
 .tile-badge { display: block; height: 48px; width: auto; }
 
 /* ══════════════════════════════════════════════════════════════════
