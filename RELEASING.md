@@ -1,10 +1,11 @@
 # Releasing Nostalgex
 
-Three things ship out of this repo and they ship independently:
+Four things ship out of this repo and they ship independently:
 
 - **The site** (`index.html`, `web-tuner.html`, `support.html`, `plex-tuner.html`) on Vercel.
 - **The tvOS app** (`Nostalgex/`) through App Store Connect.
 - **The Docker web tuner** (`ghcr.io/chadmueller/nostalgex`) from a `tuner-v*` tag.
+- **The Roku app** (`roku/`) as a signed package uploaded in the Roku developer dashboard.
 
 ---
 
@@ -100,6 +101,39 @@ the site and the app. Tag when a batch of tuner changes is worth shipping to sel
    data the app touches, both have to say so before submission.
 4. Xcode → Product → Archive → Distribute App → App Store Connect.
 5. Wait for processing, confirm the build shows up in TestFlight, then submit for review.
+
+## Roku release
+
+`roku/scripts/release.sh` does everything up to the upload. The Roku dashboard
+rejects a version it has already seen, so the script refuses a manifest version
+that is not past the last line of `roku/releases.tsv` and every `roku-v*` tag.
+
+Once per Mac, `roku/.env` (git-ignored) needs `ROKU_DEV_PASSWORD`, `ROKU_DEV_ID`
+(the signing key's Dev ID) and `ROKU_SIGN_HOST` (the stick that holds the key,
+unless `ROKU_HOSTS` names just that one). The Supabase URL and key come from
+`Nostalgex/Secrets.xcconfig`. The key's password lives in the password manager
+only: the script asks for it, or reads `ROKU_SIGN_PASSWORD` from the shell, and
+ignores it in `.env`. It prints no secret.
+
+1. Bump `build_version` (or minor/major) in `roku/manifest`.
+2. `roku/scripts/release.sh --dry-run <folder>` runs every
+   check and the build, and stops before contacting the stick.
+3. `roku/scripts/release.sh <folder>` builds as
+   `scripts/deploy.sh` does with enrichment on, checks the stick reports
+   `ROKU_DEV_ID`, installs (replacing what that stick runs), signs as
+   `Nostalgex/X.Y.Z`, downloads `Nostalgex-roku-X.Y.Z-signed.pkg` and adds its
+   version, date and md5 to `roku/releases.tsv`.
+4. Upload the `.pkg` in the dashboard, beta first.
+5. Commit `roku/manifest` and `roku/releases.tsv`, then tag and push the tag
+   (no workflow runs on `roku-v*`):
+   ```
+   git tag -a roku-vX.Y.Z -m "Nostalgex Roku X.Y.Z" && git push origin roku-vX.Y.Z
+   ```
+
+Never run `genkey` on the stick again. Another key makes another app as far as
+Roku is concerned, re-keying back needs a previously signed `.pkg` and its
+password, and the first install after the 2026-10-20 `genkey` lost the saved
+sign-in.
 
 ---
 

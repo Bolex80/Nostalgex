@@ -1,0 +1,5 @@
+# Signed Roku releases, newest last. scripts/release.sh refuses a manifest
+# version that is not past the highest one here (or any roku-v* tag), and
+# appends a line after each package it signs.
+# version	date	md5 of the signed .pkg	commit
+1.0.1	2026-10-20	37267f885febc446ec6c4b4d7837b573	6ea626a
