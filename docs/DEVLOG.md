@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-21 (clock changes: a day runs to the next midnight, on every surface)
 
-**Shipped.** Nothing yet. Branch `release/dst` = main `6ea626a` + `dst-fix` (merged, hashes kept) + the Roku port, not pushed. nostalgex.app gets it when main is pushed, Docker with `tuner-v1.0.4` from the same commit. The Apple TV app and the Roku app get it in their next builds.
+**Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.4` from the same commit. The Apple TV app in 1.0.27 build 51 (TestFlight 2026-10-21, App Review next). The Roku app in its next package, 1.0.2.
 
 **Why.** Where the clocks change, a local day is 23 or 25 hours long (23.5 or 24.5 on Lord Howe), and all three engines packed every day as 86,400 s from midnight and found yesterday 86,400 s before it.
 - The day the clocks go back: its schedule ended at 11 PM. From 11 PM to midnight the Apple TV tuned to the logo and SELECT A CHANNEL, and the web tuner handed the player the day's last programme at a start point past its end. The Roku port does what the web tuner does.
@@ -30,9 +30,9 @@ Commits carry the detail of *what*; this carries the *why*.
 - The web guide's last hour before midnight shows a programme that won't air, because the guide has no tomorrow yet: 60 minutes every night in every zone. Not a clock-change bug.
 - London, Dublin and Lisbon: the day after the spring change gets the same day number as the day before (its midnight is 23:00 UTC), so it shuffles with the same seed. The no-repeat check still keeps the day before's titles off. It first matters on 29 March 2027.
 
-**Half-done.** `release/dst` is not pushed, `tuner-v1.0.4` is not tagged, and its release note is drafted, not posted.
+**Half-done.** No hardware run yet: the Roku change needs `scripts/deploy.sh --test` on a TV before the 1.0.2 package, and build 51 hasn't been opened on an Apple TV.
 
-**Next.** Push main, tag `tuner-v1.0.4`, post the release note. The Apple TV build and the Roku package carry the same fix.
+**Next.** Submit 1.0.27 (build 51) for App Review so it is live before Nov 1. Run the Roku tests on a TV, then sign and upload Roku 1.0.2.
 
 ## 2026-10-21 (terms of use page, Roku privacy for Jellyfin and Emby)
 

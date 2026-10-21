@@ -4,7 +4,7 @@
   "Nostalgex/NostalgexTests/ScheduleDSTGoldenTests.swift and scripts/nostalgex-schedule-dst-smoke.mjs",
   "(npm run test:schedule-dst). Both must pass every case.",
   "Times are unix seconds. start and nextStart are the zone's real local midnights from the IANA",
-  "time zone database (Temporal; the node test checks them against it). Where midnight is skipped",
+  "time zone database (the node test checks them against Intl). Where midnight is skipped",
   "(America/Santiago 2026-09-06) the day starts at 1 AM.",
   "days: every instant in `at` is on `date`; the engine must give that day's start, the next day's",
   "start and the previous day's key. fill: packing the `small` pool (shorter than a day, so it",
