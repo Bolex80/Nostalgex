@@ -174,7 +174,23 @@ servers, driven over ECP.
   GOP (H.264 + DTS joined at 247 s: -1,720 ms on fMP4, +35 ms on TS). TS
   segments carry the source timestamps. The port now asks Emby for TS when
   the video is H.264, as upstream's `embySegmentContainer` (`72c844d`); a
-  file that may be HEVC stays fMP4. Not yet checked for sync on a Roku.
+  file that may be HEVC stays fMP4. Upstream tried it on a Streaming Stick
+  Plus against Emby 4.10.1 (Discussion #8, 2026-10-20): an H.264 + DTS file
+  joined 48 s in asked for `SegmentContainer=ts`, Emby copied the video and
+  converted DTS to AAC, and the picture came up in 1.6 s.
+- **The TS stream is in sync after a join; fMP4 is not** (measured
+  2026-10-20 against the lab Emby 4.10.1, H.264 + 5.1 DTS MKV). The stream
+  was asked for as the port asks, and the first segment from each join was
+  taken. Each track was then placed in the source: the copied video's
+  packets matched the file's frame for frame, and the AAC was
+  cross-correlated with the file's own audio. Sound against picture:
+  - TS, joined at 247 s (no seek, `segment` muxer, `-copyts`): 0 ms;
+  - TS, joined at 1,500 s (`-ss 00:25:00`, picture from the keyframe 7.5 s
+    earlier): -1 ms;
+  - fMP4, joined at 247 s (`hls` muxer, both tracks from zero): -2,048 ms,
+    the sound early, as upstream found.
+
+  Each track's start is its first packet's pts. Not yet watched on a Roku.
 
 ## How it fits the app
 
