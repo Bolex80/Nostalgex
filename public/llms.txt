@@ -7,6 +7,7 @@ Nostalgex is made by Chad Mueller (Muell Haus Inc.). It is not affiliated with P
 ## Get it
 
 - [Nostalgex on the App Store (Apple TV)](https://apps.apple.com/app/nostalgex/id6762563534): free, tvOS 18 or later
+- [Nostalgex for Apple TV](https://www.nostalgex.app/apple-tv): what the Apple TV app does, how sign-in works for Plex, Jellyfin and Emby, and how it compares to Pseudo TV, Tunarr and ErsatzTV
 - [Web tuner](https://www.nostalgex.app/web-tuner): free, runs in a browser; Jellyfin and Emby need an https address, Plex works as is
 - [Self-host the web tuner](https://www.nostalgex.app/self-host): the same tuner as a Docker container on your own machine, over plain http on your network, so a Jellyfin or Emby server with no https address is reachable from a browser
 

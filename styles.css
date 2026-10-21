@@ -2820,6 +2820,13 @@ pre.has-copy .copy-btn.is-copied { color: var(--cyan); border-color: var(--cyan)
   grid-template-columns: repeat(2, 1fr);
   max-width: 820px;
 }
+/* One column on a phone: the Apple badge needs its clear space, and two
+   tiles side by side leave it too little room beside the arrow. */
+@media (max-width: 600px) {
+  .page-roku .roku-elsewhere .screens { grid-template-columns: 1fr; }
+  .page-roku .roku-elsewhere .tile { min-height: 0; }
+  .page-roku .tile-badge { height: 44px; }
+}
 
 @media (max-width: 1024px) {
   .page-roku .roku-elsewhere { padding-bottom: 88px; }
@@ -2828,3 +2835,64 @@ pre.has-copy .copy-btn.is-copied { color: var(--cyan); border-color: var(--cyan)
   .page-roku .roku-elsewhere { padding-bottom: 68px; }
   .page-roku .roku-full-lead { font-size: 17.5px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   404  (Channel not found)
+   The house hero, with a TV frame full of static where the picture
+   would be. The static is a small SVG noise tile that jumps between a
+   few offsets; it holds still under reduced motion.
+   ══════════════════════════════════════════════════════════════════ */
+
+.page-lost .lost-static {
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  background-color: #2a2c38;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: lost-static 0.5s steps(1) infinite;
+}
+@keyframes lost-static {
+  0%   { background-position: 0 0, 0 0; }
+  25%  { background-position: 0 1px, -70px 40px; }
+  50%  { background-position: 0 0, 50px -90px; }
+  75%  { background-position: 0 2px, -120px -30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-lost .lost-static { animation: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   STORE BADGE  (Apple's "Download on Apple TV", unaltered)
+   Apple's rules: never modify or animate it, at least 40 px tall on
+   screen, clear space of a quarter of its height. So no hover lift and
+   no shadow here, only the focus ring. Source and terms:
+   docs/BRAND-ASSETS.md.
+   ══════════════════════════════════════════════════════════════════ */
+
+.store-badge {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 9px;
+}
+.store-badge img { height: 56px; width: auto; }
+.tile-badge { display: block; height: 48px; width: auto; }
+
+/* ══════════════════════════════════════════════════════════════════
+   APPLE TV PAGE  (/apple-tv)
+   ══════════════════════════════════════════════════════════════════ */
+
+.page-appletv .appletv-smallprint {
+  margin-top: 36px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--ink-soft);
+}
+.page-appletv .appletv-channels-link { margin-top: 30px; }
+.page-appletv .faq-list details p a { color: var(--ink); font-weight: 600; }
+/* "Channel surfing" is a long first line; at the house hero size it broke
+   in two on a laptop and the headline ran to four lines. */
+.page-appletv .hero h1 { font-size: clamp(42px, 4.2vw, 60px); }

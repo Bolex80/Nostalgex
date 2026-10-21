@@ -3,6 +3,24 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (a real /apple-tv page, the 404 in the house style, the official Apple TV badge)
+
+**Shipped.** Nothing until this lands on main. Branch `site/apple-tv-404`, pushed for a Vercel preview for Chad's review.
+
+**Why.** `/apple-tv` was a permanent redirect to the home page, so the Apple TV app had no page of its own for search or for an App Store campaign. The 404 page had a look of its own (system fonts, its own colours). Chad asked for the official store badges on the Apple TV and Roku pages.
+
+**Changed.**
+- `apple-tv.html`: the page, from Chad's copy. The App Store links carry `ct=site_appletv_page`. Facts are checked against the `v1.0.26` tag, the App Store version: 131 channels in 14 bundles; KIDZ ZONE, DECADES, FRANCHISES, SCREAM and TIS THE SEASON are the real bundle names; Plex signs in with a code, Jellyfin and Emby can find the server on the network (Jellyfin then takes Quick Connect or a login, Emby a login); in full screen left and right change channels, up brings up the channel strip and down what's playing. In 1.0.26 a seasonal bundle is offered in its month (SCREAM in October, TIS THE SEASON in December) and stays on all year once switched on. The week-before-Thanksgiving start for TIS THE SEASON arrives with 1.0.27, so the page says December. The FAQ names Pseudo TV, Tunarr and ErsatzTV on purpose.
+- `vercel.json`: a `/apple-tv` rewrite replaces the permanent redirect to `/`. A browser that cached the old redirect can keep going home until its cache clears.
+- `404.html`: the house hero, nav, stylesheet and footer, with a TV frame of static. Same words and links; the label above the 404 is gone.
+- `public/badges/download-on-apple-tv-black.svg`: Apple's badge, unaltered, used once on `/apple-tv` and in the Apple TV tile on `/roku`, where it replaces the standalone Apple logo that Apple's guidelines rule out. Source and terms in `docs/BRAND-ASSETS.md`. Roku has no badge for apps and its logo may only come from Roku's own artwork, so the Roku page uses none, and `public/og-roku-1200.png` now says "on Roku" in type.
+- Footers on `/apple-tv` and `/roku` carry the Apple and Roku trademark notices.
+- `public/sitemap.xml` and `public/llms.txt` list `/apple-tv`. `/roku` stays unlinked.
+
+**Half-done.** Chad's review of the preview.
+
+**Next.** The home page and the nav still draw their own Apple and Roku icons; whether to swap them for the badge and plain text is Chad's call.
+
 ## 2026-10-21 (nostalgex.app/roku: the Roku beta page, live and unlinked)
 
 **Shipped.** `https://www.nostalgex.app/roku`, live with this push to main and unlinked on purpose: no footer link, not in the sitemap or `llms.txt`, and no home page change. Chad reviews the live page first; the links come after.
