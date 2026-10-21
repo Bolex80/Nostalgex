@@ -67,8 +67,8 @@ curl -d '' "http://<tv>:8060/input?contentId=12&mediaType=live"     # while runn
   the token never leaves the house unencrypted, and it travels in a header,
   never in a URL. If your server isn't found at all, set Plex's
   *Settings > Network > Secure connections* to *Preferred*.
-- **Jellyfin and Emby** sign in with Jellyfin's Quick Connect code or with a
-  username and password. The password goes to your server once and is
+- **Jellyfin and Emby** sign in with Jellyfin's Quick Connect code, a user
+  picked from the server's own list, or a username and password. The password goes to your server once and is
   cleared; only the access token the server returns is kept. Server requests
   follow the same rule as Plex: HTTPS, or plain HTTP to a private address
   only, with the token in a header.

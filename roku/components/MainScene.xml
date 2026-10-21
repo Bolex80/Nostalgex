@@ -5,7 +5,6 @@
     <field id="deepLink" type="assocarray" alwaysNotify="true" onChange="onDeepLink" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
-  <script type="text/brightscript" uri="pkg:/source/util/QrCode.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
@@ -14,10 +13,6 @@
     <Rectangle width="1920" height="1080" color="0x0B0E11FF" />
     <Poster id="title" uri="pkg:/images/logo.png" translation="[660,220]" width="600" height="79" />
     <Label id="prompt" text="" translation="[160,400]" width="1600" horizAlign="center" wrap="true" color="0xFFFFFFFF" font="font:MediumSystemFont" />
-    <Label id="code" text="" translation="[0,520]" width="1920" horizAlign="center" color="0xFFB000FF" font="font:LargeBoldSystemFont" />
-    <!-- The plex.tv/link address with the code, as a QR code, as the Apple
-         TV's sign-in draws it (QRCodeView, SettingsView.swift). -->
-    <Group id="qr" translation="[860,610]" visible="false" />
     <Label id="hint" text="" translation="[160,880]" width="1600" horizAlign="center" wrap="true" color="0x8A9099FF" font="font:SmallSystemFont" />
   </children>
 </component>

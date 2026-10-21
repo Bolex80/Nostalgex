@@ -102,7 +102,8 @@ function NxMbReadAuth(res as Object) as Dynamic
 end function
 
 ' Quick Connect (Jellyfin only): { code, secret } to show and poll, "off" when
-' the server has it switched off (401), invalid when it couldn't be reached.
+' the server has it switched off (401), "notJellyfin" when the address answers
+' 404 or a web page, invalid when it couldn't be reached.
 ' Jellyfin 10.9 and later start a code with a POST and answer a GET with 405
 ' (12.2, checked 2026-10-18; upstream's clients still send the GET); older
 ' servers take the GET.
@@ -110,6 +111,8 @@ function NxMbQuickConnectStart(base as String) as Dynamic
     res = NxServerRequest("POST", base + "/QuickConnect/Initiate", NxMbHeaders(""), "", 8000)
     if res.code = 405 or res.code = 404 then res = NxServerRequest("GET", base + "/QuickConnect/Initiate", NxMbHeaders(""), "", 8000)
     if res.code = 401 or res.code = 403 then return "off"
+    if res.code = 404 then return "notJellyfin"
+    if res.code >= 200 and res.code <= 299 and type(res.json) <> "roAssociativeArray" then return "notJellyfin"
     if res.code < 200 or res.code > 299 or type(res.json) <> "roAssociativeArray" then return invalid
     if not NxIsString(res.json.Code) or not NxIsString(res.json.Secret) then return invalid
     return { code: res.json.Code, secret: res.json.Secret }
@@ -183,11 +186,28 @@ function NxMbFetcher(server as Object) as Object
     }
 end function
 
-' Servers of a kind on this network: [{ name, address, id }], from a UDP
-' broadcast to port 7359 that Jellyfin answers to "who is JellyfinServer?" and
-' Emby to "who is EmbyServer?" (LANServerDiscovery.swift). Waits waitMs for
-' answers; empty when none came or the socket couldn't be made.
-function NxMbDiscover(kind as String, waitMs = 2500 as Integer) as Object
+' One UDP reply as { name, address, id }, or invalid. Address and Id must be
+' there; Name falls back to the address (LANServerDiscovery.parseReply).
+function NxMbDiscoveryReply(text as String) as Dynamic
+    j = NxParseJsonBody(text)
+    if type(j) <> "roAssociativeArray" then return invalid
+    if not NxIsString(j.Address) or not NxIsString(j.Id) then return invalid
+    address = j.Address.Trim()
+    id = j.Id.Trim()
+    if address = "" or id = "" then return invalid
+    name = ""
+    if NxIsString(j.Name) then name = j.Name.Trim()
+    if name = "" then name = address
+    return { name: name, address: address, id: id }
+end function
+
+' Servers of a kind on this network: [{ name, address, id }] in the order
+' they answered, from a UDP broadcast to port 7359 that Jellyfin answers to
+' "who is JellyfinServer?" and Emby to "who is EmbyServer?"
+' (LANServerDiscovery.swift). Waits waitMs for answers, 3 s as upstream's
+' listen window; empty when none came or the socket couldn't be made. One
+' server heard twice is merged by NxSignInOutcome (SignInFlow.brs).
+function NxMbDiscover(kind as String, waitMs = 3000 as Integer) as Object
     found = []
     probe = "who is JellyfinServer?"
     if kind = "emby" then probe = "who is EmbyServer?"
@@ -202,18 +222,11 @@ function NxMbDiscover(kind as String, waitMs = 2500 as Integer) as Object
     sock.NotifyReadable(true)
     sock.SendStr(probe)
     clock = CreateObject("roTimespan")
-    seen = {}
     while clock.TotalMilliseconds() < waitMs
         msg = Wait(waitMs - clock.TotalMilliseconds(), port)
         if type(msg) = "roSocketEvent" and sock.IsReadable() then
-            reply = ParseJson(sock.ReceiveStr(4096))
-            if type(reply) = "roAssociativeArray" and NxIsString(reply.Address) then
-                id = NxToStr(reply.Id)
-                if not seen.DoesExist(id + reply.Address) then
-                    seen[id + reply.Address] = true
-                    found.Push({ name: NxToStr(NxOr(reply.Name, reply.Address)), address: reply.Address, id: id })
-                end if
-            end if
+            reply = NxMbDiscoveryReply(sock.ReceiveStr(4096))
+            if reply <> invalid then found.Push(reply)
         else if msg = invalid then
             exit while
         end if

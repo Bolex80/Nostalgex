@@ -1,24 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- CONNECT YOUR LIBRARY: the first screen when this TV isn't signed in.
-     Plex goes on to MainScene's plex.tv/link sign-in; Jellyfin and Emby are
-     signed in here: find the server on the network or type its address, then
-     Quick Connect (Jellyfin) or a username and password
-     (MediaBrowserSignInTask does the network part). Laid out as
-     ServerPickerView: the explanation on the left, choices on the right. -->
+<!-- CONNECT YOUR SERVER: the first screen when this TV isn't signed in, after
+     upstream's Apple TV sign-in redesign (Views/SettingsView.swift and
+     OnboardingStyle.swift). Branding on the left, the controls on the right.
+     Plex: CONNECT TO PLEX, then MainScene's plex.tv/link code shown here
+     (plexState, plexCode). Jellyfin and Emby are signed in here, the shortest
+     way the server allows (source/mediabrowser/SignInFlow.brs);
+     MediaBrowserSignInTask does the network part. -->
 <component name="ConnectView" extends="Group">
   <interface>
-    <!-- Set once: "plex" when Plex is chosen, "jellyfin" or "emby" once signed in. -->
-    <field id="done" type="string" />
+    <!-- "plex" on each CONNECT TO PLEX; "jellyfin" or "emby" once signed in. -->
+    <field id="done" type="string" alwaysNotify="true" />
     <!-- A reason shown on the first screen, such as a refused sign-in. -->
-    <field id="notice" type="string" onChange="onNotice" />
+    <field id="notice" type="string" alwaysNotify="true" onChange="onNotice" />
+    <!-- MainScene's Plex sign-in: "" (not showing), "connecting", "code" or
+         "finding", and the plex.tv/link code. -->
+    <field id="plexState" type="string" alwaysNotify="true" onChange="onPlex" />
+    <field id="plexCode" type="string" onChange="onPlex" />
+    <!-- Set when the viewer cancels the Plex code: MainScene stops its task. -->
+    <field id="plexCancel" type="boolean" alwaysNotify="true" />
+    <!-- tests/signin only: "none" or "several" stands in for the network
+         search, as upstream's -uiTestDiscovery. -->
+    <field id="discoveryFixture" type="string" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
-  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/QrCode.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/SignInFlow.brs" />
   <script type="text/brightscript" uri="pkg:/components/ConnectView.brs" />
   <children>
     <Rectangle width="1920" height="1080" color="0x000000FF" />
     <Group id="left" />
-    <Group id="list" />
+    <Group id="right" />
   </children>
 </component>

@@ -18,13 +18,14 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-channel-filter.cjs` (Swift: `AppState+Channels.swift` `filterItems`) | `source/filter/ChannelFilter.brs` | ported, passing on device |
 | `plex-tuner.html`: `getTimeFilteredPool`, bundles, `minItems` | BrightScript | with the guide |
 | `plex-tuner.html` PIN sign-in and server discovery | `source/plex/PlexApi.brs` | ported; HTTPS only (below) |
-| `QRCodeView` beside the PIN (`SettingsView.swift`): the plex.tv/link address with the code, 200 px, "SCAN TO CONNECT" | `source/util/QrCode.brs`, `showQr` in `components/MainScene.brs` | ported; encoded on the TV (level M, as Core Image's), since a QR service would see the code. Every mask's matrix matches a reference encoder (`tests/gen-qr.mjs`, `tests/vectors/qr.json`). Upstream scanned it off a Streaming Stick Plus and signed in with a phone (Discussion #8, 2026-10-20) |
+| `QRCodeView` beside the PIN (`SettingsView.swift`): the plex.tv/link address with the code, 200 px, "SCAN TO CONNECT" | `source/util/QrCode.brs`, `addQr` in `components/ConnectView.brs` | ported; encoded on the TV (level M, as Core Image's), since a QR service would see the code. Every mask's matrix matches a reference encoder (`tests/gen-qr.mjs`, `tests/vectors/qr.json`). Upstream scanned it off a Streaming Stick Plus and signed in with a phone (Discussion #8, 2026-10-20) |
 | `ServerPickerView` (`Plex90App.swift`): CHOOSE YOUR LIBRARIES after sign-in when the account lists more than one server; owned servers on, all of them when none is owned | `components/ServerPickerView.*`, `source/plex/ServerChoice.brs`, Settings › CONNECTION | ported; cases in `tests/ServerChoiceTests.brs`. Not yet seen on a TV (one-server account). Unlike upstream, no server is checked before it, as the maintainer asked |
 | `PlexAPIService.bestReachableURI`: one verified address per server, best of local, remote, relay | `source/plex/ServerResolve.brs` | ported for the servers on, every address at once, an answer counting only if `/identity` names that server; saved, not re-checked on later launches. Cases in `tests/ServerResolveTests.brs` |
 | `LoadingView`, `LibraryLoadStepRail`, `LibraryLoadPhase` (`Plex90App.swift`) | `components/LoadingView.*`, phases from `components/LibraryTask.brs` | ported; Collections is always a step, as every scan reads them |
 | `SettingsPageView` order and `CollectionAccordionHeaderRow` (`BundleManagerView.swift`); `toggleBundle`, `rebuildLineupAfterBundleChange` (`AppState+Channels.swift`) | `components/SettingsView.*`, `rebuildForBundles` in `components/LibraryTask.brs` | ported; no rating, tips, stream quality or language rows. A package switch builds only its own channels, behind Settings; its pools matched a full rebuild's on the 43S45 |
 | `PlayerView`, `MiniChannelStrip`, `NowPlayingPanel`, `SleepGracePrompt`, `SleepTimerLogic` | `components/GuideView.brs`, `components/MiniStripView.*`, `components/NowPlayingView.*`, `source/guide/SleepTimer.brs` | ported (differences below); sleep-timer cases in `tests/SleepTimerTests.brs` |
 | `plex-tuner.html` `scanOnePlexServer` and helpers; `parseMusicVideoFromPlex` | `source/plex/PlexLibrary.brs` | ported; checked live against upstream (below) |
+| The connect screens after the Apple TV sign-in redesign (upstream `signin-redesign`, `03f4cd3`): `SettingsView.swift`, `SignInFlow.swift`, `OnboardingStyle.swift` | `components/ConnectView.*`, `source/mediabrowser/SignInFlow.brs`, `components/MediaBrowserSignInTask.*`, `images/look/ob_*.9.png` | ported; `SignInFlowTests.swift`'s cases in `tests/SignInFlowTests.brs`, passing on device; walked and press-counted on a stick with `scripts/deploy.sh --tour`. Differences in [The connect screens](#the-connect-screens) |
 | `plex-tuner.html` `fetchJellyfinLibraryFromServer`; sign-in, playback and stop after `JellyfinAPIService.swift`, `EmbyAPIService.swift` and the web connect page | `source/mediabrowser/`, `components/ConnectView.*`, `components/MediaBrowserSignInTask.*` | ported; the scan held to upstream's own function (`tests/vectors/mediabrowser.json`); BoxSets not yet. Differences and the TV results in [JELLYFIN-EMBY.md](JELLYFIN-EMBY.md) |
 | MusicBrainz/Deezer music-video enrichment | — | not yet; affects music videos only |
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
@@ -186,6 +187,46 @@ a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
 the app filters in a Task node, and keeps the last build's guide and pools
 between launches (`components/LibraryTask.brs`): a day-old guide is
 rescheduled from the saved pools in seconds while the full build runs behind.
+
+## The connect screens
+
+Ported from upstream's sign-in redesign: the same screens, order, focus
+defaults, words and colours, and the same number of presses or fewer
+(measured on a Streaming Stick Plus, 2026-10-21, typing counted as 2 presses,
+open and close, as upstream counts):
+
+| Path | Apple TV | Roku |
+|---|---|---|
+| Plex (code entered at plex.tv/link) | 1 | 1 |
+| Jellyfin, Quick Connect | 2 | 2 |
+| Jellyfin, password | 8 | 8 |
+| Emby, server found on the network | 7 (4 with no password) | 7 (4) |
+| Emby, typed address | 11 (8) | 10 (7) |
+
+The Roku counts in brackets, for a user with no password, follow from the code
+(the tile press signs in); the test server had no such user.
+
+Where the Roku does it differently:
+- **Text fields.** The field is drawn as upstream's (a dark well with a cyan
+  frame and glow when focused, a dim well with a grey edge when not); OK on it
+  opens the TV's own keyboard (`StandardKeyboardDialog`), as a Roku channel
+  can't take text any other way. Closing the keyboard moves on as on the
+  Apple TV: its OK is upstream's Done (on the password it signs in), Back
+  keeps what was typed and moves to the next control. Long text is cut at the
+  end, not the start.
+- **Shapes.** Rounded corners and glows are nine-patch art
+  (`scripts/look-images.py`), tinted on the TV. Focus moves at once: the
+  slab's growth isn't animated. Labels have no letter spacing on Roku, so
+  captions and buttons sit a little tighter; the sign-in codes are spaced
+  digit by digit.
+- **The search.** One limited broadcast to 255.255.255.255:7359, for 3 s.
+  Upstream also sends a directed broadcast to each interface's subnet. Roku
+  has no Local Network prompt, so there is no second search after one.
+- **No demo mode.** The store's test credentials stand in for it.
+- **The logo** is the port's own wordmark.
+- **The Plex library picker** starts on CONTINUE, as upstream's now does, but
+  keeps its old row look.
+- **Words** say Roku where upstream's say Apple TV.
 
 ## The guide's look
 

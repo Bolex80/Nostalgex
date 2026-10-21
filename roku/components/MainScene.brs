@@ -8,9 +8,7 @@
 
 sub init()
     m.prompt = m.top.FindNode("prompt")
-    m.code = m.top.FindNode("code")
     m.hint = m.top.FindNode("hint")
-    m.qr = m.top.FindNode("qr")
     m.top.SetFocus(true)
     reg = NxPlexRegistry()
     kind = NxSignedInKind()
@@ -46,16 +44,16 @@ sub onMbCheck()
     m.connect.notice = message
 end sub
 
-' CONNECT YOUR LIBRARY (ConnectView): Plex, Jellyfin or Emby, for a TV that
-' isn't signed in. A login dialog for the launch beacons, as the code is.
+' CONNECT YOUR SERVER (ConnectView): Plex, Jellyfin or Emby, for a TV that
+' isn't signed in. A login dialog for the launch beacons. Plex's plex.tv/link
+' code shows there too (plexState, plexCode), as on the Apple TV.
 sub showConnect()
     if m.connect <> invalid then return
     m.prompt.text = ""
-    m.code.text = ""
-    m.qr.visible = false
     m.hint.text = ""
     m.connect = CreateObject("roSGNode", "ConnectView")
     m.connect.ObserveField("done", "onConnectDone")
+    m.connect.ObserveField("plexCancel", "onPlexCancel")
     m.top.AppendChild(m.connect)
     m.connect.SetFocus(true)
     signInShown()
@@ -70,11 +68,14 @@ end sub
 
 sub onConnectDone()
     done = m.connect.done
-    closeConnect()
     if done = "plex" then
+        ' The code shows on the connect screen; it closes once signed in.
+        m.connect.plexCode = ""
+        m.connect.plexState = "connecting"
         startSignIn()
         return
     end if
+    closeConnect()
     ' Signed in to Jellyfin or Emby: the first run's clock starts here, as it
     ' does once a Plex code is entered.
     signInDone()
@@ -84,9 +85,19 @@ sub onConnectDone()
     startLibrary(true)
 end sub
 
+' CANCEL on the Plex code: the connect screen is back on its first choices,
+' and the sign-in waiting on plex.tv stops.
+sub onPlexCancel()
+    if m.signIn <> invalid then
+        m.signIn.UnobserveField("status")
+        m.signIn.UnobserveField("code")
+        m.signIn.control = "stop"
+        m.signIn = invalid
+    end if
+    if m.connect <> invalid then m.connect.plexState = ""
+end sub
+
 sub startSignIn()
-    m.code.text = ""
-    m.qr.visible = false
     m.prompt.text = "Connecting to Plex…"
     m.hint.text = ""
     m.signIn = CreateObject("roSGNode", "PlexSignInTask")
@@ -99,8 +110,6 @@ end sub
 
 sub onSignInState()
     state = m.signIn.status
-    m.code.text = ""
-    m.qr.visible = false
     if state = "checking" then
         m.prompt.text = "Checking your Plex sign-in…"
         m.hint.text = ""
@@ -108,12 +117,14 @@ sub onSignInState()
         ' The saved sign-in was rejected: nothing saved stays on screen.
         dropGuide()
         m.codeShown = true
-        m.prompt.text = "On your phone or computer, go to plex.tv/link and enter this code:"
-        m.code.text = m.signIn.code
-        showQr(m.signIn.code)
-        m.hint.text = "The code refreshes every few minutes."
+        m.prompt.text = ""
+        m.hint.text = ""
+        showConnect()
+        m.connect.plexCode = m.signIn.code
+        m.connect.plexState = "code"
         signInShown()
     else if state = "discovering" then
+        if m.connect <> invalid then m.connect.plexState = "finding"
         m.prompt.text = "Signed in as " + m.signIn.account + ". Finding your Plex servers…"
         m.hint.text = ""
         ' The first run's clock, after a code was entered on a phone (a first
@@ -125,6 +136,7 @@ sub onSignInState()
         end if
         signInDone()
     else if state = "ready" then
+        closeConnect()
         m.prompt.text = m.signIn.message
         m.hint.text = signOutHint()
         if NxPlexRegistry().Read("needsPick") <> "" then
@@ -132,6 +144,12 @@ sub onSignInState()
         else if m.library = invalid then
             startLibrary(true)
         end if
+    else if state = "error" and m.connect <> invalid then
+        ' From the Plex code: back to the first choices with the reason in
+        ' red, as upstream; CONNECT TO PLEX tries again.
+        message = m.signIn.message
+        onPlexCancel()
+        m.connect.notice = message
     else if state = "error" then
         ' A saved guide stays up through a network blip.
         m.prompt.text = m.signIn.message
@@ -178,64 +196,7 @@ sub closePicker()
 end sub
 
 sub onSignInCode()
-    if m.signIn.status = "code" then
-        m.code.text = m.signIn.code
-        showQr(m.signIn.code)
-    end if
-end sub
-
-' The code's plex.tv/link address as a QR code, 200 px square on white with
-' "SCAN TO CONNECT" under it (QRCodeView and its caption). Each run of dark
-' modules in a row is one rectangle.
-sub showQr(code as String)
-    m.qr.RemoveChildrenIndex(m.qr.GetChildCount(), 0)
-    modules = NxQrMatrix("https://www.plex.tv/link/?pin=" + code)
-    if modules = invalid or code = "" then
-        m.qr.visible = false
-        return
-    end if
-    side = 200
-    size = modules.Count()
-    ' Two light modules of quiet zone each side, inside the white square.
-    cell = side \ (size + 4)
-    origin = (side - cell * size) \ 2
-    bg = CreateObject("roSGNode", "Rectangle")
-    bg.width = side
-    bg.height = side
-    bg.color = "0xFFFFFFFF"
-    m.qr.AppendChild(bg)
-    for y = 0 to size - 1
-        row = modules[y]
-        x = 0
-        while x < size
-            if row[x] then
-                start = x
-                while x < size and row[x]
-                    x = x + 1
-                end while
-                r = CreateObject("roSGNode", "Rectangle")
-                r.translation = [origin + start * cell, origin + y * cell]
-                r.width = (x - start) * cell
-                r.height = cell
-                r.color = "0x000000FF"
-                m.qr.AppendChild(r)
-            else
-                x = x + 1
-            end if
-        end while
-    end for
-    caption = CreateObject("roSGNode", "Label")
-    caption.text = "SCAN TO CONNECT"
-    f = CreateObject("roSGNode", "Font")
-    f.uri = "pkg:/fonts/DMMono-Regular.ttf"
-    f.size = 20
-    caption.font = f
-    caption.color = "0x8E8E9399"
-    caption.width = side
-    caption.horizAlign = "center"
-    caption.translation = [0, side + 12]
-    m.qr.AppendChild(caption)
-    m.qr.visible = true
+    if m.signIn.status = "code" and m.connect <> invalid then m.connect.plexCode = m.signIn.code
 end sub
 
 ' Roku certification times each launch to the AppLaunchComplete beacon, sent

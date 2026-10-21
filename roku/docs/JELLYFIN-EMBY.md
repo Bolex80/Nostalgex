@@ -32,6 +32,14 @@ code path.
 - Servers answer a UDP broadcast on port 7359 (`who is JellyfinServer?` or
   `who is EmbyServer?`), so the TV can find them without anyone typing an
   address.
+- Before anyone types, the app asks the address who it is, as upstream's
+  sign-in redesign does (`source/mediabrowser/SignInFlow.brs`):
+  `/System/Info/Public` (which server, and Jellyfin or Emby), then
+  `/QuickConnect/Enabled` on Jellyfin (a bare `true` or `false`; Emby 4.10
+  answers 404) and `/Users/Public` (the users the server shows on its own
+  login screen). A Jellyfin server with Quick Connect on opens straight on
+  the code; listed users show as tiles, and one with no password signs in on
+  the press. Nothing from these is saved.
 
 **Library**
 
@@ -200,14 +208,14 @@ same shape as a Plex one, so none of them changed. What does differ by server:
 
 | Step | Plex | Jellyfin and Emby |
 |---|---|---|
-| Sign-in | `PlexSignInTask`, the plex.tv/link code | `components/ConnectView.*` and `MediaBrowserSignInTask`: the 7359 broadcast or a typed address, then Quick Connect (Jellyfin) or a username and password |
+| Sign-in | `PlexSignInTask`, the plex.tv/link code | `components/ConnectView.*` and `MediaBrowserSignInTask`: the 7359 broadcast or a typed address, the address asked who it is, then Quick Connect (Jellyfin), a user tile, or a username and password |
 | Saved server | registry `plex` section, `servers` | the same list, one server with `kind`, `uri`, `userId`, `accessToken`, keyed by the server's `Id`; `kind` in the section too (`source/mediabrowser/ServerKind.brs`) |
 | Library | `NxPlexScanServer` | `NxMbScanServer` (`MediaBrowserLibrary.brs`), chosen by `NxScanServerFor` |
 | Change signature | section stamps | none, as upstream, so each load scans |
 | Collections | `NxCollectionsFetchPlex` | none yet (no BoxSets) |
 | Playback | `NxPlexStreamContent` | `NxMbStreamContent` (`MediaBrowserPlayback.brs`), both through `NxStreamContent` and `NxApplyStreamAuth` |
 | Stop | Plex's transcode stop | `DELETE /Videos/ActiveEncodings`, through `NxStopStream` |
-| Launch check | plex.tv account | `GET /Users/{id}`; a 401 signs out to CONNECT YOUR LIBRARY with the reason |
+| Launch check | plex.tv account | `GET /Users/{id}`; a 401 signs out to CONNECT YOUR SERVER with the reason |
 
 **One kind at a time, as upstream does.** The Apple TV app holds one
 `backend_kind`: a TV is signed in to Plex, or to one Jellyfin server, or to

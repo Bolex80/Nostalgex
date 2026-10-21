@@ -8,10 +8,10 @@ sub runAction()
     action = m.top.action
     if action = "discover" then
         m.top.found = NxMbDiscover(m.top.kind)
-        print "mediabrowser: "; m.top.found.Count(); " servers answered on this network"
+        print "mediabrowser: "; m.top.found.Count(); " answers on this network"
         m.top.status = "found"
-    else if action = "connect" then
-        connect()
+    else if action = "probe" then
+        probe()
     else if action = "quickConnect" then
         quickConnect()
     else if action = "password" then
@@ -21,73 +21,57 @@ sub runAction()
     end if
 end sub
 
-' The first address for what was typed that answers as a Jellyfin or Emby
-' server. A server of the other kind is taken as that kind, as the web tuner
-' adopts Emby for a server saved as Jellyfin.
-sub connect()
-    cands = NxMbAddressCandidates(m.top.address)
-    if cands.Count() = 0 then
-        fail("That isn't a server address. Try something like 10.0.0.20 or http://10.0.0.20:8096.")
+' Asks the address who it is before anyone types (NxSignInCheck): the
+' server, with what it says about Quick Connect and its users, or the reason
+' it can't be used. The server's own answer decides Jellyfin or Emby.
+sub probe()
+    result = NxSignInCheck(m.top.address, NxSignInLiveSend())
+    if result.server = invalid then
+        fail(NxSignInCheckMessage(result.reason, result.code, m.top.kind))
         return
     end if
-    refused = false
-    for each base in cands
-        if not NxMbAllowed(base) then
-            refused = true
-        else
-            info = NxMbPublicInfo(base)
-            if info <> invalid then
-                print "mediabrowser: found a "; info.kind; " server ("; info.version; ")"
-                m.top.server = { name: info.name, kind: info.kind, base: base, id: info.id }
-                m.top.status = "connected"
-                return
-            end if
-        end if
-    end for
-    if refused then
-        fail("Nostalgex reaches a server over HTTPS, or over plain HTTP only on your home network. Use the server's home-network address, or an https:// one.")
-    else
-        fail("No " + NxKindName(m.top.kind) + " server answered at that address. Check it, and that the server is running.")
-    end if
+    s = result.server
+    print "mediabrowser: found a "; s.kind; " server; Quick Connect "; FormatJson(s.quickConnect); ", "; s.users.Count(); " users listed"
+    m.top.server = s
+    m.top.status = "checked"
 end sub
 
-' Whether NxServerRequest would try this address at all.
-function NxMbAllowed(base as String) as Boolean
-    lower = LCase(base)
-    if Left(lower, 8) = "https://" then return true
-    return Left(lower, 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
-end function
-
-' Jellyfin's Quick Connect: show the code, wait up to 5 minutes for it to be
-' approved (every 2 s, as upstream), then sign in with it.
+' Jellyfin's Quick Connect: show the code, then poll for its approval as
+' upstream does (NxSignInQuickConnectStep: every 2 s, a failed poll waits on,
+' expired after 150), then sign in with it.
 sub quickConnect()
     s = m.top.server
     start = NxMbQuickConnectStart(s.base)
-    ' A String ("off") or an object: BrightScript can't compare an object to text.
+    ' A String ("off", "notJellyfin") or an object: BrightScript can't compare
+    ' an object to text.
     if NxIsString(start) then
-        fail("Quick Connect is off on this server. Turn it on in Jellyfin (Dashboard, then General), or sign in with your password.")
+        if start = "off" then fail(NxSignInCopy().quickConnectOff) else fail(NxSignInCopy().quickConnectNotJellyfin)
         return
     end if
     if start = invalid then
-        fail("Could not start Quick Connect. Check the server, or sign in with your password.")
+        fail(NxSignInCopy().quickConnectFailed)
         return
     end if
     m.top.code = start.code
     m.top.status = "code"
-    for attempt = 1 to 150
+    attempt = 0
+    while true
         Sleep(2000)
         if m.top.cancel then return
-        ok = NxMbQuickConnectApproved(s.base, start.secret)
-        if ok = invalid then
-            fail("The Quick Connect code expired. Try again.")
+        attempt = attempt + 1
+        approved = invalid
+        if attempt <= 150 then approved = NxMbQuickConnectApproved(s.base, start.secret)
+        if m.top.cancel then return
+        stepNow = NxSignInQuickConnectStep(attempt, approved)
+        if stepNow = "expired" then
+            fail(NxSignInCopy().codeExpired)
             return
         end if
-        if ok then
+        if stepNow = "approved" then
             finish(NxMbQuickConnectFinish(s.base, start.secret))
             return
         end if
-    end for
-    fail("The Quick Connect code expired. Try again.")
+    end while
 end sub
 
 ' At launch, with the saved guide already up: a token the server now refuses
@@ -120,7 +104,7 @@ sub finish(auth as Dynamic)
         return
     end if
     if type(auth) <> "roAssociativeArray" then
-        fail("The server didn't accept that username and password.")
+        fail(NxSignInCopy().incorrectPassword)
         return
     end if
     s = m.top.server

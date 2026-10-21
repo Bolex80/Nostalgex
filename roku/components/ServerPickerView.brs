@@ -3,7 +3,9 @@
 ' Upstream's ServerPickerView: branding and the explanation on the left, the
 ' servers and CONTINUE on the right. Owned servers start included, or all of
 ' them when none is owned; OK on a row switches it; CONTINUE needs at least
-' one. Rounded outlines are square here.
+' one. The look is the connect screens' (ConnectView, upstream's
+' OnboardingStyle): the focused row a cyan slab with dark text, the others a
+' dim box with a grey edge, CONTINUE a primary button.
 
 sub init()
     m.fonts = {}
@@ -46,13 +48,27 @@ function newRect(x as Float, y as Float, w as Float, h as Float, color as String
     return r
 end function
 
-' A box outline: four thin rectangles.
-sub outline(g as Object, x as Float, y as Float, w as Float, h as Float, t as Float, color as String)
-    g.AppendChild(newRect(x, y, w, t, color))
-    g.AppendChild(newRect(x, y + h - t, w, t, color))
-    g.AppendChild(newRect(x, y, t, h, color))
-    g.AppendChild(newRect(x + w - t, y, t, h, color))
-end sub
+' A nine-patch from images/look (scripts/look-images.py), tinted, at the box
+' x, y, w, h with `margin` px of glow room around it.
+function newPatch(name as String, color as String, opacity as Float, x as Float, y as Float, w as Float, h as Float, margin as Integer) as Object
+    p = CreateObject("roSGNode", "Poster")
+    p.uri = "pkg:/images/look/" + name
+    p.blendColor = color
+    p.opacity = opacity
+    p.translation = [x - margin, y - margin]
+    p.width = w + 2 * margin
+    p.height = h + 2 * margin
+    return p
+end function
+
+' A group at x, y that grows by `scale` about its middle.
+function newBox(x as Float, y as Float, w as Float, h as Float, scale as Float) as Object
+    b = CreateObject("roSGNode", "Group")
+    b.translation = [x, y]
+    b.scaleRotateCenter = [w / 2, h / 2]
+    b.scale = [scale, scale]
+    return b
+end function
 
 sub render()
     if m.on = invalid then
@@ -64,6 +80,9 @@ sub render()
         for each s in m.top.servers
             m.on.Push(NxTruthy(s.owned) or not anyOwned)
         end for
+        ' Focus starts on CONTINUE, as upstream's since the sign-in redesign:
+        ' the usual choice is already ticked.
+        if anyOn() then m.focus = continueIndex()
         renderLeft()
         m.top.SetFocus(true)
     end if
@@ -111,53 +130,66 @@ sub renderList()
     end if
     y = top
     last = m.top0 + shown - 1
+    cyan = m.cyan + "FF"
+    dark = "0x000F17FF"
     for i = m.top0 to last
         s = servers[i]
         focused = i = m.focus
         on = m.on[i]
-        bg = "0xFFFFFF08"
-        if focused then bg = m.cyan + "1A"
-        g.AppendChild(newRect(m.colX, y, m.colW, m.rowH, bg))
+        scale = 1.0
+        if focused then scale = 1.04
+        row = newBox(m.colX, y, m.colW, m.rowH, scale)
         if focused then
-            outline(g, m.colX, y, m.colW, m.rowH, 2.5, m.cyan + "99")
+            row.AppendChild(newPatch("ob_slab.9.png", cyan, 1.0, 0, 0, m.colW, m.rowH, 44))
         else
-            outline(g, m.colX, y, m.colW, m.rowH, 1, "0xFFFFFF14")
+            row.AppendChild(newPatch("ob_fill.9.png", "0xFFFFFFFF", 0.03, 0, 0, m.colW, m.rowH, 0))
+            row.AppendChild(newPatch("ob_edge.9.png", "0xFFFFFFFF", 0.18, 0, 0, m.colW, m.rowH, 0))
         end if
         nameColor = "0xFFFFFF8C"
         if on then nameColor = "0xFFFFFFFF"
-        g.AppendChild(newLabel(NxToStr(s.name), "DMMono-Medium", 28, nameColor, m.colX + 32, y + 22))
+        if focused then nameColor = dark
+        row.AppendChild(newLabel(NxToStr(s.name), "DMMono-Medium", 28, nameColor, 32, 22))
         kind = "Shared with you"
         if NxTruthy(s.owned) then kind = "Your server"
-        g.AppendChild(newLabel(kind, "DMMono-Regular", 18, "0xFFFFFF66", m.colX + 32, y + 60))
-        state = newLabel("OFF", "DMMono-Medium", 22, "0xFFFFFF59", m.colX + 32, y + 36)
+        kindColor = "0xFFFFFF66"
+        if focused then kindColor = "0x000F17B3"
+        row.AppendChild(newLabel(kind, "DMMono-Regular", 18, kindColor, 32, 60))
+        state = newLabel("OFF", "DMMono-Medium", 22, "0xFFFFFF59", 32, 36)
         if on then
             state.text = "INCLUDED"
-            state.color = m.cyan + "FF"
+            state.color = cyan
         end if
+        if focused then state.color = dark
         state.width = m.colW - 64
         state.horizAlign = "right"
-        g.AppendChild(state)
+        row.AppendChild(state)
+        g.AppendChild(row)
         y = y + m.rowH + m.rowGap
     end for
 
+    ' CONTINUE: a primary button, faded while nothing is on (it can't take
+    ' focus then).
     c = m.top.FindNode("cont")
     c.RemoveChildrenIndex(c.GetChildCount(), 0)
     cy = top + listH + 24
     focused = m.focus = continueIndex()
-    if focused then c.AppendChild(newRect(m.colX, cy, m.colW, contH, m.cyan + "1F"))
-    if not anyOn() then
-        outline(c, m.colX, cy, m.colW, contH, 1.5, "0xFFFFFF26")
-    else if focused then
-        outline(c, m.colX, cy, m.colW, contH, 2.5, m.cyan + "FF")
+    scale = 1.0
+    if focused then scale = 1.07
+    btn = newBox(m.colX, cy, m.colW, contH, scale)
+    if not anyOn() then btn.opacity = 0.35
+    color = cyan
+    if focused then
+        btn.AppendChild(newPatch("ob_slab.9.png", cyan, 1.0, 0, 0, m.colW, contH, 44))
+        color = dark
     else
-        outline(c, m.colX, cy, m.colW, contH, 1.5, m.cyan + "8C")
+        btn.AppendChild(newPatch("ob_fill.9.png", "0xFFFFFFFF", 0.03, 0, 0, m.colW, contH, 0))
+        btn.AppendChild(newPatch("ob_edge_primary.9.png", cyan, 0.75, 0, 0, m.colW, contH, 0))
     end if
-    color = m.cyan + "FF"
-    if not anyOn() then color = "0xFFFFFF4D"
-    lbl = newLabel("CONTINUE", "DMMono-Medium", 30, color, m.colX, cy + 22)
+    lbl = newLabel("CONTINUE", "DMMono-Medium", 30, color, 0, 22)
     lbl.width = m.colW
     lbl.horizAlign = "center"
-    c.AppendChild(lbl)
+    btn.AppendChild(lbl)
+    c.AppendChild(btn)
 end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean

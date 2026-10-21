@@ -4,20 +4,21 @@
      sign-in itself (NxMbSaveSignIn). -->
 <component name="MediaBrowserSignInTask" extends="Task">
   <interface>
-    <!-- discover | connect | quickConnect | password | check -->
+    <!-- discover | probe | quickConnect | password | check -->
     <field id="action" type="string" />
-    <!-- jellyfin | emby: what the viewer chose; connect may find the other. -->
+    <!-- jellyfin | emby: what the viewer chose; probe may find the other. -->
     <field id="kind" type="string" />
     <field id="address" type="string" />
     <field id="username" type="string" />
     <field id="password" type="string" />
-    <!-- Set true to end a Quick Connect wait. -->
+    <!-- Set true to end a Quick Connect wait, or drop a sign-in answered after Back. -->
     <field id="cancel" type="boolean" />
-    <!-- found | connected | code | signedIn | error | rejected. Not "state": every Task has one. -->
+    <!-- found | checked | code | signedIn | error | rejected. Not "state": every Task has one. -->
     <field id="status" type="string" alwaysNotify="true" />
     <!-- discover: [{ name, address, id }] -->
     <field id="found" type="array" />
-    <!-- connect: { name, kind, base } -->
+    <!-- probe: { kind, url, name, id, quickConnect, users } (SignInFlow.brs).
+         quickConnect and password are given { kind, base, name, id }. -->
     <field id="server" type="assocarray" />
     <field id="code" type="string" />
     <field id="message" type="string" />
@@ -27,5 +28,6 @@
   <script type="text/brightscript" uri="pkg:/source/plex/LibrarySnapshot.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/SignInFlow.brs" />
   <script type="text/brightscript" uri="pkg:/components/MediaBrowserSignInTask.brs" />
 </component>
