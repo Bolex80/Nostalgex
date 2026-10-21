@@ -43,6 +43,26 @@ enum DailyManifestStore {
         calendar.startOfDay(for: date)
     }
 
+    /// The start of the local day after the one containing `date`.
+    ///
+    /// Where the clocks change a day is 23 or 25 hours long (23.5 or 24.5 on Lord Howe), so
+    /// midnight plus 86,400 s lands an hour short of the next midnight when they go back and an
+    /// hour into the next day when they go forward. 36 hours after a day's start is always inside
+    /// the next day, and that day's start is the answer, even where midnight itself is skipped
+    /// (Santiago, Havana, Beirut). Stepping `.day` from a start that fell at 1 AM would keep the
+    /// 1 AM. Mirrors `startOfNextLocalDayMs` in scripts/nostalgex-daily-manifest.js.
+    static func startOfNextLocalDay(after date: Date, calendar: Calendar = .current) -> Date {
+        calendar.startOfDay(for: startOfLocalDay(for: date, calendar: calendar).addingTimeInterval(36 * 3600))
+    }
+
+    /// The key of the local day before the one containing `date`. 12 hours before a day's start
+    /// is always inside the day before; 24 hours before the day after the clocks go forward is
+    /// two days back. Mirrors `previousLocalDayKey` in scripts/nostalgex-daily-manifest.js.
+    static func previousLocalDayKey(before date: Date, calendar: Calendar = .current) -> String {
+        localDayKey(for: startOfLocalDay(for: date, calendar: calendar).addingTimeInterval(-12 * 3600),
+                    calendar: calendar)
+    }
+
     static func localDayNumber(for date: Date, calendar: Calendar = .current) -> Int {
         Int(startOfLocalDay(for: date, calendar: calendar).timeIntervalSince1970 / 86400)
     }

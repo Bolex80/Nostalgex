@@ -262,6 +262,34 @@
     return d.getTime();
   }
 
+  /**
+   * The start of the local day after the one containing `dateMs`.
+   *
+   * Where the clocks change a day is 23 or 25 hours long (23.5 or 24.5 on Lord Howe), so
+   * midnight plus 86,400 s lands an hour short of the next midnight when they go back and an
+   * hour into the next day when they go forward. 36 hours after a day's start is always inside
+   * the next day, and that day's start is the answer, even where midnight itself is skipped
+   * (Santiago, Havana, Beirut). Mirrors DailyManifestStore.startOfNextLocalDay.
+   */
+  function startOfNextLocalDayMs(dateMs) {
+    return startOfLocalDayMs(startOfLocalDayMs(dateMs) + 36 * 3600000);
+  }
+
+  /**
+   * The key of the local day before the one containing `dateMs`. 12 hours before a day's
+   * start is always inside the day before; 24 hours before the day after the clocks go
+   * forward is two days back. Mirrors DailyManifestStore.previousLocalDayKey.
+   */
+  function previousLocalDayKey(dateMs) {
+    return localDayKey(startOfLocalDayMs(dateMs) - 12 * 3600000);
+  }
+
+  /** Seconds in the local day containing `sec`: 86,400 except on the days the clocks change. */
+  function localDayLengthSec(sec) {
+    const start = startOfLocalDayMs(sec * 1000);
+    return (startOfNextLocalDayMs(start) - start) / 1000;
+  }
+
   function localDayNumber(dateMs) {
     return Math.floor(startOfLocalDayMs(dateMs) / 86400000);
   }
@@ -323,7 +351,9 @@
   }
 
   function packDay(pool, dayStartSec, dayNumber, channelId, yesterdayAired, isPremiereChannel, yesterdayLastRatingKey) {
-    const dayEndSec = dayStartSec + 86400;
+    // As long as the local day, so a 25-hour day has no empty last hour and a 23-hour day
+    // doesn't run an hour into tomorrow. Same end as DailyManifestScheduler.blocks passes in.
+    const dayEndSec = dayStartSec + localDayLengthSec(dayStartSec);
     const totalPoolSec = pool.reduce((s, i) => s + (i.duration || 0) * 60, 0);
     if (totalPoolSec <= 0) return [];
 
@@ -442,7 +472,7 @@
     if (cached) return resolveBlocks(cached.blocks, validPool);
 
     const dayNumber = localDayNumber(atMs);
-    const yesterdayKey = localDayKey(dayStartSec * 1000 - 86400000);
+    const yesterdayKey = previousLocalDayKey(atMs);
     const yesterdayAired = airedRatingKeys(serverKey, channelId, yesterdayKey);
 
     const yesterdayLast = lastAiredRatingKey(serverKey, channelId, yesterdayKey);
@@ -482,6 +512,8 @@
     localDayNumber,
     localDayKey,
     startOfLocalDayMs,
+    startOfNextLocalDayMs,
+    previousLocalDayKey,
   };
 
   global.NostalgexDailyManifest = api;

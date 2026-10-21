@@ -97,10 +97,9 @@ enum DailyManifestScheduler {
         }
 
         let dayNumber = DailyManifestStore.localDayNumber(for: now, calendar: calendar)
-        let yesterdayKey = DailyManifestStore.localDayKey(
-            for: dayStart.addingTimeInterval(-86400),
-            calendar: calendar
-        )
+        // By the calendar, not 86,400 s: the day after the clocks go forward, 24 hours before
+        // midnight is two days back, and the no-repeat check would read the wrong day.
+        let yesterdayKey = DailyManifestStore.previousLocalDayKey(before: now, calendar: calendar)
         let yesterdayAired = DailyManifestStore.airedRatingKeys(
             channelId: channel.id,
             dayKey: yesterdayKey,
@@ -115,6 +114,7 @@ enum DailyManifestScheduler {
         let packed = packDay(
             pool: pool,
             dayStart: dayStart,
+            dayEnd: DailyManifestStore.startOfNextLocalDay(after: now, calendar: calendar),
             dayNumber: dayNumber,
             channelId: channel.id,
             isPremiereChannel: channel.isPremiereChannel,
@@ -174,16 +174,18 @@ enum DailyManifestScheduler {
 
     // MARK: - Packing
 
+    /// `dayEnd` is the next local midnight, not `dayStart + 86400`: a 25-hour day packed for
+    /// 24 left its last hour empty, and a 23-hour one ran an hour into the next day.
     private static func packDay(
         pool: [PlexMediaItem],
         dayStart: Date,
+        dayEnd: Date,
         dayNumber: Int,
         channelId: Int,
         isPremiereChannel: Bool,
         yesterdayAiredKeys: Set<String>,
         yesterdayLastItemID: String?
     ) -> [ManifestBlock] {
-        let dayEnd = dayStart.addingTimeInterval(86400)
         let totalPoolSec = pool.reduce(0) { $0 + $1.duration * 60 }
         guard totalPoolSec > 0 else { return [] }
 

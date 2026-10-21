@@ -1,0 +1,2040 @@
+{
+ "_about": [
+  "Input for the daylight-saving harness. Read by scripts/dst-harness/run.mjs (web tuner engine) and",
+  "Nostalgex/NostalgexTests/DSTHarnessTests.swift (Apple TV engine). Both simulate a device that is on every",
+  "day from three days before a clock change to two days after, then sample what each surface says is on",
+  "every five minutes from the day before the change to the end of the day after it.",
+  "channels: small = whole pool shorter than a day (filler all day), medium = about 35 h, big = about 115 h",
+  "(unplayed-first never runs out, so a title from yesterday should never air today).",
+  "scenarios: change = the local date of a clock change. Controls have no daylight saving; they run on the",
+  "same dates as the US and EU changes so they can be compared with them."
+ ],
+ "channels": [
+  {
+   "id": 201,
+   "name": "SMALL",
+   "pool": [
+    {
+     "ratingKey": "s1",
+     "title": "Small Film 1",
+     "type": "movie",
+     "duration": 95
+    },
+    {
+     "ratingKey": "s2",
+     "title": "Small Film 2",
+     "type": "movie",
+     "duration": 102
+    },
+    {
+     "ratingKey": "s3",
+     "title": "Small Film 3",
+     "type": "movie",
+     "duration": 88
+    },
+    {
+     "ratingKey": "s4",
+     "title": "Small Film 4",
+     "type": "movie",
+     "duration": 117
+    },
+    {
+     "ratingKey": "s5",
+     "title": "Small Film 5",
+     "type": "movie",
+     "duration": 91
+    },
+    {
+     "ratingKey": "s6",
+     "title": "Small Film 6",
+     "type": "movie",
+     "duration": 110
+    },
+    {
+     "ratingKey": "s7",
+     "title": "Small Film 7",
+     "type": "movie",
+     "duration": 99
+    }
+   ]
+  },
+  {
+   "id": 202,
+   "name": "MEDIUM",
+   "pool": [
+    {
+     "ratingKey": "m1",
+     "title": "Medium Film 1",
+     "type": "movie",
+     "duration": 85
+    },
+    {
+     "ratingKey": "m2",
+     "title": "Medium Film 2",
+     "type": "movie",
+     "duration": 92
+    },
+    {
+     "ratingKey": "m3",
+     "title": "Medium Film 3",
+     "type": "movie",
+     "duration": 99
+    },
+    {
+     "ratingKey": "m4",
+     "title": "Medium Film 4",
+     "type": "movie",
+     "duration": 106
+    },
+    {
+     "ratingKey": "m5",
+     "title": "Medium Film 5",
+     "type": "movie",
+     "duration": 113
+    },
+    {
+     "ratingKey": "m6",
+     "title": "Medium Film 6",
+     "type": "movie",
+     "duration": 120
+    },
+    {
+     "ratingKey": "m7",
+     "title": "Medium Film 7",
+     "type": "movie",
+     "duration": 127
+    },
+    {
+     "ratingKey": "m8",
+     "title": "Medium Film 8",
+     "type": "movie",
+     "duration": 88
+    },
+    {
+     "ratingKey": "m9",
+     "title": "Medium Film 9",
+     "type": "movie",
+     "duration": 95
+    },
+    {
+     "ratingKey": "m10",
+     "title": "Medium Film 10",
+     "type": "movie",
+     "duration": 102
+    },
+    {
+     "ratingKey": "m11",
+     "title": "Medium Film 11",
+     "type": "movie",
+     "duration": 109
+    },
+    {
+     "ratingKey": "m12",
+     "title": "Medium Film 12",
+     "type": "movie",
+     "duration": 116
+    },
+    {
+     "ratingKey": "m13",
+     "title": "Medium Film 13",
+     "type": "movie",
+     "duration": 123
+    },
+    {
+     "ratingKey": "m14",
+     "title": "Medium Film 14",
+     "type": "movie",
+     "duration": 130
+    },
+    {
+     "ratingKey": "m15",
+     "title": "Medium Film 15",
+     "type": "movie",
+     "duration": 91
+    },
+    {
+     "ratingKey": "m16",
+     "title": "Medium Film 16",
+     "type": "movie",
+     "duration": 98
+    },
+    {
+     "ratingKey": "m17",
+     "title": "Medium Film 17",
+     "type": "movie",
+     "duration": 105
+    },
+    {
+     "ratingKey": "m18",
+     "title": "Medium Film 18",
+     "type": "movie",
+     "duration": 112
+    },
+    {
+     "ratingKey": "m19",
+     "title": "Medium Film 19",
+     "type": "movie",
+     "duration": 119
+    },
+    {
+     "ratingKey": "m20",
+     "title": "Medium Film 20",
+     "type": "movie",
+     "duration": 126
+    }
+   ]
+  },
+  {
+   "id": 203,
+   "name": "BIG",
+   "pool": [
+    {
+     "ratingKey": "b1e1",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e2",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e3",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e4",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e5",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e6",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e7",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e8",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e9",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e10",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e11",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e12",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e13",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e14",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e15",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e16",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e17",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e18",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e19",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e20",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e21",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e22",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b1e23",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b1e24",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b1e25",
+     "title": "Show 1",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e1",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e2",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e3",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e4",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e5",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e6",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e7",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e8",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e9",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e10",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e11",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e12",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e13",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e14",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e15",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e16",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e17",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e18",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e19",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e20",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e21",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e22",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b2e23",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b2e24",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b2e25",
+     "title": "Show 2",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e1",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e2",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e3",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e4",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e5",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e6",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e7",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e8",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e9",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e10",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e11",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e12",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e13",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e14",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e15",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e16",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e17",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e18",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e19",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e20",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e21",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e22",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b3e23",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b3e24",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b3e25",
+     "title": "Show 3",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e1",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e2",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e3",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e4",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e5",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e6",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e7",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e8",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e9",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e10",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e11",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e12",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e13",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e14",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e15",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e16",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e17",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e18",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e19",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e20",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e21",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e22",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b4e23",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b4e24",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b4e25",
+     "title": "Show 4",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e1",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e2",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e3",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e4",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e5",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e6",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e7",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e8",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e9",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e10",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e11",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e12",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e13",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e14",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e15",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e16",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e17",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e18",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e19",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e20",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e21",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e22",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b5e23",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b5e24",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b5e25",
+     "title": "Show 5",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e1",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e2",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e3",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e4",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e5",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e6",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e7",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e8",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e9",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e10",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e11",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e12",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e13",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e14",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e15",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e16",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e17",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e18",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e19",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e20",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e21",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e22",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b6e23",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b6e24",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b6e25",
+     "title": "Show 6",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e1",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e2",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e3",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e4",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e5",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e6",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e7",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e8",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e9",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e10",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e11",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e12",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e13",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e14",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e15",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e16",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e17",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e18",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e19",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e20",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e21",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e22",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b7e23",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b7e24",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b7e25",
+     "title": "Show 7",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e1",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e2",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e3",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e4",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e5",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e6",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e7",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e8",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e9",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e10",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e11",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e12",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e13",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e14",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e15",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e16",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e17",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e18",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e19",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e20",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e21",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e22",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b8e23",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b8e24",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b8e25",
+     "title": "Show 8",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e1",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e2",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e3",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e4",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e5",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e6",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e7",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e8",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e9",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e10",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e11",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e12",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e13",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e14",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e15",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e16",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e17",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e18",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e19",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e20",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e21",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e22",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b9e23",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b9e24",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b9e25",
+     "title": "Show 9",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e1",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e2",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e3",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e4",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e5",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e6",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e7",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e8",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e9",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e10",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e11",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e12",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e13",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e14",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e15",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e16",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e17",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e18",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e19",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e20",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e21",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e22",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b10e23",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b10e24",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b10e25",
+     "title": "Show 10",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e1",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e2",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e3",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e4",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e5",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e6",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e7",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e8",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e9",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e10",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e11",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e12",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e13",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e14",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e15",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e16",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e17",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e18",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e19",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e20",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e21",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e22",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b11e23",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b11e24",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b11e25",
+     "title": "Show 11",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e1",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e2",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e3",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e4",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e5",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e6",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e7",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e8",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e9",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e10",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e11",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e12",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e13",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e14",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e15",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e16",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e17",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e18",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e19",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e20",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e21",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e22",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    },
+    {
+     "ratingKey": "b12e23",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 22
+    },
+    {
+     "ratingKey": "b12e24",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 23
+    },
+    {
+     "ratingKey": "b12e25",
+     "title": "Show 12",
+     "type": "episode",
+     "duration": 24
+    }
+   ]
+  }
+ ],
+ "zones": {
+  "America/New_York": [
+   "2026-11-01",
+   "2027-03-14"
+  ],
+  "America/Los_Angeles": [
+   "2026-11-01",
+   "2027-03-14"
+  ],
+  "Europe/London": [
+   "2026-10-25",
+   "2027-03-28"
+  ],
+  "Europe/Berlin": [
+   "2026-10-25",
+   "2027-03-28"
+  ],
+  "Australia/Sydney": [
+   "2027-04-04",
+   "2026-10-04"
+  ],
+  "Australia/Lord_Howe": [
+   "2027-04-04",
+   "2026-10-04"
+  ],
+  "America/Phoenix": [
+   "2026-11-01",
+   "2027-03-14"
+  ],
+  "Asia/Kolkata": [
+   "2026-10-25",
+   "2027-03-14"
+  ],
+  "UTC": [
+   "2026-10-25",
+   "2027-03-14"
+  ]
+ },
+ "controls": [
+  "America/Phoenix",
+  "Asia/Kolkata",
+  "UTC"
+ ],
+ "daysBefore": 3,
+ "daysAfter": 2,
+ "sampleStepSeconds": 300
+}
