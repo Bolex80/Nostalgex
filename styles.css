@@ -790,6 +790,8 @@ a { color: inherit; }
 .tile--soon:focus-visible,
 .screens .tile--soon { box-shadow: none; }
 .tile--soon .tile-go { display: none; }
+/* No mark on this tile, so the name and line sit at the bottom like the others. */
+.tile--soon .tile-name { margin-top: auto; }
 
 @media (max-width: 1100px) {
   .screens { grid-template-columns: repeat(2, 1fr); gap: 30px 28px; }

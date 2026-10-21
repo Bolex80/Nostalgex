@@ -11,7 +11,7 @@
 // Nothing here reads content. It is markup, the shared JSON-LD identity nodes,
 // and the helper that finds Vite's hashed asset filenames in dist/.
 
-import { readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -277,20 +277,30 @@ ${jsonLdBlocks}
 </head>`;
 }
 
-// Vite emits a hashed CSS asset (dist/assets/app-<hash>.css) and a hashed
-// JS entry (dist/assets/app-<hash>.js). Blog pages aren't declared as
-// rollupOptions.input entries, so Vite doesn't rewrite their asset refs for
-// them. Read the dist directory to find the real hashed filenames and pass
-// them in so the generated pages load the production bundle instead of a
-// bare /styles.css / /app.js (which don't ship in dist/).
+// The generated pages (blog, channel guide) aren't Vite inputs, so they need the
+// hashed filenames of the site's one stylesheet and one script. Vite names those
+// chunks after whatever happens to import them first (app-<hash>.css while every
+// page loaded app.js, styles-<hash>.css once one page did not), so guessing from
+// the name is fragile. Take them from the built home page instead, which links
+// both, and fail the build if either is missing rather than falling back to a
+// /styles.css or /app.js that dist doesn't have.
 export async function resolveViteAssetHrefs(distDir) {
-  const assetsDir = path.join(distDir, "assets");
-  if (!existsSync(assetsDir)) return {};
-  const entries = await readdir(assetsDir);
-  const css = entries.find((f) => /^app-.*\.css$/.test(f));
-  const js = entries.find((f) => /^app-.*\.js$/.test(f));
-  return {
-    stylesHref: css ? `/assets/${css}` : "/styles.css",
-    appScriptHref: js ? `/assets/${js}` : "/app.js",
-  };
+  const indexPath = path.join(distDir, "index.html");
+  if (!existsSync(indexPath)) {
+    throw new Error(`resolveViteAssetHrefs: ${indexPath} is missing, so the site's built stylesheet can't be found.`);
+  }
+  const html = await readFile(indexPath, "utf8");
+  const css = html.match(/<link\b[^>]*rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"/);
+  const js = html.match(/<script\b[^>]*type="module"[^>]*src="(\/assets\/[^"]+\.js)"/);
+  if (!css || !js) {
+    throw new Error(
+      `resolveViteAssetHrefs: dist/index.html does not link a built ${!css ? "stylesheet" : "module script"} under /assets/.`,
+    );
+  }
+  for (const href of [css[1], js[1]]) {
+    if (!existsSync(path.join(distDir, href))) {
+      throw new Error(`resolveViteAssetHrefs: dist/index.html links ${href}, which is not in dist.`);
+    }
+  }
+  return { stylesHref: css[1], appScriptHref: js[1] };
 }
