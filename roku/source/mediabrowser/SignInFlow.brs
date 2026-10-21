@@ -133,10 +133,13 @@ end function
 ' Connect, an Emby server shows its users. A bare address tries :8096 first,
 ' as sign-in does (NxMbAddressCandidates).
 '
-' send.fetch(url) does one GET with Accept: application/json and returns
-' { code, text }: code 0 when NxServerTransfer refuses the URL, a negative
-' curl code when nothing answered. NxSignInLiveSend is the real one; the
-' tests pass a fake.
+' send.fetch(url, timeoutMs) does one GET with Accept: application/json and
+' returns { code, text }: code 0 when NxServerTransfer refuses the URL, a
+' negative curl code when nothing answered (-28 past timeoutMs).
+' send.elapsedMs() is the time since the check began. Each request gets 8 s
+' and the whole check 12 s, as the spec: what would start past 12 s is not
+' asked (Quick Connect and the users are then left as "can't say" and none).
+' NxSignInLiveSend is the real one; the tests pass a fake.
 '
 ' Returns { server, reason, code }: server { kind, url, name, id,
 ' quickConnect, users } on success, else invalid with reason "notAServer",
@@ -149,7 +152,9 @@ function NxSignInCheck(address as String, send as Object) as Object
     refused = 0
     for i = 0 to cands.Count() - 1
         last = i = cands.Count() - 1
-        res = send.fetch(cands[i] + "/System/Info/Public")
+        left = NxSignInTimeLeft(send)
+        if left <= 0 then return { server: invalid, reason: "unreachable", code: -28 }
+        res = send.fetch(cands[i] + "/System/Info/Public", left)
         if res.code = 0 then
             refused = refused + 1
         else
@@ -175,13 +180,15 @@ function NxSignInCheck(address as String, send as Object) as Object
     end if
 
     quickConnect = invalid
-    if info.kind = "jellyfin" then
-        res = send.fetch(base + "/QuickConnect/Enabled")
+    if info.kind = "jellyfin" and NxSignInTimeLeft(send) > 0 then
+        res = send.fetch(base + "/QuickConnect/Enabled", NxSignInTimeLeft(send))
         quickConnect = NxSignInQuickConnectEnabled(res.code, res.text)
     end if
     users = []
-    res = send.fetch(base + "/Users/Public")
-    if res.code >= 200 and res.code <= 299 then users = NxSignInPublicUsers(NxParseJsonBody(res.text))
+    if NxSignInTimeLeft(send) > 0 then
+        res = send.fetch(base + "/Users/Public", NxSignInTimeLeft(send))
+        if res.code >= 200 and res.code <= 299 then users = NxSignInPublicUsers(NxParseJsonBody(res.text))
+    end if
     server = { kind: info.kind, url: base, name: info.name, id: info.id, users: users }
     ' A node field drops an invalid value, so "can't say" is simply absent.
     if quickConnect <> invalid then server.quickConnect = quickConnect
@@ -219,19 +226,30 @@ function NxSignInPlexMessage(code as Integer) as String
     return "Could not reach plex.tv. Check your connection, then press CONNECT TO PLEX again."
 end function
 
-' The real send: GETs through NxServerTransfer (HTTPS, or plain HTTP to a
-' private address only), 8 s each, as upstream's check session.
-function NxSignInLiveSend() as Object
-    return { fetch: NxSignInLiveFetch }
+' The time a request may take now: 8 s, or what is left of the check's 12 s.
+function NxSignInTimeLeft(send as Object) as Integer
+    left = 12000 - send.elapsedMs()
+    if left > 8000 then left = 8000
+    return left
 end function
 
-function NxSignInLiveFetch(url as String) as Object
+' The real send: GETs through NxServerTransfer (HTTPS, or plain HTTP to a
+' private address only). Its clock starts when it is made, at the check.
+function NxSignInLiveSend() as Object
+    return { clock: CreateObject("roTimespan"), fetch: NxSignInLiveFetch, elapsedMs: NxSignInLiveElapsed }
+end function
+
+function NxSignInLiveElapsed() as Integer
+    return m.clock.TotalMilliseconds()
+end function
+
+function NxSignInLiveFetch(url as String, timeoutMs = 8000 as Integer) as Object
     xfer = NxServerTransfer(url, { "Accept": "application/json" })
     if xfer = invalid then return { code: 0, text: "" }
     port = CreateObject("roMessagePort")
     xfer.SetMessagePort(port)
     if not xfer.AsyncGetToString() then return { code: -1, text: "" }
-    msg = Wait(8000, port)
+    msg = Wait(timeoutMs, port)
     if type(msg) <> "roUrlEvent" then
         xfer.AsyncCancel()
         return { code: -28, text: "" }
@@ -252,6 +270,28 @@ function NxSignInQuickConnectStep(attempt as Integer, approved as Dynamic) as St
         if approved then return "approved"
     end if
     return "waiting"
+end function
+
+' ── Finishing a sign-in ─────────────────────────────────────────────────────
+
+' What a Jellyfin or Emby sign-in's answer comes to: "signedIn", "refused"
+' (the server said no) or "unreached". The sign-in is saved through
+' saver.save(auth) only for real. A dry run (the sign-in tour, deploy.sh
+' --tour) reports signedIn and saves nothing: saving deletes the Plex
+' sign-in, and a sideloaded build shares its saved data with the store
+' build signed with the same key.
+function NxSignInFinish(dryRun as Boolean, auth as Dynamic, saver as Object) as String
+    if auth = invalid then return "unreached"
+    if type(auth) <> "roAssociativeArray" then return "refused"
+    if not dryRun then saver.save(auth)
+    return "signedIn"
+end function
+
+' The answer a dry run stands in for a sign-in it never asks for: asking
+' would start a session for this TV on the server, and Jellyfin ends a
+' device's earlier session when it signs in again.
+function NxSignInDryRunAuth() as Object
+    return { token: "", userId: "dry-run", serverId: "" }
 end function
 
 ' ── Focus ───────────────────────────────────────────────────────────────────

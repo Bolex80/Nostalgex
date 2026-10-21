@@ -984,6 +984,7 @@ sub runTask(action as String, a = "" as String, b = "" as String)
     t = CreateObject("roSGNode", "MediaBrowserSignInTask")
     t.action = action
     t.kind = m.kind
+    t.dryRun = m.top.dryRun
     if action = "probe" then t.address = a
     if m.server <> invalid then t.server = { kind: m.server.kind, base: m.server.url, name: m.server.name, id: m.server.id }
     if action = "password" then

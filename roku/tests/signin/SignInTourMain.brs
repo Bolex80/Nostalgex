@@ -2,8 +2,8 @@
 ' their own, for walking them with a remote and counting presses on a TV, as
 ' upstream's NostalgexUITests/SignInTourUITests do in the simulator.
 '
-' Nothing here signs in by itself. Finishing a sign-in from the tour saves it
-' as the app does, so on a TV that is signed in, stop one press short.
+' A dry run: finishing a Jellyfin or Emby sign-in here asks no server and
+' saves nothing (ConnectView.dryRun), so the TV's own sign-in stays as it was.
 '
 ' Launch arguments (ECP: POST /launch/dev?discovery=none):
 '   discovery=none|several   stands in for the network search

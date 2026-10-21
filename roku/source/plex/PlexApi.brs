@@ -26,6 +26,12 @@ end function
 
 ' A random identifier per install, which Plex shows in its device list.
 function NxPlexClientId() as String
+    ' A dry run of the sign-in (MediaBrowserSignInTask) sets one for its own
+    ' thread, so it neither saves an id nor shares the app's.
+    dry = GetGlobalAA().nxDryRunClientId
+    if NxIsString(dry) then
+        if dry <> "" then return dry
+    end if
     reg = NxPlexRegistry()
     id = reg.Read("clientId")
     if id = "" then

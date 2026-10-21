@@ -15,10 +15,10 @@ function NxRunSignInFlowTests() as Integer
     b = NxSignInTestServer("b", "http://192.168.1.11:8096")
     out = NxSignInOutcome([a])
     NxCheck(r, "one server answering goes straight to it", out.kind + " " + NxSignInTestIds(out.servers), "single a")
-    wifi = NxSignInTestServer("a", "http://192.168.4.45:8096")
-    ethernet = NxSignInTestServer("a", "http://192.168.4.49:8096")
+    wifi = NxSignInTestServer("a", "http://192.0.2.45:8096")
+    ethernet = NxSignInTestServer("a", "http://192.0.2.49:8096")
     out = NxSignInOutcome([wifi, ethernet])
-    NxCheck(r, "the same server twice is still one", out.kind + " " + out.servers[0].address, "single http://192.168.4.45:8096")
+    NxCheck(r, "the same server twice is still one", out.kind + " " + out.servers[0].address, "single http://192.0.2.45:8096")
     out = NxSignInOutcome([a, b])
     NxCheck(r, "two servers are listed", out.kind + " " + NxSignInTestIds(out.servers), "several a,b")
     NxCheck(r, "nothing answering offers the typed address", NxSignInOutcome([]).kind, "none")
@@ -28,8 +28,8 @@ function NxRunSignInFlowTests() as Integer
     NxCheck(r, "stand-in several is a pick", several.Count().ToStr() + " " + NxSignInOutcome(several).kind, "2 several")
 
     ' ── The reply to the broadcast (LANServerDiscovery.parseReply) ──
-    reply = NxMbDiscoveryReply("{""Address"":"" http://192.168.4.79:8096 "",""Id"":""fb66"",""Name"":""Medias-Mac-mini""}")
-    NxCheck(r, "reply read", reply.name + " " + reply.address + " " + reply.id, "Medias-Mac-mini http://192.168.4.79:8096 fb66")
+    reply = NxMbDiscoveryReply("{""Address"":"" http://192.0.2.79:8096 "",""Id"":""a7c1"",""Name"":""Den Server""}")
+    NxCheck(r, "reply read", reply.name + " " + reply.address + " " + reply.id, "Den Server http://192.0.2.79:8096 a7c1")
     reply = NxMbDiscoveryReply("{""Address"":""http://10.0.0.2:8096"",""Id"":""x"",""Name"":""""}")
     NxCheck(r, "reply with no name is named by its address", reply.name, "http://10.0.0.2:8096")
     NxCheck(r, "reply with no Id is not a server", NxToStr(NxMbDiscoveryReply("{""Address"":""http://10.0.0.2:8096""}") = invalid), "true")
@@ -53,11 +53,11 @@ function NxRunSignInFlowTests() as Integer
     NxCheck(r, "enabled false", FormatJson(NxSignInQuickConnectEnabled(200, " false" + Chr(10))), "false")
     NxCheck(r, "enabled 404 (Emby 4.10)", FormatJson(NxSignInQuickConnectEnabled(404, "The file '/QuickConnect/Enabled' could not be found.")), "null")
     NxCheck(r, "enabled web page", FormatJson(NxSignInQuickConnectEnabled(200, "<html></html>")), "null")
-    ' Captured from Jellyfin 12.2.0 and Emby 4.10.1.0 (Ids shortened).
-    jf = NxSignInPublicInfo(ParseJson("{""LocalAddress"":""http://127.0.0.1:8096"",""ServerName"":""Living Room"",""Version"":""12.2.0"",""ProductName"":""Jellyfin Server"",""OperatingSystem"":"""",""Id"":""c573338c"",""StartupWizardCompleted"":true}"))
-    NxCheck(r, "public info Jellyfin", jf.id + " " + jf.name + " " + jf.kind, "c573338c Living Room jellyfin")
-    em = NxSignInPublicInfo(ParseJson("{""LocalAddresses"":[],""RemoteAddresses"":[],""ServerName"":""Medias-Mac-mini"",""Version"":""4.10.1.0"",""Id"":""8844f187""}"))
-    NxCheck(r, "public info Emby", em.id + " " + em.name + " " + em.kind, "8844f187 Medias-Mac-mini emby")
+    ' Shaped as Jellyfin 12.2.0 and Emby 4.10.1.0 answer, with made-up names and Ids.
+    jf = NxSignInPublicInfo(ParseJson("{""LocalAddress"":""http://127.0.0.1:8096"",""ServerName"":""Living Room"",""Version"":""12.2.0"",""ProductName"":""Jellyfin Server"",""OperatingSystem"":"""",""Id"":""0f1e2d3c"",""StartupWizardCompleted"":true}"))
+    NxCheck(r, "public info Jellyfin", jf.id + " " + jf.name + " " + jf.kind, "0f1e2d3c Living Room jellyfin")
+    em = NxSignInPublicInfo(ParseJson("{""LocalAddresses"":[],""RemoteAddresses"":[],""ServerName"":""Den Server"",""Version"":""4.10.1.0"",""Id"":""9a8b7c6d""}"))
+    NxCheck(r, "public info Emby", em.id + " " + em.name + " " + em.kind, "9a8b7c6d Den Server emby")
     NxCheck(r, "no Id is not a server", NxToStr(NxSignInPublicInfo(ParseJson("{""ServerName"":""router""}")) = invalid), "true")
     NxCheck(r, "a web page is not a server", NxToStr(NxSignInPublicInfo(NxParseJsonBody("<!doctype html>")) = invalid), "true")
     users = NxSignInPublicUsers(ParseJson("[{""Name"":""avsync"",""Id"":""u1"",""HasPassword"":true},{""Name"":""kids"",""Id"":""u2"",""HasPassword"":false},{""Name"":"""",""Id"":""u3""},{""Name"":""no id""}]"))
@@ -131,6 +131,50 @@ function NxRunSignInFlowTests() as Integer
     got = NxSignInCheck("10.0.0.7", fake)
     NxCheck(r, "a timeout stops the check", got.reason + " " + got.code.ToStr() + " " + fake.asked.Count().ToStr(), "unreachable -28 1")
     NxCheck(r, "not an address", NxSignInCheck("   ", NxSignInFake({}, [])).reason, "notAServer")
+
+    ' The whole check stops at 12 s, each request at 8 s (the spec).
+    fake = NxSignInFake({
+        "http://192.0.2.5/System/Info/Public": { code: 200, text: embyInfo },
+        "http://192.0.2.5/Users/Public": { code: 200, text: "[{""Name"":""dad"",""Id"":""d"",""HasPassword"":false}]" }
+    }, ["http://192.0.2.5:8096"])
+    fake.delays = { "http://192.0.2.5:8096": 7000, "http://192.0.2.5/System": 4000, "http://192.0.2.5/Users": 2000 }
+    got = NxSignInCheck("192.0.2.5", fake)
+    NxCheck(r, "12 s: found at 11 s, no time left for the users", got.server.url + " " + got.server.users.Count().ToStr() + " " + fake.clock.ToStr(), "http://192.0.2.5 0 12000")
+    fake = NxSignInFake({ "http://192.0.2.6/System/Info/Public": { code: 200, text: embyInfo } }, ["http://192.0.2.6:8096"])
+    fake.delays = { "http://192.0.2.6:8096": 8000, "http://192.0.2.6/System": 5000 }
+    got = NxSignInCheck("192.0.2.6", fake)
+    NxCheck(r, "12 s: the second address runs out of time", got.reason + " " + got.code.ToStr() + " " + fake.clock.ToStr(), "unreachable -28 12000")
+    fake = NxSignInFake({}, [])
+    fake.delays = { "http://192.0.2.7:8096": 20000 }
+    got = NxSignInCheck("http://192.0.2.7:8096", fake)
+    NxCheck(r, "8 s: one request", got.reason + " " + got.code.ToStr() + " " + fake.clock.ToStr(), "unreachable -28 8000")
+
+    ' ── Finishing a sign-in, and the tour's dry run ──
+    saver = { calls: 0, save: NxSignInTestSave }
+    NxCheck(r, "finish: saved for real", NxSignInFinish(false, { token: "t", userId: "u" }, saver) + " " + saver.calls.ToStr(), "signedIn 1")
+    saver = { calls: 0, save: NxSignInTestSave }
+    NxCheck(r, "finish: a dry run saves nothing", NxSignInFinish(true, { token: "t", userId: "u" }, saver) + " " + saver.calls.ToStr(), "signedIn 0")
+    NxCheck(r, "finish: the dry run's stand-in", NxSignInFinish(true, NxSignInDryRunAuth(), saver) + " " + saver.calls.ToStr(), "signedIn 0")
+    NxCheck(r, "finish: refused", NxSignInFinish(false, "", saver) + " " + saver.calls.ToStr(), "refused 0")
+    NxCheck(r, "finish: not reached", NxSignInFinish(false, invalid, saver) + " " + saver.calls.ToStr(), "unreached 0")
+    g = GetGlobalAA()
+    g.nxDryRunClientId = "dry-run-test"
+    NxCheck(r, "a dry run's install id is its own", NxPlexClientId(), "dry-run-test")
+    ' On a TV, the dry run leaves the registry as it was, compared by a hash
+    ' of every section, key and value (none is printed). A saver that would
+    ' write if it were called stands in for the real one.
+    if NxTestRuntime() = "device" then
+        before = NxSignInRegistryDigest()
+        tripwire = { calls: 0, save: NxSignInTripwireSave }
+        NxSignInFinish(true, NxSignInDryRunAuth(), tripwire)
+        NxPlexClientId()
+        after = NxSignInRegistryDigest()
+        if tripwire.calls > 0 then CreateObject("roRegistry").Delete("nxSignInTripwire")
+        NxCheck(r, "a dry run never writes the registry", NxToStr(after = before) + " " + tripwire.calls.ToStr(), "true 0")
+    else
+        print "  skip the registry check: this interpreter has no registry"
+    end if
+    g.Delete("nxDryRunClientId")
 
     ' ── What the viewer reads ──
     NxCheck(r, "msg not a server", NxSignInCheckMessage("notAServer", 0, "jellyfin"), NxSignInCopy().notAServer)
@@ -253,11 +297,27 @@ end function
 ' zero: every request refused by NxServerTransfer (code 0). timeout: a URL
 ' prefix that times out (-28). asked: every URL requested.
 function NxSignInFake(routes as Object, refused as Object) as Object
-    return { routes: routes, refused: refused, asked: [], zero: false, timeout: "", fetch: NxSignInFakeFetch }
+    return { routes: routes, refused: refused, asked: [], zero: false, timeout: "", delays: {}, clock: 0, fetch: NxSignInFakeFetch, elapsedMs: NxSignInFakeElapsed }
 end function
 
-function NxSignInFakeFetch(url as String) as Object
+function NxSignInFakeElapsed() as Integer
+    return m.clock
+end function
+
+' delays: URL prefix to the ms an answer takes on the fake clock; one that
+' takes longer than the request may answers -28 when its time is up.
+function NxSignInFakeFetch(url as String, timeoutMs = 8000 as Integer) as Object
     m.asked.Push(url)
+    delay = 0
+    ' Case-blind: on a TV an AA literal's keys come back lowercased.
+    for each prefix in m.delays
+        if LCase(Left(url, Len(prefix))) = LCase(prefix) then delay = m.delays[prefix]
+    end for
+    if delay > timeoutMs then
+        m.clock = m.clock + timeoutMs
+        return { code: -28, text: "" }
+    end if
+    m.clock = m.clock + delay
     if m.zero then return { code: 0, text: "" }
     if m.timeout <> "" and Left(url, Len(m.timeout)) = m.timeout then return { code: -28, text: "" }
     for each prefix in m.refused
@@ -265,4 +325,35 @@ function NxSignInFakeFetch(url as String) as Object
     end for
     if m.routes.DoesExist(url) then return m.routes[url]
     return { code: 404, text: "not found" }
+end function
+
+sub NxSignInTestSave(auth as Object)
+    m.calls = m.calls + 1
+end sub
+
+' Writes a section of its own if it is ever called, so a dry run that saved
+' would show in the registry's hash; the test deletes it again.
+sub NxSignInTripwireSave(auth as Object)
+    m.calls = m.calls + 1
+    sec = CreateObject("roRegistrySection", "nxSignInTripwire")
+    sec.Write("called", "1")
+    sec.Flush()
+end sub
+
+' A SHA-1 of every registry section, key and value, so two can be compared
+' without printing a value (the registry holds sign-in tokens).
+function NxSignInRegistryDigest() as String
+    d = CreateObject("roEVPDigest")
+    d.Setup("sha1")
+    ba = CreateObject("roByteArray")
+    for each name in CreateObject("roRegistry").GetSectionList()
+        sec = CreateObject("roRegistrySection", name)
+        keys = sec.GetKeyList()
+        values = sec.ReadMulti(keys)
+        for each k in keys
+            ba.FromAsciiString(name + Chr(10) + k + Chr(10) + NxToStr(values[k]) + Chr(10))
+            d.Update(ba)
+        end for
+    end for
+    return d.Final()
 end function

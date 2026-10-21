@@ -21,6 +21,9 @@
     <!-- tests/signin only: "none" or "several" stands in for the network
          search, as upstream's -uiTestDiscovery. -->
     <field id="discoveryFixture" type="string" />
+    <!-- tests/signin only: a dry run. A sign-in is never asked for or saved
+         (MediaBrowserSignInTask), so a TV that is signed in stays as it was. -->
+    <field id="dryRun" type="boolean" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/util/QrCode.brs" />

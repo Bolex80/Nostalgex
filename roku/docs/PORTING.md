@@ -224,8 +224,8 @@ Where the Roku does it differently:
   has no Local Network prompt, so there is no second search after one.
 - **No demo mode.** The store's test credentials stand in for it.
 - **The logo** is the port's own wordmark.
-- **The Plex library picker** starts on CONTINUE, as upstream's now does, but
-  keeps its old row look.
+- **The Plex library picker** starts on CONTINUE and has the connect screens'
+  look, as upstream's now does.
 - **Words** say Roku where upstream's say Apple TV, and "Wi-Fi" has a plain hyphen.
 - **plex.tv unreachable at launch.** With a saved sign-in and the guide up, the
   launch check keeps its own line ("then press OK to try again"): that screen

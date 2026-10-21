@@ -6,6 +6,8 @@ end sub
 
 sub runAction()
     action = m.top.action
+    ' A dry run (the sign-in tour) writes nothing: no install id either.
+    if m.top.dryRun then GetGlobalAA().nxDryRunClientId = "dry-run-" + CreateObject("roDeviceInfo").GetRandomUUID()
     if action = "discover" then
         m.top.found = NxMbDiscover(m.top.kind)
         print "mediabrowser: "; m.top.found.Count(); " answers on this network"
@@ -68,7 +70,11 @@ sub quickConnect()
             return
         end if
         if stepNow = "approved" then
-            finish(NxMbQuickConnectFinish(s.base, start.secret))
+            if m.top.dryRun then
+                finish(NxSignInDryRunAuth())
+            else
+                finish(NxMbQuickConnectFinish(s.base, start.secret))
+            end if
             return
         end if
     end while
@@ -88,7 +94,11 @@ sub check()
 end sub
 
 sub password()
-    finish(NxMbSignIn(m.top.server.base, m.top.username, m.top.password))
+    if m.top.dryRun then
+        finish(NxSignInDryRunAuth())
+    else
+        finish(NxMbSignIn(m.top.server.base, m.top.username, m.top.password))
+    end if
     m.top.password = ""
 end sub
 
@@ -99,18 +109,28 @@ sub finish(auth as Dynamic)
         print "mediabrowser: sign-in answered after Back; not saved"
         return
     end if
-    if auth = invalid then
-        fail(NxSignInCheckMessage("unreachable", 0, m.top.server.kind))
+    s = m.top.server
+    result = NxSignInFinish(m.top.dryRun, auth, { server: s, save: NxMbSaverSave })
+    if result = "unreached" then
+        fail(NxSignInCheckMessage("unreachable", 0, s.kind))
         return
     end if
-    if type(auth) <> "roAssociativeArray" then
+    if result = "refused" then
         fail(NxSignInCopy().incorrectPassword)
         return
     end if
-    s = m.top.server
-    NxMbSaveSignIn(s.kind, s.base, { name: s.name, id: NxToStr(s.id) }, auth)
-    print "mediabrowser: signed in to "; s.kind
+    if m.top.dryRun then
+        print "mediabrowser: dry run: signed in to "; s.kind; ", nothing saved"
+    else
+        print "mediabrowser: signed in to "; s.kind
+    end if
     m.top.status = "signedIn"
+end sub
+
+' NxSignInFinish's saver; m is the saver, holding the task's server.
+sub NxMbSaverSave(auth as Object)
+    s = m.server
+    NxMbSaveSignIn(s.kind, s.base, { name: s.name, id: NxToStr(s.id) }, auth)
 end sub
 
 sub fail(message as String)

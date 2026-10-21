@@ -3,6 +3,10 @@
 
 sub init()
     m.connect = m.top.FindNode("connect")
+    ' A dry run: finishing a Jellyfin or Emby sign-in here saves nothing and
+    ' asks no server, so the TV's own sign-in (and the store build's, which
+    ' shares its saved data) stays as it was.
+    m.connect.dryRun = true
     m.connect.ObserveField("done", "onDone")
     m.connect.ObserveField("plexCancel", "onPlexCancel")
     m.connect.SetFocus(true)

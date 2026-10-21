@@ -9,6 +9,7 @@ sub runSignIn()
     token = NxPlexLoadToken()
     ' No saved sign-in: a first run, or the app deleted and installed again.
     fresh = token = ""
+    rejected = false
     account = invalid
     if token <> "" then
         m.top.status = "checking"
@@ -22,6 +23,7 @@ sub runSignIn()
             NxPlexClearAuth()
             token = ""
             fresh = true
+            rejected = true
         end if
     end if
 
@@ -30,8 +32,14 @@ sub runSignIn()
         out = {}
         pin = NxPlexCreatePin(out)
         if pin = invalid then
-            ' On the first screen (MainScene), where CONNECT TO PLEX is.
-            fail(NxSignInPlexMessage(NxNumberOr0(out.code)))
+            if rejected then
+                ' At launch, after plex.tv refused the saved sign-in: MainScene's
+                ' own screen, where OK tries again; CONNECT TO PLEX isn't there.
+                fail("Can't reach plex.tv. Check the TV's internet connection, then press OK to try again.")
+            else
+                ' On the first screen (MainScene), where CONNECT TO PLEX is.
+                fail(NxSignInPlexMessage(NxNumberOr0(out.code)))
+            end if
             return
         end if
         m.top.code = pin.code

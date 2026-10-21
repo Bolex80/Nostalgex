@@ -13,6 +13,9 @@
     <field id="password" type="string" />
     <!-- Set true to end a Quick Connect wait, or drop a sign-in answered after Back. -->
     <field id="cancel" type="boolean" />
+    <!-- The sign-in tour's dry run (ConnectView.dryRun): no sign-in is asked
+         for or saved, and no install id is written. -->
+    <field id="dryRun" type="boolean" />
     <!-- found | checked | code | signedIn | error | rejected. Not "state": every Task has one. -->
     <field id="status" type="string" alwaysNotify="true" />
     <!-- discover: [{ name, address, id }] -->
