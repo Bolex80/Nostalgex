@@ -43,7 +43,8 @@ jobs:
               - 'terms.html'
               - '404.html'
               - 'styles.css'
-              - 'tuner.css'
+              - 'tuner/**'
+              - '.dockerignore'
               - 'channels.json'
               - 'franchises.json'
               - 'api/**'
@@ -93,6 +94,17 @@ jobs:
               - 'scripts/nostalgex-signin-smoke.mjs'
               - 'scripts/signin-golden.json'
               - 'scripts/nostalgex-jellyfin-quick-connect-smoke.mjs'
+              # The tuner stays apart from the site: npm run test:tuner-isolation reads these.
+              - 'plex-tuner.html'
+              - 'tuner/**'
+              - 'scripts/tuner-isolation-check.mjs'
+              - 'vite.config.js'
+              - '.dockerignore'
+              - 'vercel.json'
+              - 'scripts/site-chrome.mjs'
+              - 'scripts/build-blog.mjs'
+              - 'scripts/build-bundles.mjs'
+              - 'scripts/site-media.mjs'
             docker:
               - '.github/workflows/ci.yml'
               - '.github/workflows/docker.yml'
@@ -101,8 +113,9 @@ jobs:
               - 'docker/**'
               - 'vite.config.*'
               - 'scripts/selfhost-build.mjs'
-              - 'tuner.css'
+              - 'tuner/**'
               - 'web-tuner.html'
+              - 'plex-tuner.html'
               - 'scripts/tuner-version.mjs'
               - 'package.json'
               - 'package-lock.json'
@@ -188,6 +201,11 @@ jobs:
       # Both builds carry package.json "tunerVersion" (the Settings version line).
       - name: Tuner version in both builds
         run: npm run test:tuner-version:builds
+
+      # A site-only edit (styles.css, app.js, index.html, site-chrome, public/) must not
+      # change one byte the tuner ships, hosted or Docker.
+      - name: Tuner untouched by site-only edits
+        run: npm run test:tuner-isolation:builds
 
   docker-smoke:
     name: Docker image (build and run, no push)
