@@ -37,8 +37,5 @@
     <Rectangle width="1920" height="1080" color="0x000000FF" />
     <Group id="left" />
     <Group id="right" />
-    <!-- Which build this is, before any sign-in exists, as upstream's
-         connect screen: a support report has to be able to say. -->
-    <Label id="version" translation="[100,990]" color="0xFFFFFF40" />
   </children>
 </component>
