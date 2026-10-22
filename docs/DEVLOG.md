@@ -3,6 +3,17 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (/apple-tv linked from the home page and the footers)
+
+**Shipped.** Nothing until this lands on main. Branch `site/link-apple-tv`.
+
+**Why.** Chad approved `/apple-tv` and asked for it to be linked: the yellow Apple TV tile on the home page and the footer link, renamed from "Apple TV app" to "Apple TV".
+
+**Changed.**
+- `index.html`: the Apple TV tile goes to `/apple-tv` instead of the App Store. Same look.
+- The footer on every site page now says "Apple TV" and goes to `/apple-tv`: the eight static pages with a footer, and `scripts/site-chrome.mjs` for the blog and the channel guide. The buttons to the App Store, the nav's "Get the tvOS app" included, still go straight there with their `ct`.
+- The tuner pages are left as they are, so `web-tuner.html` keeps its own footer, which still says "Apple TV app" and goes to the App Store. Their build output is unchanged.
+
 ## 2026-10-21 (the web tuner, apart from the marketing site)
 
 **Shipped.** With the sign-in in the entry below: the web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.6` from the same commit. Nothing should look different.

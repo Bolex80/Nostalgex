@@ -153,7 +153,7 @@ export function renderFooter({ includeEmby = true } = {}) {
         <p>Retro cable TV for your own library.</p>
       </div>
       <nav class="footer-links" aria-label="Footer">
-        <a href="${APPLE_TV_URL}" target="_blank" rel="noopener">Apple TV app</a>
+        <a href="/apple-tv">Apple TV</a>
         <a href="/web-tuner">Web tuner</a>
         <a href="/plex">Plex</a>
         <a href="/jellyfin">Jellyfin</a>${embyLink}
