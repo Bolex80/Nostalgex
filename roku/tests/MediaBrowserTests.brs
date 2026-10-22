@@ -21,7 +21,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "requests", fetcher.requests.Join(" | "), NxList(v.requests).Join(" | "))
         NxCheck(r, "item count", got.Count().ToStr(), NxList(v.items).Count().ToStr())
         ' Port-only fields: none reaches the filter or schedule.
-        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true }
+        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true }
         n = NxMinInt(got.Count(), NxList(v.items).Count())
         for i = 0 to n - 1
             want = v.items[i]
@@ -40,6 +40,21 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
                 if not wantKeys.DoesExist(LCase(k)) and not extras.DoesExist(k) then NxCheck(r, label + " has no field " + k, "present", "absent")
             end for
             NxCheck(r, label + " serverIndex", NxToStr(it.serverIndex), "2")
+        end for
+        ' The best source's bitrate reaches the airing the player tunes
+        ' (NxMbVideoQuery).
+        byKey = {}
+        for each it in got
+            byKey[NxToStr(it.ratingKey)] = it
+        end for
+        bitrates = [["27ef0d2ba6cf3fe966bfc892bb26ac05", "19269041"], ["m-two", "9000000"], ["m-nobr", ""]]
+        for each pair in bitrates
+            it = byKey[pair[0]]
+            NxCheck(r, "bitrate " + pair[0] + " scanned", NxToStr(it <> invalid), "true")
+            if it <> invalid then
+                NxCheck(r, "bitrate " + pair[0], NxToStr(it.bitrate), pair[1])
+                NxCheck(r, "bitrate " + pair[0] + " on the airing", NxToStr(NxGuideBlock({ item: it, startSec: 0, endSec: 60 }).bitrate), pair[1])
+            end if
         end for
     end if
 
@@ -106,6 +121,10 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "audio, no dolby, stereo", NxMbAudioQuery(false, false, false), "&AudioCodec=aac&TranscodingMaxAudioChannels=2")
     NxCheck(r, "audio, all of it", NxMbAudioQuery(true, true, true), "&AudioCodec=aac,ac3,eac3&TranscodingMaxAudioChannels=6")
     NxCheck(r, "audio, ac3 only", NxMbAudioQuery(true, false, false), "&AudioCodec=aac,ac3&TranscodingMaxAudioChannels=2")
+    NxCheck(r, "video, no bitrate copies", NxMbVideoQuery(invalid), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, 19 Mb/s copies", NxMbVideoQuery(19269041), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, 20 Mb/s copies", NxMbVideoQuery(20000000), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, 29 Mb/s re-encodes", NxMbVideoQuery(29000000), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
     NxCheck(r, "audio, eac3 only, 5.1", NxMbAudioQuery(false, true, true), "&AudioCodec=aac,eac3&TranscodingMaxAudioChannels=6")
 
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"

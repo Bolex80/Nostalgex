@@ -140,13 +140,15 @@ end function
 
 ' mediaInfo: the best source's id, container, and first video and audio
 ' codecs, with the video's profile and the audio's channel count for the
-' direct-play decision (source/util/DirectPlay.brs).
+' direct-play decision (source/util/DirectPlay.brs), and the source's
+' bitrate for the server stream's (NxMbVideoQuery).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
+    if NxIsNumber(src.Bitrate) then out.bitrate = src.Bitrate
     v = NxMbStream(src, "Video")
     if v <> invalid then
         if NxTruthy(v.Codec) then out.videoCodec = LCase(NxToStr(v.Codec))
@@ -235,6 +237,7 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         audioCodec: mi.audioCodec,
         videoProfile: mi.videoProfile,
         audioChannels: mi.audioChannels,
+        bitrate: mi.bitrate,
         genres: genres,
         rating: NxOr(jf.CommunityRating, 0),
         userRating: 0,
@@ -272,6 +275,7 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         audioCodec: mi.audioCodec,
         videoProfile: mi.videoProfile,
         audioChannels: mi.audioChannels,
+        bitrate: mi.bitrate,
         genres: showGenres,
         rating: NxOr(show.CommunityRating, 0),
         userRating: 0,

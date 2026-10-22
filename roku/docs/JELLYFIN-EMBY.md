@@ -238,6 +238,39 @@ servers, driven over ECP.
   too. The port at 2 s
   joined two films part-way through Emby with picture in 1.4 and 3.0 s and
   no stall.
+  Short segments weren't enough for Chad's file: The Matrix Revolutions
+  (4K, Dolby Vision 8.1) has keyframes 6 s apart on average and up to 10 s,
+  at 41 to 55 Mb/s in the stretch measured, and Emby's `SegmentLength=1`
+  still gave 53 MB pieces (#55, where the remux he first reported is
+  29 Mb/s). So over 20 Mb/s the request now asks for
+  `AllowVideoStreamCopy=false`, and always for
+  `VideoBitrate=40000000&MaxWidth=3840`, the Apple TV's Auto ceiling
+  (`StreamQuality`), where it asked for 120 Mb/s so the server would always
+  copy (`NxMbVideoQuery`). Re-encoded, Emby makes H.264 with a keyframe at
+  every segment. Measured on the lab Emby and the 43S45 with one-minute 4K
+  HDR10 clips, keyframes 10 s apart, one cut from 12 Angry Men (46 Mb/s)
+  and two from La La Land (41.8 and 26.5 Mb/s, film grain):
+  - Copied at 2 s segments, the 46 and the 26.5 Mb/s clips stopped with
+    the same error.
+  - The ceiling alone doesn't re-encode the 26.5 Mb/s clip: Emby decides by
+    the file's average bitrate, so 40 Mb/s copied it, and copied the real
+    4K 12 Angry Men (19 Mb/s). With `AllowVideoStreamCopy=false` both
+    re-encoded at 4K, and the 26.5 Mb/s clip played in the port (the test
+    file swapped in for every Emby airing), picture in 2.1 to 2.8 s over
+    four tunes, no error.
+  - 12 Angry Men played copied, from the start, 10 minutes in and an hour
+    in, pieces up to 31.9 MB, which is why the line is 20 Mb/s and not
+    lower.
+  - Without `MaxWidth`, Emby re-encoded to 1080p (at 20 and 40 Mb/s); the
+    La La Land clip came out at about 1.6 Mb/s, soft and blocky next to the
+    original on the TV. At 4K (about 4.6 Mb/s out, set by Emby's own CRF 23
+    and `veryfast`, whatever the ceiling) it looked a little less sharp
+    than the original, with a little more compression; the film grain may
+    be part of that.
+  - Emby re-encoded 4K to 4K at about 4× real time on an i7-12700K,
+    software only (to 1080p, 5 to 8×). The 8-bit H.264 keeps the HDR10
+    tags without tone mapping: fine on the 43S45, unseen on a TV without
+    HDR. Jellyfin untried.
 
 ## How it fits the app
 
