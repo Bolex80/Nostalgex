@@ -141,7 +141,9 @@ trap cleanup EXIT
 cleanup
 scripts/stage.sh "$stage"
 printf '{"supabaseURL":"%s","anonKey":"%s"}\n' "$supabase_url" "$supabase_key" >"$stage"/data/enrichment.json
-build=$(cd "$stage" && find . -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
+# LC_ALL=C: sort's order, and so the hash, would otherwise follow the shell's
+# locale (the 1.0.2 tree hashed cca0d38 under C and d27182e under en_US).
+build=$(cd "$stage" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
 printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
 (cd "$stage" && zip -qr ../"$(basename "$zip")" .)
 echo "build: $build ($(find "$stage" -type f | wc -l | tr -d ' ') files, $(($(wc -c <"$zip") / 1024)) KB zipped)"

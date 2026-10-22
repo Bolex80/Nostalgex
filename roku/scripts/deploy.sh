@@ -64,7 +64,9 @@ fi
 # reused the old one's filter results (components/LibraryTask.brs
 # NxBuildKey). A hash of every staged file, so it holds from a copy without
 # git too (the personal repo's build/).
-build=$(cd "$stage" && find . -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
+# LC_ALL=C: sort's order, and so the hash, would otherwise follow the shell's
+# locale (the 1.0.2 tree hashed cca0d38 under C and d27182e under en_US).
+build=$(cd "$stage" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
 printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
 echo "build: $build"
 (cd "$stage" && zip -qr ../nostalgex-roku.zip .)
