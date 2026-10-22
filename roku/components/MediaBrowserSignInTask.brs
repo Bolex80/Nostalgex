@@ -29,7 +29,7 @@ end sub
 sub probe()
     result = NxSignInCheck(m.top.address, NxSignInLiveSend())
     if result.server = invalid then
-        fail(NxSignInCheckMessage(result.reason, result.code, m.top.kind))
+        fail(NxSignInCheckMessage(result.reason, result.code, m.top.kind, m.top.address))
         return
     end if
     s = result.server

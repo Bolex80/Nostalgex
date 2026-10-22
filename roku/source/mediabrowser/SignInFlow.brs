@@ -201,12 +201,17 @@ end function
 
 ' What the viewer reads when the check fails. The unreachable lines are
 ' upstream's AppState.serverUnreachableMessage, by curl code in place of
-' URLError, with the Roku named where it names the Apple TV.
-function NxSignInCheckMessage(reason as String, code as Integer, kind as String) as String
+' URLError, with the Roku named where it names the Apple TV. `address` is
+' what was typed: a .local name that can't be found says why and points at
+' the IP, as a Roku doesn't look up .local names (NxIsPrivateHost).
+function NxSignInCheckMessage(reason as String, code as Integer, kind as String, address = "" as String) as String
     name = NxKindName(kind)
     if reason = "notAServer" then return NxSignInCopy().notAServer
     if reason = "refused" then return "Nostalgex reaches a server over HTTPS, or over plain HTTP only on your home network. Use the server's home-network address, or an https:// one."
-    if code = -6 then return "Could not find that host. Check the address."
+    if code = -6 then
+        if NxSignInIsLocalName(address) then return "Could not find that host. A Roku can't look up .local names, so type the server's IP address."
+        return "Could not find that host. Check the address."
+    end if
     if code = -7 then return "Nothing answered at that address and port. Check the port (Jellyfin and Emby default to 8096)."
     if code = -28 then return "The " + name + " server took too long to answer. Check the address, or that the Roku can reach it."
     if code = -35 or code = -51 or code = -53 or code = -58 or code = -59 or code = -60 or code = -77 or code = -83 then
@@ -214,6 +219,15 @@ function NxSignInCheckMessage(reason as String, code as Integer, kind as String)
     end if
     if code = 0 then return "Could not reach the " + name + " server. Check the address."
     return "Could not reach the " + name + " server (error " + code.ToStr() + "). Check the address."
+end function
+
+' True when the typed address's host is a .local name.
+function NxSignInIsLocalName(address as String) as Boolean
+    cands = NxMbAddressCandidates(address)
+    if cands.Count() = 0 then return false
+    h = LCase(NxUrlHost(cands[0]))
+    if Right(h, 1) = "." then h = Left(h, Len(h) - 1)
+    return Len(h) > 6 and Right(h, 6) = ".local"
 end function
 
 ' A plex.tv/link code that couldn't be had, by the request's code: an HTTP
