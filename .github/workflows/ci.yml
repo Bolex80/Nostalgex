@@ -94,8 +94,8 @@ jobs:
               - 'scripts/nostalgex-signin-smoke.mjs'
               - 'scripts/signin-golden.json'
               - 'scripts/nostalgex-jellyfin-quick-connect-smoke.mjs'
-              # The tuner stays apart from the site: npm run test:tuner-isolation reads these.
-              - 'plex-tuner.html'
+              # The tuner stays apart from the site: npm run test:tuner-isolation reads these
+              # (plus plex-tuner.html, listed above).
               - 'tuner/**'
               - 'scripts/tuner-isolation-check.mjs'
               - 'vite.config.js'

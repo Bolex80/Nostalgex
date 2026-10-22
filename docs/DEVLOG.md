@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-21 (the web tuner, apart from the marketing site)
 
-**Shipped.** Nothing. Branch `web/separate`, on top of `web/signin`. Not on main.
+**Shipped.** With the sign-in in the entry below: the web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.6` from the same commit. Nothing should look different.
 
 **Why.** Chad: "anything that touches the marketing site should never affect the web tuner or the docker container - those should feel very separate." Today it did. `web-tuner.html` linked the site's `styles.css` and `app.js`, and the hosted build compiled it with the site, so `dist/web-tuner.html` loaded the very same `assets/styles-*.css` and `assets/app-*.js` as the home page. The Docker build bundled the same two files. A site CSS change reached the tuner's connect page and the next Docker image.
 
@@ -20,6 +20,7 @@ Commits carry the detail of *what*; this carries the *why*.
 - The Docker context takes `tuner/` and no site file.
 - The connect page's analytics loader is the tuner's own copy, hosted only as before.
 - `npm run test:tuner-isolation` (in `npm test`) fails when a tuner page loads a site file, `tuner/` imports anything, a site generator reads a tuner page, either build takes the other's pages, the Docker context lets a site file in, or `vercel.json`'s CSP drops a source the tuner loads. `npm run test:tuner-isolation:builds` (CI web job) builds a temporary copy, makes site-only edits (`styles.css`, `app.js`, `index.html`, `site-chrome.mjs`, a `public/` file), builds again, and fails unless every file the tuner ships hashes the same.
+- `tunerVersion` 1.0.6, and README's Docker lines point at `tuner-v1.0.6`.
 - `web/signin` also got a fix found here: on the hosted build Vite loaded the site stylesheet after the tuner's, so its `:focus-visible` rule squared off focused fields and buttons (2px corners) where Docker had the spec's 14px. The panel's corners now win in either order.
 
 **Measured.**
@@ -29,11 +30,11 @@ Commits carry the detail of *what*; this carries the *why*.
 - Signing in and tuning, headless: on the Docker build and on the hosted build, the lab Emby by typed address and a no-password user, then the guide loaded 11 items into 4 channels and started channel 406, no page errors. The Docker sign-in tour (Jellyfin Quick Connect in 2 presses, password, wrong password, Escape) passed as on `web/signin`.
 - `npm test`, `npm run build`, `build:selfhost` green.
 
-**Next.** Chad's look at the preview. The connect page can now change its own look without touching the site; that's a separate design step if he wants it.
+**Next.** Not tried in TV Bro on a Google TV yet. The connect page can now change its own look without touching the site; that would be a separate design step.
 
 ## 2026-10-21 (web tuner: the Apple TV sign-in, screen by screen)
 
-**Shipped.** Nothing. Branch `web/signin`, not pushed. A Vercel preview of the hosted page exists; Docker was built and run locally only. No `tunerVersion` bump: it goes out with whichever `tuner-v` tag Chad picks.
+**Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.6` from the same commit, together with the separation in the entry above.
 
 **Why.** The Apple TV app's connect screens were rebuilt for 1.0.28 (find the server first, Quick Connect by default, user tiles, focus you can see from the couch). The web tuner and Docker get the same flow so every product signs in the same way.
 
@@ -67,7 +68,7 @@ Commits carry the detail of *what*; this carries the *why*.
 - Not tried in TV Bro on a Google TV, or in Safari or Firefox.
 - No Swift test reads `signin-golden.json` yet: `SignInFlow` lives on `signin-redesign`. Roku has its own port, on `roku/signin`.
 
-**Next.** Chad's look at the preview. Then the separation of the tuner from the site.
+**Next.** See the entry above.
 
 ## 2026-10-21 (ratings from other countries count like their US equivalents, GitHub #41)
 
