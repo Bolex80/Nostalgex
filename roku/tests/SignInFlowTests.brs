@@ -198,6 +198,12 @@ function NxRunSignInFlowTests() as Integer
     ' ── What the viewer reads ──
     NxCheck(r, "msg not a server", NxSignInCheckMessage("notAServer", 0, "jellyfin"), NxSignInCopy().notAServer)
     NxCheck(r, "msg host", NxSignInCheckMessage("unreachable", -6, "jellyfin"), "Could not find that host. Check the address.")
+    localHint = "Could not find that host. A Roku can't look up .local names, so type the server's IP address."
+    NxCheck(r, "msg host .local", NxSignInCheckMessage("unreachable", -6, "jellyfin", "nas.local"), localHint)
+    NxCheck(r, "msg host .local with scheme and port", NxSignInCheckMessage("unreachable", -6, "emby", "http://NAS.Local.:8096/web"), localHint)
+    NxCheck(r, "msg host one word", NxSignInCheckMessage("unreachable", -6, "jellyfin", "nas"), "Could not find that host. Check the address.")
+    NxCheck(r, "msg host .localhost is not .local", NxSignInCheckMessage("unreachable", -6, "jellyfin", "nas.localhost"), "Could not find that host. Check the address.")
+    NxCheck(r, "msg .local, other error", NxSignInCheckMessage("unreachable", -7, "jellyfin", "nas.local"), "Nothing answered at that address and port. Check the port (Jellyfin and Emby default to 8096).")
     NxCheck(r, "msg timeout", NxSignInCheckMessage("unreachable", -28, "emby"), "The Emby server took too long to answer. Check the address, or that the Roku can reach it.")
     NxCheck(r, "msg certificate", NxSignInCheckMessage("unreachable", -60, "jellyfin"), "The server's HTTPS certificate is not trusted by the Roku (error -60).")
     NxCheck(r, "msg other", NxSignInCheckMessage("unreachable", -3, "jellyfin"), "Could not reach the Jellyfin server (error -3). Check the address.")
