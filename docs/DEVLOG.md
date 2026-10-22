@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-21 (Roku 1.0.3: the sign-in redesign and ratings from other countries)
+
+**Shipped.** Nothing yet. Branch `roku/1.0.3` = `roku/signin` on main `93419d9`, plus the build number and a fixed build hash; not pushed, not signed.
+
+**Why.** Chad's go for a Roku beta with the sign-in redesign (entry below) and the rating normaliser (`ad139fc`, GitHub #41). The beta runs 1.0.2, and the dashboard takes only a version past it.
+
+**Changed.**
+- `roku/manifest`: `build_version=3`.
+- `deploy.sh` and `release.sh` hash the staged files with `LC_ALL=C sort`: the hash followed the shell's locale, so the 1.0.2 tree hashed `cca0d38` under C and `d27182e` under en_US. The 1.0.3 tree hashes the same in both now.
+
+**Measured.** On the Streaming Stick Plus, `deploy.sh --test`: ALL TESTS PASSED, ratings 296, sign-in 97 (the dry-run registry check among them), lineup 154, DST golden 320. The 1.0.3 app build on a signed-in launch: the guide built, no errors. `release.sh --dry-run` passes to the signing step. Chad's sign-in on the stick unchanged.
+
+**Next.** Chad signs (`release.sh` asks for the key's password), then the upload to the beta.
+
 ## 2026-10-21 (Roku: the Apple TV sign-in redesign, ported)
 
 **Shipped.** Nothing. Branch `roku/signin` off main `93419d9` (after the ratings fix, the web sign-in and the Apple TV sign-in), pushed as a branch and not merged, for a Roku beta after Chad's go. Not in any package.
