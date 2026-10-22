@@ -3,6 +3,30 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-22 (Roku 1.0.4: sound from Jellyfin and Emby, Dolby as stereo AAC, the VERSION line)
+
+**Shipped.** Nothing yet. Branch `roku/1.0.4` = main `c21813e` (tydude001's #55, #53, #54, #56, #48 and #51, merged in that order) plus `build_version=4`. Not signed.
+
+**Why.** A Dolby film played silent on a Streaming Stick Plus set to stereo (Discussion #8). Measured there: Emby copied AC3 and E-AC-3 into the stream because the request offered them, and the Roku played no audio from fMP4 segments at all, on Emby and on Jellyfin, so any Jellyfin or Emby server stream sent as fMP4 was silent. #55 asks both servers for TS with only the audio the TV decodes, 2 channels unless it decodes 5.1 AAC. With it: #53 asks baseline H.264 as main (a Roku only names main and high, so these files had gone to the server since #46), #54 the hint for a .local name, #56 the password keyboard's voice domain (certification 4.12), #48 the VERSION line, #51 the off-TV tests in parallel.
+
+**Changed.**
+- `roku/manifest`: `build_version=4`.
+
+**Measured.** On the Streaming Stick Plus (Roku OS 15.3, audio stereo; it decodes no AC3, E-AC-3 or 6-channel AAC), Emby 4.10.1:
+- `tests/run.sh` on the six PRs merged locally in the same order (the same `roku/` tree as main `c21813e`): ALL TESTS PASSED in 126 s on macOS. `deploy.sh --test` from this branch: ALL TESTS PASSED, all 27 suites (filter 373 on the TV, 371 off it: the interpreter skips its 2 key-case vectors, as before). The app build hashes `dbd1441bc6e1`, the same as the local merge the stick tests ran on.
+- In the app: an AC3 5.1 airing and an E-AC-3 5.1 airing went to the server as `VideoCodec=h264,hevc&AudioCodec=aac&TranscodingMaxAudioChannels=2&SegmentContainer=ts`. Emby converted the audio to stereo AAC, the player reported `aac_adts`, and the picture came up in 1.5 s. Dennis the Menace (E-AC-3 2.0) with the same request in a throwaway player: `aac_adts`.
+- #53: a Constrained Baseline 3.1 MP4 (36 of the first 200 films on this Emby) plays direct with picture and AAC; a channel that had sent one to the server since #46 played it direct again.
+- #56: the password keyboard opens with no console warning. Voice entry needs a voice remote, so it wasn't tried.
+- #48: the VERSION line sits under the intro text on the connect screen.
+- The 1.0.4 app build on a signed-in launch: sign-in check ok, 19 channels in 2.9 s, launch complete in 7.9 s. Chad's Emby sign-in unchanged (registry compared before and after).
+
+**Half-done.**
+- Not heard yet. Chad listens on the stick. tydude measured the sync within 5 ms for HEVC 10-bit over TS joined about 30 minutes in, on his lab Emby and Jellyfin.
+- A 4K remux through the server fails on this stick: a 4K HEVC Dolby Vision 8.1 film at 29 Mb/s stops with error -3 ("Requested reservation ... is larger than the entire buffer"), over TS and over fMP4 alike, and the app moves on to the next airing. 1.0.3 played it direct, with picture and no sound. It goes to the server since #46 because its AC3 isn't decodable here; #55 doesn't change that. It needs its own fix.
+- Without `AudioStreamIndex` the server plays the file's default audio track (Portuguese and German on two test films). Queue item 12.
+
+**Next.** Sign on Chad's go, then the upload to beta 888351 and Publish on his go.
+
 ## 2026-10-22 (1.0.27 folds into 1.0.28)
 
 **Shipped.** Nothing. The project reads 1.0.28 (52), as on branch `build-52`, and the 1.0.28 changelog entry stays `released: false`.
