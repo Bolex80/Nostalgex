@@ -18,11 +18,13 @@
  *     builds again, and fails unless every file the tuner ships hashes the same: both
  *     tuner pages and everything they load from dist/, and all of dist-selfhost/.
  *     repoDir defaults to this checkout; point it at an older checkout to see the check
- *     fail there (the negative control).
+ *     fail there (the negative control). The copy holds only files git tracks or would
+ *     track: nothing gitignored (.env files, Secrets.xcconfig and the like) leaves the
+ *     checkout, and a secret-looking path stops the run.
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync, appendFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,11 +146,36 @@ function build(copy) {
   run(["build:selfhost"]);
 }
 
+/** Paths that may hold secrets. None of them is ever copied, even if git would track it. */
+const SECRET_PATH = /(?:^|\/)(?:\.env|\.vercel\/|Secrets|[^/]*\.secret|[^/]*\.p12$|[^/]*\.p8$|AuthKey_)/i;
+
+/**
+ * Copies the files git tracks, or would track (untracked but not ignored), into `copy`.
+ * Anything gitignored stays behind: .env files, Secrets.xcconfig, node_modules, builds.
+ * The tvOS app is left out too; the web build never reads it.
+ */
+function copyRepo(repo, copy) {
+  const listed = execFileSync("git", ["-C", repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+    .toString().split("\0").filter(Boolean);
+  const files = [...new Set(listed)].filter((f) => !f.startsWith("Nostalgex/") && !SECRET_PATH.test(f));
+  for (const f of files) {
+    const src = join(repo, f);
+    if (!existsSync(src) && !isSymlink(src)) continue; // tracked but deleted in this checkout
+    const dst = join(copy, f);
+    mkdirSync(dirname(dst), { recursive: true });
+    if (isSymlink(src)) symlinkSync(readlinkSync(src), dst);
+    else copyFileSync(src, dst);
+  }
+  const leaked = walk(copy).map((p) => relative(copy, p)).filter((p) => SECRET_PATH.test(p));
+  if (leaked.length) throw new Error(`refusing to build: secret-looking files copied: ${leaked.join(", ")}`);
+  return files.length;
+}
+function isSymlink(p) { try { return lstatSync(p).isSymbolicLink(); } catch { return false; } }
+
 function buildsCheck(repo) {
   const copy = mkdtempSync(join(tmpdir(), "nx-tuner-isolation-"));
   try {
-    execFileSync("rsync", ["-a", "--exclude", "node_modules", "--exclude", ".git", "--exclude", "dist", "--exclude", "dist-selfhost",
-      "--exclude", "Nostalgex", "--exclude", ".vercel", `${repo}/`, `${copy}/`]);
+    copyRepo(repo, copy);
     symlinkSync(join(repo, "node_modules"), join(copy, "node_modules"));
     build(copy);
     const before = tunerHashes(copy);
