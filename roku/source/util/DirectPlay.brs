@@ -33,9 +33,12 @@ function NxRokuVideoCodec(codec as String) as String
     return codec
 end function
 
-' Jellyfin and Emby say "constrained baseline", a subset of baseline.
+' A Roku names only main and high as H.264 profiles: a Streaming Stick Plus
+' says no to "baseline" and "constrained baseline" alike. Constrained
+' baseline, what Jellyfin and Emby name and what baseline files are in
+' practice, is a subset of main, so both are asked as main.
 function NxRokuVideoProfile(profile as String) as String
-    if profile = "constrained baseline" then return "baseline"
+    if profile = "baseline" or profile = "constrained baseline" then return "main"
     return profile
 end function
 
