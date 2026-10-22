@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-21 (Roku 1.0.3: the sign-in redesign and ratings from other countries)
 
-**Shipped.** Nothing yet. Branch `roku/1.0.3` = `roku/signin` on main `93419d9`, plus the build number and a fixed build hash; not pushed, not signed.
+**Shipped.** Roku beta 1.0.3 (channel 888351), signed and published 2026-10-22 09:29 UTC; package md5 `fe816755723e0cbed9697bc98cb66394` (in `roku/releases.tsv`). Branch `roku/1.0.3` = main `65c886f` (the sign-in redesign and the ratings fix) plus the build number and a fixed build hash. The dashboard's static analysis gave the same three known items as 1.0.2: the getUserData (RFI) error and two Authentication warnings.
 
 **Why.** Chad's go for a Roku beta with the sign-in redesign (entry below) and the rating normaliser (`ad139fc`, GitHub #41). The beta runs 1.0.2, and the dashboard takes only a version past it.
 
@@ -15,7 +15,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Measured.** On the Streaming Stick Plus, `deploy.sh --test`: ALL TESTS PASSED, ratings 296, sign-in 97 (the dry-run registry check among them), lineup 154, DST golden 320. The 1.0.3 app build on a signed-in launch: the guide built, no errors. `release.sh --dry-run` passes to the signing step. Chad's sign-in on the stick unchanged.
 
-**Next.** Chad signs (`release.sh` asks for the key's password), then the upload to the beta.
+**Next.** Testers' devices pick up 1.0.3 on Roku's own schedule (the stick still reported 1.0.2 just after publishing). The RFI item stays with the 2.2 sign-in question before a public submission.
 
 ## 2026-10-21 (Roku: the Apple TV sign-in redesign, ported)
 
