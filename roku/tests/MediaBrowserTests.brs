@@ -138,7 +138,9 @@ function NxRunDirectPlayTests() as Integer
     NxCheck(r, "no profile asked", NxToStr(q.video.DoesExist("Profile")), "false")
     NxCheck(r, "no channels asked", NxToStr(q.channels = invalid), "true")
     q = NxDecodeQueries({ videoCodec: "h264", videoProfile: "Constrained Baseline", audioCodec: "aac" })
-    NxCheck(r, "constrained baseline", q.video.Profile, "baseline")
+    NxCheck(r, "constrained baseline", q.video.Profile, "main")
+    q = NxDecodeQueries({ videoCodec: "h264", videoProfile: "baseline", audioCodec: "aac" })
+    NxCheck(r, "baseline", q.video.Profile, "main")
     q = NxDecodeQueries({})
     NxCheck(r, "nothing known", q.video.Codec + "|" + q.audio.Codec, "|")
 
