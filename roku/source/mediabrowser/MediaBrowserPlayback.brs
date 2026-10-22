@@ -93,6 +93,13 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     ' 2026-10-22), and TS carries the source timestamps, so a join stays in
     ' sync where fMP4's ran up to a GOP early (docs/JELLYFIN-EMBY.md).
     q = q + "&SegmentContainer=ts"
+    ' 2-second segments, not the servers' 6, so a piece of a 4K remux fits
+    ' the player's buffer: one stopped with error -3, "Requested reservation
+    ' (11065599+56589021) is larger than the entire buffer" (issue #58).
+    ' Plex sends 1 s. With the video copied the server cuts only at
+    ' keyframes, so a file whose keyframes are further apart still gets
+    ' longer pieces (docs/JELLYFIN-EMBY.md).
+    q = q + "&SegmentLength=2"
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
