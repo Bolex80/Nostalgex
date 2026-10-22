@@ -928,6 +928,8 @@ sub openKeyboard(field as String)
         if m.picked <> invalid then kb.title = "PASSWORD FOR " + UCase(m.picked.name)
         kb.text = m.password
         kb.textEditBox.secureMode = true
+        ' Voice keyboards take it as a password (Roku certification 4.12).
+        kb.keyboardDomain = "password"
     end if
     kb.buttons = ["OK"]
     kb.ObserveField("buttonSelected", "onKeyboardButton")
