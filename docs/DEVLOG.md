@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-21 (Roku: the Apple TV sign-in redesign, ported)
 
-**Shipped.** Nothing. Branch `roku/signin` off main `a2bc1bb`, pushed as a branch and not merged, for a Roku beta after Chad's go. Not in any package.
+**Shipped.** Nothing. Branch `roku/signin` off main `93419d9` (after the ratings fix, the web sign-in and the Apple TV sign-in), pushed as a branch and not merged, for a Roku beta after Chad's go. Not in any package.
 
 **Why.** Chad wants the same login on every platform, after the Apple TV's sign-in redesign (`signin-redesign`, `562c9f3`; spec in the internal `SIGNIN-FLOW.md`). The Roku took 4 presses to a Jellyfin Quick Connect code (counted from the code), asked the viewer to pick a found server and then Quick Connect, checked nothing but the address's kind before the password, closed its keyboards only from the dialog's own OK button (Back abandoned what was typed), and focus was a faint outline.
 
