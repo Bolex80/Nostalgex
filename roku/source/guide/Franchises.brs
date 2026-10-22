@@ -11,7 +11,7 @@
 ' (materializeDynamicChannels, applyBundleFilter), at the commit in
 ' data/UPSTREAM. The web tuner doesn't call the franchise builder, so the
 ' Apple TV app is the reference here; the maintainer asked for that on
-' Discussion #8 (docs/UPSTREAM.md). Cases are transcribed from
+' Discussion #8 (discussioncomment-18953180). Cases are transcribed from
 ' FranchiseSettingsTests.swift and FranchiseNumberingTests.swift
 ' (tests/FranchiseGuideTests.brs).
 '
