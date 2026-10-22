@@ -5,7 +5,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 ## 2026-10-21 (Apple TV sign-in: the search starts on its own, Quick Connect by default, focus you can see)
 
-**Shipped.** Nothing. Branch `signin-redesign` off main `2f68a9e`, meant for 1.0.28, with Chad's first review folded in. Not in any build. The 1.0.28 changelog entry is `released: false`.
+**Shipped.** Not yet. On main for 1.0.28 (from branch `signin-redesign`, rebased onto `5a4a873`); not in any build. The 1.0.28 changelog entry, shared with the ratings fix, stays `released: false`.
 
 **Why.** Chad: the Jellyfin and Emby sign-in took too many presses, and on every connect screen it was hard to tell which control the remote was on. Measured in the simulator first: a focused button differed from the rest only by an outline going from 55% to 100% and a fill from 8% to 16%, so an unfocused CONNECT TO PLEX looked brighter than a focused JELLYFIN; a fresh launch started with nothing focused, so the first press only found the screen; Jellyfin took 10 presses by Quick Connect and 15 by password, Emby 15.
 
