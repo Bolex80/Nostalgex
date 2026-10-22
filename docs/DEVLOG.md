@@ -3,6 +3,12 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-22 (1.0.27 folds into 1.0.28)
+
+**Shipped.** Nothing. The project reads 1.0.28 (52), as on branch `build-52`, and the 1.0.28 changelog entry stays `released: false`.
+
+**Changed.** 1.0.27 never ships on its own: build 52 carries everything in it, plus the new Jellyfin and Emby sign-in and the ratings fix. Its changelog entry folds into 1.0.28 (27 bullets, nothing dropped), so the site shows one entry when 1.0.28 ships. The version and build number come from `build-52`'s commit, because the changelog check wants an entry for the version the project reads.
+
 ## 2026-10-22 (publish Plex Apple TV sit-back alternative)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-apple-tv-app-sit-back-alternative`.
