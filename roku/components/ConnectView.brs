@@ -141,7 +141,13 @@ sub renderLeft()
     g.AppendChild(title)
     y = y + heightOf(title) + 28
     body = addText(g, m.copy.screenBody, "DMMono-Regular", 22, "0xFFFFFF73", y, 560, "left")
-    y = y + heightOf(body)
+    y = y + heightOf(body) + 28
+    ' Which build this is, before any sign-in exists, as upstream's connect
+    ' screen: a support report has to be able to say.
+    version = newLabel(NxVersionLabel(), "DMMono-Regular", 15, "0xFFFFFF40")
+    version.translation = [0, y]
+    g.AppendChild(version)
+    y = y + heightOf(version)
     g.translation = [100, Int(540 - y / 2)]
 end sub
 

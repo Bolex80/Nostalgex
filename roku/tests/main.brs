@@ -41,5 +41,6 @@ sub Main(args = invalid as Dynamic)
     failures = failures + NxRunMediaBrowserTests("pkg:/tests/vectors/mediabrowser.json", "pkg:/tests/fixtures/mediabrowser-server.json")
     failures = failures + NxRunSignInFlowTests()
     failures = failures + NxRunQrTests("pkg:/tests/vectors/qr.json")
+    failures = failures + NxRunVersionTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
