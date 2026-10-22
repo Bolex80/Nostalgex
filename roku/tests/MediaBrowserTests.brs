@@ -101,17 +101,12 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "auth, no token", FormatJson(NxMbReadAuth({ code: 200, json: { User: { Id: "u1" } } })), """""")
     NxCheck(r, "auth, unreachable", NxToStr(NxMbReadAuth({ code: -28, json: invalid }) = invalid), "true")
 
-    ' Emby's segment format, transcribed from upstream EmbySegmentContainerTests.swift.
-    for each codec in ["h264", "H264", "mpeg2video", "mpeg4", "msmpeg4v3", "vc1", "vp9", "av1"]
-        NxCheck(r, "emby segments, " + codec + " with HEVC", NxEmbySegmentContainer(codec, true), "ts")
-        NxCheck(r, "emby segments, " + codec + " without HEVC", NxEmbySegmentContainer(codec, false), "ts")
-    end for
-    for each codec in ["hevc", "HEVC", "h265"]
-        NxCheck(r, "emby segments, " + codec + " with HEVC", NxEmbySegmentContainer(codec, true), "mp4")
-        NxCheck(r, "emby segments, " + codec + " re-encoded to H.264", NxEmbySegmentContainer(codec, false), "ts")
-    end for
-    NxCheck(r, "emby segments, unknown codec with HEVC", NxEmbySegmentContainer("", true), "mp4")
-    NxCheck(r, "emby segments, unknown codec without HEVC", NxEmbySegmentContainer("", false), "ts")
+    ' The server stream's audio: Dolby only when the TV decodes it, 5.1 only
+    ' when it decodes 5.1 AAC.
+    NxCheck(r, "audio, no dolby, stereo", NxMbAudioQuery(false, false, false), "&AudioCodec=aac&TranscodingMaxAudioChannels=2")
+    NxCheck(r, "audio, all of it", NxMbAudioQuery(true, true, true), "&AudioCodec=aac,ac3,eac3&TranscodingMaxAudioChannels=6")
+    NxCheck(r, "audio, ac3 only", NxMbAudioQuery(true, false, false), "&AudioCodec=aac,ac3&TranscodingMaxAudioChannels=2")
+    NxCheck(r, "audio, eac3 only, 5.1", NxMbAudioQuery(false, true, true), "&AudioCodec=aac,eac3&TranscodingMaxAudioChannels=6")
 
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail + NxRunDirectPlayTests()

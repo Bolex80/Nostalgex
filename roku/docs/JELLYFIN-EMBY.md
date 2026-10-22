@@ -80,8 +80,7 @@ code path.
    direct stream;
 5. collection members (episodes rather than series);
 6. how the server name is found;
-7. HLS segments: TS for H.264 (above), fMP4 otherwise;
-8. a Dolby Vision profile 5 file goes on no channel. Emby names the profile
+7. a Dolby Vision profile 5 file goes on no channel. Emby names the profile
    in the video stream's `ExtendedVideoSubType` ("DoviProfile50"), and 4.10.1
    sends it in a form drawn green and purple (upstream `5d6d65f`,
    `ccb6854`). It stays in the library; only the channels leave it out.
@@ -180,9 +179,10 @@ servers, driven over ECP.
   2026-10-20). With the video copied and the audio converted, fMP4 stamps
   both tracks from zero, so on their Apple TV the sound ran early by up to a
   GOP (H.264 + DTS joined at 247 s: -1,720 ms on fMP4, +35 ms on TS). TS
-  segments carry the source timestamps. The port now asks Emby for TS when
-  the video is H.264, as upstream's `embySegmentContainer` (`72c844d`); a
-  file that may be HEVC stays fMP4. Upstream tried it on a Streaming Stick
+  segments carry the source timestamps. The port asked Emby for TS when
+  the video was H.264, as upstream's `embySegmentContainer` (`72c844d`),
+  and fMP4 for a file that may be HEVC, until fMP4 turned out silent on a
+  Roku (below); now it asks for TS everywhere. Upstream tried it on a Streaming Stick
   Plus against Emby 4.10.1 (Discussion #8, 2026-10-20): an H.264 + DTS file
   joined 48 s in asked for `SegmentContainer=ts`, Emby copied the video and
   converted DTS to AAC, and the picture came up in 1.6 s.
@@ -199,6 +199,23 @@ servers, driven over ECP.
     the sound early, as upstream found.
 
   Each track's start is its first packet's pts. Not yet watched on a Roku.
+- **Dolby audio and fMP4 segments played silent** (Discussion #8,
+  2026-10-22, a Streaming Stick Plus set to Stereo, Emby 4.10.1). Two
+  causes. The request offered `AudioCodec=aac,ac3,eac3` at 6 channels, so
+  the server copied AC3 and E-AC-3 as stored to a TV that says no to them
+  (the player: error -5, "Unsupported audio format: Dolby Digital Plus").
+  And the player reported no audio from any fMP4 stream, even stereo AAC
+  copied as stored, on Emby and on Jellyfin 12.2's public demo; over TS
+  the same audio played (`aac_adts`). The request now offers AC3 and E-AC-3
+  only when the TV decodes them, caps at 2 channels unless it decodes 5.1
+  AAC (`NxMbAudioQuery`), and asks for TS on both servers, HEVC included.
+  Against the lab Emby 4.10.1 and Jellyfin 12.2, the old request's first
+  segment carried the Dolby track as stored and the new one stereo AAC, at
+  the start and joined part-way in. HEVC copied into TS played on the
+  stick. Its sync after a join, measured as above but on 5 ms loudness
+  envelopes, so to the nearest 5 ms (HEVC 10-bit + E-AC-3 5.1, joined
+  about 30 min in): in sync on Emby and on Jellyfin, the sound within 5 ms
+  of where its timestamps put it. Not yet heard on a Roku.
 
 ## How it fits the app
 
