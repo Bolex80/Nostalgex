@@ -3,7 +3,8 @@
 '
 ' Copyright (c) 2026 nostalgex-roku contributors, MIT License.
 '
-' Direct play when this TV decodes the file as stored; otherwise Plex's HLS
+' Direct play when this TV decodes the file as stored (the lists below, then
+' source/util/DirectPlay.brs asking the TV); otherwise Plex's HLS
 ' transcode, as upstream's web tuner falls back to (plex-tuner.html
 ' playCurrentItem). Upstream decides for a browser, this decides for a Roku,
 ' so the direct-play list differs; what airs when doesn't.
@@ -57,6 +58,8 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
     direct = direct and NxHasValue(["mp4", "mov", "m4v"], container)
     direct = direct and NxHasValue(["h264", "hevc"], vcodec)
     direct = direct and NxHasValue(["aac", "ac3", "eac3", "mp3"], acodec)
+    ' And only what this TV decodes, profile and channels included.
+    if direct then direct = NxDeviceDecodes(b)
 
     if direct then
         stopUrl = ""

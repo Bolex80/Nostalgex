@@ -21,7 +21,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "requests", fetcher.requests.Join(" | "), NxList(v.requests).Join(" | "))
         NxCheck(r, "item count", got.Count().ToStr(), NxList(v.items).Count().ToStr())
         ' Port-only fields: none reaches the filter or schedule.
-        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true }
+        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true }
         n = NxMinInt(got.Count(), NxList(v.items).Count())
         for i = 0 to n - 1
             want = v.items[i]
@@ -114,6 +114,40 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "emby segments, unknown codec without HEVC", NxEmbySegmentContainer("", false), "ts")
 
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
+    return r.fail + NxRunDirectPlayTests()
+end function
+
+' source/util/DirectPlay.brs: the questions put to the TV before direct
+' play, for Plex's and Jellyfin/Emby's field values, and how its answers read.
+function NxRunDirectPlayTests() as Integer
+    r = { pass: 0, fail: 0 }
+    q = NxDecodeQueries({ videoCodec: "h264", videoProfile: "high", audioCodec: "aac", audioChannels: 2, container: "mp4" })
+    NxCheck(r, "plex h264 codec", q.video.Codec, "mpeg4 avc")
+    NxCheck(r, "plex h264 profile", NxToStr(q.video.Profile), "high")
+    NxCheck(r, "no container asked", NxToStr(q.video.DoesExist("Container")), "false")
+    NxCheck(r, "plex aac codec", q.audio.Codec, "aac")
+    NxCheck(r, "audio decides on the codec", NxToStr(q.audio.DoesExist("ChCnt")), "false")
+    NxCheck(r, "plex aac channels asked apart", q.channels.Codec + "/" + NxToStr(q.channels.ChCnt), "aac/2")
+    q = NxDecodeQueries({ videoCodec: "hevc", videoProfile: "main 10", audioCodec: "eac3", audioChannels: 6 })
+    NxCheck(r, "hevc main 10", q.video.Codec + "/" + q.video.Profile, "hevc/main 10")
+    NxCheck(r, "eac3 5.1", q.audio.Codec + "/" + NxToStr(q.channels.ChCnt), "eac3/6")
+    q = NxDecodeQueries({ videoCodec: "H264", videoProfile: " High 10 ", audioCodec: "AC3", audioChannels: 6 })
+    NxCheck(r, "jellyfin 10-bit h264", q.video.Codec + "/" + q.video.Profile, "mpeg4 avc/high 10")
+    NxCheck(r, "jellyfin ac3", q.audio.Codec, "ac3")
+    q = NxDecodeQueries({ videoCodec: "hevc", audioCodec: "aac", audioChannels: 0 })
+    NxCheck(r, "no profile asked", NxToStr(q.video.DoesExist("Profile")), "false")
+    NxCheck(r, "no channels asked", NxToStr(q.channels = invalid), "true")
+    q = NxDecodeQueries({ videoCodec: "h264", videoProfile: "Constrained Baseline", audioCodec: "aac" })
+    NxCheck(r, "constrained baseline", q.video.Profile, "baseline")
+    q = NxDecodeQueries({})
+    NxCheck(r, "nothing known", q.video.Codec + "|" + q.audio.Codec, "|")
+
+    NxCheck(r, "answer yes", NxToStr(NxDecodeAnswer({ Result: true })), "true")
+    NxCheck(r, "answer no", NxToStr(NxDecodeAnswer({ Result: false, Codec: "hevc" })), "false")
+    NxCheck(r, "no answer", NxToStr(NxDecodeAnswer(invalid)), "false")
+    NxCheck(r, "answer without Result", NxToStr(NxDecodeAnswer({})), "false")
+    NxCheck(r, "answer not a boolean", NxToStr(NxDecodeAnswer({ Result: "true" })), "false")
+    print "direct play cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function
 

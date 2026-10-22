@@ -138,16 +138,19 @@ function NxMbHeight(source as Object) as Dynamic
     return v.Height
 end function
 
-' mediaInfo: the best source's id, container and first video and audio codecs.
+' mediaInfo: the best source's id, container, and first video and audio
+' codecs, with the video's profile and the audio's channel count for the
+' direct-play decision (source/util/DirectPlay.brs).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, doviProfile: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
     v = NxMbStream(src, "Video")
     if v <> invalid then
         if NxTruthy(v.Codec) then out.videoCodec = LCase(NxToStr(v.Codec))
+        if NxTruthy(v.Profile) then out.videoProfile = LCase(NxToStr(v.Profile))
         ' Emby only (Jellyfin has no ExtendedVideoSubType): a profile 5 file
         ' goes on no channel (NxIsLeftOffChannels).
         out.doviProfile = NxMbDoviProfile(v.ExtendedVideoSubType)
@@ -155,6 +158,7 @@ function NxMbMediaInfo(item as Object) as Object
     a = NxMbStream(src, "Audio")
     if a <> invalid then
         if NxTruthy(a.Codec) then out.audioCodec = LCase(NxToStr(a.Codec))
+        if NxIsNumber(a.Channels) then out.audioChannels = a.Channels
     end if
     return out
 end function
@@ -229,6 +233,8 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         container: mi.container,
         videoCodec: mi.videoCodec,
         audioCodec: mi.audioCodec,
+        videoProfile: mi.videoProfile,
+        audioChannels: mi.audioChannels,
         genres: genres,
         rating: NxOr(jf.CommunityRating, 0),
         userRating: 0,
@@ -264,6 +270,8 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         container: mi.container,
         videoCodec: mi.videoCodec,
         audioCodec: mi.audioCodec,
+        videoProfile: mi.videoProfile,
+        audioChannels: mi.audioChannels,
         genres: showGenres,
         rating: NxOr(show.CommunityRating, 0),
         userRating: 0,

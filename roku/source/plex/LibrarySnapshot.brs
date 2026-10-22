@@ -25,8 +25,9 @@ function NxSnapshotDir() as String
 end function
 
 ' Bump when a saved item would no longer read the same; an old meta is ignored.
+' 3: items carry videoProfile and audioChannels (source/util/DirectPlay.brs).
 function NxSnapshotFormat() as Integer
-    return 2
+    return 3
 end function
 
 ' Items per chunk file: about 1 MB of JSON, so a read or write never holds
