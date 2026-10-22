@@ -25,6 +25,8 @@ const tunerPath = process.env.TUNER || path.join(root, "plex-tuner.html");
 const filterPath = process.env.FILTER || path.join(root, "scripts/nostalgex-channel-filter.cjs");
 const urlsPath = process.env.URLS || path.join(root, "scripts/nostalgex-jellyfin-urls.js");
 const collectionsPath = path.join(root, "scripts/nostalgex-collections.js");
+// The loaders read minutes and dates through the schedule engine, as the page loads it first.
+const manifestPath = path.join(root, "scripts/nostalgex-daily-manifest.js");
 const tuner = fs.readFileSync(tunerPath, "utf8");
 const readJSON = (p) => JSON.parse(fs.readFileSync(path.join(root, p), "utf8"));
 const config = readJSON("channels.json");
@@ -192,7 +194,7 @@ function page(backend, server) {
     applyBundleFilter() {}, renderConfig() {}, renderActiveGuide() {}, renderBundleList() {}, buildChannelSchedule() {},
   };
   vm.createContext(ctx);
-  for (const p of [urlsPath, filterPath, collectionsPath]) vm.runInContext(fs.readFileSync(p, "utf8"), ctx, { filename: p });
+  for (const p of [manifestPath, urlsPath, filterPath, collectionsPath]) vm.runInContext(fs.readFileSync(p, "utf8"), ctx, { filename: p });
   vm.runInContext((/const BACKEND_NAMES = \{[^}]*\};/.exec(tuner) || [""])[0].replace("const ", "var "), ctx);
   for (const name of PAGE_FUNCTIONS) vm.runInContext(extractFunction(tuner, name), ctx, { filename: `plex-tuner.html#${name}` });
   ctx.logs = logs;

@@ -55,7 +55,7 @@ docker run -d --name nostalgex -p 8080:8080 --restart unless-stopped ghcr.io/cha
 
 Then open `http://YOUR-SERVER-IP:8080`. Step by step help is in the [Docker container guide](https://www.nostalgex.app/self-host).
 
-**Latest: `tuner-v1.0.6`.** A new sign-in for Jellyfin and Emby, the same one the Apple TV app has: Quick Connect by default, your server's users to pick from, and the Docker tuner finds a server running on the same machine. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.6). Already running it? `docker compose pull && docker compose up -d`.
+**Latest: `tuner-v1.0.7`.** Each day is planned the way the Apple TV app plans it: the same programme lengths, running order and next pick. Every channel's lineup reshuffles once, the first time you open the tuner after updating. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.7). Already running it? `docker compose pull && docker compose up -d`.
 
 <a id="whats-new-in-1028"></a>
 ## What's new in 1.0.28
@@ -134,7 +134,7 @@ services:
     restart: unless-stopped
 ```
 
-**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`. The bottom of Settings says which one you're running, e.g. `WEB TUNER 1.0.6 · DOCKER`.
+**Update:** `docker compose pull && docker compose up -d`, or `docker pull ghcr.io/chadmueller/nostalgex:latest` and recreate the container. Image tags are `latest`, `1.0` and `1.0.0`; each release adds its own version tag. Releases are tagged `tuner-v*`. The bottom of Settings says which one you're running, e.g. `WEB TUNER 1.0.7 · DOCKER`.
 
 **Platforms:** amd64 and arm64 (Synology and Unraid on Intel or AMD, NUCs, Raspberry Pi 4 and 5 on a 64 bit OS). No armv7. Runs as a non root user (uid 101) and works with a read only root filesystem as long as `/tmp` is writable.
 

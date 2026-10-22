@@ -3,6 +3,31 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-23 (web and Docker air the Apple TV's schedule)
+
+**Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.7` from the same commit. Every channel's lineup reshuffles once, on the first load after the update. The Apple TV doesn't change. Roku isn't ported yet and keeps its own schedule until it is.
+
+**Why.** Chad, 2026-10-22: every surface follows the Apple TV's schedule. The web engine already packed a day the way the Apple TV does, but the page fed it different pools and did different things with the result. Roku parity queue items 24 and 25.
+
+**Changed.**
+- `plex-tuner.html`: pools stay in library order (the page shuffled every pool by UTC day before the engine saw it). Minutes are truncated as the Apple TV's loaders do (`Math.round` before). The guide reads a 24-hour window across midnight, not today's blocks only. One title on two channels at once stays on the lowest channel id; the others lose their now-playing mark in the guide, as on the Apple TV, and still play that title when tuned, also as on the Apple TV. When a programme ends on its own, the next one plays from its start (the page used to jump to what the clock said, from where the clock said), skipping a title another channel has on at that moment. After a stall or a failure, what is on now from where it is. The info panel shows what the player is playing, as `InfoPanelView` does, since the player can now run a little behind the clock. Demo items get keys.
+- `scripts/nostalgex-daily-manifest.js`: mirrors of `ChannelScheduleBuilder.buildSchedule`, `blocksInRange`, `resolveConflicts`, `findConflict`, `ChannelSchedule.isCurrent` and `livePlayback`, `AppState.selectChannel` and `advanceToNextItem`, and the loaders' minute and date conversions. Stored manifests move to schema 2, so a day an older tuner stored is packed again on the first load after the update instead of airing the old way until midnight.
+- `tunerVersion` 1.0.7, and README's Docker lines point at `tuner-v1.0.7`.
+- `scripts/schedule-parity-golden.json`: generated from `NostalgexTests/ScheduleParityTests.swift` running the app's own code on fixtures in Plex, Jellyfin and Emby shapes: New York's 25-hour day, London's 23-hour day, Santiago's day that starts at 1 AM, 16 channel-instants giving a title way, items the loaders drop, one-minute and longer-than-a-day items. `scripts/schedule-parity-golden.mjs` builds it. `npm run test:schedule-parity` checks the engine byte for byte and runs the page's own schedule functions on it, with 8 negative controls. The Swift test asserts the same file.
+
+**Measured.**
+- Before the change, on Chad's Plex library (11,788 items) with a 95-channel lineup, today: the web aired something other than the Apple TV in 92.6% of channel-minutes (93 of 95 channels). The pool shuffle alone: 91.9%. Rounding alone: 41.8% (57.6% of items have a different length rounded). Plex's episode order is the same either way (the Apple TV's one sweep and the page's per-show requests gave the identical sequence on both TV sections).
+- After: the web engine and the Apple TV's code give the same bytes on the golden file and on that whole library and lineup (2 days, 2 instants, 95 channels). The page itself, headless against the same server with the page's 17-channel default lineup at one frozen instant, matched the Apple TV on all 119 channel fields (now, next, window, tune, guide, conflict, next pick).
+- One title on two channels on the Apple TV's schedule today: 2,669 channel-minutes (1.95%); at 72 of 4,610 programme changes the next title was already on another channel.
+- Headless at 390x844, 820x1180, 1440x900 and 960x540: tune, then the player's own `ended` handler plays the engine's pick from the start; guide rows render, no page errors, no sideways scroll.
+- `npm test`, `npm run build`, `npm run build:selfhost`, the isolation and version build checks: pass. NostalgexTests: 880 tests, 0 failures, on a tvOS 26.1 simulator.
+
+**Half-done.**
+- Same engine is not same minute. A day is packed with what the device stored for the day before. On this library, a device first opened two days later than another still differs on 39% to 44% of channel-minutes after five days, and one with no history at all on 75% to 79%. That holds between two Apple TVs too. Closing it needs a change on the Apple TV.
+- On Jellyfin and Emby the Apple TV adds each batch of 10 shows' episodes in the order the requests finish. Eight loads of the same 30-show test server with the app's own loader gave eight different orders. Run on this library's shape, a rescan changed 7% to 9% of channel-minutes (33% to 41% on channels with episodes). The web adds them in show order, so Jellyfin and Emby can't match until the Apple TV does too.
+- Not on the web: disc-stacked Jellyfin and Emby movies (the Apple TV schedules the whole runtime and plays disc 2), and runtime franchise and collection channels.
+
+**Next.** Push main and tag `tuner-v1.0.7`. Roku ports the same answers against `scripts/schedule-parity-golden.json`. Chad decides on the history and the Jellyfin order (board item q36).
 ## 2026-10-23 (the site for Apple TV 1.0.28)
 
 **Shipped.** Nothing until this lands on main. Branch `site/1.0.28`. Apple TV 1.0.28 has been on the App Store (Ready for Sale) since this morning.

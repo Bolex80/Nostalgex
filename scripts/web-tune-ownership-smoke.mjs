@@ -106,6 +106,9 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
       scheduleBuilds.push(channel.id);
       if (nextSchedules.has(channel.id)) { channel.schedule = nextSchedules.get(channel.id); nextSchedules.delete(channel.id); }
     },
+    // What plays after a programme ends is the engine's pick, checked against the Apple TV by
+    // npm run test:schedule-parity. Here it is the fixture's next schedule row.
+    nextAfterEnd: channel => (channel.schedule && channel.schedule[0]) || null,
     showNowPlaying() {}, updateInfoPanel() {}, showGuide() {}, renderActiveGuide() {}, updateFsOverlay() {},
     buildSubtitleUrl: item => `https://fixture.invalid/subtitles/${item.ratingKey}`,
     clearVideoError() {}, showVideoError: error => failures.push(error), showPlaybackFailure: error => failures.push(error), classifyPlaybackFailure: details => details,

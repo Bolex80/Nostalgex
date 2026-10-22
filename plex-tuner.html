@@ -3769,7 +3769,7 @@
     for (const ch of allChannelsUnfiltered) {
       if (!ids.has(ch.id)) continue;
       const matched = filterItems(allItemsCache, ch.rules, ch.id, ch.category);
-      ch.itemPool = shuffleArray(matched);
+      ch.itemPool = matched;
       ch.enabled = ch.itemPool.length >= (ch.minItems || 50);
       if (ch.enabled) buildChannelSchedule(ch);
     }
@@ -4570,49 +4570,82 @@
     return (plexServerUrl || 'local').replace(/[^a-zA-Z0-9]/g, '_');
   }
 
-  function buildChannelSchedule(channel) {
+  // The schedule is the Apple TV's, minute for minute: the same engine
+  // (scripts/nostalgex-daily-manifest.js), the same 24-hour guide window across midnight,
+  // the same answer to one title on two channels, the same tune and the same next pick.
+  // scripts/schedule-parity-golden.json holds them to it.
+
+  /**
+   * One channel's schedule at `nowSec`: `_live` is what is on and next by the clock
+   * (ChannelScheduleBuilder.buildSchedule), `_manifestBlocks` its 24-hour window for the
+   * guide rows, `schedule` the rows the panels read, now first, its offset from the clock.
+   */
+  function buildChannelSchedule(channel, nowSec = Date.now() / 1000) {
     channel.itemPool = (channel.itemPool || []).filter(item => item && item.duration > 0);
     const items = getTimeFilteredPool(channel);
     if (items.length === 0) return;
 
-    const nowSec = Date.now() / 1000;
-    const blocks = NostalgexDailyManifest.getManifestBlocks(channel, items, Date.now(), manifestServerKey());
-    if (!blocks.length) return;
+    const live = NostalgexDailyManifest.buildSchedule(channel, items, nowSec, manifestServerKey());
+    if (!live) return;
+    channel._live = live;
+    channel._manifestBlocks = live.entries;
 
-    let nowPlayingBlock = blocks.find(b => nowSec >= b.startSec && nowSec < b.endSec);
-    if (!nowPlayingBlock) {
-      nowPlayingBlock = blocks.reduce((best, b) => {
-        if (nowSec >= b.startSec && (!best || b.startSec > best.startSec)) return b;
-        return best;
-      }, null);
-    }
-
-    const schedule = [];
-    const startIdx = nowPlayingBlock ? blocks.indexOf(nowPlayingBlock) : 0;
-    for (let j = 0; j < Math.min(4, blocks.length); j++) {
-      const block = blocks[(startIdx + j) % blocks.length];
-      const item = { ...block.item };
-      if (j === 0 && nowPlayingBlock) {
-        const offsetInCurrent = nowSec - block.startSec;
-        const currentDurationSec = block.endSec - block.startSec;
+    const nowIdx = live.nowPlaying ? live.entries.indexOf(live.nowPlaying) : -1;
+    const rows = nowIdx >= 0 ? live.entries.slice(nowIdx, nowIdx + 4) : live.entries.slice(0, 4);
+    channel.schedule = rows.map((entry, j) => {
+      const item = { ...entry.item };
+      if (j === 0 && nowIdx >= 0) {
+        const offsetInCurrent = nowSec - entry.startSec;
+        const currentDurationSec = entry.endSec - entry.startSec;
         item.progress = currentDurationSec > 0 ? (offsetInCurrent / currentDurationSec) * 100 : 0;
         item.position = formatTime(offsetInCurrent);
         item.total = formatTime(currentDurationSec);
-        item.offsetSeconds = Math.floor(offsetInCurrent);
+        item.offsetSeconds = NostalgexDailyManifest.liveElapsedSeconds(live, nowSec);
       }
-      schedule.push(item);
-    }
-
-    channel.schedule = schedule;
-    channel._manifestBlocks = blocks;
+      return item;
+    });
   }
 
+  /** Every channel in the guide with the pool it airs from now, for the conflict checks. */
+  function guideLineup() {
+    return CHANNELS.filter(ch => ch.enabled).map(ch => ({ channel: ch, pool: getTimeFilteredPool(ch) }));
+  }
+
+  /**
+   * TunerView.buildAllSchedules: every channel at one instant, then one title on two
+   * channels at once stays on the lowest channel id and the others show their next
+   * programme as now (`_guide`). Their rows keep their programmes; the one they gave way
+   * with just isn't marked as on now.
+   */
   function rebuildAllSchedules() {
+    const nowSec = Date.now() / 1000;
+    const schedules = new Map();
     CHANNELS.forEach(ch => {
+      ch._guide = null;
       if (ch.itemPool && ch.itemPool.length > 0) {
-        buildChannelSchedule(ch);
+        buildChannelSchedule(ch, nowSec);
+        if (ch.enabled && ch._live) schedules.set(ch.id, ch._live);
       }
     });
+    NostalgexDailyManifest.resolveConflicts(schedules);
+    for (const [id, schedule] of schedules) {
+      const ch = CHANNELS.find(c => c.id === id);
+      if (ch) ch._guide = schedule;
+    }
+  }
+
+  /**
+   * AppState.advanceToNextItem's pick. When a programme ends on its own, the next one from
+   * its start: the one after it, or what is on now if the clock has moved past it. After a
+   * stall or a failure, what is on now from where it is now. Never the title another channel
+   * has on at that moment: the one after it, from the start. No schedule: anything in the pool.
+   */
+  function nextAfterEnd(channel, endedItem, fromNaturalEnd) {
+    const pool = getTimeFilteredPool(channel);
+    const pick = NostalgexDailyManifest.advancePick(channel, pool, endedItem ? endedItem.ratingKey : null,
+      Date.now() / 1000, guideLineup(), manifestServerKey(), fromNaturalEnd);
+    if (pick) return { ...pick.item, offsetSeconds: pick.seekSeconds };
+    return pool.length ? { ...pool[Math.floor(Math.random() * pool.length)], offsetSeconds: 0 } : null;
   }
 
   // ══════════════════════════════════════
@@ -4759,7 +4792,10 @@
           const visEnd = Math.min(block.endSec, windowEndSec);
           const visDuration = visEnd - visStart;
           const widthPct = (visDuration / windowDuration) * 100;
-          const isNowPlaying = nowSec >= block.startSec && nowSec < block.endSec;
+          // Not marked when this channel gave the title way to a lower one (rebuildAllSchedules).
+          const gaveWay = Boolean(ch._guide) && ch._guide.entries.some(e => e.isConflict
+            && e.startSec === block.startSec && e.item.ratingKey === block.item.ratingKey);
+          const isNowPlaying = nowSec >= block.startSec && nowSec < block.endSec && !gaveWay;
           const item = block.item;
 
           const prog = document.createElement('div');
@@ -4926,7 +4962,9 @@
     document.getElementById('player-screen').classList.add('has-channel');
     document.getElementById('key-hints').style.display = 'flex';
 
-    // Rebuild schedule for this channel (clock-based position may have changed)
+    // Rebuild schedule for this channel (clock-based position may have changed). Its first
+    // row is what tuning in plays on the Apple TV (AppState.selectChannel): what is on by the
+    // clock, from where it is now, even on a channel the guide shows giving a title way.
     if (ch.itemPool && ch.itemPool.length > 0) {
       buildChannelSchedule(ch);
     }
@@ -5589,7 +5627,7 @@
         if (!video.paused && !video.ended && video.currentTime === lastTime) {
           console.warn('[PLEX 90] Stall detected, skipping:', item.title);
           clearStall();
-          onItemEnded(channel);
+          onItemEnded(channel, item);
         }
       }, 8000);
       lastTime = video.currentTime;
@@ -5610,7 +5648,7 @@
     video.onpause = () => { if (ownsPlaybackRequest(request) && playbackTracker) playbackTracker.onPause(true); };
 
     // Handle video ending - advance to next item
-    video.onended = () => { if (!ownsPlaybackRequest(request)) return; clearStall(); onItemEnded(channel); };
+    video.onended = () => { if (!ownsPlaybackRequest(request)) return; clearStall(); onItemEnded(channel, item, true); };
     video.onerror = () => {
       if (!ownsPlaybackRequest(request)) return;
       const code = video.error?.code;
@@ -5648,20 +5686,21 @@
     const skipTimer = setTimeout(() => {
       if (!ownsPlaybackRequest(request)) return;
       clearVideoError();
-      onItemEnded(channel);
+      onItemEnded(channel, item);
     }, 5000);
     request.cleanups.push(() => clearTimeout(skipTimer));
   }
 
-  function onItemEnded(channel) {
-    // Rebuild schedule (clock will have moved forward)
+  // A programme ended: on its own (`fromNaturalEnd`), or skipped after a stall or a failure.
+  // What plays next is the Apple TV's pick (nextAfterEnd), not simply what the clock says.
+  function onItemEnded(channel, endedItem, fromNaturalEnd = false) {
     buildChannelSchedule(channel);
-    const now = channel.schedule[0];
-    if (now && now.ratingKey) {
-      playCurrentItem(now, channel);
+    const next = nextAfterEnd(channel, endedItem, fromNaturalEnd);
+    if (next && next.ratingKey) {
+      playCurrentItem(next, channel);
       // Update UI
-      document.getElementById('np-title').textContent = now.title.toUpperCase();
-      document.getElementById('np-meta').textContent = now.meta;
+      document.getElementById('np-title').textContent = next.title.toUpperCase();
+      document.getElementById('np-meta').textContent = next.meta || '';
       showNowPlaying();
     }
     renderActiveGuide();
@@ -5702,16 +5741,21 @@
 
     const now = ch.schedule[0];
     const next = ch.schedule[1];
+    // InfoPanelView: the details are what the player is playing (`playingItem`), which can run
+    // a little behind the clock after a programme overruns its slot; the progress is the
+    // schedule's.
+    const playing = activePlaybackRequest && activePlaybackRequest.channelId === ch.id ? activePlaybackRequest.item : null;
+    const shown = playing || now;
 
     document.getElementById('info-channel-tag').textContent = `CH ${String(chNum(ch)).padStart(2, '0')} \u2014 ${ch.name}`;
     document.getElementById('info-channel-tag').style.color = ch.color;
     const MB = globalThis.NostalgexMusicBrainz;
-    const isMusic = MB && MB.isMusicVideoItem(now);
-    document.getElementById('info-title').textContent = now.title;
+    const isMusic = MB && MB.isMusicVideoItem(shown);
+    document.getElementById('info-title').textContent = shown.title;
     document.getElementById('info-episode-title').textContent = isMusic
-      ? (now.artist || '')
-      : (now.episodeTitle || '');
-    document.getElementById('info-description').textContent = now.summary || '';
+      ? (shown.artist || '')
+      : (shown.episodeTitle || '');
+    document.getElementById('info-description').textContent = shown.summary || '';
     document.getElementById('info-progress').style.width = (now.progress || 0) + '%';
     document.getElementById('info-progress').style.background = ch.color;
     document.getElementById('info-time').textContent = `${now.position || '0:00'} / ${now.total || ''}`;
@@ -5719,31 +5763,31 @@
     // Build meta badges
     const metaEl = document.getElementById('info-meta-row');
     metaEl.innerHTML = '';
-    if (now.year) {
+    if (shown.year) {
       const yearBadge = document.createElement('span');
       yearBadge.className = 'info-meta-badge';
-      yearBadge.textContent = now.year;
+      yearBadge.textContent = shown.year;
       metaEl.appendChild(yearBadge);
     }
-    if (now.contentRating) {
+    if (shown.contentRating) {
       const ratingBadge = document.createElement('span');
       ratingBadge.className = 'info-meta-badge';
-      ratingBadge.textContent = now.contentRating;
+      ratingBadge.textContent = shown.contentRating;
       metaEl.appendChild(ratingBadge);
     }
-    if (now.rating) {
+    if (shown.rating) {
       const starEl = document.createElement('span');
       starEl.className = 'info-rating';
-      starEl.textContent = `\u2605 ${Number(now.rating).toFixed(1)}`;
+      starEl.textContent = `\u2605 ${Number(shown.rating).toFixed(1)}`;
       metaEl.appendChild(starEl);
     }
-    if (now.duration) {
+    if (shown.duration) {
       const durEl = document.createElement('span');
-      durEl.textContent = formatDuration(now.duration);
+      durEl.textContent = formatDuration(shown.duration);
       metaEl.appendChild(durEl);
     }
     if (isMusic && MB) {
-      const genreLine = MB.musicGenreDisplay(now);
+      const genreLine = MB.musicGenreDisplay(shown);
       if (genreLine) {
         const genreBadge = document.createElement('span');
         genreBadge.className = 'info-meta-badge';
@@ -5884,7 +5928,7 @@
     };
 
     // Populate from cached items
-    newChannel.itemPool = shuffleArray(filterItems(allItemsCache, rules));
+    newChannel.itemPool = filterItems(allItemsCache, rules);
 
     if (newChannel.itemPool.length >= newChannel.minItems) {
       buildChannelSchedule(newChannel);
@@ -5940,7 +5984,7 @@
     if (allItemsCache.length > 0) {
       CHANNELS.forEach(ch => {
         if (ch.stock) {
-          ch.itemPool = shuffleArray(filterItems(allItemsCache, ch.rules, ch.id, ch.category));
+          ch.itemPool = filterItems(allItemsCache, ch.rules, ch.id, ch.category);
           if (ch.itemPool.length >= (ch.minItems || 50)) {
             ch.enabled = true;
             buildChannelSchedule(ch);
@@ -8125,7 +8169,7 @@
       LL.state.channelBuildIndex = i + 1;
       LL.setPhase('buildingChannels', ch.name);
       const matched = filterItems(allItems, ch.rules, ch.id, ch.category);
-      ch.itemPool = shuffleArray(matched);
+      ch.itemPool = matched;
       ch.enabled = ch.itemPool.length >= (ch.minItems || 50);
       if ((i + 1) % 5 === 0) await new Promise(r => setTimeout(r, 0));
     }
@@ -8278,7 +8322,7 @@
       if (!poolIDs.has(ch.id) && before.length === 0) continue;
       const matched = filterItems(allItemsCache, ch.rules, ch.id, ch.category);
       if (samePoolMembers(before, matched)) continue;
-      ch.itemPool = shuffleArray(matched);
+      ch.itemPool = matched;
       ch.enabled = ch.itemPool.length >= (ch.minItems || 50);
       changed.push({ ch, before: before.length });
     }
@@ -8559,9 +8603,7 @@
     // promotion (new additions first, anchored at prime time) could never
     // fire on a Jellyfin or Emby server.
     function unixSecondsFromISO(iso) {
-      if (!iso) return 0;
-      const ms = Date.parse(iso);
-      return Number.isNaN(ms) ? 0 : Math.floor(ms / 1000);
+      return NostalgexDailyManifest.unixSecondsFromISO(iso);
     }
     function mediaInfo(jf) {
       // Highest-quality source (not just the first), then read codecs + subtitles off it so
@@ -8628,7 +8670,7 @@
               try {
                 const episodes = await fetchItems(show.Id, 'Episode');
                 return episodes.map(ep => {
-                  const durationMin = ep.RunTimeTicks ? Math.round(ep.RunTimeTicks / 600000000) : 0;
+                  const durationMin = NostalgexDailyManifest.minutesFromTicks(ep.RunTimeTicks);
                   if (durationMin <= 0) return null;
                   const mi = mediaInfo(ep);
                   const sNum = ep.ParentIndexNumber ? `S${String(ep.ParentIndexNumber).padStart(2, '0')}` : '';
@@ -8685,7 +8727,7 @@
             const genres = jf.Genres || [];
             if (isMusicVideoSection && !genres.some(g => /music/i.test(g))) genres.push('Music Video');
             genres.forEach(g => { discoveredGenres[g] = (discoveredGenres[g] || 0) + 1; });
-            const durationMin = jf.RunTimeTicks ? Math.round(jf.RunTimeTicks / 600000000) : 0;
+            const durationMin = NostalgexDailyManifest.minutesFromTicks(jf.RunTimeTicks);
             if (durationMin <= 0) return;
             // Dedicated music-video library is primary; fall back to a short item
             // tagged with a Music genre so users can route videos into HIGH ROTATION
@@ -8932,7 +8974,7 @@
                   const episodes = epData.MediaContainer.Metadata || [];
 
                   return episodes.map(ep => {
-                    const durationMin = ep.duration ? Math.round(ep.duration / 60000) : 0;
+                    const durationMin = NostalgexDailyManifest.minutesFromPlexMs(ep.duration);
                     if (durationMin <= 0) return null;
 
                     let partKey = null;
@@ -9017,7 +9059,7 @@
           }
           genres.forEach(g => { discoveredGenres[g] = (discoveredGenres[g] || 0) + 1; });
 
-          const durationMin = item.duration ? Math.round(item.duration / 60000) : 0;
+          const durationMin = NostalgexDailyManifest.minutesFromPlexMs(item.duration);
           if (durationMin <= 0) return;
 
           // Dedicated music-video library is primary; fall back to a short item
@@ -9221,19 +9263,6 @@
     }
   }
 
-  function shuffleArray(arr) {
-    // Seeded shuffle based on day so channels are consistent within a day
-    const seed = Math.floor(Date.now() / 86400000); // changes daily
-    const shuffled = [...arr];
-    let m = shuffled.length;
-    let s = seed;
-    while (m) {
-      s = (s * 1664525 + 1013904223) & 0xFFFFFFFF;
-      const i = Math.abs(s) % m--;
-      [shuffled[m], shuffled[i]] = [shuffled[i], shuffled[m]];
-    }
-    return shuffled;
-  }
 
   // ══════════════════════════════════════
   // DEMO MODE
@@ -9245,7 +9274,7 @@
     CHANNELS.forEach(ch => {
       const demoItems = DEMO_SCHEDULES[ch.name];
       if (demoItems) {
-        ch.itemPool = demoItems.map(item => ({ ...item }));
+        ch.itemPool = demoItems.map((item, i) => ({ ratingKey: `demo-${ch.id}-${i}`, type: 'movie', ...item }));
         ch.enabled = true;
         buildChannelSchedule(ch);
       }

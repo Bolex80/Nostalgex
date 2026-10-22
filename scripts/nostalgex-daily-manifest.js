@@ -1,35 +1,42 @@
 // Daily 24h EPG manifests — mirrors tvOS DailyManifestScheduler (unplayed-first per day).
 //
-// PARITY CONTRACT with tvOS
+// PARITY CONTRACT with tvOS (the Apple TV is the reference)
 //   Nostalgex/Nostalgex/Models/SchedulePoolOrdering.swift
 //   Nostalgex/Nostalgex/Services/DailyManifestScheduler.swift
 //   Nostalgex/Nostalgex/Services/DailyManifestStore.swift
+//   Nostalgex/Nostalgex/Models/ChannelSchedule.swift (guide window, conflicts)
+//   Nostalgex/Nostalgex/App/AppState+Schedule.swift, AppState+Playback.swift (tune, next pick)
 //
 // The running order for a given (pool, channelId, local day) is reproduced
 // bit-for-bit here: same splitmix64 seeding, same xorshift64 stream, same
 // Swift-stdlib shuffle (Lemire nearly-divisionless bounded draw), same grouping
 // key, same premiere promotion, same sequel grouping, same golden-ratio filler
-// offset. Verified by comparing against a Swift harness running the real
-// SeededRNG + Array.shuffle(using:).
+// offset. So is what airs: scripts/schedule-parity-golden.json is generated from
+// NostalgexTests/ScheduleParityTests.swift and npm run test:schedule-parity checks
+// this file against it byte for byte.
 //
-// KNOWN REMAINING DIFFERENCES (deliberate, cannot be closed from the browser):
+// The order depends on the pool's order, so the pool must be in library order as
+// the server lists it, never shuffled, with minutes truncated (minutesFromPlexMs,
+// minutesFromTicks), as the Apple TV's loaders build it.
+//
+// KNOWN REMAINING DIFFERENCES (deliberate, they never change what airs):
 //  1. `poolFingerprint` is a cheap string hash here vs SHA-256 on tvOS. It only
 //     decides whether a *locally cached* manifest is still valid; it never feeds
 //     the ordering. Caches are per-device anyway.
 //  2. Cache storage is localStorage keyed by serverKey, not the tvOS
 //     Application Support files keyed by credential fingerprint. Same role,
-//     different medium.
-//  3. `promoteRecentlyAdded` needs `item.addedAt`. The Plex loader in
-//     plex-tuner.html supplies it; the Jellyfin and Emby loaders currently hard-code
-//     `addedAt: 0`, so premieres never trigger on those servers on the web. That is
-//     a plex-tuner.html data-shape gap, not an ordering gap — fix it there.
-//  4. `localDayNumber` uses Math.floor where Swift uses Int() truncation. Identical
+//     different medium. Like the Apple TV's, a day is packed with what this
+//     device stored for the day before, so two devices with different histories
+//     can air different days.
+//  3. `localDayNumber` uses Math.floor where Swift uses Int() truncation. Identical
 //     for every post-1970 timestamp; they would only diverge before the epoch.
 (function (global) {
   'use strict';
 
   const MANIFEST_PREFIX = 'plex90_manifest_';
-  const SCHEMA_VERSION = 1;
+  // 2: the schedule follows the Apple TV's (pools in library order, minutes truncated), so a
+  // day stored by an older tuner is packed again rather than aired the old way until midnight.
+  const SCHEMA_VERSION = 2;
   const MASK64 = 0xFFFFFFFFFFFFFFFFn;
 
   /** Mirrors `splitmix64` in SchedulePoolOrdering.swift. */
@@ -489,6 +496,195 @@
     return resolveBlocks(packed, validPool);
   }
 
+  // ── What airs: the guide's schedule, cross-channel conflicts, the next pick ──
+  // Mirrors ChannelScheduleBuilder (Models/ChannelSchedule.swift) and
+  // AppState.advanceToNextItem (App/AppState+Playback.swift). The Apple TV is the
+  // reference; scripts/schedule-parity-golden.json holds the two to the same answers.
+
+  /** Minutes from a Plex duration in ms, as PlexAPIService does: integer division, truncated. */
+  function minutesFromPlexMs(ms) {
+    const n = Number(ms) || 0;
+    return n > 0 ? Math.floor(n / 60000) : 0;
+  }
+
+  /** Minutes from Jellyfin or Emby RunTimeTicks (100 ns), as JellyfinAPIService.minutes(fromTicks:). */
+  function minutesFromTicks(ticks) {
+    const n = Number(ticks) || 0;
+    return n > 0 ? Math.floor(n / 600000000) : 0;
+  }
+
+  /**
+   * Unix seconds from a Jellyfin or Emby DateCreated, as JellyfinAPIService.unixSeconds(fromISO:).
+   * 0 when it doesn't parse: an unreadable date reads as "not recent", never "added now".
+   */
+  function unixSecondsFromISO(iso) {
+    if (!iso) return 0;
+    const ms = Date.parse(iso);
+    return Number.isNaN(ms) ? 0 : Math.floor(ms / 1000);
+  }
+
+  /**
+   * Every block of each local day from the day of `fromSec` to the day of `toSec` that
+   * overlaps [fromSec, toSec), in start order. Mirrors DailyManifestScheduler.blocksInRange,
+   * which builds each day from one hour after its midnight.
+   */
+  function blocksInRange(channel, pool, fromSec, toSec, serverKey) {
+    const result = [];
+    let cursor = startOfLocalDayMs(fromSec * 1000);
+    const endDay = startOfLocalDayMs(toSec * 1000);
+    while (cursor <= endDay) {
+      for (const b of getManifestBlocks(channel, pool, cursor + 3600000, serverKey)) {
+        if (b.endSec > fromSec && b.startSec < toSec) result.push(b);
+      }
+      // calendar.date(byAdding: .day, value: 1, to: cursor): the same clock time a day on.
+      const next = new Date(cursor);
+      next.setDate(next.getDate() + 1);
+      cursor = next.getTime();
+    }
+    return result.sort((a, b) => a.startSec - b.startSec);
+  }
+
+  /**
+   * The guide's view of a channel at `nowSec` (seconds, may be fractional): a 24-hour window
+   * from the current half hour, what is on now, what is next and how far in. Mirrors
+   * ChannelScheduleBuilder.buildSchedule. Returns null when the channel has nothing.
+   */
+  function buildSchedule(channel, pool, nowSec, serverKey) {
+    const nowUnix = Math.floor(nowSec);
+    const windowStart = Math.floor(nowUnix / 1800) * 1800;
+    const windowEnd = windowStart + 86400;
+    const dayBlocks = blocksInRange(channel, pool, windowStart, windowEnd, serverKey);
+    if (!dayBlocks.length) return null;
+    const entries = [];
+    let nowPlaying = null;
+    for (const b of dayBlocks) {
+      if (!(b.endSec > windowStart && b.startSec < windowEnd)) continue;
+      const isNow = b.startSec <= nowSec && b.endSec > nowSec;
+      const entry = { id: `${b.item.ratingKey}_${b.startSec}`, item: b.item, startSec: b.startSec, endSec: b.endSec,
+        isNowPlaying: isNow, isConflict: false };
+      entries.push(entry);
+      if (isNow) nowPlaying = entry;
+    }
+    if (!nowPlaying) nowPlaying = entries.find((e) => e.startSec <= nowSec && e.endSec > nowSec) || null;
+    const nowIdx = entries.findIndex((e) => e.isNowPlaying);
+    const upNext = nowIdx >= 0 && nowIdx + 1 < entries.length ? entries[nowIdx + 1] : null;
+    let progress = 0;
+    let elapsedSeconds = 0;
+    if (nowPlaying) {
+      const elapsed = nowSec - nowPlaying.startSec;
+      const dur = nowPlaying.endSec - nowPlaying.startSec;
+      progress = dur > 0 ? elapsed / dur : 0;
+      elapsedSeconds = Math.max(0, Math.trunc(elapsed));
+    }
+    return { entries, nowPlaying, upNext, progress, elapsedSeconds };
+  }
+
+  /** Mirrors ChannelSchedule.isCurrent: the schedule still describes what is on at `nowSec`. */
+  function scheduleIsCurrent(schedule, nowSec) {
+    const np = schedule && schedule.nowPlaying;
+    return Boolean(np) && np.startSec <= nowSec && nowSec < np.endSec;
+  }
+
+  /**
+   * Seconds into what is on now, from the clock, capped at the programme's length. Mirrors
+   * ChannelSchedule.livePlayback(at:).elapsedSeconds. null when nothing is on.
+   */
+  function liveElapsedSeconds(schedule, nowSec) {
+    const np = schedule && schedule.nowPlaying;
+    if (!np) return null;
+    const total = Math.max(1, (np.item.duration || 0) * 60);
+    return Math.max(0, Math.min(total, Math.trunc(nowSec - np.startSec)));
+  }
+
+  /**
+   * What tuning to a channel plays, and from where. Mirrors AppState.selectChannel: the
+   * guide's schedule (`precomputed`, may be null) only while it still describes what is on,
+   * otherwise one built now; the offset from the clock. A channel the guide shows giving way
+   * to a lower one still plays the title it gave way with, as on the Apple TV, because the
+   * schedule shown for it starts in the future. Returns { item, seekSeconds }, or null where
+   * the Apple TV would pick at random (no schedule, or nothing on).
+   */
+  function tuneIn(channel, pool, precomputed, nowSec, serverKey) {
+    const usable = precomputed && scheduleIsCurrent(precomputed, nowSec) ? precomputed : null;
+    const schedule = usable || buildSchedule(channel, pool, nowSec, serverKey);
+    if (!schedule || !schedule.nowPlaying) return null;
+    const live = liveElapsedSeconds(schedule, nowSec);
+    return { item: schedule.nowPlaying.item, seekSeconds: live == null ? schedule.elapsedSeconds : live };
+  }
+
+  /**
+   * One title on two channels at once: the lowest channel id keeps it, every other channel
+   * shows its next programme as now playing, from its start. One pass, as on the Apple TV:
+   * a channel moved on is not checked again. `schedules` is a Map of channel id to the
+   * result of buildSchedule; it is changed in place. Mirrors ChannelScheduleBuilder.resolveConflicts.
+   */
+  function resolveConflicts(schedules) {
+    const byItem = new Map();
+    for (const [channelId, schedule] of schedules) {
+      if (!schedule || !schedule.nowPlaying) continue;
+      const key = schedule.nowPlaying.item.ratingKey;
+      if (!byItem.has(key)) byItem.set(key, []);
+      byItem.get(key).push(channelId);
+    }
+    for (const ids of byItem.values()) {
+      if (ids.length < 2) continue;
+      const losers = [...ids].sort((a, b) => a - b).slice(1);
+      for (const id of losers) {
+        const old = schedules.get(id);
+        const entries = old.entries.slice();
+        const i = entries.findIndex((e) => e.isNowPlaying);
+        if (i >= 0) entries[i] = { ...entries[i], isNowPlaying: false, isConflict: true };
+        if (old.upNext) {
+          const nowPlaying = { ...old.upNext, isNowPlaying: true, isConflict: false };
+          const j = entries.findIndex((e) => e.id === old.upNext.id);
+          const upNext = j >= 0 && j + 1 < entries.length ? entries[j + 1] : null;
+          schedules.set(id, { entries, nowPlaying, upNext, progress: 0, elapsedSeconds: 0 });
+        } else {
+          schedules.set(id, { ...old, entries });
+        }
+      }
+    }
+    return schedules;
+  }
+
+  /**
+   * The first other channel (in `channels` order) whose programme now is `item`, or null.
+   * `channels` are { channel, pool } pairs. Mirrors ChannelScheduleBuilder.findConflict.
+   */
+  function findConflict(item, excludingChannelId, channels, nowSec, serverKey) {
+    for (const { channel, pool } of channels) {
+      if (channel.id === excludingChannelId) continue;
+      const schedule = buildSchedule(channel, pool, nowSec, serverKey);
+      if (schedule && schedule.nowPlaying && schedule.nowPlaying.item.ratingKey === item.ratingKey) return channel.id;
+    }
+    return null;
+  }
+
+  /**
+   * What a channel plays next when its programme ends, and from where. Mirrors
+   * AppState.advanceToNextItem: the schedule's programme if it has moved on, otherwise the
+   * next one; never the title another channel has on right now (skip one entry); from 0 on
+   * a natural end. Returns { item, seekSeconds }, or null where the Apple TV would pick at
+   * random (no schedule).
+   */
+  function advancePick(channel, pool, prevRatingKey, nowSec, channels, serverKey, fromNaturalEnd = true) {
+    const schedule = buildSchedule(channel, pool, nowSec, serverKey);
+    if (!schedule) return null;
+    const moved = (schedule.nowPlaying ? schedule.nowPlaying.item.ratingKey : null) !== (prevRatingKey ?? null);
+    let pick = moved
+      ? (schedule.nowPlaying ? schedule.nowPlaying.item : null)
+      : ((schedule.upNext && schedule.upNext.item) || (schedule.nowPlaying ? schedule.nowPlaying.item : null));
+    let seekSeconds = moved && pick && !fromNaturalEnd ? schedule.elapsedSeconds : 0;
+    if (pick && findConflict(pick, channel.id, channels, nowSec, serverKey) != null) {
+      const idx = schedule.entries.findIndex((e) => e.item.ratingKey === pick.ratingKey);
+      if (idx >= 0 && idx + 1 < schedule.entries.length) {
+        pick = schedule.entries[idx + 1].item;
+        seekSeconds = 0;
+      }
+    }
+    return pick ? { item: pick, seekSeconds } : null;
+  }
+
   function clearManifests(serverKey) {
     try {
       const prefix = `${MANIFEST_PREFIX}${serverKey}_`;
@@ -503,6 +699,17 @@
 
   const api = {
     getManifestBlocks,
+    blocksInRange,
+    buildSchedule,
+    scheduleIsCurrent,
+    liveElapsedSeconds,
+    tuneIn,
+    resolveConflicts,
+    findConflict,
+    advancePick,
+    minutesFromPlexMs,
+    minutesFromTicks,
+    unixSecondsFromISO,
     clearManifests,
     interleaveByShow,
     promoteRecentlyAdded,

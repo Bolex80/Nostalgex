@@ -62,6 +62,7 @@ jobs:
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
               - 'scripts/schedule-dst-golden.json'
+              - 'scripts/schedule-parity-golden.json'
               - 'scripts/filter-golden.json'
               - 'scripts/rating-golden.json'
             config:
@@ -78,6 +79,10 @@ jobs:
               - 'scripts/nostalgex-schedule-order-smoke.mjs'
               - 'scripts/nostalgex-schedule-dst-smoke.mjs'
               - 'scripts/schedule-dst-golden.json'
+              # What airs: the engine against the Apple TV's answers.
+              - 'scripts/nostalgex-schedule-parity-smoke.mjs'
+              - 'scripts/schedule-parity-dump.mjs'
+              - 'scripts/schedule-parity-golden.json'
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
               - 'scripts/nostalgex-franchise-builder.js'
