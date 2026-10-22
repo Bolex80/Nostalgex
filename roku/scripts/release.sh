@@ -17,9 +17,11 @@
 #   ROKU_SIGN_HOST       .env or the environment, the stick that holds the
 #                        signing key; else ROKU_HOSTS if it names one TV
 #   ROKU_DEV_ID          .env, the signing key's Dev ID; the stick must match
-#   ROKU_SIGN_PASSWORD   the environment, or a prompt: the signing key's
-#                        password. Never from .env, which this script ignores
-#                        for it; it lives in the password manager only.
+#   ROKU_SIGN_PASSWORD   the signing key's password: the environment, else
+#                        the login Keychain item "Nostalgex Roku signing key"
+#                        (account nostalgex-roku), else a prompt. Never from
+#                        .env, which this script ignores for it. A dry run
+#                        doesn't look for it.
 #   Supabase URL + key   ../Nostalgex/Secrets.xcconfig (or the file named by
 #                        NOSTALGEX_SECRETS_XCCONFIG), its $() stripped.
 set -euo pipefail
@@ -123,9 +125,25 @@ supabase_key=$(xc SUPABASE_ANON_KEY)
 [[ $supabase_key =~ ^[A-Za-z0-9._-]+$ ]] || die "SUPABASE_ANON_KEY in $xcconfig is missing or malformed"
 echo "enrichment: on (Supabase values from $(basename "$xcconfig"))"
 
+# The key's password, when the shell doesn't give it: the login Keychain,
+# then a prompt. The item is made trusting no app (security ... -T ""), so
+# macOS asks to allow each read and nothing reads it silently; a missing
+# item, or a read that isn't allowed, falls back to the prompt.
+keychain_service="Nostalgex Roku signing key"
+keychain_account=nostalgex-roku
+if ! $dry_run && [ -z "$ROKU_SIGN_PASSWORD" ] && command -v security >/dev/null 2>&1; then
+    if ROKU_SIGN_PASSWORD=$(security find-generic-password -s "$keychain_service" -a "$keychain_account" -w 2>/dev/null) &&
+        [ -n "$ROKU_SIGN_PASSWORD" ]; then
+        echo "signing key password: from the login Keychain"
+    else
+        ROKU_SIGN_PASSWORD=
+        echo "signing key password: not read from the login Keychain (no item, or not allowed); asking" >&2
+    fi
+fi
 if ! $dry_run && [ -z "$ROKU_SIGN_PASSWORD" ]; then
     [ -r /dev/tty ] || die "set ROKU_SIGN_PASSWORD, or run from a terminal to be asked for it"
-    read -r -s -p "Signing key password: " ROKU_SIGN_PASSWORD </dev/tty
+    read -r -s -p "Signing key password: " ROKU_SIGN_PASSWORD </dev/tty ||
+        die "set ROKU_SIGN_PASSWORD, or run from a terminal to be asked for it"
     echo >&2
     [ -n "$ROKU_SIGN_PASSWORD" ] || die "no signing key password"
 fi
@@ -157,6 +175,8 @@ fi
 
 if $dry_run; then
     echo "dry run: stopping before contacting $host. A real run would:"
+    echo "  take the key's password from ROKU_SIGN_PASSWORD, the login Keychain"
+    echo "    (\"$keychain_service\", account $keychain_account) or a prompt"
     echo "  check $host is in developer mode and holds the key with Dev ID ROKU_DEV_ID"
     echo "  install this build, sign it as Nostalgex/$version, download it to $out"
     echo "  and add $version to releases.tsv"

@@ -111,9 +111,19 @@ that is not past the last line of `roku/releases.tsv` and every `roku-v*` tag.
 Once per Mac, `roku/.env` (git-ignored) needs `ROKU_DEV_PASSWORD`, `ROKU_DEV_ID`
 (the signing key's Dev ID) and `ROKU_SIGN_HOST` (the stick that holds the key,
 unless `ROKU_HOSTS` names just that one). The Supabase URL and key come from
-`Nostalgex/Secrets.xcconfig`. The key's password lives in the password manager
-only: the script asks for it, or reads `ROKU_SIGN_PASSWORD` from the shell, and
-ignores it in `.env`. It prints no secret.
+`Nostalgex/Secrets.xcconfig`. The key's password comes from `ROKU_SIGN_PASSWORD`
+in the shell, else the login Keychain, else a prompt; `.env` is ignored for it,
+and the script prints no secret. A dry run doesn't look for it.
+
+The Keychain item is made once, by the person who signs, typing the password
+at the prompt (never on the command line):
+```
+security add-generic-password -s "Nostalgex Roku signing key" -a nostalgex-roku -T "" -w
+```
+`-T ""` trusts no app, so macOS asks to allow every read: no script or agent
+reads it without someone pressing Allow. A missing item, or a read that isn't
+allowed, falls back to the prompt. The password manager stays the place of
+record.
 
 1. Bump `build_version` (or minor/major) in `roku/manifest`.
 2. `roku/scripts/release.sh --dry-run <folder>` runs every

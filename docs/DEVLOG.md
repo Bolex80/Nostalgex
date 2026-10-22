@@ -12,6 +12,7 @@ Commits carry the detail of *what*; this carries the *why*.
 **Changed.**
 - `roku/manifest`: `build_version=3`.
 - `deploy.sh` and `release.sh` hash the staged files with `LC_ALL=C sort`: the hash followed the shell's locale, so the 1.0.2 tree hashed `cca0d38` under C and `d27182e` under en_US. The 1.0.3 tree hashes the same in both now.
+- After signing: `release.sh` takes the signing key's password from the login Keychain (item "Nostalgex Roku signing key", account `nostalgex-roku`) when the shell doesn't give it, and falls back to the prompt. Chad makes the item with `-T ""`, so macOS asks to allow every read. `RELEASING.md` has the one command to make it.
 
 **Measured.** On the Streaming Stick Plus, `deploy.sh --test`: ALL TESTS PASSED, ratings 296, sign-in 97 (the dry-run registry check among them), lineup 154, DST golden 320. The 1.0.3 app build on a signed-in launch: the guide built, no errors. `release.sh --dry-run` passes to the signing step. Chad's sign-in on the stick unchanged.
 
