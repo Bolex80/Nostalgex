@@ -21,7 +21,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "requests", fetcher.requests.Join(" | "), NxList(v.requests).Join(" | "))
         NxCheck(r, "item count", got.Count().ToStr(), NxList(v.items).Count().ToStr())
         ' Port-only fields: none reaches the filter or schedule.
-        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true, audioTracks: true }
+        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true, videoWidth: true, videoHeight: true, audioTracks: true }
         n = NxMinInt(got.Count(), NxList(v.items).Count())
         for i = 0 to n - 1
             want = v.items[i]
@@ -64,6 +64,16 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
             if it <> invalid then
                 NxCheck(r, "audio tracks " + pair[0], NxMbTracksText(it.audioTracks), pair[1])
                 NxCheck(r, "audio tracks " + pair[0] + " on the airing", NxMbTracksText(NxGuideBlock({ item: it, startSec: 0, endSec: 60 }).audioTracks), pair[1])
+            end if
+        end for
+        ' And the chosen source's picture size, for the no-picture deadline
+        ' (NxPictureDeadline). The fixture gives heights only.
+        sizes = [["27ef0d2ba6cf3fe966bfc892bb26ac05", "2076"], ["m-tie", "2160"], ["m-two", "720"]]
+        for each pair in sizes
+            it = byKey[pair[0]]
+            if it <> invalid then
+                b = NxGuideBlock({ item: it, startSec: 0, endSec: 60 })
+                NxCheck(r, "size " + pair[0] + " on the airing", NxToStr(b.videoHeight) + "x" + NxToStr(b.videoWidth), pair[1] + "x")
             end if
         end for
     end if

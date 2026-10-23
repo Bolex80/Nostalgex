@@ -67,6 +67,7 @@ function NxGuideBlock(b as Object) as Object
         container: it.container, videoCodec: it.videoCodec, audioCodec: it.audioCodec,
         videoProfile: it.videoProfile, audioChannels: it.audioChannels, bitrate: it.bitrate,
         audioTracks: it.audioTracks,
+        videoWidth: it.videoWidth, videoHeight: it.videoHeight,
         serverIndex: it.serverIndex, contentRating: NxToStr(it.contentRating), rating: 0,
         type: NxToStr(it.type)
     }

@@ -145,7 +145,7 @@ end function
 ' more than one, for the pick at tune (NxMbPreferredAudioIndex).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, audioTracks: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
@@ -154,6 +154,8 @@ function NxMbMediaInfo(item as Object) as Object
     if v <> invalid then
         if NxTruthy(v.Codec) then out.videoCodec = LCase(NxToStr(v.Codec))
         if NxTruthy(v.Profile) then out.videoProfile = LCase(NxToStr(v.Profile))
+        if NxIsNumber(v.Width) then out.videoWidth = v.Width
+        if NxIsNumber(v.Height) then out.videoHeight = v.Height
         ' Emby only (Jellyfin has no ExtendedVideoSubType): a profile 5 file
         ' goes on no channel (NxIsLeftOffChannels).
         out.doviProfile = NxMbDoviProfile(v.ExtendedVideoSubType)
@@ -272,7 +274,9 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         studio: NxMbStudio(jf),
         librarySource: librarySource,
         tmdbID: NxMbTmdb(jf.ProviderIds),
-        doviProfile: mi.doviProfile
+        doviProfile: mi.doviProfile,
+        videoWidth: mi.videoWidth,
+        videoHeight: mi.videoHeight
     }
 end function
 
@@ -316,7 +320,9 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         tmdbID: showTmdb,
         seasonNumber: ep.ParentIndexNumber,
         episodeNumber: ep.IndexNumber,
-        doviProfile: mi.doviProfile
+        doviProfile: mi.doviProfile,
+        videoWidth: mi.videoWidth,
+        videoHeight: mi.videoHeight
     }
 end function
 

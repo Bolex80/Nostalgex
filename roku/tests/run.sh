@@ -44,6 +44,16 @@ if [ -n "$shadow" ]; then
     exit 1
 fi
 
+# `run` names Roku's builtin Run(): a TV refuses it as a variable or
+# parameter ("Builtin function call expected") though the interpreter takes
+# it, so a build that passes here wouldn't start.
+builtin=$(grep -rnEi '^\s*(for\s+)?run\s*=[^=]|[(,]\s*run\s+as\b' source components tests --include=*.brs || true)
+if [ -n "$builtin" ]; then
+    echo "FAIL a variable named run (Roku's Run()):" >&2
+    echo "$builtin" >&2
+    exit 1
+fi
+
 brs=$(npx -y -p @rokucommunity/brs@0.47.6 -c 'command -v brs')
 
 # The components never run here, so a parse error in one (a reserved word
@@ -84,7 +94,7 @@ for suite in $suites; do
         printf 'function NxTestShard() as Dynamic\n    return { suite: "%s", index: %d, count: %d }\nend function\n' "$suite" "$i" "$n" >"$parts/$suite-$i.brs"
     done
 done
-files=(tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs)
+files=(tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/FallbackTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/plex/PlexPlayback.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs)
 # One part per CPU thread at a time ($NX_TEST_JOBS overrides), the split
 # suites' parts first, so the small ones fill in around them.
 jobs=${NX_TEST_JOBS:-$cpus}

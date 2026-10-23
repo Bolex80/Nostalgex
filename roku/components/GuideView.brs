@@ -28,6 +28,13 @@ sub init()
     m.sawPlaying = false
     m.unplayedEnds = 0
     m.tuneQueue = NxTuneQueue()
+    ' The fallback ladder (source/guide/Fallback.brs): the running start's
+    ' attempt, the one to start next, programmes failed in a row, and
+    ' whether the channel has stopped trying.
+    m.attempt = invalid
+    m.pendingAttempt = invalid
+    m.failRun = NxFailureRun()
+    m.stopped = false
     m.slotOffset = 0
     m.playing = invalid
     m.fullscreen = false
@@ -51,6 +58,8 @@ sub init()
     styleLabel("hazeText", "DMMono-Medium", 26, "0xFFFFFF6B")
     styleLabel("notice", "DMMono-Regular", 20, "0xFF6B6BFF")
     styleLabel("ccToast", "VT323-Regular", 48, "0xFFFFFFFF")
+    m.deadlineTimer = newTimer(15, false, "onDeadline")
+    m.cardTimer = newTimer(5, false, "onCardDone")
 
     m.video = m.top.FindNode("video")
     m.video.ObserveField("state", "onVideoState")
@@ -165,12 +174,12 @@ sub onGuide()
         end if
         renderGrid()
         if linked >= 0 then
-            tune(linked)
+            pressTune(linked)
             setFullscreen(true)
         else if resumed >= 0 then
-            tune(resumed)
+            pressTune(resumed)
         else
-            tune(0)
+            pressTune(0)
         end if
         return
     end if
@@ -211,7 +220,7 @@ sub onGuide()
         t = nowSec()
         if t >= m.playing.endSec and not NxAiringEnded(m.playing, t, m.video.state) then same = true
     end if
-    if not same then tune(m.tuned)
+    if not same and not m.stopped then tune(m.tuned)
 end sub
 
 function tunedChannelId(unused = invalid as Dynamic) as String
@@ -672,7 +681,8 @@ sub onTick()
     if (t \ 1800) * 1800 <> m.lastWindow or t mod 30 = 0 then renderGrid()
     ' Live: when the airing's slot is over and its file isn't still playing,
     ' the channel moves on to whatever is on now (source/guide/Advance.brs).
-    if NxAiringEnded(m.playing, t, m.video.state) then tune(m.tuned)
+    ' A channel that stopped trying stays stopped until the viewer tunes.
+    if NxAiringEnded(m.playing, t, m.video.state) and not m.stopped then tune(m.tuned)
 end sub
 
 ' ── Playback ────────────────────────────────────────────────────────────────
@@ -683,14 +693,20 @@ end sub
 sub tune(idx as Integer, nextAiring = invalid as Dynamic)
     ' From the press to the picture, stop included: the maintainer's bar is
     ' under 10 s for a converted channel, mid-programme too.
-    ' A retry keeps the clock running.
+    ' A step down the fallback ladder keeps the clock running.
     if m.retrying <> true then
         m.tuneClock = CreateObject("roTimespan")
         ' Anything tuned meanwhile replaces a retry still waiting to fire,
         ' which would otherwise restart whatever is on by then.
         stopRetry()
+        m.pendingAttempt = invalid
     end if
     m.retrying = false
+    m.deadlineTimer.control = "stop"
+    m.probing = false
+    m.probeFor = invalid
+    m.probeTask = invalid
+    hideCard()
     action = NxTuneAsk(m.tuneQueue, idx, m.stopUrl <> invalid and m.stopUrl <> "")
     if action = "start" then
         m.nextAiring = nextAiring
@@ -709,6 +725,15 @@ sub tune(idx as Integer, nextAiring = invalid as Dynamic)
     if action = "stop" then stopPrevious()
 end sub
 
+' A tune the viewer asked for: the count of failures starts again, and a
+' channel that stopped trying tries again (ChannelFailureRun.reset in
+' AppState.selectChannel).
+sub pressTune(idx as Integer)
+    NxFailureReset(m.failRun)
+    m.stopped = false
+    tune(idx)
+end sub
+
 sub startTune(idx as Integer)
     m.tuned = idx
     ' Set when this start reaches "playing"; see onVideoState's "finished".
@@ -723,7 +748,15 @@ sub startTune(idx as Integer)
     b = m.nextAiring
     m.nextAiring = invalid
     offset& = 0
-    if b = invalid then
+    rung = "auto"
+    ' A step down the ladder restarts the same airing where it was.
+    pending = m.pendingAttempt
+    m.pendingAttempt = invalid
+    if pending <> invalid then
+        b = pending.b
+        offset& = pending.offset
+        rung = pending.attempt.rung
+    else if b = invalid then
         b = blockAt(ch, t)
         if b <> invalid then offset& = t - b.startSec
     end if
@@ -736,12 +769,17 @@ sub startTune(idx as Integer)
         m.video.control = "stop"
         return
     end if
-    stream = NxStreamContent(b, offset&)
+    stream = NxStreamContent(b, offset&, rung)
+    m.playing = b
     if stream = invalid then
-        m.top.FindNode("notice").text = "Can't play this one: its server isn't set up on this TV."
+        m.attempt = invalid
+        giveUp("nostream")
         return
     end if
-    m.playing = b
+    if pending <> invalid then m.attempt = pending.attempt else m.attempt = NxFirstAttempt(stream.rung)
+    m.tuneOffset = offset&
+    ' For NxProbeStream only; never printed (it can carry a session).
+    m.streamUrl = stream.content.url
     m.stopUrl = stream.stopUrl
     m.stopServer = b.serverIndex
     rememberStop()
@@ -751,7 +789,9 @@ sub startTune(idx as Integer)
     m.tuneFormat = stream.content.streamFormat
     m.tuneRoute = stream.route
     m.tuneAudio = stream.audioTrack
-    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing"
+    m.deadlineTimer.duration = NxPictureDeadline(m.attempt.rung, b.videoWidth, b.videoHeight)
+    m.deadlineTimer.control = "start"
+    print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing ("; m.attempt.rung; ", "; m.deadlineTimer.duration; " s for a picture)"
     refreshNowPlaying()
 end sub
 
@@ -801,7 +841,8 @@ sub onVideoState()
             print "player: picture after "; m.tuneClock.TotalMilliseconds(); " ms ("; m.tuneFormat; ")"
             m.tuneClock = invalid
         end if
-        m.retried = false
+        m.deadlineTimer.control = "stop"
+        NxFailureReset(m.failRun)
         m.sawPlaying = true
         m.unplayedEnds = 0
         hideHaze()
@@ -817,36 +858,117 @@ sub onVideoState()
         if m.unplayedEnds >= 2 then
             print "player: finished without playing again; treating it as an error"
             state = "error"
+        else if m.attempt <> invalid and m.attempt.rung <> "direct" and m.probing <> true then
+            ' A server stream the server couldn't make ends this way too
+            ' (a file gone from disk: Emby's playlist failed and the player
+            ' reported "finished"). Asked first, so a join past the end of
+            ' a short file still hands over.
+            print "player: the server stream finished without playing; asking the server"
+            startProbe("error", invalid, true)
+            return
         end if
     end if
     ' The file ended: hand over to the next airing, as upstream does on
     ' AVPlayerItemDidPlayToEndTime.
-    if state = "finished" and m.tuned >= 0 and m.playing <> invalid then
-        nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, nowSec())
-        if nxt <> invalid then print "player: finished, "; nowSec() - m.playing.endSec; " s past the slot; next from its start"
-        tune(m.tuned, nxt)
+    if state = "finished" then
+        handOver()
         return
     end if
     if state = "error" then
         print "player: error "; m.video.errorCode; " "; m.video.errorMsg
         e = m.video.errorInfo
         if e <> invalid then print "player: error category "; e.category; " code "; e.errcode; " source "; e.source
-        ' One retry, as upstream retries a failed start: Plex can refuse a
-        ' stream for a moment while the last one is still winding down.
-        ' The one retry is per channel: another channel's refusal, say while
-        ' the last transcode winds down after a flip, gets its own.
-        if m.retried = true and m.retriedId <> tunedChannelId() then m.retried = false
-        if m.retried <> true and m.tuned >= 0 then
-            m.retried = true
-            m.retriedId = tunedChannelId()
-            m.retryTimer = CreateObject("roSGNode", "Timer")
-            m.retryTimer.duration = 3
-            m.retryTimer.ObserveField("fire", "onRetry")
-            m.retryTimer.control = "start"
-            return
-        end if
-        m.top.FindNode("notice").text = "Playback failed: " + m.video.errorMsg
+        failAttempt("error")
     end if
+end sub
+
+sub handOver()
+    if m.tuned < 0 or m.playing = invalid then return
+    nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, nowSec())
+    if nxt <> invalid then print "player: finished, "; nowSec() - m.playing.endSec; " s past the slot; next from its start"
+    tune(m.tuned, nxt)
+end sub
+
+' No picture by the start's deadline (PlaybackWatchdog): Roku's player
+' would otherwise wait on its own for as long as it likes.
+sub onDeadline()
+    if m.video.state = "playing" then return
+    print "player: no picture after "; m.deadlineTimer.duration; " s ("; m.video.state; ")"
+    failAttempt("nopicture")
+end sub
+
+' The running start failed: the next rung of the ladder, or the card. The
+' server is asked first when the player said nothing (no picture) and before
+' the card, as upstream asks it before its card and before the server
+' stream (resolveServerStream); an error steps down at once, so a refusal
+' that lasts a moment still gets its retry.
+sub failAttempt(event as String)
+    m.deadlineTimer.control = "stop"
+    if m.attempt = invalid or m.playing = invalid or m.tuned < 0 or m.probing = true then return
+    nxt = NxFallbackNext(m.attempt, event)
+    if event = "nopicture" or nxt = invalid then
+        startProbe(event, nxt, false)
+        return
+    end if
+    stepDown(nxt, event)
+end sub
+
+' finished: the stream ended unplayed, and an answer from the server means
+' it was a join past the end of the file (handOver), not a failure.
+sub startProbe(event as String, nxt as Dynamic, finished as Boolean)
+    m.deadlineTimer.control = "stop"
+    m.probing = true
+    m.probeFor = { event: event, nxt: nxt, finished: finished }
+    m.probeTask = CreateObject("roSGNode", "StreamProbeTask")
+    m.probeTask.url = m.streamUrl
+    m.probeTask.serverIndex = m.playing.serverIndex
+    m.probeTask.ObserveField("code", "onProbeDone")
+    m.probeTask.control = "run"
+end sub
+
+' The server's answer: a refusal, or nothing answering, ends the ladder with
+' that as the reason; otherwise the next rung, or the card.
+sub onProbeDone(ev as Object)
+    ' Tuned away while it asked: a newer start owns the player.
+    if m.probeTask = invalid or not ev.GetRoSGNode().IsSameNode(m.probeTask) then return
+    m.probing = false
+    code = ev.GetData()
+    m.probeTask = invalid
+    p = m.probeFor
+    m.probeFor = invalid
+    if p = invalid then return
+    verdict = NxProbeVerdict(code)
+    print "player: the server "; verdict; " ("; code; ")"
+    if p.finished and verdict = "answered" then
+        handOver()
+        return
+    end if
+    if p.nxt = invalid or verdict <> "answered" then
+        giveUp(p.event, code)
+        return
+    end if
+    stepDown(p.nxt, p.event)
+end sub
+
+sub stepDown(nxt as Object, event as String)
+    ' The same airing at the same point: where it got to, if it played.
+    offset& = m.tuneOffset
+    played = m.video.position
+    if NxIsNumber(played) and played > offset& then offset& = Int(played)
+    m.pendingAttempt = { b: m.playing, offset: offset&, attempt: nxt }
+    was = m.attempt.rung
+    m.attempt = invalid
+    if nxt.retry then
+        ' Plex can refuse a stream for a moment while the last one is still
+        ' winding down, so the retry waits.
+        print "player: "; event; " on the server stream; retrying it"
+        m.retryTimer = newTimer(3, false, "onRetry")
+        m.retryTimer.control = "start"
+        return
+    end if
+    print "player: "; event; " on the "; was; " stream; trying the "; nxt.rung; " stream"
+    m.retrying = true
+    tune(m.tuned)
 end sub
 
 sub onRetry()
@@ -854,6 +976,123 @@ sub onRetry()
     print "player: retrying"
     m.retrying = true
     tune(m.tuned)
+end sub
+
+' Nothing left to try: the card names why, the server's work stops, and
+' after five seconds the next programme starts. The fifth in a row on a
+' channel stops it instead, card and all, until the viewer tunes.
+sub giveUp(event as String, probe = 1 as Integer)
+    e = { server: "", event: event, rung: "", errorCode: 0, category: "", probe: probe, codec: invalid }
+    if m.attempt <> invalid then e.rung = m.attempt.rung
+    s = invalid
+    if m.playing <> invalid then
+        s = NxStreamServer(m.playing)
+        e.codec = m.playing.videoCodec
+    end if
+    if s <> invalid then e.server = NxServerDisplayName(NxServerKind(s))
+    if event = "error" then
+        e.errorCode = m.video.errorCode
+        info = m.video.errorInfo
+        if info <> invalid then e.category = info.category
+    end if
+    card = NxPlaybackFailure(e)
+    m.attempt = invalid
+    m.video.control = "stop"
+    stopPrevious()
+    hideHaze()
+    ends = NxFailureRecord(m.failRun, tunedChannelId())
+    print "player: gave up ("; card.kind; "), "; m.failRun.count; " in a row on this channel"
+    if ends then
+        m.stopped = true
+        showCard(NxChannelStoppedCard(card))
+        return
+    end if
+    showCard(card)
+    m.cardTimer.control = "start"
+end sub
+
+' The card has had its five seconds: the next programme, from its start, or
+' what airs now if the schedule has moved past the one that failed
+' (advanceToNextItem).
+sub onCardDone()
+    hideCard()
+    if m.tuned < 0 or m.playing = invalid then return
+    t = nowSec()
+    nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, t)
+    if nxt = invalid or (t >= nxt.startSec and t < nxt.endSec) then
+        tune(m.tuned)
+    else
+        tune(m.tuned, nxt)
+    end if
+end sub
+
+sub showCard(card as Object)
+    accent = "0xFFB020"
+    if not card.serverSide then accent = "0xFF2244"
+    m.card = card
+    m.top.FindNode("failHead").text = card.headline
+    m.top.FindNode("failHead").color = accent + "FF"
+    m.top.FindNode("failDetail").text = card.detail
+    m.top.FindNode("failNext").text = card.nextStep
+    m.top.FindNode("failEdge").color = accent + "59"
+    positionCard()
+    m.top.FindNode("failCard").visible = true
+end sub
+
+sub hideCard()
+    m.cardTimer.control = "stop"
+    m.top.FindNode("failCard").visible = false
+    m.card = invalid
+end sub
+
+' PlaybackFailureCard's sizes: compact over the guide's preview, larger full
+' screen; centred on the video either way.
+sub positionCard()
+    if m.card = invalid then return
+    if m.fullscreen then
+        area = [0, 0, 1920, 1080]
+        sizes = [38, 22, 17]
+        textW = 900
+        padX = 72
+        padY = 48
+        gap = 18
+    else
+        area = [1180, 0, 740, 555]
+        sizes = [26, 16, 13]
+        textW = 740 - 2 * (24 + 32)
+        padX = 32
+        padY = 28
+        gap = 12
+    end if
+    head = m.top.FindNode("failHead")
+    detail = m.top.FindNode("failDetail")
+    nxt = m.top.FindNode("failNext")
+    head.font = fontOf("DMMono-Medium", sizes[0])
+    detail.font = fontOf("DMMono-Regular", sizes[1])
+    detail.color = "0xFFFFFFBF"
+    nxt.font = fontOf("DMMono-Regular", sizes[2])
+    nxt.color = "0xFFFFFF66"
+    for each lbl in [head, detail, nxt]
+        lbl.width = textW
+    end for
+    hH = head.boundingRect().height
+    dH = detail.boundingRect().height
+    nH = nxt.boundingRect().height
+    w = textW + 2 * padX
+    h = hH + dH + nH + 2 * gap + 2 * padY
+    x = area[0] + (area[2] - w) / 2
+    y = area[1] + (area[3] - h) / 2
+    edge = m.top.FindNode("failEdge")
+    edge.translation = [x - 1, y - 1]
+    edge.width = w + 2
+    edge.height = h + 2
+    bg = m.top.FindNode("failBg")
+    bg.translation = [x, y]
+    bg.width = w
+    bg.height = h
+    head.translation = [x + padX, y + padY]
+    detail.translation = [x + padX, y + padY + hH + gap]
+    nxt.translation = [x + padX, y + padY + hH + gap + dH + gap]
 end sub
 
 sub stopRetry()
@@ -880,6 +1119,7 @@ sub setFullscreen(on as Boolean)
         m.top.FindNode("ccToast").visible = false
     end if
     positionHaze()
+    positionCard()
     applySubtitles()
 end sub
 
@@ -1128,7 +1368,7 @@ sub onStripPicked()
     closeStrip()
     m.focus = idx
     keepFocusVisible()
-    if idx <> m.tuned then tune(idx)
+    if idx <> m.tuned then pressTune(idx)
     showOsd()
 end sub
 
@@ -1662,7 +1902,7 @@ sub applyDeepLink()
     m.slotOffset = 0
     keepFocusVisible()
     if idx <> m.tuned then
-        tune(idx)
+        pressTune(idx)
     else
         renderGrid()
         renderInfo()
@@ -1696,7 +1936,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             idx = (m.tuned + d + m.channels.Count()) mod m.channels.Count()
             m.focus = idx
             keepFocusVisible()
-            tune(idx)
+            pressTune(idx)
             showOsd()
             return true
         end if
@@ -1709,7 +1949,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             return true
         end if
         if key = "OK" or key = "play" then
-            showOsd()
+            ' A channel that stopped trying tries again.
+            if m.stopped then pressTune(m.tuned) else showOsd()
             return true
         end if
         if key = "options" then
@@ -1771,8 +2012,9 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     if key = "OK" then
-        ' A channel the sleep timer stopped starts again.
-        if m.focus = m.tuned and m.playing <> invalid then setFullscreen(true) else tune(m.focus)
+        ' A channel the sleep timer stopped starts again, and one that
+        ' stopped trying tries again.
+        if m.focus = m.tuned and m.playing <> invalid and not m.stopped then setFullscreen(true) else pressTune(m.focus)
         return true
     end if
     if key = "play" then

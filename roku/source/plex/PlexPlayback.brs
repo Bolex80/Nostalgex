@@ -24,8 +24,10 @@ sub NxPlexApplyAuth(video as Object, token as String)
     video.SetHeaders({ "X-Plex-Token": token })
 end sub
 
-' Returns { content, stopUrl } (stopUrl "" for direct play), or invalid.
-function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
+' Returns { content, stopUrl, route, rung } (stopUrl "" for direct play), or
+' invalid. rung "auto" plays direct when it can; "server" and "capped" never
+' do, "capped" being upstream's 1080p compatibility stream (NxFallbackNext).
+function NxPlexStreamContent(b as Object, offsetSec as LongInteger, rung = "auto" as String) as Dynamic
     servers = ParseJson(NxPlexRegistry().Read("servers"))
     if type(servers) <> "roArray" or b.serverIndex = invalid then return invalid
     if b.serverIndex >= servers.Count() then return invalid
@@ -60,8 +62,10 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
     direct = direct and NxHasValue(["aac", "ac3", "eac3", "mp3"], acodec)
     ' And only what this TV decodes, profile and channels included.
     if direct then direct = NxDeviceDecodes(b)
+    if rung <> "auto" then direct = false
 
     if direct then
+        rung = "direct"
         stopUrl = ""
         content.url = base + NxToStr(b.partKey)
         content.streamFormat = "mp4"
@@ -75,7 +79,7 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
         ' On a TV that decodes HEVC, let it copy the video instead: no work on
         ' the server and the original picture.
         profile = "h264"
-        if NxCanDecodeHevc() then profile = "hevc"
+        if NxCanDecodeHevc() and rung <> "capped" then profile = "hevc"
         ' Text subtitles come as a WebVTT track the TV shows or hides, as
         ' upstream's tvOS app asks (subtitles=auto). Without the target, Plex
         ' burns in a file's default subtitles and re-encodes the video to do it.
@@ -86,6 +90,8 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
             extra = extra + "+add-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=hevc)"
         end if
         q = q + "&subtitles=auto"
+        if rung <> "capped" then rung = "server"
+        q = q + NxPlexRungQuery(rung)
         q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt")
         q = q + "&X-Plex-Client-Identifier=" + NxPlexClientId()
         q = q + "&X-Plex-Product=nostalgex-roku&X-Plex-Platform=Roku&X-Plex-Device=Roku"
@@ -99,7 +105,15 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
         content.PlayStart = offsetSec
         stopUrl = base + "/video/:/transcode/universal/stop?session=" + session
     end if
-    return { content: content, stopUrl: stopUrl, route: route }
+    return { content: content, stopUrl: stopUrl, route: route, rung: rung }
+end function
+
+' What the "capped" rung adds to the request: upstream's cappedTranscodeURL,
+' 1080p at 12 Mb/s and no HEVC (above), which makes Plex re-encode what the
+' first stream copied. Nothing for "server".
+function NxPlexRungQuery(rung as String) as String
+    if rung = "capped" then return "&maxVideoBitrate=12000&videoQuality=90&videoResolution=1920x1080"
+    return ""
 end function
 
 function NxCanDecodeHevc() as Boolean

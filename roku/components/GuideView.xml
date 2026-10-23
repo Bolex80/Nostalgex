@@ -27,6 +27,7 @@
   <script type="text/brightscript" uri="pkg:/source/guide/GuideNav.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/TuneQueue.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/Advance.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Fallback.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/SleepTimer.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/DeepLink.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/RetroMode.brs" />
@@ -121,5 +122,15 @@
       <Label id="graceHint" text="PRESS ANY BUTTON TO KEEP WATCHING" translation="[580,580]" width="760" horizAlign="center" />
     </Group>
     <Label id="notice" translation="[1200,500]" width="700" wrap="true" color="0xFF6B6BFF" />
+    <!-- PlaybackFailureCard: why a programme won't play, over the video,
+         amber for the server and red for the file or the TV. Nothing in
+         it takes focus; positionCard sizes it to the text. -->
+    <Group id="failCard" visible="false">
+      <Rectangle id="failEdge" />
+      <Rectangle id="failBg" color="0x000000D1" />
+      <Label id="failHead" horizAlign="center" wrap="true" />
+      <Label id="failDetail" horizAlign="center" wrap="true" lineSpacing="4" />
+      <Label id="failNext" horizAlign="center" />
+    </Group>
   </children>
 </component>

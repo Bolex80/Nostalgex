@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Asks the server about a stream that didn't play (NxProbeStream), off
+     the render thread. The token is read from the registry here, never
+     passed on a field. -->
+<component name="StreamProbeTask" extends="Task">
+  <interface>
+    <field id="url" type="string" />
+    <field id="serverIndex" type="integer" />
+    <field id="code" type="integer" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/DirectPlay.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
+  <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/Fallback.brs" />
+  <script type="text/brightscript" uri="pkg:/components/StreamProbeTask.brs" />
+</component>
