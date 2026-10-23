@@ -85,18 +85,40 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     eac3 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "eac3" }))
     aac51 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "aac", ChCnt: 6 }))
     q = q + NxMbAudioQuery(ac3, eac3, aac51)
-    ' High enough that the server copies the video rather than re-encode it
-    ' to fit, as the web tuner asks.
-    q = q + "&VideoBitrate=120000000"
+    q = q + NxMbVideoQuery(b.bitrate)
     ' TS segments on both servers, HEVC included. A Roku played no sound
     ' from fMP4, even stereo AAC, on Emby and on Jellyfin (Discussion #8,
     ' 2026-10-22), and TS carries the source timestamps, so a join stays in
     ' sync where fMP4's ran up to a GOP early (docs/JELLYFIN-EMBY.md).
     q = q + "&SegmentContainer=ts"
+    ' 2-second segments, not the servers' 6, so a piece of a 4K remux fits
+    ' the player's buffer: one stopped with error -3, "Requested reservation
+    ' (11065599+56589021) is larger than the entire buffer" (issue #58).
+    ' Plex sends 1 s. With the video copied the server cuts only at
+    ' keyframes, so a file whose keyframes are further apart still gets
+    ' longer pieces; NxMbVideoQuery re-encodes the heavy ones
+    ' (docs/JELLYFIN-EMBY.md).
+    q = q + "&SegmentLength=2"
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
     return { content: content, stopUrl: stopUrl, route: route }
+end function
+
+' The video part of the server stream's request. The Apple TV's Auto
+' ceiling (StreamQuality), 40 Mb/s at up to 4K; without MaxWidth Emby
+' re-encoded to 1080p, soft and blocky on a TV. Over 20 Mb/s the video is
+' re-encoded, never copied: a copied piece runs from keyframe to keyframe,
+' and with them far apart it can outgrow the player's buffer, error -3
+' (issue #58: a 4K remux, keyframes up to 10 s apart, 53 MB pieces).
+' The server decides by the file's average bitrate, so the ceiling alone
+' copied a 26.5 Mb/s clip that then stopped with that error. A 19 Mb/s 4K
+' file played copied, pieces up to 32 MB included (docs/JELLYFIN-EMBY.md).
+' bitrate invalid (none reported) copies.
+function NxMbVideoQuery(bitrate as Dynamic) as String
+    q = "&VideoBitrate=40000000&MaxWidth=3840"
+    if NxIsNumber(bitrate) and bitrate > 20000000 then q = q + "&AllowVideoStreamCopy=false"
+    return q
 end function
 
 ' The audio the server stream may carry: AAC, and AC3 or E-AC-3 only when

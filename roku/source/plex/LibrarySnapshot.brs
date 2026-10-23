@@ -26,8 +26,9 @@ end function
 
 ' Bump when a saved item would no longer read the same; an old meta is ignored.
 ' 3: items carry videoProfile and audioChannels (source/util/DirectPlay.brs).
+' 4: Jellyfin and Emby items carry bitrate (NxMbVideoQuery).
 function NxSnapshotFormat() as Integer
-    return 3
+    return 4
 end function
 
 ' Items per chunk file: about 1 MB of JSON, so a read or write never holds

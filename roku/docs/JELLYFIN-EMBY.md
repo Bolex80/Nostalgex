@@ -216,6 +216,61 @@ servers, driven over ECP.
   envelopes, so to the nearest 5 ms (HEVC 10-bit + E-AC-3 5.1, joined
   about 30 min in): in sync on Emby and on Jellyfin, the sound within 5 ms
   of where its timestamps put it. Not yet heard on a Roku.
+- **A 4K remux through the server stopped with error -3** (issue #58,
+  2026-10-22, a Streaming Stick Plus set to Stereo, Emby 4.10.1, a 4K HEVC
+  Dolby Vision remux at 29 Mb/s with AC3): "Requested reservation
+  (11065599+56589021) is larger than the entire buffer", over TS and fMP4.
+  Both servers cut 6 s segments unless asked, and with the video copied a
+  6 s piece of a remux is tens of MB. The request now asks for
+  `SegmentLength=2`. On the lab Emby, a 60 s 4K HEVC clip at 43 Mb/s with a
+  keyframe every second: 6 s segments averaged 33 MB (largest 44 MB), 2 s
+  ones 11 MB (16 MB), 1 s ones 5.5 MB (8.3 MB); the 2 s ones checked held
+  2 s of video each. On Jellyfin 12.2, `SegmentLength=2` on a 4K HEVC file
+  gave segments of 1.96 s. The server can cut only at a keyframe: a 4K x265
+  encode with keyframes about 10 s apart gave "6 s" segments holding 10.4 s
+  and 20.7 s (74.7 MB), so asking for less can't shorten them.
+  On a TCL 43S45 (4K, Roku OS 16.0.4), a throwaway player asking as the
+  port asks, from the start, against the lab Emby and Jellyfin 12.2 alike:
+  the 4K clip and a 1080p one at 73 Mb/s stopped with error -3 at 6 s
+  segments, "Requested reservation (11065599+…) is larger than the entire
+  buffer (31616000)", and played at 2 s, segments of up to 25.5 MB
+  included. On Emby a 1080p clip with keyframes 10 s apart failed at 2 s
+  too. The port at 2 s
+  joined two films part-way through Emby with picture in 1.4 and 3.0 s and
+  no stall.
+  Short segments weren't enough for Chad's file: The Matrix Revolutions
+  (4K, Dolby Vision 8.1) has keyframes 6 s apart on average and up to 10 s,
+  at 41 to 55 Mb/s in the stretch measured, and Emby's `SegmentLength=1`
+  still gave 53 MB pieces (#55, where the remux he first reported is
+  29 Mb/s). So over 20 Mb/s the request now asks for
+  `AllowVideoStreamCopy=false`, and always for
+  `VideoBitrate=40000000&MaxWidth=3840`, the Apple TV's Auto ceiling
+  (`StreamQuality`), where it asked for 120 Mb/s so the server would always
+  copy (`NxMbVideoQuery`). Re-encoded, Emby makes H.264 with a keyframe at
+  every segment. Measured on the lab Emby and the 43S45 with one-minute 4K
+  HDR10 clips, keyframes 10 s apart, one cut from 12 Angry Men (46 Mb/s)
+  and two from La La Land (41.8 and 26.5 Mb/s, film grain):
+  - Copied at 2 s segments, the 46 and the 26.5 Mb/s clips stopped with
+    the same error.
+  - The ceiling alone doesn't re-encode the 26.5 Mb/s clip: Emby decides by
+    the file's average bitrate, so 40 Mb/s copied it, and copied the real
+    4K 12 Angry Men (19 Mb/s). With `AllowVideoStreamCopy=false` both
+    re-encoded at 4K, and the 26.5 Mb/s clip played in the port (the test
+    file swapped in for every Emby airing), picture in 2.1 to 2.8 s over
+    four tunes, no error.
+  - 12 Angry Men played copied, from the start, 10 minutes in and an hour
+    in, pieces up to 31.9 MB, which is why the line is 20 Mb/s and not
+    lower.
+  - Without `MaxWidth`, Emby re-encoded to 1080p (at 20 and 40 Mb/s); the
+    La La Land clip came out at about 1.6 Mb/s, soft and blocky next to the
+    original on the TV. At 4K (about 4.6 Mb/s out, set by Emby's own CRF 23
+    and `veryfast`, whatever the ceiling) it looked a little less sharp
+    than the original, with a little more compression; the film grain may
+    be part of that.
+  - Emby re-encoded 4K to 4K at about 4× real time on an i7-12700K,
+    software only (to 1080p, 5 to 8×). The 8-bit H.264 keeps the HDR10
+    tags without tone mapping: fine on the 43S45, unseen on a TV without
+    HDR. Jellyfin untried.
 
 ## How it fits the app
 
