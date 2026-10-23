@@ -82,7 +82,8 @@ function NxGuideBlock(b as Object) as Object
 end function
 
 ' A deep-linked item (NxDeepLinkItem) as an airing from nowSec for its
-' length. linked lets a guide refresh leave it playing to its end.
+' length. linked: it ends with its file, not its slot, and a guide refresh
+' leaves it playing.
 function NxLinkedAiring(item as Object, nowSec as LongInteger) as Object
     minutes = 0
     if NxIsNumber(item.duration) then minutes = Int(item.duration)

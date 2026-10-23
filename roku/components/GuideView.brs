@@ -224,7 +224,7 @@ sub onGuide()
         t = nowSec()
         if t >= m.playing.endSec and not NxAiringEnded(m.playing, t, m.video.state) then same = true
         ' So does a deep-linked item, which no channel airs.
-        if m.playing.linked = true and not NxAiringEnded(m.playing, t, m.video.state) then same = true
+        if m.playing.linked = true then same = true
     end if
     ' An item link being looked up starts its own.
     if not same and not m.stopped and m.itemTask = invalid then tune(m.tuned)
@@ -689,7 +689,9 @@ sub onTick()
     ' Live: when the airing's slot is over and its file isn't still playing,
     ' the channel moves on to whatever is on now (source/guide/Advance.brs).
     ' A channel that stopped trying stays stopped until the viewer tunes.
-    if NxAiringEnded(m.playing, t, m.video.state) and not m.stopped then tune(m.tuned)
+    ' A deep-linked item ends with its file, however long it stalled.
+    linked = m.playing <> invalid and m.playing.linked = true
+    if NxAiringEnded(m.playing, t, m.video.state) and not m.stopped and not linked then tune(m.tuned)
 end sub
 
 ' ── Playback ────────────────────────────────────────────────────────────────
