@@ -224,25 +224,30 @@ Where it differs:
 - Starvation after a picture (upstream's starvation monitor) is issue #59.
 
 Measured on the 43S45 against the lab Emby (2026-10-23), with 10-minute
-clips:
-- Emby stopped mid-programme: direct play errored (-5) and its server
-  stream ended unplayed; then each programme gave up after its 15 s
-  deadline and a probe answering -7 (couldn't connect), card "Can't reach
-  your server", and the fifth stopped the channel. While stopped it made no
-  request in 20 s; with Emby back, OK showed a picture in 1.0 s. Without
-  the probe the same run took about a minute a programme, through the 1080p
-  stream, and blamed a slow server.
+clips, on this build:
+- Emby stopped mid-programme: the programme already playing never errored;
+  it buffered until its slot ended and the clock moved on (a stall after
+  the picture, issue #59). Each later start gave up after its 15 s deadline
+  and a probe answering -7 (couldn't connect), card "Can't reach your
+  server", and the fifth stopped the channel. While stopped it made no
+  request in 20 s; with Emby back, OK showed a picture in 0.9 s. A build
+  without the probe took about a minute a programme on the same test,
+  through the 1080p stream, and blamed a slow server. In two earlier runs
+  the programme playing errored instead (-5, the connection cut mid-file).
 - A file taken off the disk: direct play errored (-1), the server stream
   ended unplayed, and the probe walked master 200, variant 200, segment
   500: card "Your server wouldn't start this one", then the next programme.
   Emby answers 500, not 404, for the missing file.
 - The 1080p rung's request, sent to Emby for a 4K H.264 4:4:4 file, came
   back re-encoded to 1920x1080 4:2:0. On the TV it wasn't reached by codec:
-  the 43S45 played 4K 10-bit H.264, 4K AV1 and 4K 4:4:4 H.264 as stored.
-- Once, with Emby stopped, the render thread stalled for about ten minutes
-  during a 1080p start (the guide's clock stopped; no BrightScript was
-  running); it came back after Emby was started again. It didn't recur in
-  the later runs.
+  the 43S45's player ran 4K 10-bit H.264, 4K AV1 and 4K 4:4:4 H.264 as
+  stored, position advancing (the screen wasn't seen).
+- Not exercised on a TV: the retry (no first server stream errored), the
+  40 s 4K deadline, and Plex or Jellyfin.
+- Once, on the build without the probe and with Emby stopped, the render
+  thread stalled for about ten minutes during a 1080p start (the guide's
+  clock stopped; no BrightScript was running). It came back after Emby was
+  started again, and didn't recur in the later runs.
 
 Home leaves a server stream running until the next launch stops it (the
 stop address is kept in the registry). An exit hook in `source/main.brs`
