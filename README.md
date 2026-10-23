@@ -57,19 +57,18 @@ Then open `http://YOUR-SERVER-IP:8080`. Step by step help is in the [Docker cont
 
 **Latest: `tuner-v1.0.6`.** A new sign-in for Jellyfin and Emby, the same one the Apple TV app has: Quick Connect by default, your server's users to pick from, and the Docker tuner finds a server running on the same machine. [Release notes](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.6). Already running it? `docker compose pull && docker compose up -d`.
 
-<a id="whats-new-in-1026"></a>
-## What's new in 1.0.26
+<a id="whats-new-in-1028"></a>
+## What's new in 1.0.28
 
-The App Store went straight from 1.0.23 to 1.0.26, so this rolls up 1.0.24, 1.0.25 and 1.0.26. [Full release notes](https://github.com/chadMueller/Nostalgex/releases/tag/v1.0.26)
+1.0.27 is folded in, so this is everything since 1.0.26. [Full release notes](https://github.com/chadMueller/Nostalgex/releases/tag/v1.0.28)
 
-- **The Docker container launched** as `tuner-v1.0.0`. It's on [`tuner-v1.0.6`](https://github.com/chadMueller/Nostalgex/releases/tag/tuner-v1.0.6) now.
-- **Emby is officially supported.** Thank you to the Emby community for all the logs and testing.
-- **Franchises.** Each film series in your library (Star Wars, Rocky, whatever you own) gets its own channel and its own switch in Settings. Server collections land in FRANCHISES or OTHER COLLECTIONS. NOTABLE STARS is retired.
-- **iCloud sync** (Settings > CONNECTION). Every Apple TV on your Apple ID shares the same lineup and settings. Off by default, and server logins never leave the device.
-- **REPORT PLAYBACK.** Shows what you're watching in your server's Now Playing and marks a film watched once you've seen most of it, without flooding Continue Watching.
-- **Phone web tuner.** Full width video, the guide in the right place, controls behind one menu.
-- **Tip jar:** Popcorn, TV Dinner, Pizza Night.
-- **Reliability:** large library crash fixed, Emby libraries load again, Plex titles with a dash (Spider-Man) keep their full name, clear cards when something can't play, stalled Jellyfin and Emby streams recover, multi-version and multipart Plex files play correctly.
+- **An easier Jellyfin and Emby sign-in.** Pick Jellyfin or Emby and Nostalgex finds your server on your network. Jellyfin puts a Quick Connect code on screen to approve from your phone, Emby shows its users so you pick your name, and the address is checked before you type a password.
+- **Holiday channels.** TIS THE SEASON grows to eight channels with MISTLETOE, CHRISTMAS SPECIALS, KIDS CHRISTMAS TV and TURKEY DAY, and shows up a week before US Thanksgiving.
+- **SCREAM is eight channels** and can stay on in any month, plus MYSTERY BOX TV, CRINGE TV and A24.
+- **Ratings from outside the US** count like their US equivalents, so UK, German and other ratings fill the kids and family channels.
+- **Clock changes** no longer leave channels dark for the last hour of the day.
+- **Playback:** Blu-ray 7.1 audio plays, Emby keeps the sound in sync when you join a film part way through, Jellyfin and Emby stop burning subtitles into the picture, and stalled streams recover.
+- **TV show collections** become channels too, and Report Playback is two switches. Thanks to [@w6trp](https://github.com/w6trp) and [@tydude001](https://github.com/tydude001).
 
 ## Join in
 
@@ -238,7 +237,7 @@ Each film series in your library (Star Wars, Rocky, whatever you own) gets its o
 <a id="maintained"></a>
 Nostalgex has been on the App Store since April 19, 2026, and gets updates every month. I'm one person, and I read every issue.
 
-- **Releases:** 1.0.26 is live on the App Store. History is in [GitHub releases](https://github.com/chadMueller/Nostalgex/releases), the [App Store version history](https://apps.apple.com/app/id6762563534) and [`content/changelog.json`](content/changelog.json).
+- **Releases:** 1.0.28 is live on the App Store. History is in [GitHub releases](https://github.com/chadMueller/Nostalgex/releases), the [App Store version history](https://apps.apple.com/app/id6762563534) and [`content/changelog.json`](content/changelog.json).
 - **Dev log:** [docs/DEVLOG.md](docs/DEVLOG.md) explains why things changed and what's still half done.
 - **Outside contributors:** thank you to [@w6trp](https://github.com/w6trp) for #18, #19, #20 and #21 in 1.0.26, and to [@Gorbataras](https://github.com/Gorbataras) for [#5](https://github.com/chadMueller/Nostalgex/pull/5) and [#7](https://github.com/chadMueller/Nostalgex/pull/7) (Emby seek fix, and no more sound over a black picture on Jellyfin and Emby).
 - **Tests** run in CI on every push to `main` and on every pull request.

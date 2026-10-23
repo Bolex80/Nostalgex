@@ -70,7 +70,7 @@
 <div class="container">
   <a href="/" class="back">Back to Nostalgex</a>
   <h1>Privacy Policy</h1>
-  <p class="date">Effective: October 21, 2026</p>
+  <p class="date">Effective: October 23, 2026</p>
 
   <p>Nostalgex turns your own Plex, Jellyfin, or Emby library into live TV channels. We do not host, supply, or stream any media. Everything you watch comes off your own server.</p>
 
@@ -129,7 +129,8 @@
   <h2>Services the app connects to</h2>
   <ul>
     <li>Your own Plex, Jellyfin, or Emby server, for the library and for playback</li>
-    <li>Your home network, only if you ask. On the Jellyfin and Emby sign-in screens, Find servers on my network sends a short broadcast on your local network (UDP port 7359) asking which servers are there, and lists the ones that answer. It stays on your network, and nothing about the search is sent to us.</li>
+    <li>Your home network, when you pick Jellyfin or Emby. The app starts looking for your server straight away: it sends a short broadcast on your local network (UDP port 7359) asking which Jellyfin or Emby servers are there, and only devices on that network receive it. The first time, your Apple TV asks whether Nostalgex can look for devices on your local network. Say no and you can still type the address. Nothing about the search is stored or sent to us.</li>
+    <li>Your Jellyfin or Emby server, before you sign in. Once it has the address, the app asks the server three things that need no login: its public details (its name, version and which kind of server it is), whether Quick Connect is switched on, and the users it lists on its own login screen. Those names show as tiles so you can pick yours instead of typing it. None of it is saved, and none of it is sent to us.</li>
     <li>plex.tv, for Plex sign-in using Plex's own PIN flow. That is Plex's system, not ours</li>
     <li>TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB and OMDb lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the public TMDB or IMDb id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.</li>
     <li>MusicBrainz, for public music metadata used by the music video channels</li>
@@ -138,7 +139,7 @@
   <p>These lookups use public identifiers and titles for the purpose of matching metadata. The Supabase cache is keyed on public TMDB identifiers and holds metadata about films and shows. It does not record who asked for it, and it holds no account, device, or server information.</p>
 
   <h2>Sign-in</h2>
-  <p>Plex sign-in runs through Plex's own PIN system. We never see your Plex username or password. Jellyfin and Emby sign-in goes straight from the app to the server you typed in. Tokens are held in the Keychain on your Apple TV and are never sent to us. On Roku, Plex sign-in uses the same Plex code, Jellyfin and Emby sign-in goes straight from the TV to your server, and tokens are kept in the app's own storage on the TV.</p>
+  <p>Plex sign-in runs through Plex's own PIN system. We never see your Plex username or password. Jellyfin and Emby sign-in goes straight from the app to your server, whether it was found on your network or typed in. With Jellyfin's Quick Connect you approve the sign-in in Jellyfin on your phone or computer, so no password is typed on the TV. Tokens are held in the Keychain on your Apple TV and are never sent to us. On Roku, Plex sign-in uses the same Plex code, Jellyfin and Emby sign-in goes straight from the TV to your server, and tokens are kept in the app's own storage on the TV.</p>
 
   <h2>Playback reporting</h2>
   <p>The app and the web tuner can report what you are watching back to your own Plex, Jellyfin, or Emby server, so your server shows what is playing and a film or episode you watch most of counts as watched. This is <strong>off by default</strong> and you turn it on in Settings under Playback Reporting. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched; on Jellyfin and Emby each program goes back the way your server had it when you change channel. When it is on, the reports go only to the server you connected. They do not come to us.</p>
@@ -149,7 +150,7 @@
   <ul>
     <li>plex.tv, to sign you in to Plex with Plex's own code and to find your servers. You enter the code at plex.tv/link, or scan the QR code on screen, so the TV never sees your Plex password. The QR code is drawn on the TV itself, so the code is not sent to any QR service.</li>
     <li>Your own Plex server, for your library and for playback. On your home network the app may reach the server at its local address over plain HTTP, the way Plex's own apps do at home. It only does that for a private home-network address, and your token travels in a request header, not in the address. Otherwise it uses HTTPS.</li>
-    <li>Your own Jellyfin or Emby server, for sign-in, your library and playback. To find it, the app sends a short broadcast on your home network asking which Jellyfin or Emby servers are there (UDP port 7359), which only devices on that network receive. You can also type the server's address. Jellyfin can sign in with a Quick Connect code you approve in Jellyfin. Jellyfin and Emby can both sign in with a username and password, which go straight to your server and are not saved on the TV; the app keeps only the access token your server sends back. The same rules apply as for Plex: HTTPS, or plain HTTP only to a private home-network address, and the token travels in a request header, not in the address.</li>
+    <li>Your own Jellyfin or Emby server, for sign-in, your library and playback. To find it, the app sends a short broadcast on your home network as soon as you pick Jellyfin or Emby, asking which servers are there (UDP port 7359), which only devices on that network receive. You can also type the server's address. Before you sign in, it asks the server for its public details, whether Quick Connect is switched on, and the users it lists on its own login screen, which it shows as tiles to pick from and never saves. Jellyfin can sign in with a Quick Connect code you approve in Jellyfin. Jellyfin and Emby can both sign in with a username and password, which go straight to your server and are not saved on the TV; the app keeps only the access token your server sends back. The same rules apply as for Plex: HTTPS, or plain HTTP only to a private home-network address, and the token travels in a request header, not in the address.</li>
     <li>The metadata relay on nostalgex.app and the Supabase cache described above, to sort titles onto channels. It sends only public TMDB and IMDb ids. Metadata it fetches is written back to the cache under the title's TMDB id, the same as the Apple TV app and the web tuner. No library titles, account, server or device details go with it.</li>
   </ul>
   <p>The Roku app does not report what you watch to your Plex, Jellyfin or Emby server and does not change anything in your library. When you leave a channel your server was converting, the app asks the server to stop that conversion.</p>

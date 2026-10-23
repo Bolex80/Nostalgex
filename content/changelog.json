@@ -3,7 +3,7 @@
     {
       "version": "1.0.28",
       "date": "OCT 2026",
-      "released": false,
+      "released": true,
       "title": "Holiday channels, an easier Jellyfin and Emby sign-in, and a lot of playback fixes",
       "bullets": [
         "TIS THE SEASON grows to eight channels: MISTLETOE for cozy holiday romances, CHRISTMAS SPECIALS and KIDS CHRISTMAS TV with the Christmas episodes of your shows, and TURKEY DAY for Thanksgiving episodes. It shows up a week before US Thanksgiving, in time for TURKEY DAY.",

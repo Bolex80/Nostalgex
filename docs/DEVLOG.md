@@ -3,6 +3,19 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-23 (the site for Apple TV 1.0.28)
+
+**Shipped.** Nothing until this lands on main. Branch `site/1.0.28`. Apple TV 1.0.28 has been on the App Store (Ready for Sale) since this morning.
+
+**Why.** The site only shows the App Store version, so the 1.0.28 notes, the privacy policy and the sign-in descriptions wait for the release, and the release is out.
+
+**Changed.**
+- `content/changelog.json`: 1.0.28 is `released: true`, rendered into the home page's What's New. 1.0.27 was folded into it and never had an entry of its own.
+- `privacy.html` (effective October 23): the Apple TV app now starts looking for a Jellyfin or Emby server as soon as you pick one, and asks the system's Local Network question the first time. Before you sign in it asks the server for its public details, whether Quick Connect is on, and the users it lists on its login screen, shown as tiles and never saved. Checked against `Views/SignInFlow.swift` on main and the sign-in spec. The Roku paragraph says the same of Roku 1.0.4, checked against `roku/components/ConnectView.brs` and `roku/source/mediabrowser/SignInFlow.brs` at `roku-v1.0.4`. Sitemap lastmod for /privacy moves to 2026-10-23.
+- Sign-in copy for the 1.0.28 flow, plug and play first: `/apple-tv` step 2 and its seasonal line, the hero, steps, quick start, FAQ and tips on `/jellyfin` and `/emby` (FAQ structured data matches the visible answers), the Jellyfin and Emby notes in the server cards on the home and server pages, and two lines on `/support` (the Apple TV card, and the web tuner's own Emby button).
+- `README.md`: What's new is 1.0.28, and the releases line says 1.0.28 is live. Its link to the `v1.0.28` GitHub release works once that release is published.
+- `content/blog/franchise-channels-your-collections.md`: SCAN MY COLLECTIONS lists TV show collections too, as of 1.0.28.
+
 ## 2026-10-23 (publish franchise channels from your collections)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/franchise-channels-your-collections`.

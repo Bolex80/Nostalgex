@@ -50,7 +50,7 @@ That's how a franchise used to feel on cable. You'd catch the movie on one night
 
 They still count, and they won't show up twice. If you already made a collection for a series on your Plex, Jellyfin or Emby server and Nostalgex found the same series on its own, it's folded into one channel instead of two.
 
-The rest of your collections come along too. In Settings, under MY COLLECTIONS, press SCAN MY COLLECTIONS and Nostalgex lists the movie collections on your server so you can turn the ones you want into channels. Film series land in FRANCHISES. Everything else, like actor and director sets or a holiday shelf, lands in OTHER COLLECTIONS.
+The rest of your collections come along too. In Settings, under MY COLLECTIONS, press SCAN MY COLLECTIONS and Nostalgex lists the movie and TV show collections on your server so you can turn the ones you want into channels. Film series land in FRANCHISES. Everything else, like actor and director sets or a holiday shelf, lands in OTHER COLLECTIONS.
 
 ## Where do I turn franchise channels on?
 
