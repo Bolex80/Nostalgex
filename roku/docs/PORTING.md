@@ -225,23 +225,26 @@ Where it differs:
 
 Measured on the 43S45 against the lab Emby (2026-10-23), with 10-minute
 clips, on this build:
-- Emby stopped mid-programme: the programme already playing never errored;
-  it buffered until its slot ended and the clock moved on (a stall after
-  the picture, issue #59). Each later start gave up after its 15 s deadline
-  and a probe answering -7 (couldn't connect), card "Can't reach your
-  server", and the fifth stopped the channel. While stopped it made no
-  request in 20 s; with Emby back, OK showed a picture in 0.9 s. A build
+- Emby stopped mid-programme: the programme already playing errored (-5,
+  the connection cut mid-file), and its server stream ended unplayed with a
+  probe answering -7 (couldn't connect). On the build before the rebase
+  onto #80 it never errored, and buffered until its slot ended (a stall
+  after the picture, issue #59); two runs on earlier builds errored as this
+  one did. Either way each later start gave up after its 15 s deadline and
+  a -7 probe, card "Can't reach your server", and the fifth stopped the
+  channel. While stopped it tuned and probed nothing in 20 s; with Emby
+  back, OK showed a picture in 0.8 s (0.9 s before the rebase). A build
   without the probe took about a minute a programme on the same test,
-  through the 1080p stream, and blamed a slow server. In two earlier runs
-  the programme playing errored instead (-5, the connection cut mid-file).
+  through the 1080p stream, and blamed a slow server.
 - A file taken off the disk: direct play errored (-1), the server stream
   ended unplayed, and the probe walked master 200, variant 200, segment
   500: card "Your server wouldn't start this one", then the next programme.
   Emby answers 500, not 404, for the missing file.
-- The 1080p rung's request, sent to Emby for a 4K H.264 4:4:4 file, came
-  back re-encoded to 1920x1080 4:2:0. On the TV it wasn't reached by codec:
-  the 43S45's player ran 4K 10-bit H.264, 4K AV1 and 4K 4:4:4 H.264 as
-  stored, position advancing (the screen wasn't seen).
+- The 1080p rung's request, sent to Emby for a 4K H.264 file, came back
+  re-encoded to 1920x1080 4:2:0 with stereo AAC; a 4:4:4 file, on an
+  earlier build, came back 4:2:0 as well. On the TV it wasn't reached by
+  codec: the 43S45's player ran 4K 10-bit H.264, 4K AV1 and 4K 4:4:4 H.264
+  as stored, position advancing (the screen wasn't seen).
 - Not exercised on a TV: the retry (no first server stream errored), the
   40 s 4K deadline, and Plex or Jellyfin.
 - Once, on the build without the probe and with Emby stopped, the render
