@@ -163,6 +163,19 @@ function NxRunDirectPlayTests() as Integer
     NxCheck(r, "no answer", NxToStr(NxDecodeAnswer(invalid)), "false")
     NxCheck(r, "answer without Result", NxToStr(NxDecodeAnswer({})), "false")
     NxCheck(r, "answer not a boolean", NxToStr(NxDecodeAnswer({ Result: "true" })), "false")
+
+    yes = { Result: true }
+    no = { Result: false }
+    q = NxDecodeQueries({ videoCodec: "hevc", audioCodec: "aac", audioChannels: 6 })
+    NxCheck(r, "all yes plays as stored", NxDecodeNos(q, { video: yes, audio: yes, channels: yes }).Count().ToStr(), "0")
+    nos = NxDecodeNos(q, { video: yes, audio: yes, channels: no })
+    NxCheck(r, "5.1 aac no goes to the server", nos.Count().ToStr() + " " + nos[0].Codec + "/" + NxToStr(nos[0].ChCnt), "1 aac/6")
+    nos = NxDecodeNos(q, { video: yes, audio: no, channels: no })
+    NxCheck(r, "codec no names the codec only", nos.Count().ToStr() + " " + NxToStr(nos[0].DoesExist("ChCnt")), "1 false")
+    nos = NxDecodeNos(q, { video: no, audio: yes, channels: yes })
+    NxCheck(r, "video no", nos.Count().ToStr() + " " + nos[0].Codec, "1 hevc")
+    q = NxDecodeQueries({ videoCodec: "hevc", audioCodec: "aac" })
+    NxCheck(r, "channels unknown plays as stored", NxDecodeNos(q, { video: yes, audio: yes }).Count().ToStr(), "0")
     print "direct play cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

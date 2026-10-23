@@ -14,9 +14,10 @@
 ' didn't say is left out, and the TV answers for the rest. No Container: the
 ' players' lists already decide that, and a Roku names .mov and .m4v "mp4".
 ' `channels` is the audio question with the channel count, invalid when it
-' isn't known. It is asked and printed but doesn't decide yet: these files
-' played as stored before, a TV may downmix what it says no to, and a no
-' for 6-channel AAC alone would send most of a library to the server.
+' isn't known. A no to it sends the airing to the server too: a Streaming
+' Stick Plus says no to 6-channel AAC and played such a file as stored with
+' no sound, while through the server it came as stereo AAC with sound
+' (PR #80, 2026-10-23).
 function NxDecodeQueries(b as Object) as Object
     video = { Codec: NxRokuVideoCodec(LCase(NxToStr(b.videoCodec))) }
     profile = NxRokuVideoProfile(LCase(NxToStr(b.videoProfile)).Trim())
@@ -48,14 +49,26 @@ end function
 function NxDeviceDecodes(b as Object) as Boolean
     q = NxDecodeQueries(b)
     info = CreateObject("roDeviceInfo")
-    videoOk = NxDecodeAnswer(info.CanDecodeVideo(q.video))
-    audioOk = NxDecodeAnswer(info.CanDecodeAudio(q.audio))
-    if audioOk and q.channels <> invalid then
-        if not NxDecodeAnswer(info.CanDecodeAudio(q.channels)) then print "playback: this TV says no to "; FormatJson(q.channels); ", played as stored as before"
+    answers = { video: info.CanDecodeVideo(q.video), audio: info.CanDecodeAudio(q.audio) }
+    if q.channels <> invalid then answers.channels = info.CanDecodeAudio(q.channels)
+    nos = NxDecodeNos(q, answers)
+    for each no in nos
+        print "playback: this TV doesn't decode "; FormatJson(no); ", so the server streams it"
+    end for
+    return nos.Count() = 0
+end function
+
+' The questions the TV said no to, from its answers to NxDecodeQueries. The
+' channel count is asked only when the codec is a yes.
+function NxDecodeNos(q as Object, answers as Object) as Object
+    nos = []
+    if not NxDecodeAnswer(answers.video) then nos.Push(q.video)
+    if not NxDecodeAnswer(answers.audio) then
+        nos.Push(q.audio)
+    else if q.channels <> invalid and not NxDecodeAnswer(answers.channels) then
+        nos.Push(q.channels)
     end if
-    if not videoOk then print "playback: this TV doesn't decode "; FormatJson(q.video); ", so the server streams it"
-    if not audioOk then print "playback: this TV doesn't decode "; FormatJson(q.audio); ", so the server streams it"
-    return videoOk and audioOk
+    return nos
 end function
 
 ' Yes only for a Result that is true; no answer, or no Result, is a no.
