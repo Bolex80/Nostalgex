@@ -140,11 +140,12 @@ end function
 
 ' mediaInfo: the best source's id, container, and first video and audio
 ' codecs, with the video's profile and the audio's channel count for the
-' direct-play decision (source/util/DirectPlay.brs), and the source's
-' bitrate for the server stream's (NxMbVideoQuery).
+' direct-play decision (source/util/DirectPlay.brs), the source's bitrate
+' for the server stream's (NxMbVideoQuery), and its audio tracks when it has
+' more than one, for the pick at tune (NxMbPreferredAudioIndex).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, audioTracks: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
@@ -162,7 +163,28 @@ function NxMbMediaInfo(item as Object) as Object
         if NxTruthy(a.Codec) then out.audioCodec = LCase(NxToStr(a.Codec))
         if NxIsNumber(a.Channels) then out.audioChannels = a.Channels
     end if
+    out.audioTracks = NxMbAudioTracks(src)
     return out
+end function
+
+' A source's audio tracks as { index, language, channels, codec, isDefault },
+' in the file's order, or invalid with fewer than two: one track is no
+' choice, and most files have one, so they keep nothing extra.
+function NxMbAudioTracks(src as Object) as Dynamic
+    tracks = []
+    for each s in NxList(src.MediaStreams)
+        if type(s) = "roAssociativeArray" then
+            if s.Type = "Audio" and NxIsNumber(s.Index) then
+                t = { index: s.Index, language: invalid, channels: invalid, codec: invalid, isDefault: NxTruthy(s.IsDefault) }
+                if NxTruthy(s.Language) then t.language = LCase(NxToStr(s.Language))
+                if NxIsNumber(s.Channels) then t.channels = s.Channels
+                if NxTruthy(s.Codec) then t.codec = LCase(NxToStr(s.Codec))
+                tracks.Push(t)
+            end if
+        end if
+    end for
+    if tracks.Count() < 2 then return invalid
+    return tracks
 end function
 
 ' Mirrors embyDoviProfile (upstream scripts/nostalgex-jellyfin-urls.js): Emby
@@ -238,6 +260,7 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         videoProfile: mi.videoProfile,
         audioChannels: mi.audioChannels,
         bitrate: mi.bitrate,
+        audioTracks: mi.audioTracks,
         genres: genres,
         rating: NxOr(jf.CommunityRating, 0),
         userRating: 0,
@@ -276,6 +299,7 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         videoProfile: mi.videoProfile,
         audioChannels: mi.audioChannels,
         bitrate: mi.bitrate,
+        audioTracks: mi.audioTracks,
         genres: showGenres,
         rating: NxOr(show.CommunityRating, 0),
         userRating: 0,

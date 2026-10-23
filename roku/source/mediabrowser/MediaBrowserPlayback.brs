@@ -25,7 +25,9 @@
 ' and the Video node sends its headers with each request. Nothing here
 ' reports playback back to the server.
 
-' Returns { content, stopUrl, route } (stopUrl "" for direct play), or invalid.
+' Returns { content, stopUrl, route, audioTrack } (stopUrl "" for direct
+' play; audioTrack the pick for the player to select on a direct play, as
+' NxAudioTrackToSelect takes it, else invalid), or invalid.
 function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) as Dynamic
     base = NxToStr(s.uri)
     lower = LCase(base)
@@ -42,6 +44,14 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     content.HttpCertificatesFile = "common:/certs/ca-bundle.crt"
     content.HttpHeaders = ["Authorization:" + NxMbAuthHeader(NxToStr(s.accessToken))]
     content.PlayStart = offsetSec
+
+    ' The audio track a viewer here wants, when the file has a choice: the
+    ' server hands over the file's default, which can be a dub.
+    pick = NxMbAudioPick(b, NxMbViewerLanguages())
+    b = pick.airing
+    pickIndex = pick.index
+    audioTrack = invalid
+    if pickIndex <> invalid then audioTrack = { position: pick.position, language: pick.language, count: pick.count }
 
     container = LCase(NxToStr(b.container))
     vcodec = LCase(NxToStr(b.videoCodec))
@@ -68,7 +78,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
         end if
         content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/stream." + ext + "?Static=true&MediaSourceId=" + NxUrlEncode(msid)
         content.streamFormat = format
-        return { content: content, stopUrl: "", route: route }
+        return { content: content, stopUrl: "", route: route, audioTrack: audioTrack }
     end if
 
     ' Emby needs a PlaySessionId on a hand-built address or every segment
@@ -86,6 +96,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     aac51 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "aac", ChCnt: 6 }))
     q = q + NxMbAudioQuery(ac3, eac3, aac51)
     q = q + NxMbVideoQuery(b.bitrate)
+    if pickIndex <> invalid then q = q + "&AudioStreamIndex=" + pickIndex.ToStr()
     ' TS segments on both servers, HEVC included. A Roku played no sound
     ' from fMP4, even stereo AAC, on Emby and on Jellyfin (Discussion #8,
     ' 2026-10-22), and TS carries the source timestamps, so a join stays in
@@ -102,7 +113,92 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
-    return { content: content, stopUrl: stopUrl, route: route }
+    return { content: content, stopUrl: stopUrl, route: route, audioTrack: invalid }
+end function
+
+' Which audio track to ask for, when the file offers more than one: the
+' Apple TV's JellyfinPlaybackResolver.preferredAudioIndex. Jellyfin and Emby
+' hand back the track the file marks default, and plenty of files mark a dub
+' (issue #78: O Brother, Where Art Thou? in Portuguese). A retro TV guide
+' has no audio picker, so it picks the sensible track itself.
+'
+' A track in one of `languages`, most channels first (the first of equals);
+' then the file's default; then the first track. A track matches on the
+' first two letters of its language, as upstream compares. invalid when
+' there is nothing to choose between, which leaves the server's own choice.
+' `tracks` as NxMbAudioTracks keeps them.
+function NxMbPreferredAudioIndex(tracks as Object, languages as Object) as Dynamic
+    if tracks.Count() < 2 then return invalid
+    wanted = { en: true }
+    for each l in languages
+        if NxIsString(l) and l <> "" then wanted[LCase(l)] = true
+    end for
+    best = invalid
+    for each t in tracks
+        l = NxToStr(t.language)
+        if l <> "" and wanted.DoesExist(LCase(Left(l, 2))) then
+            if best = invalid then
+                best = t
+            else if NxNumberOr0(t.channels) > NxNumberOr0(best.channels) then
+                best = t
+            end if
+        end if
+    end for
+    if best <> invalid then return best.index
+    for each t in tracks
+        if t.isDefault = true then return t.index
+    end for
+    return tracks[0].index
+end function
+
+' The airing's audio pick: { index, position, language, count, airing }.
+' index is the track's stream index for AudioStreamIndex, position its place
+' among the file's `count` audio tracks and language its tag, all invalid
+' with no choice to make. airing is `b`, or a copy
+' carrying the picked track's codec and channels, so direct play is decided
+' on that track and not the first.
+function NxMbAudioPick(b as Object, languages as Object) as Object
+    tracks = NxList(b.audioTracks)
+    out = { index: NxMbPreferredAudioIndex(tracks, languages), position: invalid, language: invalid, count: invalid, airing: b }
+    if out.index = invalid then return out
+    for i = 0 to tracks.Count() - 1
+        if tracks[i].index = out.index then out.position = i
+    end for
+    picked = tracks[out.position]
+    out.language = picked.language
+    out.count = tracks.Count()
+    out.airing = {}
+    out.airing.Append(b)
+    out.airing.audioCodec = picked.codec
+    out.airing.audioChannels = picked.channels
+    return out
+end function
+
+' Which of the player's availableAudioTracks plays the pick (NxMbAudioPick)
+' on a direct play: its Track, or invalid to leave the player's own choice.
+' By position when the player lists as many tracks as the file has, as a
+' Roku TV did, in the file's order. Once one listed fewer (a file the scan
+' said had more; why wasn't found), and then a position may name another
+' track: the first listed in the pick's language instead, compared as the
+' subtitle code compares.
+function NxAudioTrackToSelect(listed as Object, want as Dynamic) as Dynamic
+    if want = invalid or not NxIsNumber(want.position) then return invalid
+    if listed.Count() = want.count then return listed[want.position].Track
+    tag = NxSubComparableTag(want.language)
+    if tag = invalid then return invalid
+    for each t in listed
+        if NxSubComparableTag(t.Language) = tag then return t.Track
+    end for
+    return invalid
+end function
+
+' The viewer's languages for NxMbPreferredAudioIndex: the TV's own, the one
+' the subtitle code reads, as upstream reads the device's. English is always
+' added there.
+function NxMbViewerLanguages() as Object
+    primary = NxSubPrimary(CreateObject("roDeviceInfo").GetCurrentLocale())
+    if primary = invalid then return []
+    return [primary]
 end function
 
 ' The video part of the server stream's request. The Apple TV's Auto

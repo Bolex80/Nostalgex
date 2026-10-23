@@ -21,7 +21,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "requests", fetcher.requests.Join(" | "), NxList(v.requests).Join(" | "))
         NxCheck(r, "item count", got.Count().ToStr(), NxList(v.items).Count().ToStr())
         ' Port-only fields: none reaches the filter or schedule.
-        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true }
+        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true, audioTracks: true }
         n = NxMinInt(got.Count(), NxList(v.items).Count())
         for i = 0 to n - 1
             want = v.items[i]
@@ -54,6 +54,16 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
             if it <> invalid then
                 NxCheck(r, "bitrate " + pair[0], NxToStr(it.bitrate), pair[1])
                 NxCheck(r, "bitrate " + pair[0] + " on the airing", NxToStr(NxGuideBlock({ item: it, startSec: 0, endSec: 60 }).bitrate), pair[1])
+            end if
+        end for
+        ' A file with several audio tracks keeps them, in order, through to the
+        ' airing; a file with one keeps nothing extra (NxMbAudioTracks).
+        tracks = [["dad9edfd832172710274f226f2f48832", "1:eng:6:ac3:false 2:eng:2:aac:false 3:eng:2:aac:false 4:eng:2:aac:false 5:eng:2:aac:false"], ["27ef0d2ba6cf3fe966bfc892bb26ac05", "1:eng:2:aac:false 2:eng:2:aac:false 3:eng:2:aac:false"], ["38ef1ddba3d3b5306c330a51f6548870", ""], ["m-two", ""]]
+        for each pair in tracks
+            it = byKey[pair[0]]
+            if it <> invalid then
+                NxCheck(r, "audio tracks " + pair[0], NxMbTracksText(it.audioTracks), pair[1])
+                NxCheck(r, "audio tracks " + pair[0] + " on the airing", NxMbTracksText(NxGuideBlock({ item: it, startSec: 0, endSec: 60 }).audioTracks), pair[1])
             end if
         end for
     end if
@@ -128,7 +138,82 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "audio, eac3 only, 5.1", NxMbAudioQuery(false, true, true), "&AudioCodec=aac,eac3&TranscodingMaxAudioChannels=6")
 
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
-    return r.fail + NxRunDirectPlayTests()
+    return r.fail + NxRunDirectPlayTests() + NxRunAudioPickTests()
+end function
+
+' NxMbPreferredAudioIndex, the cases of upstream's
+' Nostalgex/NostalgexTests/AudioTrackSelectionTests.swift transcribed (a
+' track list holds only audio tracks here, as NxMbAudioTracks keeps them),
+' and NxMbAudioPick, which decides direct play on the picked track.
+function NxRunAudioPickTests() as Integer
+    r = { pass: 0, fail: 0 }
+    ' testEnglishBeatsADefaultFlaggedSpanishTrack: the exact Joe Dirt layout.
+    joeDirt = [NxMbTrack(1, "spa", 2, "aac", true), NxMbTrack(2, "eng", 6, "aac", false)]
+    NxCheck(r, "english beats a default spanish track", NxToStr(NxMbPreferredAudioIndex(joeDirt, ["en"])), "2")
+    ' testMoreChannelsWinsAmongTracksInTheViewersLanguage
+    NxCheck(r, "a 5.1 english mix beats a stereo english default", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "eng", 2, invalid, true), NxMbTrack(2, "eng", 6, invalid, false)], ["en"])), "2")
+    ' testLocaleIdentifiersMatchThreeLetterTags
+    fr = [NxMbTrack(1, "fre", invalid, invalid, true), NxMbTrack(2, "eng", invalid, invalid, false)]
+    NxCheck(r, "an english viewer gets eng", NxToStr(NxMbPreferredAudioIndex(fr, ["en"])), "2")
+    NxCheck(r, "a french viewer keeps the french track", NxToStr(NxMbPreferredAudioIndex(fr, ["fr"])), "1")
+    ' testFallsBackToTheFilesDefaultWhenNoTrackIsInTheViewersLanguage
+    NxCheck(r, "the file's default when none matches", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "jpn", invalid, invalid, false), NxMbTrack(2, "kor", invalid, invalid, true)], ["de"])), "2")
+    ' testASingleAudioTrackIsLeftToTheServer
+    NxCheck(r, "one track is left to the server", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "eng", invalid, invalid, false)], ["en"]) = invalid), "true")
+    NxCheck(r, "no tracks are left to the server", NxToStr(NxMbPreferredAudioIndex([], ["en"]) = invalid), "true")
+    ' Port-only: the first track when nothing matches and none is default;
+    ' English with no TV language; the first of equal channel counts.
+    NxCheck(r, "the first track at last", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(3, "jpn", 2, invalid, false), NxMbTrack(4, "kor", 2, invalid, false)], ["de"])), "3")
+    NxCheck(r, "english with no tv language", NxToStr(NxMbPreferredAudioIndex(joeDirt, [])), "2")
+    NxCheck(r, "the first of equals", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "por", 6, invalid, true), NxMbTrack(2, "eng", 6, invalid, false), NxMbTrack(3, "en", 6, invalid, false)], ["en"])), "2")
+    NxCheck(r, "an untagged track never matches", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, invalid, 6, invalid, false), NxMbTrack(2, "", 6, invalid, true)], ["en"])), "2")
+
+    ' Issue #78: O Brother, Where Art Thou?, Portuguese E-AC-3 5.1 the
+    ' default ahead of English E-AC-3 5.1.
+    oBrother = { audioCodec: "eac3", audioChannels: 6, container: "mkv", audioTracks: [NxMbTrack(1, "por", 6, "eac3", true), NxMbTrack(2, "eng", 6, "eac3", false)] }
+    pick = NxMbAudioPick(oBrother, ["en"])
+    NxCheck(r, "o brother: english", NxToStr(pick.index) + "@" + NxToStr(pick.position), "2@1")
+    NxCheck(r, "o brother: language and count", NxToStr(pick.language) + "/" + NxToStr(pick.count), "eng/2")
+    ' Direct play is decided on the picked track: a dub in AAC ahead of an
+    ' Opus original is not a direct play because the first track decodes.
+    dub = { audioCodec: "aac", audioChannels: 2, container: "mkv", audioTracks: [NxMbTrack(1, "por", 2, "aac", true), NxMbTrack(2, "eng", 6, "opus", false)] }
+    pick = NxMbAudioPick(dub, ["en"])
+    NxCheck(r, "decided on the picked track", NxToStr(pick.airing.audioCodec) + "/" + NxToStr(pick.airing.audioChannels), "opus/6")
+    NxCheck(r, "the airing itself is unchanged", dub.audioCodec, "aac")
+    NxCheck(r, "the rest of the airing comes along", NxToStr(pick.airing.container), "mkv")
+    pick = NxMbAudioPick({ audioCodec: "aac", audioChannels: 2 }, ["en"])
+    NxCheck(r, "no tracks, no pick", NxToStr(pick.index = invalid and pick.position = invalid), "true")
+    NxCheck(r, "no tracks, the airing as it is", NxToStr(pick.airing.audioCodec), "aac")
+
+    ' NxAudioTrackToSelect: the player's list as a Roku TV gave it for the
+    ' lab's dubbed clip (2026-10-23, TCL 55R617), "2=por 3=eng".
+    roku = [{ Track: "2", Language: "por" }, { Track: "3", Language: "eng" }]
+    NxCheck(r, "select by position", NxToStr(NxAudioTrackToSelect(roku, { position: 1, language: "eng", count: 2 })), "3")
+    NxCheck(r, "select the first by position", NxToStr(NxAudioTrackToSelect(roku, { position: 0, language: "por", count: 2 })), "2")
+    ' A list shorter than the file's: by language, as a position could name
+    ' another track ([DTS fre, AAC eng, AAC por] listed as eng, por).
+    short = [{ Track: "3", Language: "eng" }, { Track: "4", Language: "por" }]
+    NxCheck(r, "a short list goes by language", NxToStr(NxAudioTrackToSelect(short, { position: 1, language: "eng", count: 3 })), "3")
+    NxCheck(r, "two- and three-letter tags match", NxToStr(NxAudioTrackToSelect([{ Track: "7", Language: "en" }], { position: 2, language: "eng", count: 3 })), "7")
+    NxCheck(r, "the language not listed: the player's choice", NxToStr(NxAudioTrackToSelect(short, { position: 0, language: "fre", count: 3 }) = invalid), "true")
+    NxCheck(r, "no language on a short list: the player's choice", NxToStr(NxAudioTrackToSelect(short, { position: 0, language: invalid, count: 3 }) = invalid), "true")
+    NxCheck(r, "no pick", NxToStr(NxAudioTrackToSelect(roku, invalid) = invalid), "true")
+    print "audio pick cases:"; r.pass; " passed,"; r.fail; " failed"
+    return r.fail
+end function
+
+function NxMbTrack(index as Integer, language as Dynamic, channels as Dynamic, codec as Dynamic, isDefault as Boolean) as Object
+    return { index: index, language: language, channels: channels, codec: codec, isDefault: isDefault }
+end function
+
+' "index:language:channels:codec:isDefault" per track, space-separated; ""
+' for none.
+function NxMbTracksText(tracks as Dynamic) as String
+    out = []
+    for each t in NxList(tracks)
+        out.Push(NxToStr(t.index) + ":" + NxToStr(t.language) + ":" + NxToStr(t.channels) + ":" + NxToStr(t.codec) + ":" + NxToStr(t.isDefault))
+    end for
+    return out.Join(" ")
 end function
 
 ' source/util/DirectPlay.brs: the questions put to the TV before direct

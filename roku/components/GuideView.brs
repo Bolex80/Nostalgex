@@ -59,7 +59,7 @@ sub init()
     ' Now Playing follows the player: a track switch, and the track lists
     ' that arrive after a start (subtitles through applySubtitles).
     m.video.ObserveField("currentAudioTrack", "refreshNowPlaying")
-    m.video.ObserveField("availableAudioTracks", "refreshNowPlaying")
+    m.video.ObserveField("availableAudioTracks", "onAudioTracks")
     m.subs = NxSubtitleSettings()
     m.hasSubs = false
     restoreCaptionMode()
@@ -750,6 +750,7 @@ sub startTune(idx as Integer)
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat
     m.tuneRoute = stream.route
+    m.tuneAudio = stream.audioTrack
     print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing"
     refreshNowPlaying()
 end sub
@@ -982,6 +983,29 @@ sub applyRetro()
     if on = m.retro then return
     m.retro = on
     layoutVideo()
+end sub
+
+sub onAudioTracks()
+    applyAudioPick()
+    refreshNowPlaying()
+end sub
+
+' A direct play selects the audio track the stream picked
+' (NxMbPreferredAudioIndex), once the player lists the file's tracks; the
+' server stream already carries only that one. Once per start, so a track
+' the viewer chooses in Now Playing stays chosen.
+sub applyAudioPick()
+    if m.tuneAudio = invalid then return
+    tracks = NxList(m.video.availableAudioTracks)
+    if tracks.Count() = 0 then return
+    track = NxAudioTrackToSelect(tracks, m.tuneAudio)
+    listed = []
+    for each a in tracks
+        listed.Push(NxToStr(a.Track) + "=" + NxToStr(a.Language))
+    end for
+    print "player: audio track "; track; " of "; listed.Join(" "); ", was "; m.video.currentAudioTrack
+    if track <> invalid then m.video.audioTrack = track
+    m.tuneAudio = invalid
 end sub
 
 ' ── Subtitles ───────────────────────────────────────────────────────────────
