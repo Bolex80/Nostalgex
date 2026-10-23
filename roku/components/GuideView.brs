@@ -891,6 +891,11 @@ end sub
 
 sub handOver()
     if m.tuned < 0 or m.playing = invalid then return
+    ' A deep-linked item: the channel goes on live, part way into what airs.
+    if m.playing.linked = true then
+        tune(m.tuned)
+        return
+    end if
     nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, nowSec())
     if nxt <> invalid then print "player: finished, "; nowSec() - m.playing.endSec; " s past the slot; next from its start"
     tune(m.tuned, nxt)
@@ -1024,6 +1029,10 @@ end sub
 sub onCardDone()
     hideCard()
     if m.tuned < 0 or m.playing = invalid then return
+    if m.playing.linked = true then
+        tune(m.tuned)
+        return
+    end if
     t = nowSec()
     nxt = NxNextAiring(m.channels[m.tuned].blocks, m.playing, t)
     if nxt = invalid or (t >= nxt.startSec and t < nxt.endSec) then
