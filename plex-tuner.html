@@ -473,6 +473,26 @@
     transform: translateY(-2px);
   }
   .loading-library-coffee-btn .cup { font-size: 15px; line-height: 1; }
+  /* START OVER: always there while the library loads, as on the Apple TV, so a load
+     that never finishes still has a way back to sign-in. Quiet next to the coffee. */
+  .loading-library-start-over {
+    margin-top: clamp(10px, 2vh, 18px);
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.75);
+    padding: 10px 18px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .loading-library-start-over:hover,
+  .loading-library-start-over:focus-visible {
+    border-color: #fff;
+    color: #fff;
+    outline: none;
+  }
 
   /* Static noise overlay for channel switching */
   .static-overlay {
@@ -2867,6 +2887,7 @@
     .loading-library-coffee { margin-top: 0; }
     .loading-library-coffee-lead { font-size: 11px; line-height: 1.5; }
     .loading-library-coffee-btn { min-height: 48px; padding: 14px 20px; }
+    .loading-library-start-over { min-height: 48px; padding: 14px 20px; }
   }
 
   /* Landscape phones: height is the scarce dimension on both screens, so the
@@ -3280,6 +3301,7 @@
             <span>BUY ME A COFFEE</span>
           </a>
         </div>
+        <button type="button" class="loading-library-start-over" id="loading-library-start-over" onclick="startOverFromLoading()">START OVER</button>
       </div>
 
       <!-- Static overlay -->
@@ -7929,6 +7951,15 @@
     } catch {
       throw new Error('unreachable');
     }
+  }
+
+  // START OVER on the loading screen (the Apple TV's, on its loading screen too): a load that
+  // never finishes must not trap anyone, and the saved login would walk a reload straight
+  // back into it. Signs out, then leaves the page, which also drops the scan's requests,
+  // so a late answer can't rebuild channels for a login that is gone.
+  function startOverFromLoading() {
+    try { signOut(); } catch (e) { console.warn('signOut error:', e); }
+    location.replace('web-tuner.html');
   }
 
   function signOut() {

@@ -83,6 +83,8 @@ jobs:
               - 'scripts/nostalgex-schedule-parity-smoke.mjs'
               - 'scripts/schedule-parity-dump.mjs'
               - 'scripts/schedule-parity-golden.json'
+              # START OVER on the loading screen.
+              - 'scripts/start-over-smoke.mjs'
               - 'franchises.json'
               - 'scripts/franchise-golden.json'
               - 'scripts/nostalgex-franchise-builder.js'

@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-23 (web and Docker: START OVER while the library loads)
+
+**Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.8` from the same commit.
+
+**Why.** The Apple TV got an always-visible START OVER on its loading screen because people got stuck in a load with no way back to sign-in. Measured on the web tuner (1.0.7) with a Jellyfin-shaped server that answers the sign-in check and the library list but never the items: after 90 s the page was still on SCANNING, the only things to click were the coffee button, CH -, CH +, SOUND and EXIT FULL SCREEN (Settings and its sign-out aren't reachable during the load), the one item request was never retried, and a reload signed in with the saved login and stuck at the same place. On a TV browser like TV Bro, where no keys reach the page, that was a dead end.
+
+**Changed.**
+- `plex-tuner.html`: a START OVER button on the loading screen, under the coffee, for the whole load. It runs the existing sign-out (session, saved login and library cache go) and then replaces the page with `web-tuner.html`. Leaving the page also drops the stuck requests, so a late answer can't rebuild channels for a login that is gone. It leaves even if the sign-out throws.
+- `tunerVersion` 1.0.8, and README's Docker lines point at `tuner-v1.0.8`.
+- `npm run test:start-over` (in `npm test`): the button is a real button inside the loading screen, and the page's own start over and sign-out clear the login and leave, last. Negative controls: no button, and a start over that skips the sign-out.
+- `npm run test:start-over:browser` (needs Playwright, not in CI): the real page against a server whose scan never answers, at 960x540 and 390x844. START OVER is on screen, the click lands on the sign-in page with the saved login gone, and opening the tuner again starts no library load. Negative control: without the button nothing on screen leads back to sign-in.
+
+**Measured.** The browser test: 16 passed, no page errors. `npm test`, both builds, the isolation and version build checks: pass.
+
+**Next.** Push main and tag `tuner-v1.0.8`. Roku has no START OVER on its loading screen yet; that's a port.
+
 ## 2026-10-23 (web and Docker air the Apple TV's schedule)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.7` from the same commit. Every channel's lineup reshuffles once, on the first load after the update. The Apple TV doesn't change. Roku isn't ported yet and keeps its own schedule until it is.
