@@ -303,6 +303,36 @@ own answer, as for Plex: `CanDecodeVideo` with the codec and profile and
 file on a TV that takes only 8-bit HEVC goes to the server. The answer with
 the channel count is printed but doesn't decide.
 
+**The audio track is picked, not left to the file (issue #78).** The
+server hands over the track a file marks default, and plenty of files mark a
+dub: O Brother, Where Art Thou? came through in Portuguese. As the Apple
+TV's `JellyfinPlaybackResolver.preferredAudioIndex` does, a file with more
+than one audio track gets a track in the TV's language or English, most
+channels first, then the default, then the first (`NxMbPreferredAudioIndex`
+in `MediaBrowserPlayback.brs`). The scan keeps those files' tracks
+(`NxMbAudioTracks`; one-track files keep nothing extra). The server stream
+asks for the pick with `AudioStreamIndex`, and direct play is decided on the
+picked track's codec, so an English Opus track behind a dubbed AAC default
+goes to the server rather than playing the dub as stored. On a direct play
+the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`):
+by position when it lists as many tracks as the file has, else by language:
+once, on a full library, the 55R617 below listed one track for a file the
+scan said had more (which file, and so why, wasn't recorded).
+
+On a TCL 55R617 (Roku OS 15.3.4, English) against the test Emby, 2026-10-23,
+with 60 s lab clips whose tracks carry different tones: a Portuguese AAC
+default ahead of English Opus 5.1 came back from Emby as English
+(`-map 0:2`), where the old request mapped the Portuguese `0:1`. On direct
+play the Roku listed the tracks in the file's order (`2=por 3=eng`) and
+already played English on its own, whether the Portuguese default came
+first (AAC, and E-AC-3 5.1 as on O Brother) or the English default came
+first, so it picks by its language and not by the default flag; the
+selection agreed each time. That run was the build before the by-language
+fallback; only the by-position path ran on the TV. Against the test
+Jellyfin (12.2), server only: the same request without an index returned
+the Portuguese default for AAC, E-AC-3 and Opus clips alike, and with
+`AudioStreamIndex=2` the English track.
+
 **No reporting to the server.** The Roku app sends Plex nothing about what you
 watch, and its privacy policy says so; Jellyfin and Emby are the same, which
 also leaves out upstream's watch-state restore.
@@ -342,7 +372,9 @@ played each case with `PlayStart = 1200` (20 minutes in) and the token only in
   (answers trimmed from a Jellyfin 12.2 server, plus made-up cases), and
   `tests/MediaBrowserTests.brs` holds `NxMbScanServer` to its requests and
   items. It also covers dates, typed addresses, `/System/Info/Public` and
-  sign-in answers.
+  sign-in answers, and the audio pick: upstream's
+  `AudioTrackSelectionTests.swift` cases transcribed, which track direct
+  play is decided on, and which listed track a direct play selects.
 - **On the TV:** the rest was checked by driving a TV over ECP (above):
   sign-in each way, a guide build, joining part-way, a channel change stopping
   the stream, sign-out, and a refused sign-in.
