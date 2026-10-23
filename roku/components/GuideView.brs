@@ -156,8 +156,10 @@ sub onGuide()
     if previous = invalid then
         m.top.SetFocus(true)
         m.tick.control = "start"
-        ' A launch deep link opens on its channel, fullscreen.
+        ' A launch deep link opens on its channel, fullscreen; an item link
+        ' plays its item once it's found, and nothing starts before it.
         linked = NxDeepLinkChannel(m.channels, m.top.deepLink)
+        itemId = NxDeepLinkItem(m.top.deepLink, CreateObject("roAppInfo").IsDev())
         ' After a full rebuild from Settings, the channel that was on.
         resumed = -1
         if linked < 0 and m.top.resumeId <> "" then
@@ -173,7 +175,9 @@ sub onGuide()
             keepFocusVisible()
         end if
         renderGrid()
-        if linked >= 0 then
+        if itemId <> "" then
+            findLinkedItem(itemId)
+        else if linked >= 0 then
             pressTune(linked)
             setFullscreen(true)
         else if resumed >= 0 then
@@ -219,8 +223,11 @@ sub onGuide()
     if not same and m.playing <> invalid then
         t = nowSec()
         if t >= m.playing.endSec and not NxAiringEnded(m.playing, t, m.video.state) then same = true
+        ' So does a deep-linked item, which no channel airs.
+        if m.playing.linked = true and not NxAiringEnded(m.playing, t, m.video.state) then same = true
     end if
-    if not same and not m.stopped then tune(m.tuned)
+    ' An item link being looked up starts its own.
+    if not same and not m.stopped and m.itemTask = invalid then tune(m.tuned)
 end sub
 
 function tunedChannelId(unused = invalid as Dynamic) as String
@@ -1894,6 +1901,11 @@ sub onDeepLink()
 end sub
 
 sub applyDeepLink()
+    itemId = NxDeepLinkItem(m.top.deepLink, CreateObject("roAppInfo").IsDev())
+    if itemId <> "" then
+        findLinkedItem(itemId)
+        return
+    end if
     idx = NxDeepLinkChannel(m.channels, m.top.deepLink)
     if idx < 0 then return
     if m.sidebarOpen = true then closeSidebar()
@@ -1907,6 +1919,43 @@ sub applyDeepLink()
         renderGrid()
         renderInfo()
     end if
+    setFullscreen(true)
+end sub
+
+' A sideloaded build's item link: the item is looked up in the saved library
+' (ItemLinkTask), then plays from its start on the channel tuned, or the one
+' in focus at launch. When it ends the channel goes on with what airs then.
+sub findLinkedItem(id as String)
+    print "deep link: looking for item "; id; " in the saved library"
+    m.itemTask = CreateObject("roSGNode", "ItemLinkTask")
+    m.itemTask.itemId = id
+    m.itemTask.ObserveField("airing", "onLinkedItem")
+    m.itemTask.control = "run"
+end sub
+
+sub onLinkedItem(ev as Object)
+    ' A newer link replaced this one.
+    if m.itemTask = invalid or not ev.GetRoSGNode().IsSameNode(m.itemTask) then return
+    b = ev.GetData()
+    id = m.itemTask.itemId
+    m.itemTask = invalid
+    idx = m.tuned
+    if idx < 0 then idx = m.focus
+    if b = invalid or b.ratingKey = invalid then
+        print "deep link: item "; id; " isn't in the saved library"
+        ' A launch link left nothing playing.
+        if m.tuned < 0 then pressTune(idx)
+        return
+    end if
+    print "deep link: playing "; b.line; " ("; b.videoCodec; ", "; b.audioCodec; ") on channel "; m.channels[idx].id
+    if m.sidebarOpen = true then closeSidebar()
+    m.focus = idx
+    m.nav = "grid"
+    keepFocusVisible()
+    NxFailureReset(m.failRun)
+    m.stopped = false
+    m.unplayedEnds = 0
+    tune(idx, b)
     setFullscreen(true)
 end sub
 

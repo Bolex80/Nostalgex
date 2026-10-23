@@ -81,6 +81,17 @@ function NxGuideBlock(b as Object) as Object
     return out
 end function
 
+' A deep-linked item (NxDeepLinkItem) as an airing from nowSec for its
+' length. linked lets a guide refresh leave it playing to its end.
+function NxLinkedAiring(item as Object, nowSec as LongInteger) as Object
+    minutes = 0
+    if NxIsNumber(item.duration) then minutes = Int(item.duration)
+    if minutes <= 0 then minutes = 120
+    b = NxGuideBlock({ item: item, startSec: nowSec, endSec: nowSec + minutes * 60 })
+    b.linked = true
+    return b
+end function
+
 ' musicGenreDisplay: up to four genres, less the generic music ones.
 function NxMusicGenreLine(genres as Dynamic) as String
     useful = []
