@@ -210,10 +210,10 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
     media = NxPickBestVersion(ep.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -254,7 +254,9 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
         videoCodec: codecs.video,
         audioCodec: codecs.audio,
         videoProfile: codecs.videoProfile,
-        audioChannels: codecs.audioChannels
+        audioChannels: codecs.audioChannels,
+        videoWidth: codecs.width,
+        videoHeight: codecs.height
     }
 end function
 
@@ -276,10 +278,10 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
     media = NxPickBestVersion(item.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -325,7 +327,9 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
         videoCodec: codecs.video,
         audioCodec: codecs.audio,
         videoProfile: codecs.videoProfile,
-        audioChannels: codecs.audioChannels
+        audioChannels: codecs.audioChannels,
+        videoWidth: codecs.width,
+        videoHeight: codecs.height
     }
 end function
 

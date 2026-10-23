@@ -34,6 +34,7 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). On both TVs (2026-10-16) the load reads 67 collections and lists 26; a CH 500 channel hasn't been seen |
 | `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
 | Playback | BrightScript | Roku's Video node over Plex, Jellyfin or Emby; with the guide |
+| The fallback ladder in `AppState+Playback.swift` (`fallbackToTranscode`, `retryLoad`, `handleWatchdogNoPicture`), `PlaybackWatchdog`, `ChannelFailureRun`, `PlaybackFailure`, `PlaybackFailureCard`, `StreamFailureProbe` | `source/guide/Fallback.brs`, `components/GuideView.*`, `components/StreamProbeTask.*` | ported (issue #57; differences in [When a programme won't play](#when-a-programme-wont-play)); cases in `tests/FallbackTests.brs`; measured on a 43S45 against Emby |
 | Guide remote: the vertical wrap in `ChannelGuideView.swift` (`66033f6`) | `source/guide/GuideNav.brs` | ported: Down off the last channel wraps to channel one, Up off channel one does not; cases in `tests/GuideNavTests.brs`. Not yet pressed on a TV |
 | `SubtitleSelectionLogic.swift`; the SUBTITLES setting (`BundleManagerView.swift`) and CC toggle (`NowPlayingPanel.swift`) | `source/subtitles/`, `components/` | ported; cases transcribed from `SubtitleSelectionLogicTests.swift`. CC is the ★ key in fullscreen, and a row of the Now Playing panel. No language picker, as Plex sends one track (below) |
 | Guide look: the Apple TV app's TunerView, InfoPanelView, ChannelGuideView, CRTOverlayView, StaticScreenView, PlayerView's ChannelOSD (upstream f51e72b) | `components/GuideView.*`, `images/look/` from `scripts/look-images.py` | recreated to its measurements (below); DM Mono and VT323 bundled (`THIRD-PARTY-LICENSES.md`). The logo, home-screen icons and splash are the nostalgex.app wordmark from upstream's `logo/png/` (`scripts/icons.sh`), as the maintainer asked ([Discussion #8](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-19003344)); the Apple TV app itself still shows its earlier lightning-bolt logo |
@@ -192,6 +193,61 @@ a TCL 55R617). A 5,000-item library across 131 channels is roughly 100 s, so
 the app filters in a Task node, and keeps the last build's guide and pools
 between launches (`components/LibraryTask.brs`): a day-old guide is
 rescheduled from the saved pools in seconds while the full build runs behind.
+
+## When a programme won't play
+
+After upstream's ladder (issue #57). A start that errors, or shows no
+picture by its deadline (15 s direct play, 20 s a server stream, 40 s for a
+4K one), moves down a rung at the same point in the airing: direct play to
+the server stream; a server stream that errors gets one retry, unless
+direct play came first; a server stream with no picture goes to the 1080p
+stream (Plex 12 Mb/s with no HEVC, Jellyfin and Emby 8 Mb/s at 1920 wide).
+When nothing is left, a card says why for five seconds, amber for the
+server and red for the file or the TV, and the next programme starts. The
+fifth failure in a row on a channel stops it with "Nothing on this channel
+will play right now" until the viewer tunes; OK on it tries again.
+
+Where it differs:
+- A picture is the Video node reaching `playing`. Roku reports no decoded
+  frames, so a stream that plays sound over black counts as a picture.
+  Upstream's 4 s `play()` nudge isn't ported.
+- The retry waits 3 s, not 300 ms, as the port's one retry always has.
+- Roku's player gives no HTTP status (an HTTP error read `errcode` 2) and,
+  with the server stopped, no error at all: it buffered until each deadline.
+  So the server is asked, as upstream's `StreamFailureProbe` does, before a
+  no-picture step and before the card: a refusal or no answer ends the
+  ladder there, with that as the reason. An error steps down at once, so a
+  refusal that lasts a moment still gets its retry.
+- A server stream Emby couldn't make (its file gone) ended as `finished`,
+  which the guide otherwise takes for a join past the end of a short file.
+  It is asked about first, and hands over only if the server answers.
+- Starvation after a picture (upstream's starvation monitor) is issue #59.
+
+Measured on the 43S45 against the lab Emby (2026-10-23), with 10-minute
+clips:
+- Emby stopped mid-programme: direct play errored (-5) and its server
+  stream ended unplayed; then each programme gave up after its 15 s
+  deadline and a probe answering -7 (couldn't connect), card "Can't reach
+  your server", and the fifth stopped the channel. While stopped it made no
+  request in 20 s; with Emby back, OK showed a picture in 1.0 s. Without
+  the probe the same run took about a minute a programme, through the 1080p
+  stream, and blamed a slow server.
+- A file taken off the disk: direct play errored (-1), the server stream
+  ended unplayed, and the probe walked master 200, variant 200, segment
+  500: card "Your server wouldn't start this one", then the next programme.
+  Emby answers 500, not 404, for the missing file.
+- The 1080p rung's request, sent to Emby for a 4K H.264 4:4:4 file, came
+  back re-encoded to 1920x1080 4:2:0. On the TV it wasn't reached by codec:
+  the 43S45 played 4K 10-bit H.264, 4K AV1 and 4K 4:4:4 H.264 as stored.
+- Once, with Emby stopped, the render thread stalled for about ten minutes
+  during a 1080p start (the guide's clock stopped; no BrightScript was
+  running); it came back after Emby was started again. It didn't recur in
+  the later runs.
+
+Home leaves a server stream running until the next launch stops it (the
+stop address is kept in the registry). An exit hook in `source/main.brs`
+was tried and sent nothing, on Home or on Back: the app is gone before
+the screen-closed event is acted on.
 
 ## The connect screens
 
@@ -518,7 +574,10 @@ at `6f05937` with 5,363 items on one server:
   and never gives a final `ς`. The off-device interpreter uses JS's, so it
   hides this. Text that has to match upstream goes through
   `NxFranchiseLower`.
-- `step` is a reserved word, like `pos`.
+- `step` is a reserved word, like `pos`. `run` passes the off-device
+  interpreter but not a TV, which takes it for the builtin `Run()`: a
+  parameter of that name stopped a 43S45 compiling the app ("Builtin
+  function call expected"). `tests/run.sh` fails on it.
 - `cachefs:` is a cache: on a 43S45 it was emptied between two runs of the
   app, saved library and enrichment cache together, and on a Streaming Stick
   Plus twice in 25 minutes while the app ran. Roku keeps it in RAM unless

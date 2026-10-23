@@ -28,8 +28,9 @@ end function
 ' 3: items carry videoProfile and audioChannels (source/util/DirectPlay.brs).
 ' 4: Jellyfin and Emby items carry bitrate (NxMbVideoQuery).
 ' 5: and audioTracks, when a file has more than one (NxMbAudioTracks).
+' 6: and videoWidth and videoHeight, for the no-picture deadline (NxPictureDeadline).
 function NxSnapshotFormat() as Integer
-    return 5
+    return 6
 end function
 
 ' Items per chunk file: about 1 MB of JSON, so a read or write never holds

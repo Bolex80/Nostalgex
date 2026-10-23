@@ -25,10 +25,11 @@
 ' and the Video node sends its headers with each request. Nothing here
 ' reports playback back to the server.
 
-' Returns { content, stopUrl, route, audioTrack } (stopUrl "" for direct
-' play; audioTrack the pick for the player to select on a direct play, as
-' NxAudioTrackToSelect takes it, else invalid), or invalid.
-function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) as Dynamic
+' Returns { content, stopUrl, route, rung, audioTrack } (stopUrl "" for
+' direct play; audioTrack the pick for the player to select on a direct
+' play, as NxAudioTrackToSelect takes it, else invalid), or invalid. rung as
+' for NxPlexStreamContent.
+function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, rung = "auto" as String) as Dynamic
     base = NxToStr(s.uri)
     lower = LCase(base)
     onLan = Left(lower, 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
@@ -66,6 +67,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     direct = NxHasValue(containers, container) and videoOk and audioOk
     ' And only what this TV decodes, profile and channels included.
     if direct then direct = NxDeviceDecodes(b)
+    if rung <> "auto" then direct = false
 
     if direct then
         ' .mp4 on the MP4 family: Jellyfin labels a static stream by the
@@ -78,7 +80,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
         end if
         content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/stream." + ext + "?Static=true&MediaSourceId=" + NxUrlEncode(msid)
         content.streamFormat = format
-        return { content: content, stopUrl: "", route: route, audioTrack: audioTrack }
+        return { content: content, stopUrl: "", route: route, rung: "direct", audioTrack: audioTrack }
     end if
 
     ' Emby needs a PlaySessionId on a hand-built address or every segment
@@ -95,7 +97,8 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     eac3 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "eac3" }))
     aac51 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "aac", ChCnt: 6 }))
     q = q + NxMbAudioQuery(ac3, eac3, aac51)
-    q = q + NxMbVideoQuery(b.bitrate)
+    if rung <> "capped" then rung = "server"
+    q = q + NxMbVideoQuery(b.bitrate, rung)
     if pickIndex <> invalid then q = q + "&AudioStreamIndex=" + pickIndex.ToStr()
     ' TS segments on both servers, HEVC included. A Roku played no sound
     ' from fMP4, even stereo AAC, on Emby and on Jellyfin (Discussion #8,
@@ -113,7 +116,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object) a
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
-    return { content: content, stopUrl: stopUrl, route: route, audioTrack: invalid }
+    return { content: content, stopUrl: stopUrl, route: route, rung: rung, audioTrack: invalid }
 end function
 
 ' Which audio track to ask for, when the file offers more than one: the
@@ -210,8 +213,10 @@ end function
 ' The server decides by the file's average bitrate, so the ceiling alone
 ' copied a 26.5 Mb/s clip that then stopped with that error. A 19 Mb/s 4K
 ' file played copied, pieces up to 32 MB included (docs/JELLYFIN-EMBY.md).
-' bitrate invalid (none reported) copies.
-function NxMbVideoQuery(bitrate as Dynamic) as String
+' bitrate invalid (none reported) copies. The "capped" rung is upstream's
+' cappedTranscodeURL (JellyfinPlaybackResolver.swift), 1080p at 8 Mb/s.
+function NxMbVideoQuery(bitrate as Dynamic, rung = "server" as String) as String
+    if rung = "capped" then return "&VideoBitrate=8000000&MaxWidth=1920"
     q = "&VideoBitrate=40000000&MaxWidth=3840"
     if NxIsNumber(bitrate) and bitrate > 20000000 then q = q + "&AllowVideoStreamCopy=false"
     return q
@@ -244,12 +249,12 @@ function NxStreamServer(b as Object) as Dynamic
 end function
 
 ' The airing as something to play, from whichever kind of server it is on:
-' { content, stopUrl, route }, or invalid.
-function NxStreamContent(b as Object, offsetSec as LongInteger) as Dynamic
+' { content, stopUrl, route, rung }, or invalid.
+function NxStreamContent(b as Object, offsetSec as LongInteger, rung = "auto" as String) as Dynamic
     s = NxStreamServer(b)
     if s = invalid then return invalid
-    if NxServerKind(s) = "plex" then return NxPlexStreamContent(b, offsetSec)
-    return NxMbStreamContent(b, offsetSec, s)
+    if NxServerKind(s) = "plex" then return NxPlexStreamContent(b, offsetSec, rung)
+    return NxMbStreamContent(b, offsetSec, s, rung)
 end function
 
 ' Video nodes take headers through their own ifHttpAgent; a ContentNode's
@@ -264,6 +269,50 @@ sub NxApplyStreamAuth(video as Object, b as Object)
     video.SetCertificatesFile("common:/certs/ca-bundle.crt")
     video.SetHeaders({ "Authorization": NxMbAuthHeader(NxToStr(s.accessToken)) })
 end sub
+
+' Asks the server about a stream that didn't play, as upstream's
+' StreamFailureProbe.refusalStatus: a playlist is followed down to its first
+' segment, at most three hops, since a server that can't build a transcode
+' still serves the playlists and refuses only the segment. Media is asked for
+' two bytes. Returns the first refusal, else the last status, or
+' roUrlTransfer's code when nothing answered (NxProbeVerdict). Runs in
+' StreamProbeTask; the token comes from the registry.
+function NxProbeStream(url as String, serverIndex as Integer) as Integer
+    s = NxStreamServer({ serverIndex: serverIndex })
+    if s = invalid then return 1
+    headers = NxMbHeaders(NxToStr(s.accessToken))
+    if NxServerKind(s) = "plex" then headers = NxPlexHeaders(NxToStr(s.accessToken))
+    current = url
+    last = 1
+    for hop = 0 to 2
+        playlist = NxIsPlaylistUrl(current)
+        h = {}
+        h.Append(headers)
+        if not playlist then h["Range"] = "bytes=0-1"
+        got = NxProbeFetch(current, h)
+        print "player: probe hop "; hop; ": "; got.code
+        last = got.code
+        if NxProbeVerdict(last) <> "answered" or not playlist then return last
+        current = NxFirstMediaUrl(got.body, current)
+        if current = "" then return last
+    end for
+    return last
+end function
+
+' One GET for NxProbeStream: { code, body }, five seconds at most.
+function NxProbeFetch(url as String, headers as Object) as Object
+    xfer = NxServerTransfer(url, headers)
+    if xfer = invalid then return { code: 0, body: "" }
+    port = CreateObject("roMessagePort")
+    xfer.SetMessagePort(port)
+    if not xfer.AsyncGetToString() then return { code: -1, body: "" }
+    msg = Wait(5000, port)
+    if type(msg) <> "roUrlEvent" then
+        xfer.AsyncCancel()
+        return { code: -28, body: "" }
+    end if
+    return { code: msg.GetResponseCode(), body: msg.GetString() }
+end function
 
 ' Ends the server's work on a stream the guide has left (PlexStopTask).
 ' Jellyfin and Emby: DELETE /Videos/ActiveEncodings, which ends an encode
