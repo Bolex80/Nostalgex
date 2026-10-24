@@ -319,6 +319,13 @@ sized 16:9 at the box's height, centred on the box, with the panel drawn over
 its left overflow and the right running off the screen. A 4:3 file fills the
 box exactly.
 
+Full screen keeps the whole picture: a 4:3 file has bars at its sides, where
+`PlayerView`'s `.resizeAspectFill` fills the Apple TV's screen and crops the
+top and bottom. The guide's trick didn't carry over: with the Video
+overflowing the screen above and below (1920 x 1440 at y = -180), the whole
+screen shook and glitched on a 4:3 episode, on a 43S45, Roku OS 16.0.4, on
+2026-10-24.
+
 Three differences are on purpose:
 
 - On the Apple TV the grid's header overflows (220 + 12 + 4 x (425 + 14) =
