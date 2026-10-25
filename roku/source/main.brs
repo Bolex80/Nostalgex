@@ -24,7 +24,14 @@ sub Main(args = invalid as Dynamic)
     device.EnableLowGeneralMemoryEvent(true)
     ' What the server stream is sized to (NxMaxWidthFor), and whether this
     ' display takes HDR: a re-encode keeps the file's HDR tags on 8-bit video.
-    print "app: video mode "; device.GetVideoMode(); ", display "; FormatJson(device.GetDisplayProperties())
+    ' The EDID is an roByteArray, which FormatJson logs as "Value type not
+    ' supported", so it is left out.
+    display = {}
+    props = device.GetDisplayProperties()
+    for each k in props
+        if type(props[k]) <> "roByteArray" then display[k] = props[k]
+    end for
+    print "app: video mode "; device.GetVideoMode(); ", display "; FormatJson(display)
     while true
         msg = Wait(0, port)
         if type(msg) = "roSGScreenEvent" and msg.IsScreenClosed() then return
