@@ -19,6 +19,11 @@
     <!-- Set before the first guide, after a full rebuild from Settings: the
          channel to tune and focus instead of the top row, by id. -->
     <field id="resumeId" type="string" />
+    <!-- RESCAN LIBRARY was pressed in Settings (MainScene reads the library
+         again behind the guide); libraryBusy is true while a load runs, so
+         the row says UPDATING. -->
+    <field id="rescanRequest" type="boolean" alwaysNotify="true" />
+    <field id="libraryBusy" type="boolean" value="false" onChange="onLibraryBusy" />
     <!-- The id of the channel tuned, as a string, or "" (resumeId's source). -->
     <function name="tunedChannelId" />
   </interface>
@@ -42,6 +47,8 @@
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserPlayback.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/RescanInfo.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/PlaybackVerdict.brs" />
   <script type="text/brightscript" uri="pkg:/components/GuideView.brs" />
   <children>
     <Rectangle id="screen" width="1920" height="1080" color="0x000000FF" />

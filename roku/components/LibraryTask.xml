@@ -37,6 +37,12 @@
     <!-- A rebuild after a switch in Settings: build from the saved library,
          reading only servers it lacks. -->
     <field id="rebuild" type="boolean" value="false" />
+    <!-- RESCAN LIBRARY in Settings: read every server again, even one whose
+         saved library is still fresh (upstream's rescanLibrary). -->
+    <field id="rescan" type="boolean" value="false" />
+    <!-- Set when this load is done and the task is keeping the schedule:
+         Settings' RESCAN LIBRARY row stops saying UPDATING. -->
+    <field id="refreshed" type="boolean" alwaysNotify="true" />
     <!-- True while the guide on screen is the saved one. -->
     <field id="fromCache" type="boolean" value="false" />
     <!-- Set (any value) after Settings saved a package switch: the guide is
@@ -51,6 +57,7 @@
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/RescanInfo.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerResolve.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexLibrary.brs" />

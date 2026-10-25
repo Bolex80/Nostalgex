@@ -24,6 +24,11 @@ sub init()
     m.dotTimer.ObserveField("fire", "onDots")
 end sub
 
+' The library load started or finished while Settings is open.
+sub onRescanning()
+    if m.rows <> invalid then render()
+end sub
+
 sub onDots()
     if m.building.Count() = 0 then
         m.dotTimer.control = "stop"
@@ -158,6 +163,8 @@ sub buildRows()
     for i = 0 to m.servers.Count() - 1
         m.rows.Push({ kind: "server", index: i })
     end for
+    ' Upstream's RESCAN LIBRARY, after the servers.
+    m.rows.Push({ kind: "rescan" })
     m.rows.Push({ kind: "signOut" })
 
     m.rows.Push({ kind: "header", title: "PLAYBACK", subtitle: "Picture and subtitles" })
@@ -214,6 +221,7 @@ function rowHeight(row as Object) as Integer
     end if
     if row.kind = "subheader" or row.kind = "info" then return 44
     if row.kind = "version" then return 56
+    if row.kind = "rescan" then return 126
     return 74
 end function
 
@@ -359,6 +367,7 @@ end function
 sub drawRow(page as Object, i as Integer, row as Object, y as Float)
     focused = i = m.focus
     accent = "0xFFE500"
+    extra = []
     indent = 0
     if row.kind = "bundle" then
         b = m.top.bundles[row.index]
@@ -445,6 +454,18 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
                 state = ""
             end if
         end if
+    else if row.kind = "rescan" then
+        ' Upstream's subtitle, a line each: what the app holds, when it last
+        ' loaded and what the row does, then the last playback failure.
+        label = "RESCAN LIBRARY"
+        now& = CreateObject("roDateTime").AsSeconds()
+        lines = NxRescanLines(NxLibraryHeld(), NxKindName(NxSignedInKind()), NxLastPlaybackVerdict(), now&)
+        detail = lines[0]
+        extra = [lines[1]]
+        if lines.Count() > 2 then extra.Push(lines[2])
+        state = ""
+        stateColor = "0xFFE500FF"
+        if m.top.rescanning then state = "UPDATING…"
     else if row.kind = "retro" then
         label = "RETRO MODE"
         detail = "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio"
@@ -472,16 +493,27 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         stateColor = "0xFFFFFFFF"
         accent = "0xFF6B6B"
     end if
-    if focused then page.AppendChild(newRect(indent, y, 1680 - indent, 72, accent + "52"))
+    h = rowHeight(row) - 2
+    if focused then page.AppendChild(newRect(indent, y, 1680 - indent, h, accent + "52"))
     if focused then
-        page.AppendChild(newRect(indent, y, 8, 72, accent + "FF"))
+        page.AppendChild(newRect(indent, y, 8, h, accent + "FF"))
     else
-        page.AppendChild(newRect(indent, y, 4, 72, accent + "66"))
+        page.AppendChild(newRect(indent, y, 4, h, accent + "66"))
     end if
     nameColor = "0xFFFFFFBF"
     if focused then nameColor = "0xFFFFFFFF"
     page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
     page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
+    if row.kind = "rescan" then
+        ' Its other lines, each cut to the row's width.
+        ly = y + 66
+        for each text in extra
+            lbl = newLabel(text, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, ly)
+            lbl.width = 1600
+            page.AppendChild(lbl)
+            ly = ly + 26
+        end for
+    end if
     if state <> "" then
         stateLabel = newLabel(state, "DMMono-Medium", 24, stateColor, 1260, y + 22)
         stateLabel.width = 380
@@ -564,6 +596,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
                 m.serversChanged = true
                 render()
             end if
+        else if row.kind = "rescan" then
+            if not m.top.rescanning then m.top.rescan = true
         else if row.kind = "retro" then
             NxSaveRetroMode(not NxRetroMode())
             render()

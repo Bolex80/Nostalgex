@@ -346,7 +346,7 @@ sub loadLibrary()
             saved = invalid
             if type(snap.servers[keys[i]]) = "roAssociativeArray" then
                 fresh = m.top.rebuild
-                if not fresh then
+                if not fresh and not m.top.rescan then
                     m.top.progress = "Checking your library on " + NxToStr(servers[i].name) + "…"
                     fresh = NxSnapshotFresh(snap.servers[keys[i]], NxServerSignatureFor(servers[i]), nowSec&)
                 end if
@@ -478,6 +478,8 @@ sub loadLibrary()
         NxSnapshotSaveServer(snapDir, snap, s.key, items, s.index, s.collections, s.signature, nowSec&)
     end for
     NxSnapshotForgetServers(snapDir, snap, keys)
+    ' What Settings' RESCAN LIBRARY row says the app holds, and since when.
+    NxSaveLibraryHeld(NxLibraryCounts(items), nowSec&)
     reg = NxPlexRegistry()
     if reg.Read("librarySaved") <> "1" and (scanned.Count() > 0 or not m.top.firstRun) then
         reg.Write("librarySaved", "1")
@@ -740,6 +742,7 @@ end function
 ' every 30 s, as upstream's rebuildAllSchedules runs): a time restriction
 ' lifting at 9 PM, or a new day, re-packs exactly as it would upstream.
 sub keepScheduling(ordered as Object, guide as Object, builtChannels as Object, lib as Object)
+    m.top.refreshed = true
     port = CreateObject("roMessagePort")
     m.top.ObserveField("reschedule", port)
     m.top.ObserveField("bundleRequest", port)
@@ -825,6 +828,7 @@ end function
 ' switch needs the library, so it is answered "rebuild", and a new hour or
 ' day schedules from the saved pools, read the first time one is needed.
 sub keepSavedGuide()
+    m.top.refreshed = true
     port = CreateObject("roMessagePort")
     m.top.ObserveField("reschedule", port)
     m.top.ObserveField("bundleRequest", port)

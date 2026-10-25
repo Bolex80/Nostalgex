@@ -17,6 +17,10 @@
     <field id="result" type="string" alwaysNotify="true" />
     <!-- Set when a package switch has been saved, to have it built now. -->
     <field id="bundleChange" type="boolean" alwaysNotify="true" />
+    <!-- OK on RESCAN LIBRARY; rescanning is true while a library load runs
+         (GuideView.libraryBusy), when the row says UPDATING. -->
+    <field id="rescan" type="boolean" alwaysNotify="true" />
+    <field id="rescanning" type="boolean" value="false" onChange="onRescanning" />
     <!-- The library task's answer: the packages built, as JSON, or "rebuild". -->
     <field id="bundleBuilt" type="string" alwaysNotify="true" onChange="onBundleBuilt" />
     <function name="open" />
@@ -31,6 +35,7 @@
   <script type="text/brightscript" uri="pkg:/source/guide/SeasonalPrompt.brs" />
   <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/RescanInfo.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />

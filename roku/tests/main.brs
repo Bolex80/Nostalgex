@@ -73,6 +73,7 @@ sub Main(args = invalid as Dynamic)
     if NxTestWants("version") then failures = failures + NxRunVersionTests()
     if NxTestWants("plex-audio") then failures = failures + NxRunPlexAudioTests()
     if NxTestWants("poster") then failures = failures + NxRunPosterTests()
+    if NxTestWants("rescan") then failures = failures + NxRunRescanTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
 
