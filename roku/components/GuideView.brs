@@ -1499,7 +1499,7 @@ function npState() as Object
     b = m.playing
     st = {
         number: ch.number, name: ch.name, color: colorOf(ch.color, "FF"),
-        nowLine: "", rating: "", upNext: "",
+        nowLine: "", rating: "", upNext: "", poster: invalid,
         hasSubs: m.hasSubs, ccOn: m.subs.always, autoOn: m.subs.foreign,
         audio: [], retro: NxRetroMode(), sleepMinutes: 0, sleepLeft: -1, info: []
     }
@@ -1507,6 +1507,7 @@ function npState() as Object
         st.nowLine = musicLine(b)
         if not NxTruthy(b.music) and b.year <> "" then st.nowLine = b.title + "  " + b.year
         st.rating = NxToStr(b.contentRating)
+        st.poster = NxPosterRef(b, NxSignedInKind())
         nxt = blockAfter(ch, b)
         if nxt <> invalid then st.upNext = musicLine(nxt)
         kind = "Direct play"

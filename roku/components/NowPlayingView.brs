@@ -1,7 +1,7 @@
 ' Copyright (c) 2026 nostalgex-roku contributors, MIT License.
 '
-' Upstream's NowPlayingPanel: the info zone (channel, what's on, rating, up
-' next) and two control columns, one for the program (CAPTIONS, AUDIO) and
+' Upstream's NowPlayingPanel: the info zone (the Plex poster, channel, what's
+' on, rating, up next) and two control columns, one for the program (CAPTIONS, AUDIO) and
 ' one for the device (PICTURE, SLEEP TIMER, PLAYBACK INFORMATION). Left and
 ' Right move between the columns, Up and Down within one. PLAYBACK
 ' INFORMATION opens in place of the columns; Back closes it, then the panel.
@@ -219,10 +219,40 @@ function renderInformation(g as Object, s as Object) as Integer
     return y + 8 + 58
 end function
 
+' The poster for what is on (NxPosterRef), fetched again only when that
+' changes. The info zone sits right of it, as upstream's HStack (spacing 24).
+sub showPoster(ref as Dynamic)
+    path = ""
+    if ref <> invalid then path = NxToStr(ref.path)
+    if path = NxToStr(m.posterPath) then return
+    m.posterPath = path
+    m.top.FindNode("poster").visible = false
+    m.top.FindNode("posterBack").visible = path <> ""
+    if m.posterTask <> invalid then
+        m.posterTask.UnobserveField("file")
+        m.posterTask = invalid
+    end if
+    if path = "" then return
+    m.posterTask = CreateObject("roSGNode", "PosterTask")
+    m.posterTask.ObserveField("file", "onPosterFile")
+    m.posterTask.ref = ref
+    m.posterTask.control = "run"
+end sub
+
+sub onPosterFile()
+    file = m.posterTask.file
+    if file = "" then return
+    p = m.top.FindNode("poster")
+    p.uri = file
+    p.visible = true
+end sub
+
 sub renderInfo(s as Object)
     g = m.top.FindNode("info")
     g.RemoveChildrenIndex(g.GetChildCount(), 0)
+    showPoster(s.poster)
     x = 48
+    if NxToStr(m.posterPath) <> "" then x = 48 + 150 + 24
     y = 40
     g.AppendChild(newRect(x, y, 48, 4, s.color))
     y = y + 12
