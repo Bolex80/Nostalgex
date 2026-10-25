@@ -296,6 +296,7 @@ sub onLibraryPhase()
     if m.library = invalid then return
     if m.guide <> invalid or m.loading <> invalid or m.library.phase = "" then return
     m.loading = CreateObject("roSGNode", "LoadingView")
+    m.loading.scanHeadline = NxScanHeadline(NxSignedInKind())
     m.top.AppendChild(m.loading)
     m.loading.task = m.library
 end sub

@@ -9,6 +9,8 @@
   <interface>
     <field id="task" type="node" onChange="onTask" />
     <field id="stalling" type="boolean" value="false" onChange="render" />
+    <!-- The library step's headline, for the kind being scanned. -->
+    <field id="scanHeadline" type="string" value="" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
   <script type="text/brightscript" uri="pkg:/components/LoadingView.brs" />

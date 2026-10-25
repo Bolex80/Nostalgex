@@ -30,3 +30,10 @@ function NxKindName(kind as String) as String
     if kind = "emby" then return "Emby"
     return "Plex"
 end function
+
+' The loading screen's library step names the kind it reads, as the Apple
+' TV's says CONNECTING TO JELLYFIN there: never Plex on a Jellyfin or Emby
+' scan (#95).
+function NxScanHeadline(kind as String) as String
+    return "SCANNING " + UCase(NxKindName(kind)) + " LIBRARY"
+end function

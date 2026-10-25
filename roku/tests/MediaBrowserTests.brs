@@ -157,6 +157,11 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "width, unreadable keeps 3840", NxMaxWidthFor("").ToStr(), "3840")
     NxCheck(r, "audio, eac3 only, 5.1", NxMbAudioQuery(false, true, true), "&AudioCodec=aac,eac3&TranscodingMaxAudioChannels=6")
 
+    ' The loading screen names the kind it scans (#95).
+    NxCheck(r, "scan headline, jellyfin", NxScanHeadline("jellyfin"), "SCANNING JELLYFIN LIBRARY")
+    NxCheck(r, "scan headline, emby", NxScanHeadline("emby"), "SCANNING EMBY LIBRARY")
+    NxCheck(r, "scan headline, plex as before", NxScanHeadline("plex"), "SCANNING PLEX LIBRARY")
+
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail + NxRunDirectPlayTests() + NxRunAudioPickTests()
 end function
