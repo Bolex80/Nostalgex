@@ -3,6 +3,32 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: MY COLLECTIONS on Jellyfin and Emby, split into FRANCHISES and OTHER COLLECTIONS)
+
+**Shipped.** Nothing until the PR for #70 and #71 lands on main. Branch `roku/my-collections`, on top of `roku/advance-ended-slot` (the hand-over fix) and `roku/test-isolated-data` (a test build keeps its own saved data, for the BoxSet checks).
+
+**Why.** On Jellyfin and Emby, MY COLLECTIONS was always empty: the Roku read Plex collections only (issue #70). And every collection sat under OTHER COLLECTIONS from CH 500, where the Apple TV sorts movie series into FRANCHISES from CH 300 (issue #71). One branch, since both change `Collections.brs` and its tests.
+
+**Changed.**
+- `source/collections/Collections.brs`: `NxCollectionsFetchBoxSets`, a port of the web's `fetchBoxSetCollections` (BoxSets deduped by Id, each one's films and series paged). `NxCollectionsMaterialize` numbers per category as `materializeDynamicChannels`: FRANCHISES after the found franchise channels, up to CH 499; the rest from CH 500 to 699. The collections step classifies each collection and its rows carry the category and whether they warn.
+- `source/collections/CollectionClassifier.brs` (new): a port of the Apple TV's `CollectionClassifier`.
+- `source/collections/CollectionChoices.brs`: the two category names and descriptions.
+- `components/LibraryTask.brs`: Jellyfin and Emby servers read their BoxSets. `MediaBrowserLibrary.brs` is untouched, so tydude's #63 rebases cleanly.
+- `components/SettingsView.brs`: MY COLLECTIONS has a FRANCHISES and an OTHER COLLECTIONS accordion, as upstream. A row that is off and already mostly on another channel is dimmed to 0.7, as upstream. The note under MY COLLECTIONS counts rows past CH 499 and past CH 699 separately.
+- `tests/gen-collections.mjs`: 7 BoxSet fixtures run through upstream's `fetchBoxSetCollections`. `tests/CollectionTests.brs`: those vectors, the cases of `CollectionClassifierTests.swift`, the classifier cases of `CollectionShowsTests.swift`, the numbering cases of `FranchiseNumberingTests.swift`, and a step case. With the package off, the step case "package off: three channels" now numbers 300, 301, 500.
+- `docs/PORTING.md`, `docs/JELLYFIN-EMBY.md`.
+
+**Measured.**
+- Before the change, the new tests crash on main's code (`NxCollectionsFetchBoxSets` doesn't exist). After it, the whole suite passes off-device, one process at a time, and on a Streaming Stick Plus (`collection cases: 2647 passed, 0 failed`).
+- Lab servers, Jellyfin 10.10.7 and Emby 4.10.1, each with a BoxSet of two shows and a film, and on Jellyfin a five-film BoxSet. Upstream's fetch was recorded against them, and the port read the recorded answers with the same requests and the same result. Jellyfin lists the two series ids; Emby lists the six episodes.
+- On the stick, signed in to Chad's Emby, the load reads its BoxSet list in 93 ms. It has no BoxSets, so it lists none, and the guide builds as before.
+
+**Differences from upstream.**
+- The Apple TV finds franchises with the FRANCHISES package off too, so its FRANCHISES collections start after them even then. Here they start at CH 300 while the package is off.
+- The web tuner has no classifier. Its vectors still cover the OTHER COLLECTIONS numbering only.
+
+**Half-done.** No collection channel has been seen on a TV from a Jellyfin or Emby server with BoxSets: Chad's Emby has none, and the stick stays signed in to it.
+
 ## 2026-10-26 (Roku: a hand-over that skips a title could re-tune the same file every few seconds)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/advance-ended-slot`, on top of `roku/test-isolated-data` (`cd8f783`). The loop is in Roku 1.0.5.

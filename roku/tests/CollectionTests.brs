@@ -52,7 +52,26 @@ function NxRunCollectionTests(vectorsPath as String, configPath as String, dicti
         NxCheck(r, "plex out " + c.name, have, want)
     end for
 
+    ' Jellyfin and Emby BoxSets (fetchBoxSetCollections). Upstream's calls
+    ' come sorted, as it reads four BoxSets at once.
+    for each c in NxList(v.boxSets)
+        fetcher = NxClStubFetcher(c.docs)
+        got = NxCollectionsFetchBoxSets("srv", "u 1/2", fetcher)
+        calls = []
+        calls.Append(fetcher.calls)
+        calls.Sort()
+        NxCheck(r, "boxset calls " + c.name, calls.Join(","), NxClJoin(c.calls))
+        want = "throws"
+        if type(c.out) = "roArray" then want = NxClRaw(c.out)
+        have = "throws"
+        if got <> invalid then have = NxClRaw(got)
+        NxCheck(r, "boxset out " + c.name, have, want)
+    end for
+    if NxList(v.boxSets).Count() = 0 then NxCheck(r, "boxset vectors present", "0", "7")
+
     NxClSwiftCases(r, config, defs)
+    NxClClassifierCases(r)
+    NxClSplitCases(r)
 
     print "collection cases (upstream vectors and Swift tests): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
@@ -184,10 +203,12 @@ sub NxClSwiftCases(r as Object, config as Object, defs as Object)
     NxCheck(r, "swift fold: still folded while it is on", NxClFoldedInto(cs, "JOHN WICK COLLECTION"), "JOHN WICK")
 
     ' With the FRANCHISES package off there is nothing to fold into, so every
-    ' collection is listed and the switched-on ones air.
+    ' collection is listed and the switched-on ones air: the two movie series
+    ' under FRANCHISES from CH 300 (no found franchise is built with the
+    ' package off), the actor set under OTHER COLLECTIONS from CH 500.
     cs = NxCollectionsStep({ channels: NxClStockChannels(t, items), raw: raw, items: items, serverKeys: {}, manifest: invalid, enabledKeys: on })
     NxCheck(r, "package off: no folds", NxClRowIDs(cs), "0:c-wick,0:c-sw,0:c-hanks")
-    NxCheck(r, "package off: three channels", NxClChannelNames(cs) + "|" + NxClChannelNumbers(cs), "JOHN WICK COLLECTION,STAR WARS COLLECTION,TOM HANKS|500,501,502")
+    NxCheck(r, "package off: three channels", NxClChannelNames(cs) + "|" + NxClChannelNumbers(cs), "JOHN WICK COLLECTION,STAR WARS COLLECTION,TOM HANKS|300,301,500")
     NxCheck(r, "package off: name match warns", cs.rows[1].detail, "Exists: CH 100 STAR WARS")
 
     ' FranchiseCollectionFold step 4: a collection whose name says nothing
@@ -222,6 +243,183 @@ function NxClStockChannels(t as Object, items as Object) as Object
         end for
     end for
     return s.stock
+end function
+
+' ── CollectionClassifierTests.swift and CollectionShowsTests.swift ─────────
+
+sub NxClClassifierCases(r as Object)
+    ' testGeneratedListCollectionsAreCustom
+    for each name in ["Anilist Popular", "IMDb Popular", "TMDb Popular", "Plex Popular", "MyAnimeList Favorited", "MyAnimeList Top Rated", "Anilist Top Rated", "Trakt Trending", "Letterboxd Top 250", "Recently Added"]
+        NxCheck(r, "classify: " + name + " is a generated list", NxCollectionClassify(name, []), "custom")
+    end for
+    ' testPersonNamesAreCustom
+    NxCheck(r, "classify: Tom Hanks, no films", NxCollectionClassify("Tom Hanks", []), "custom")
+    NxCheck(r, "classify: Christopher Nolan, no films", NxCollectionClassify("Christopher Nolan", []), "custom")
+    ' testFranchisesStillDetected
+    NxCheck(r, "classify: James Bond Collection", NxCollectionClassify("James Bond Collection", []), "franchises")
+    topGun = NxClFilms(["Top Gun", "Top Gun: Maverick", "Top Gun II"])
+    NxCheck(r, "classify: Top Gun repeats a word", NxCollectionClassify("Top Gun Collection", topGun), "franchises")
+    ' testFranchiseNamedLikeAPersonIsAFranchise
+    wick = NxClFilms(["John Wick", "John Wick: Chapter 2", "Parabellum"])
+    NxCheck(r, "classify: John Wick, name in two titles", NxCollectionClassify("John Wick", wick), "franchises")
+    hunger = NxClFilms(["The Hunger Games", "Catching Fire", "The Hunger Games: Mockingjay - Part 1"])
+    NxCheck(r, "classify: Hunger Games", NxCollectionClassify("Hunger Games", hunger), "franchises")
+    ' testPersonCollectionsAreNotFranchises
+    hanks = NxClFilms(["Big", "Cast Away", "Forrest Gump"])
+    NxCheck(r, "classify: Tom Hanks films", NxCollectionClassify("Tom Hanks", hanks), "custom")
+    jackson = NxClFilms(["Michael Jackson's This Is It", "Thriller", "Moonwalker"])
+    NxCheck(r, "classify: Michael Jackson Collection", NxCollectionClassify("Michael Jackson Collection", jackson), "custom")
+    ' testSharedFranchiseIDForcesFranchise
+    night = NxClFilms(["Alpha", "Bravo", "Charlie"])
+    NxCheck(r, "classify: Movie Night without enrichment", NxCollectionClassify("Movie Night", night), "custom")
+    for each it in night
+        it.enrichment = { franchiseID: 777 }
+    end for
+    NxCheck(r, "classify: Movie Night sharing a TMDB collection", NxCollectionClassify("Movie Night", night), "franchises")
+    ' testGeneratedListBeatsFranchiseID
+    batman = NxClFilms(["Batman Begins", "The Dark Knight"])
+    for each it in batman
+        it.enrichment = { franchiseID: 263 }
+    end for
+    NxCheck(r, "classify: IMDb Popular beats a shared TMDB collection", NxCollectionClassify("IMDb Popular", batman), "custom")
+    ' testSingleFranchiseIDItemIsNotEnoughForFranchise
+    solo = NxClFilms(["Solo Outing", "Different Movie"])
+    solo[0].enrichment = { franchiseID: 500 }
+    NxCheck(r, "classify: one film with a TMDB collection", NxCollectionClassify("Random Set", solo), "custom")
+    ' CollectionShowsTests.testShowCollectionsAreNeverFranchises
+    NxCheck(r, "classify: a show's episodes", NxCollectionClassify("Reality TV", NxClEpisodes("Survivor", "s1", 30)), "custom")
+    trek = NxClEpisodes("Star Trek: The Next Generation", "s2", 8)
+    trek.Append(NxClEpisodes("Star Trek: Voyager", "s3", 8))
+    NxCheck(r, "classify: Star Trek Saga of shows", NxCollectionClassify("Star Trek Saga", trek), "custom")
+    ' CollectionShowsTests.testMixedCollectionClassifiesOnItsFilms
+    mixed = NxClFilms(["John Wick", "John Wick: Chapter 2", "Parabellum"])
+    mixed.Append(NxClEpisodes("The Continental", "s1", 3))
+    NxCheck(r, "classify: a mix on its films (John Wick)", NxCollectionClassify("John Wick", mixed), "franchises")
+    band = NxClFilms(["Big", "Cast Away"])
+    band.Append(NxClEpisodes("Band of Brothers", "s2", 10))
+    NxCheck(r, "classify: a mix on its films (Tom Hanks)", NxCollectionClassify("Tom Hanks", band), "custom")
+
+    ' The rest of upstream's rules, one case each.
+    NxCheck(r, "classify: a franchise keyword", NxCollectionClassify("The Godfather Trilogy", NxClFilms(["The Godfather", "Part II", "Part III"])), "franchises")
+    NxCheck(r, "classify: a shared title prefix", NxCollectionClassify("Go", NxClFilms(["Go Go", "Go Gone", "Go Goal"])), "franchises")
+    NxCheck(r, "classify: punctuation trimmed from words", NxCollectionClassify("Set", NxClFilms(["Rocky", "Rocky II", "Rocky...", "Creed"])), "franchises")
+    NxCheck(r, "classify: a curly 's is dropped", NxCollectionClassify("Rocky" + Chr(8217) + "s Story", NxClFilms(["Rocky Story", "Rocky Story II", "Other"])), "franchises")
+    ' Upstream drops "'s" before its list, so this one misses "child's play".
+    NxCheck(r, "classify: Child's Play Collection, as upstream", NxCollectionClassify("Child's Play Collection", []), "custom")
+    NxCheck(r, "classify: stop words don't count", NxCollectionClassify("Mixed", NxClFilms(["The One", "The Two", "The Three"])), "custom")
+end sub
+
+' One film per title, keyed by its title.
+function NxClFilms(titles as Object) as Object
+    out = []
+    for each t in titles
+        out.Push(NxClFilm(t, t))
+    end for
+    return out
+end function
+
+' ── FranchiseNumberingTests.swift: the two ranges ───────────────────────────
+
+sub NxClSplitCases(r as Object)
+    ' testEightySixFranchisesNumber300Through385AndCollectionsStartAt500
+    found = []
+    for i = 0 to 85
+        found.Push(NxClFound(i, true))
+    end for
+    fc = NxFranchiseChannels(found)
+    NxCheck(r, "split: 86 found franchises", NxClNumberRange(fc), "300-385")
+    cands = [
+        NxClCandidate("saga-a", "franchises", true), NxClCandidate("saga-b", "franchises", true),
+        NxClCandidate("hanks", "custom", true), NxClCandidate("nolan", "custom", true),
+        NxClCandidate("off", "custom", false)
+    ]
+    mz = NxCollectionsMaterialize(cands, fc.Count())
+    NxCheck(r, "split: franchise collections follow the found ones", NxClNumbersOf(mz.channels, "franchises"), "386,387")
+    NxCheck(r, "split: other collections from 500", NxClNumbersOf(mz.channels, "custom"), "500,501")
+    NxCheck(r, "split: franchise collection ids follow the found ids", NxToStr(mz.channels[0].id), (NxFranchiseIDBase() + 86).ToStr())
+    NxCheck(r, "split: other collection ids", NxToStr(mz.channels[2].id), NxCollectionsIDBase().ToStr())
+    NxCheck(r, "split: nothing over", NxToStr(mz.overCap), "0")
+
+    ' testFranchiseRangeIsCappedAt499: 205 found franchises fill the range.
+    found = []
+    for i = 0 to 204
+        found.Push(NxClFound(i, true))
+    end for
+    fc = NxFranchiseChannels(found)
+    NxCheck(r, "split: found franchises stop at 499", NxClNumberRange(fc), "300-499")
+    mz = NxCollectionsMaterialize([NxClCandidate("saga-a", "franchises", true), NxClCandidate("hanks", "custom", true)], fc.Count())
+    NxCheck(r, "split: the franchise collection did not fit", NxToStr(mz.overCapFranchises) + "/" + NxToStr(mz.overCapCustom), "1/0")
+    NxCheck(r, "split: collections keep their own numbers", NxClNumbersOf(mz.channels, "custom") + "|" + NxClNumbersOf(mz.channels, "franchises"), "500|")
+    for i = 0 to 9
+        found[i].enabled = false
+    end for
+    fc = NxFranchiseChannels(found)
+    mz = NxCollectionsMaterialize([NxClCandidate("saga-a", "franchises", true), NxClCandidate("hanks", "custom", true)], fc.Count())
+    NxCheck(r, "split: switching some off frees the range", NxClNumbersOf(mz.channels, "franchises") + "|" + NxToStr(mz.overCap), "495|0")
+
+    ' testCollectionRangeIsCappedAt699
+    cands = []
+    for i = 0 to 202
+        cands.Push(NxClCandidate("set-" + Right("00" + i.ToStr(), 3), "custom", true))
+    end for
+    mz = NxCollectionsMaterialize(cands)
+    NxCheck(r, "split: 200 other collections, the last on 699", mz.channels.Count().ToStr() + "|" + NxToStr(mz.channels[199].number), "200|699")
+    NxCheck(r, "split: three past 699", NxToStr(mz.overCapCustom), "3")
+
+    ' The step: a movie series after the found franchises, an actor set
+    ' from 500, each row carrying its category.
+    wick = NxClFilms(["John Wick", "John Wick: Chapter 2", "Parabellum"])
+    hanks = NxClFilms(["Big", "Cast Away", "Forrest Gump"])
+    lib = []
+    lib.Append(wick)
+    lib.Append(hanks)
+    for each it in lib
+        it.serverIndex = 0
+    end for
+    raw = [
+        NxClRaw0("wick", "John Wick", ["John Wick", "John Wick: Chapter 2", "Parabellum"]),
+        NxClRaw0("hanks", "Tom Hanks", ["Big", "Cast Away", "Forrest Gump"]),
+        NxClRaw0("spare", "Tom Hanks Too", ["Big", "Cast Away", "Forrest Gump"])
+    ]
+    found = [NxClFound(0, true), NxClFound(1, true), NxClFound(2, false)]
+    fr = { channels: NxFranchiseChannels(found), found: [] }
+    cs = NxCollectionsStep({ channels: [], raw: raw, items: lib, serverKeys: {}, manifest: invalid, enabledKeys: NxCollectionKeySet(["0:wick", "0:hanks"]), franchise: fr, franchiseBundleIDs: [], defs: [] })
+    NxCheck(r, "split step: channels", NxClChannelNames(cs) + "|" + NxClChannelNumbers(cs), "JOHN WICK,TOM HANKS|302,500")
+    rows = []
+    for each row in cs.rows
+        rows.Push(row.title + "=" + NxToStr(row.category) + "@" + NxClOrNull(row.channelNumber))
+    end for
+    NxCheck(r, "split step: rows", rows.Join(";"), "JOHN WICK=franchises@302;TOM HANKS=custom@500;TOM HANKS TOO=custom@null")
+    NxCheck(r, "split step: overCap by range", NxToStr(cs.overCapFranchises) + "/" + NxToStr(cs.overCapCustom), "0/0")
+end sub
+
+function NxClFound(i as Integer, enabled as Boolean) as Object
+    films = []
+    for k = 1 to 3
+        films.Push(NxClFilm("f" + i.ToStr() + "-" + k.ToStr(), "f" + i.ToStr() + " " + k.ToStr()))
+    end for
+    return { name: "FRANCHISE " + i.ToStr(), movies: films, tvItems: [], coveredByChannelID: invalid, fromDictionary: false, enabled: enabled }
+end function
+
+function NxClCandidate(id as String, category as String, enabled as Boolean) as Object
+    films = []
+    for k = 1 to 3
+        films.Push(NxClFilm(id + "-" + k.ToStr(), id + " " + k.ToStr()))
+    end for
+    return { id: id, title: UCase(id), items: films, enabled: enabled, foldedInto: invalid, category: category }
+end function
+
+function NxClNumberRange(channels as Object) as String
+    if channels.Count() = 0 then return ""
+    return NxToStr(channels[0].number) + "-" + NxToStr(channels[channels.Count() - 1].number)
+end function
+
+function NxClNumbersOf(channels as Object, category as String) as String
+    out = []
+    for each ch in channels
+        if NxToStr(ch.category) = category then out.Push(NxToStr(ch.number))
+    end for
+    return out.Join(",")
 end function
 
 function NxClStep(t as Object, s as Object, items as Object, raw as Object, on as Object) as Object

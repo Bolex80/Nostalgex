@@ -41,3 +41,15 @@ sub NxSaveCollectionKeys(keys as Object)
     reg.Write("collectionsOn", FormatJson(NxCollectionKeyList(keys)))
     reg.Flush()
 end sub
+
+' MY COLLECTIONS' categories (CollectionCategory in upstream's Models/Channel.swift,
+' classified by CollectionClassifier.brs), as Settings names them.
+function NxCollectionCategoryName(category as Dynamic) as String
+    if NxToStr(category) = "franchises" then return "FRANCHISES"
+    return "OTHER COLLECTIONS"
+end function
+
+function NxCollectionCategoryDescription(category as Dynamic) as String
+    if NxToStr(category) = "franchises" then return "Movie series and sequel collections"
+    return "Actors, directors and your own themed sets"
+end function

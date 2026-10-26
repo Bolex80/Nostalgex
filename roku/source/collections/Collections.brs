@@ -1,5 +1,6 @@
-' Server collections as channels from CH 500, and the fold that keeps a
-' collection which is really a franchise from airing twice.
+' Server collections as channels (CH 300 up for movie series, CH 500 up for
+' the rest), and the fold that keeps a collection which is really a
+' franchise from airing twice.
 '
 ' Copyright (c) 2024 Chad Mueller / Muell Haus Inc. (Nostalgex), MIT License.
 ' Port copyright (c) 2026 nostalgex-roku contributors, MIT License.
@@ -331,7 +332,7 @@ function NxCollectionsBuildCandidates(raw as Object, indexByServer as Object, ct
             title = NxToStr(c.title)
             if title = "" then title = "Untitled"
             candidate = {
-                id: NxToStr(c.id), title: UCase(title),
+                id: NxToStr(c.id), title: UCase(title), serverTitle: title,
                 movieCount: counts.movies, showCount: counts.shows, episodeCount: counts.episodes,
                 items: items, enabled: enabledKeys.DoesExist(NxToStr(c.id)),
                 matchedChannel: NxCollectionsMatchStatic(c.title, staticChannels),
@@ -353,34 +354,50 @@ function NxCollectionsBuildCandidates(raw as Object, indexByServer as Object, ct
     return out
 end function
 
-' materialize: switched-on, unfolded candidates in list order take CH 500
-' up, 200 at most. Returns { channels, overCap }. The channels have the shape
-' the library load builds; their pool is the collection, in its order, as
-' the web tuner airs it.
-function NxCollectionsMaterialize(candidates as Object) as Object
+' materialize: switched-on, unfolded candidates in list order, each in its
+' category's range (materializeDynamicChannels). OTHER COLLECTIONS
+' ("custom", and any candidate the classifier hasn't seen, as the web tuner's
+' all are) take CH 500 up to 699. FRANCHISES ("franchises") follow the found
+' franchise channels: franchiseSlot is how many of those were built, and
+' they share CH 300 up to 499. Anything switched on past its range is not
+' built. Returns { channels, overCap (both ranges), overCapFranchises,
+' overCapCustom }. The channels have the shape the library load builds; their
+' pool is the collection, unshuffled, as the web tuner airs it.
+function NxCollectionsMaterialize(candidates as Object, franchiseSlot = 0 as Integer) as Object
     channels = []
-    overCap = 0
-    slot = 0
+    over = { franchises: 0, custom: 0 }
+    slots = { franchises: franchiseSlot, custom: 0 }
     colors = NxFranchiseColors()
-    for each c in candidates
-        if c.enabled and c.foldedInto = invalid then
-            if slot >= NxCollectionsCapacity() then
-                overCap = overCap + 1
-            else
-                pool = []
-                pool.Append(c.items)
-                channels.Push({
-                    id: NxCollectionsIDBase() + slot, number: NxCollectionsNumberBase() + slot,
-                    name: c.title, colorHex: colors[slot mod colors.Count()],
-                    minItems: NxCollectionsMinItems(), isPremiereChannel: false, timeRestrictions: invalid,
-                    enabled: c.items.Count() >= NxCollectionsMinItems(), built: true,
-                    collection: true, collectionID: c.id, pool: pool
-                })
-                slot = slot + 1
+    for each category in ["franchises", "custom"]
+        for each c in candidates
+            cat = "custom"
+            if NxToStr(c.category) = "franchises" then cat = "franchises"
+            if cat = category and c.enabled and c.foldedInto = invalid then
+                slot = slots[cat]
+                if slot >= NxCollectionsCapacity() then
+                    over[cat] = over[cat] + 1
+                else
+                    pool = []
+                    pool.Append(c.items)
+                    id = NxCollectionsIDBase() + slot
+                    number = NxCollectionsNumberBase() + slot
+                    if cat = "franchises" then
+                        id = NxFranchiseIDBase() + slot
+                        number = NxFranchiseNumberBase() + slot
+                    end if
+                    channels.Push({
+                        id: id, number: number,
+                        name: c.title, colorHex: colors[slot mod colors.Count()],
+                        minItems: NxCollectionsMinItems(), isPremiereChannel: false, timeRestrictions: invalid,
+                        enabled: c.items.Count() >= NxCollectionsMinItems(), built: true,
+                        collection: true, collectionID: c.id, category: cat, pool: pool
+                    })
+                    slots[cat] = slot + 1
+                end if
             end if
-        end if
+        end for
     end for
-    return { channels: channels, overCap: overCap }
+    return { channels: channels, overCap: over.franchises + over.custom, overCapFranchises: over.franchises, overCapCustom: over.custom }
 end function
 
 ' ── The franchise fold (FranchiseCollectionFold.swift) ──────────────────────
@@ -587,6 +604,111 @@ function NxCollectionsFetchPlex(serverKey as String, fetcher as Object, progress
     return out
 end function
 
+' ── Jellyfin and Emby ───────────────────────────────────────────────────────
+
+' fetchBoxSetCollections: every BoxSet the user can see, deduped by Id, with
+' the ids of its films and shows, as [{ id: "<serverKey>:<Id>", title,
+' childKeys, serverKey }], or invalid when the BoxSet list fails (upstream
+' throws). A BoxSet whose members fail is dropped. Jellyfin lists a show by
+' its series id, which the member index resolves to its episodes; Emby lists
+' the show's episodes. fetcher is NxMbFetcher's shape: getJSON(path), and
+' getMany(paths) when it has one.
+'
+' Upstream reads four BoxSets at a time, each one's pages in turn. This reads
+' every BoxSet's first page 25 at a time through getMany, then any further
+' pages one by one, so the requests are the same but not in the same order.
+function NxCollectionsFetchBoxSets(serverKey as String, userId as String, fetcher as Object, progress = invalid as Dynamic) as Dynamic
+    uid = NxUrlEncode(userId)
+    listing = fetcher.getJSON("/Items?userId=" + uid + "&IncludeItemTypes=BoxSet&Recursive=true&Fields=ChildCount&SortBy=SortName")
+    if listing = invalid then return invalid
+    rows = []
+    if type(listing) = "roAssociativeArray" then rows = NxList(listing.Items)
+    boxSets = []
+    seen = {}
+    seen.SetModeCaseSensitive()
+    for each b in rows
+        if type(b) = "roAssociativeArray" then
+            if NxTruthy(b.Id) then
+                k = NxToStr(b.Id)
+                if not seen.DoesExist(k) then
+                    seen[k] = true
+                    boxSets.Push(b)
+                end if
+            end if
+        end if
+    end for
+    out = []
+    batch = 25
+    firsts = []
+    for i = 0 to boxSets.Count() - 1
+        b = boxSets[i]
+        if i mod batch = 0 then
+            paths = []
+            for j = i to i + batch - 1
+                if j < boxSets.Count() then paths.Push(NxBoxSetPagePath(uid, boxSets[j].Id, 0))
+            end for
+            if fetcher.getMany <> invalid then
+                firsts = fetcher.getMany(paths)
+            else
+                firsts = []
+                for each path in paths
+                    firsts.Push(fetcher.getJSON(path))
+                end for
+            end if
+        end if
+        childKeys = NxBoxSetMembers(fetcher, uid, b.Id, firsts[i mod batch])
+        if progress <> invalid then
+            done = i + 1
+            progress.progress = "Reading collections: " + done.ToStr() + " of " + boxSets.Count().ToStr()
+            progress.bar = done / boxSets.Count()
+            progress.barCaption = "Collection " + done.ToStr() + " of " + boxSets.Count().ToStr()
+        end if
+        if childKeys <> invalid then
+            title = "Untitled"
+            if NxTruthy(b.Name) then title = NxToStr(b.Name)
+            out.Push({ id: serverKey + ":" + NxToStr(b.Id), title: title, childKeys: childKeys, serverKey: serverKey })
+        end if
+    end for
+    return out
+end function
+
+function NxBoxSetPagePath(uid as String, boxSetID as Dynamic, start as Integer) as String
+    return "/Items?userId=" + uid + "&ParentId=" + NxUrlEncode(NxToStr(boxSetID)) + "&Recursive=true&IncludeItemTypes=Movie,Series&StartIndex=" + start.ToStr() + "&Limit=200&SortBy=SortName"
+end function
+
+' One BoxSet's member ids, page by page from its first page: it stops at an
+' empty page or once it has TotalRecordCount ids. invalid when a page fails.
+function NxBoxSetMembers(fetcher as Object, uid as String, boxSetID as Dynamic, page as Dynamic) as Dynamic
+    childKeys = []
+    start = 0
+    while true
+        if page = invalid then return invalid
+        items = []
+        if type(page) = "roAssociativeArray" then items = NxList(page.Items)
+        for each it in items
+            if it = invalid then return invalid
+            ' String(it.Id), as upstream reads a row with no Id.
+            key = "undefined"
+            if type(it) = "roAssociativeArray" then
+                if it.Id <> invalid then
+                    key = NxToStr(it.Id)
+                else if it.DoesExist("Id") then
+                    key = "null"
+                end if
+            end if
+            childKeys.Push(key)
+        end for
+        start = start + items.Count()
+        total = childKeys.Count()
+        if type(page) = "roAssociativeArray" then
+            if NxIsNumber(page.TotalRecordCount) then total = page.TotalRecordCount
+        end if
+        if items.Count() = 0 or childKeys.Count() >= total then return childKeys
+        page = fetcher.getJSON(NxBoxSetPagePath(uid, boxSetID, start))
+    end while
+    return childKeys
+end function
+
 ' ── The library load's collections step ─────────────────────────────────────
 
 ' refreshCollectionChannels, run after the stock pools and the franchise
@@ -647,7 +769,14 @@ function NxCollectionsStep(opts as Object) as Object
         staticChannels: staticChannels, channelsByID: channelsByID, manifest: opts.manifest,
         enabledKeys: opts.enabledKeys, foldTargets: targets, defs: defs
     })
-    built = NxCollectionsMaterialize(candidates)
+    ' The Apple TV app's split (CollectionClassifier.swift), which the web
+    ' tuner doesn't have: FRANCHISES follow the found franchise channels.
+    for each c in candidates
+        c.category = NxCollectionClassify(c.serverTitle, c.items)
+    end for
+    franchiseSlot = 0
+    if opts.franchise <> invalid then franchiseSlot = NxList(opts.franchise.channels).Count()
+    built = NxCollectionsMaterialize(candidates, franchiseSlot)
     numberOf = {}
     numberOf.SetModeCaseSensitive()
     for each ch in built.channels
@@ -660,9 +789,10 @@ function NxCollectionsStep(opts as Object) as Object
             folded.Push({ title: c.title, into: c.foldedInto, why: NxToStr(c.foldWhy), items: c.items.Count() })
         else
             detail = NxCollectionsDuplicateWarning(c)
+            warned = detail <> invalid
             if detail = invalid then detail = NxCollectionsMemberSummary(c)
-            rows.Push({ id: c.id, title: c.title, detail: detail, enabled: c.enabled, channelNumber: numberOf[c.id] })
+            rows.Push({ id: c.id, title: c.title, detail: detail, warned: warned, category: c.category, enabled: c.enabled, channelNumber: numberOf[c.id] })
         end if
     end for
-    return { channels: built.channels, rows: rows, folded: folded, overCap: built.overCap }
+    return { channels: built.channels, rows: rows, folded: folded, overCap: built.overCap, overCapFranchises: built.overCapFranchises, overCapCustom: built.overCapCustom }
 end function

@@ -417,12 +417,11 @@ sub loadLibrary()
     setPhase("collections")
     if scanned.Count() > 0 then m.top.progress = "Reading your collections…"
     for each s in scanned
-        ' Jellyfin and Emby collections aren't read yet (docs/JELLYFIN-EMBY.md,
-        ' phase 4): none, rather than a failure.
+        ' Plex collections, or Jellyfin and Emby BoxSets.
         if NxServerKind(servers[s.index]) = "plex" then
             got = NxCollectionsFetchPlex(s.key, NxPlexCollectionsFetcher(servers[s.index]), m.top)
         else
-            got = []
+            got = NxCollectionsFetchBoxSets(s.key, NxToStr(servers[s.index].userId), NxMbFetcher(servers[s.index]), m.top)
         end if
         if got = invalid then
             collections.failed = collections.failed + 1
@@ -607,9 +606,11 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, in "; timer.TotalMilliseconds(); " ms"
     end if
 
-    ' MY COLLECTIONS, as the web tuner has them: each collection switched on
-    ' airs from CH 500, outside every package. One that is a franchise the
-    ' package already carries folds into it instead, as on the Apple TV.
+    ' MY COLLECTIONS, read as the web tuner reads them and split as the Apple
+    ' TV app splits them: a collection switched on airs outside every package,
+    ' a movie series under FRANCHISES after the found franchises (CH 300 up)
+    ' and the rest under OTHER COLLECTIONS (CH 500 up). One that is a
+    ' franchise the package already carries folds into it instead.
     timer.Mark()
     cl = NxCollectionsStep({
         channels: channels, raw: collections.raw, items: onChannels, serverKeys: collections.serverKeys,
@@ -621,7 +622,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
         channels.Push(ch)
         collectionIDs.Push(ch.id)
     end for
-    print "library: collections: "; cl.rows.Count(); " listed, "; cl.folded.Count(); " folded into franchises, "; collectionIDs.Count(); " channels, "; cl.overCap; " past CH 699, in "; timer.TotalMilliseconds(); " ms"
+    print "library: collections: "; cl.rows.Count(); " listed, "; cl.folded.Count(); " folded into franchises, "; collectionIDs.Count(); " channels, "; cl.overCapFranchises; " past CH 499, "; cl.overCapCustom; " past CH 699, in "; timer.TotalMilliseconds(); " ms"
     for each f in cl.folded
         print "library: collection "; f.title; " ("; f.items; " items) folds into "; f.into; " by "; f.why
     end for
@@ -689,7 +690,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     end for
     guide = {
         channels: out, builtAt: builtAt&, poolsFingerprint: fingerprint, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
-        franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, scanned: collections.raw.Count(), failed: collections.failed }
+        franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, overCapFranchises: cl.overCapFranchises, overCapCustom: cl.overCapCustom, scanned: collections.raw.Count(), failed: collections.failed }
     }
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone. Before the saves, so a first run's guide doesn't wait on

@@ -76,7 +76,7 @@ sub refreshRows(unused = invalid as Dynamic)
     buildRows()
     for i = 0 to rowCount() - 1
         r = m.rows[i]
-        if r.kind = keep.kind and NxToStr(r.index) = NxToStr(keep.index) then
+        if r.kind = keep.kind and NxToStr(r.index) = NxToStr(keep.index) and NxToStr(r.category) = NxToStr(keep.category) then
             if r.kind <> "franchise" or r.franchise.id = keep.franchise.id then
                 m.focus = i
                 exit for
@@ -135,7 +135,8 @@ sub open(unused = invalid as Dynamic)
     ' way out compares with this rather than counting presses.
     m.serversOnAtOpen = FormatJson(m.serversOn)
     m.serversChanged = false
-    m.collectionsOpen = false
+    ' Which MY COLLECTIONS categories are open, by category.
+    m.collectionsOpen = {}
     buildRows()
     m.focus = nextFocusable(-1, 1)
     m.scroll = 0
@@ -145,14 +146,15 @@ end sub
 
 ' The row list, in the order of upstream's SettingsPageView
 ' (Views/BundleManagerView.swift): SUPPORT NOSTALGEX, CONNECTION (the servers,
-' then sign-out), PLAYBACK, CHANNEL PACKAGES, then MY COLLECTIONS folded
-' closed behind one SHOW/HIDE row, as its CollectionAccordionHeaderRow. Kinds:
+' then sign-out), PLAYBACK, CHANNEL PACKAGES, then MY COLLECTIONS, each
+' category folded closed behind a SHOW/HIDE row, as upstream's
+' CollectionAccordionHeaderRow. Kinds:
 '   header, subheader, info: text only, never focused
 '   support, server, signOut, retro, subtitles, bundle, franchiseAll,
 '   franchise, collectionsToggle, collection: rows
 ' The franchise rows are the last guide build's, so they show once the
-' package was on for a build. Every collection here is upstream's "custom"
-' category: the franchise ones fold into FRANCHISES.
+' package was on for a build. MY COLLECTIONS has upstream's two categories,
+' FRANCHISES then OTHER COLLECTIONS, each shown only when it has a row.
 sub buildRows()
     m.rows = []
     m.rows.Push({ kind: "header", title: "SUPPORT NOSTALGEX", subtitle: "News, help and the Apple TV app are on its site" })
@@ -183,20 +185,20 @@ sub buildRows()
         end if
     end for
 
-    m.rows.Push({ kind: "header", title: "MY COLLECTIONS", subtitle: "Turn the server collections you want into channels, from CH 500" })
-    c = m.top.collections
-    rows = []
-    if c <> invalid then rows = NxList(c.rows)
+    m.rows.Push({ kind: "header", title: "MY COLLECTIONS", subtitle: "Turn the server collections you want into channels" })
     note = collectionsNote()
     if note <> "" then m.rows.Push({ kind: "info", text: note })
-    if rows.Count() > 0 then
-        m.rows.Push({ kind: "collectionsToggle" })
-        if m.collectionsOpen = true then
-            for each row in rows
-                m.rows.Push({ kind: "collection", collection: row })
-            end for
+    for each category in ["franchises", "custom"]
+        rows = collectionRows(category)
+        if rows.Count() > 0 then
+            m.rows.Push({ kind: "collectionsToggle", category: category })
+            if m.collectionsOpen[category] = true then
+                for each row in rows
+                    m.rows.Push({ kind: "collection", collection: row })
+                end for
+            end if
         end if
-    end if
+    end for
     m.rows.Push({ kind: "version", text: NxVersionLabel() })
 end sub
 
@@ -240,8 +242,23 @@ function collectionOn(row as Object) as Boolean
     return m.collectionKeys.DoesExist(row.id)
 end function
 
+' The rows of one category. A row from a build before the split has none
+' and is OTHER COLLECTIONS, as every row was.
+function collectionRows(category as String) as Object
+    out = []
+    c = m.top.collections
+    if c = invalid then return out
+    for each row in NxList(c.rows)
+        cat = "custom"
+        if NxToStr(row.category) = "franchises" then cat = "franchises"
+        if cat = category then out.Push(row)
+    end for
+    return out
+end function
+
 ' A line under MY COLLECTIONS when there is something to say beyond the
-' accordion's count: none found, a read that failed, or channels past CH 699.
+' accordions' counts: none found, a read that failed, or channels switched
+' on past a category's range (CH 499 for FRANCHISES, CH 699 for the rest).
 function collectionsNote() as String
     c = m.top.collections
     if c = invalid then return ""
@@ -251,13 +268,20 @@ function collectionsNote() as String
         if NxNumberOr0(c.scanned) > 0 then return "NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES"
         return "Your server's collections show here after the library is read"
     end if
-    if NxNumberOr0(c.overCap) > 0 then return c.overCap.ToStr() + " SWITCHED ON PAST CH 699, NOT ON AIR"
+    franchises = NxNumberOr0(c.overCapFranchises)
+    custom = NxNumberOr0(c.overCapCustom)
+    ' A build before the split counted only CH 699.
+    if c.overCapCustom = invalid then custom = NxNumberOr0(c.overCap)
+    notes = []
+    if franchises > 0 then notes.Push(franchises.ToStr() + " SWITCHED ON PAST CH 499")
+    if custom > 0 then notes.Push(custom.ToStr() + " SWITCHED ON PAST CH 699")
+    if notes.Count() > 0 then return notes.Join(", ") + ", NOT ON AIR"
     return ""
 end function
 
-' The accordion's "n/m ON AIR", counting this visit's switches.
-function collectionsOnAir() as String
-    rows = NxList(m.top.collections.rows)
+' An accordion's "n/m ON AIR", counting this visit's switches.
+function collectionsOnAir(category as String) as String
+    rows = collectionRows(category)
     onAir = 0
     for each row in rows
         if collectionOn(row) then onAir = onAir + 1
@@ -369,6 +393,7 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
     accent = "0xFFE500"
     extra = []
     indent = 0
+    faded = false
     if row.kind = "bundle" then
         b = m.top.bundles[row.index]
         on = NxHasValue(m.enabled, b.id)
@@ -419,11 +444,11 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
             stateColor = "0xFFE500FF"
         end if
     else if row.kind = "collectionsToggle" then
-        label = "OTHER COLLECTIONS"
-        detail = "Actors, directors and your own themed sets · " + collectionsOnAir()
-        if m.collectionsChanged then detail = "Changes air when you go back to the guide · " + collectionsOnAir()
+        label = NxCollectionCategoryName(row.category)
+        detail = NxCollectionCategoryDescription(row.category) + " · " + collectionsOnAir(row.category)
+        if m.collectionsChanged then detail = "Changes air when you go back to the guide · " + collectionsOnAir(row.category)
         state = "SHOW"
-        if m.collectionsOpen = true then state = "HIDE"
+        if m.collectionsOpen[row.category] = true then state = "HIDE"
         stateColor = "0xFFE500FF"
     else if row.kind = "collection" then
         indent = 40
@@ -436,6 +461,9 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         if collectionOn(cr) then
             state = "ON"
             stateColor = "0xFFE500FF"
+        else if cr.warned = true then
+            ' Upstream dims a row that is off and already on another channel.
+            faded = true
         end if
     else if row.kind = "server" then
         ' Upstream's server rows: INCLUDED or OFF, and no switch on the
@@ -501,9 +529,15 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         page.AppendChild(newRect(indent, y, 4, h, accent + "66"))
     end if
     nameColor = "0xFFFFFFBF"
+    detailColor = "0xFFFFFF80"
+    if faded then
+        ' Seven tenths of each, as upstream's 0.7 opacity.
+        nameColor = "0xFFFFFF86"
+        detailColor = "0xFFFFFF5A"
+    end if
     if focused then nameColor = "0xFFFFFFFF"
     page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
-    page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
+    page.AppendChild(newLabel(detail, "VT323-Regular", 24, detailColor, indent + 30, y + 40))
     if row.kind = "rescan" then
         ' Its other lines, each cut to the row's width.
         ly = y + 66
@@ -580,13 +614,13 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             m.franchisesChanged = true
             render()
         else if row.kind = "collection" then
-            ' toggleCollection: switch one on and it airs from CH 500.
+            ' toggleCollection: switch one on and it airs from CH 300 or 500.
             id = row.collection.id
             if m.collectionKeys.DoesExist(id) then m.collectionKeys.Delete(id) else m.collectionKeys[id] = true
             m.collectionsChanged = true
             render()
         else if row.kind = "collectionsToggle" then
-            m.collectionsOpen = not (m.collectionsOpen = true)
+            m.collectionsOpen[row.category] = not (m.collectionsOpen[row.category] = true)
             buildRows()
             render()
         else if row.kind = "server" then
