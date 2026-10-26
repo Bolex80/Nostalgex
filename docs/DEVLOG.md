@@ -3,6 +3,16 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: a hand-over that skips a title could re-tune the same file every few seconds)
+
+**Shipped.** Nothing until it lands on main. Branch `roku/advance-ended-slot`, on top of `roku/test-isolated-data` (`cd8f783`). The loop is in Roku 1.0.5.
+
+**Why.** At a hand-over (`NxAdvancePick`, the Apple TV's `advanceToNextItem`), a title another channel has on now is skipped: the pick is the entry after that title's first airing in the guide's window. When that first airing is earlier than now, the entry after it can be over already. Upstream just plays the item from its start. The Roku's player also ends an airing by its slot (`NxAiringEnded`, with its five-minute overrun cap), and that slot was over, so the next tick handed over again, to the same pick, for as long as the conflict lasted. On the stick, a lab Jellyfin channel re-tuned one film 34 times in about 5 minutes with no picture ("next is <id>, from its start", tune, stop, every ~9 s). A collection channel on a 12-item lab library showed it first, but any channel can meet it: it takes a title airing twice in the window, the first already over, while another channel has it on now. That is likely with music videos, short episodes and small pools, and rare with films.
+
+**Changed.** `roku/source/guide/Advance.brs`: a pick whose slot is already over airs as from now, for its slot's length, as a copy, so the schedule keeps its own. The pick and its seek are unchanged. `roku/tests/AdvanceTests.brs`: the log's case cut down. Before the fix, 3 checks fail and a minute of ticks hands over 61 times; after, once. `roku/docs/PORTING.md`: the hand-over note.
+
+**Not measured.** Not seen on a TV after the fix; the tester re-runs it.
+
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.
