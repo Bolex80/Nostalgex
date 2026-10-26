@@ -127,7 +127,12 @@ Plex sign-in runs through Plex's own PIN system. We never see your Plex username
 
 ## Playback reporting
 
-The app can report what you are watching back to your own Plex, Jellyfin, or Emby server, so Continue Watching and play counts stay accurate. This is **off by default** and you turn it on in Settings under Playback Reporting. When it is on, the reports go only to the server you connected. They do not come to us.
+The Apple TV app and the web tuner can report what you are watching back to your own Plex, Jellyfin, or Emby server. There are two separate switches, and both are **off** by default. On the Apple TV they are SHOW NOW PLAYING ON and MARK WATCHED ON, each followed by your server's name, in Settings under CONNECTION. In the web tuner they are Show Now Playing and Mark Watched, in Settings under PLAYBACK. You can use either one on its own.
+
+- Show Now Playing lets your server show what is playing.
+- Mark Watched counts a film or episode as watched when you join it in its first 15% and watch at least 75% of it.
+
+With both off, nothing is reported and nothing in your library changes. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched. On Jellyfin and Emby the app first reads the watch state your server already has and puts it back when the program ends; if it can't read it, it reports nothing for that program. When a switch is on, the reports go only to the server you connected. They do not come to us.
 
 ## The Roku app
 
