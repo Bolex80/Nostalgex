@@ -556,7 +556,10 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
     end if
     nameColor = "0xFFFFFFBF"
     if focused then nameColor = "0xFFFFFFFF"
-    page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
+    ' A row with no detail line (a language in the list) centres its name.
+    nameY = y + 10
+    if detail = "" then nameY = y + 22
+    page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, nameY))
     page.AppendChild(newLabel(detail, "VT323-Regular", 24, "0xFFFFFF80", indent + 30, y + 40))
     if row.kind = "rescan" then
         ' Its other lines, each cut to the row's width.

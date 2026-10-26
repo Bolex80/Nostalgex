@@ -920,6 +920,9 @@ sub onVideoState()
         m.sawPlaying = true
         m.unplayedEnds = 0
         hideHaze()
+        ' The track list may not change between two files with the same
+        ' tracks, and then onAudioTracks never runs for this start.
+        applyAudioPick()
         applySubtitles()
     end if
     ' A start the server refused can end as "finished", never having played:
