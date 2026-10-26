@@ -115,7 +115,7 @@ This stays on your device. It is not synced to us, and it is removed when you de
 
 - Your own Plex, Jellyfin, or Emby server, for the library and for playback
 - plex.tv, for Plex sign-in using Plex's own PIN flow. That is Plex's system, not ours
-- TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels
+- TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB and OMDb lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the public TMDB or IMDb id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.
 - MusicBrainz, then Deezer for any it can't place, to find the genres and years of your music videos for the music video channels. For each music video the app searches by song title and artist name, straight from your Apple TV. Nothing about you, your account, your server or your Apple TV goes with it. The answers are kept on your Apple TV, so it doesn't ask again every time it opens.
 - A Supabase database we run, which caches the metadata above so it does not have to be fetched again on every device
 
