@@ -1335,9 +1335,11 @@ end sub
 ' (NxMbAudioPick), once the player lists the file's tracks; their server
 ' stream already carries only that one. Any other stream takes the first
 ' track in AUDIO LANGUAGE, as upstream's applyAudioTrackSelection. Once per
-' start, so a track the viewer chooses in Now Playing stays chosen.
+' start, so a track the viewer chooses in Now Playing stays chosen. Only
+' after the first picture: a switch while the start still buffered ended it
+' as "finished" on a TCL 43S45, and stalled it 15 s on a Streaming Stick.
 sub applyAudioPick()
-    if m.tuneAudio = invalid then return
+    if m.tuneAudio = invalid or m.sawPlaying <> true then return
     tracks = NxList(m.video.availableAudioTracks)
     if tracks.Count() = 0 then return
     if m.tuneAudio.byLanguage = true then
