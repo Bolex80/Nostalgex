@@ -45,6 +45,7 @@
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserPlayback.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/PlaybackReport.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSelection.brs" />
   <script type="text/brightscript" uri="pkg:/source/subtitles/SubtitleSettings.brs" />
   <script type="text/brightscript" uri="pkg:/source/util/RescanInfo.brs" />

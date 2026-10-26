@@ -63,6 +63,13 @@ sub init()
     ' The playhead, once a second, for NxStarvationObserve.
     m.starveTimer = newTimer(1, true, "onStarveTick")
     m.starveClock = CreateObject("roTimespan")
+    ' SHOW NOW PLAYING and MARK WATCHED (source/guide/PlaybackReport.brs):
+    ' the airing's tracker, the 10-second pulse and the clock it runs on.
+    m.reportScope = NxReportScope(NxReportPrefs())
+    m.tracker = invalid
+    m.reportSent = 0
+    m.reportTimer = newTimer(10, true, "onReportTick")
+    m.reportClock = CreateObject("roTimespan")
 
     m.video = m.top.FindNode("video")
     m.video.ObserveField("state", "onVideoState")
@@ -802,12 +809,14 @@ sub startTune(idx as Integer)
     renderInfo()
     renderGrid()
     if b = invalid then
+        stopTracker()
         m.playing = invalid
         m.video.control = "stop"
         return
     end if
     stream = NxStreamContent(b, offset&, rung)
     m.playing = b
+    trackAiring(b, offset&)
     if stream = invalid then
         m.attempt = invalid
         giveUp("nostream")
@@ -833,6 +842,119 @@ sub startTune(idx as Integer)
     m.starveTimer.control = "start"
     print "player: tuned channel "; ch.id; ", "; stream.content.streamFormat; " stream over "; stream.route; ", "; offset&; " s into the airing ("; m.attempt.rung; ", "; m.deadlineTimer.duration; " s for a picture)"
     refreshNowPlaying()
+end sub
+
+' ── SHOW NOW PLAYING and MARK WATCHED ─────────────────────────────────────
+
+function reportingOn() as Boolean
+    return m.reportScope.nowPlaying = true or m.reportScope.markWatched = true
+end function
+
+function reportNow() as Double
+    return m.reportClock.TotalMilliseconds() / 1000.0
+end function
+
+' A new airing gets a tracker; a retry or a step down of the same airing
+' keeps its own, as upstream's onPlaybackReady is idempotent.
+sub trackAiring(b as Object, offset& as LongInteger)
+    if NxReportSameAiring(m.tracker, b) then return
+    stopTracker()
+    s = NxStreamServer(b)
+    if s = invalid then return
+    session = LCase(CreateObject("roDeviceInfo").GetRandomUUID().Replace("-", ""))
+    m.tracker = NxReportTracker(b, offset&, NxServerKind(s), session)
+    base = NxToStr(s.uri)
+    if NxTruthy(s.lanUri) then base = NxToStr(s.lanUri)
+    ' Carried with each event, so a stop still goes out after a sign-out.
+    m.tracker.server = { kind: NxServerKind(s), base: base, token: NxToStr(s.accessToken), userId: NxToStr(s.userId) }
+end sub
+
+sub stopTracker()
+    m.reportTimer.control = "stop"
+    if m.tracker = invalid then return
+    sendReports(NxReportStop(m.tracker, m.reportScope, reportNow()))
+    m.tracker = invalid
+end sub
+
+sub reportPlayerState(state as String)
+    if m.tracker = invalid then return
+    if state = "playing" and not m.tracker.ready then
+        sendReports(NxReportReady(m.tracker, m.reportScope, reportNow()))
+        m.reportTimer.control = "start"
+        return
+    end if
+    if state = "playing" or state = "paused" or state = "buffering" then sendReports(NxReportPlayerState(m.tracker, m.reportScope, state))
+end sub
+
+sub onReportTick()
+    if m.tracker = invalid then
+        m.reportTimer.control = "stop"
+        return
+    end if
+    sendReports(NxReportTick(m.tracker, m.reportScope, reportNow()))
+end sub
+
+' Settings closed: the choices as saved. A change applies to what plays now
+' without retuning; the task drops queued work a choice turned off at once.
+sub applyReportPrefs()
+    was = { nowPlaying: m.reportScope.nowPlaying, markWatched: m.reportScope.markWatched }
+    NxReportScopeUpdate(m.reportScope, NxReportPrefs())
+    task = reportTask(false)
+    if task <> invalid then task.scope = m.reportScope
+    if m.tracker <> invalid then sendReports(NxReportUpdate(m.tracker, was, m.reportScope))
+end sub
+
+' The report task, kept on the scene so a stop still goes out after the
+' guide is gone; made the first time there is something to send.
+function reportTask(make as Boolean) as Dynamic
+    scene = m.top.getScene()
+    task = scene.FindNode("reportTask")
+    if task = invalid and make then
+        task = CreateObject("roSGNode", "ReportTask")
+        task.id = "reportTask"
+        scene.AppendChild(task)
+        task.control = "run"
+    end if
+    return task
+end function
+
+sub sendReports(events as Object)
+    if events.Count() = 0 then return
+    ' With both choices off since launch nothing was ever reported: no task,
+    ' no request.
+    if not reportingOn() and reportTask(false) = invalid then return
+    task = reportTask(true)
+    task.scope = m.reportScope
+    for each ev in events
+        ev.server = m.tracker.server
+        task.event = ev
+        m.reportSent = m.reportSent + 1
+    end for
+end sub
+
+' Leaving: once every event sent has run, or after 4 s, the app closes.
+sub leaveAfterReports()
+    task = reportTask(false)
+    if task = invalid or task.processed >= m.reportSent then
+        m.top.getScene().leave = true
+        return
+    end if
+    print "guide: waiting for the server to hear playback stopped"
+    task.ObserveField("processed", "onReportsRun")
+    m.leaveTimer = newTimer(4, false, "onLeaveTimer")
+    m.leaveTimer.control = "start"
+end sub
+
+sub onReportsRun()
+    task = reportTask(false)
+    if task <> invalid and task.processed < m.reportSent then return
+    if task <> invalid then task.UnobserveField("processed")
+    m.top.getScene().leave = true
+end sub
+
+sub onLeaveTimer()
+    print "guide: the server didn't answer in 4 s; closing the app"
+    m.top.getScene().leave = true
 end sub
 
 sub onBuffering()
@@ -883,8 +1005,7 @@ sub onStopDone()
     if m.stopTask.state <> "stop" then return
     if m.leaving = true then
         print "guide: the stop answered; closing the app"
-        scene = m.top.getScene()
-        scene.leave = true
+        leaveAfterReports()
         return
     end if
     idx = NxTuneStopped(m.tuneQueue)
@@ -907,6 +1028,7 @@ end sub
 sub onVideoState()
     state = m.video.state
     print "player: "; state
+    reportPlayerState(state)
     if state = "playing" then
         if m.tuneClock <> invalid then
             print "player: picture after "; m.tuneClock.TotalMilliseconds(); " ms ("; m.tuneFormat; ")"
@@ -1091,6 +1213,8 @@ sub giveUp(event as String, probe = 1 as Integer)
     card = NxPlaybackFailure(e)
     m.attempt = invalid
     m.video.control = "stop"
+    ' A programme that won't play has ended, for the server too.
+    stopTracker()
     stopPrevious()
     hideHaze()
     ends = NxFailureRecord(m.failRun, tunedChannelId())
@@ -1624,6 +1748,7 @@ sub expireSleep()
     ' Nothing waiting may start again behind the guide.
     stopRetry()
     NxTuneDrop(m.tuneQueue)
+    stopTracker()
     stopPrevious()
     m.video.control = "stop"
     m.playing = invalid
@@ -1991,8 +2116,10 @@ sub onSettingsResult()
     m.subs = NxSubtitleSettings()
     applySubtitles()
     applyRetro()
+    applyReportPrefs()
     if result = "rebuild" or result = "signOut" then
         NxTuneDrop(m.tuneQueue)
+        stopTracker()
         stopPrevious()
         m.tick.control = "stop"
         m.top.action = result
@@ -2210,7 +2337,18 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             print "guide: back, stopping the server's stream before leaving"
             m.leaving = true
             NxTuneDrop(m.tuneQueue)
+            stopTracker()
             if not stopping then stopPrevious()
+            return true
+        end if
+        ' Nothing for the server to stop, but a reported programme still
+        ' gets its stop and is put back before the app closes.
+        if action <> "live" and m.tracker <> invalid and reportingOn() then
+            print "guide: back, telling the server playback stopped before leaving"
+            m.leaving = true
+            NxTuneDrop(m.tuneQueue)
+            stopTracker()
+            leaveAfterReports()
             return true
         end if
     end if

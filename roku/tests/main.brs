@@ -74,6 +74,7 @@ sub Main(args = invalid as Dynamic)
     if NxTestWants("plex-audio") then failures = failures + NxRunPlexAudioTests()
     if NxTestWants("poster") then failures = failures + NxRunPosterTests()
     if NxTestWants("rescan") then failures = failures + NxRunRescanTests()
+    if NxTestWants("report") then failures = failures + NxRunReportTests("pkg:/tests/vectors/watch.json", "pkg:/tests/vectors/watch-cleanup-golden.json")
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SHOW NOW PLAYING and MARK WATCHED (issue #72): the guide's report events,
+     sent one at a time on this thread, in order, so a slow or silent server
+     never holds up the picture or the guide (source/guide/ReportExecutor.brs).
+     Runs only while either choice is on or a session is still being put back. -->
+<component name="ReportTask" extends="Task">
+  <interface>
+    <!-- One event from source/guide/PlaybackReport.brs. -->
+    <field id="event" type="assocarray" alwaysNotify="true" />
+    <!-- The choices as they are now (NxReportScope); read at each event, so
+         turning one off drops what is still queued. -->
+    <field id="scope" type="assocarray" />
+    <!-- How many events have been run, so the guide can wait for the last
+         stop and cleanup before the app closes. -->
+    <field id="processed" type="integer" value="0" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/MediaBrowserApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/PlaybackReport.brs" />
+  <script type="text/brightscript" uri="pkg:/source/guide/ReportExecutor.brs" />
+  <script type="text/brightscript" uri="pkg:/components/ReportTask.brs" />
+</component>

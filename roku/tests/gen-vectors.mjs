@@ -31,6 +31,7 @@ import { enrichmentVectors } from "./gen-enrichment.mjs";
 import { collectionsVectors } from "./gen-collections.mjs";
 import { mediaBrowserVectors } from "./gen-mediabrowser.mjs";
 import { dstZones, parityZones } from "./gen-dst.mjs";
+import { watchVectors } from "./gen-watch.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", ".."));
@@ -259,10 +260,16 @@ const files = [
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, source: "the tz database (Intl), for scripts/schedule-parity-golden.json's zones" },
     ...parityZones(upstream),
   }],
+  [join(here, "vectors", "watch.json"), {
+    generatedBy: "tests/gen-vectors.mjs (tests/gen-watch.mjs)",
+    upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-watch-state.js" },
+    ...(await watchVectors(upstream)),
+  }],
   // Upstream's own golden files, copied byte for byte: FranchiseTests.brs,
   // FilterGoldenTests.brs, RatingGoldenTests.brs, SeasonalTests.brs,
-  // ScheduleDSTGoldenTests.brs and ScheduleParityGoldenTests.brs read them.
-  ...["franchise-golden.json", "filter-golden.json", "rating-golden.json", "season-golden.json", "schedule-dst-golden.json", "schedule-parity-golden.json"].map((g) =>
+  // ScheduleDSTGoldenTests.brs, ScheduleParityGoldenTests.brs and ReportTests.brs
+  // (watch-cleanup-golden.json) read them.
+  ...["franchise-golden.json", "filter-golden.json", "rating-golden.json", "season-golden.json", "schedule-dst-golden.json", "schedule-parity-golden.json", "watch-cleanup-golden.json"].map((g) =>
     [join(here, "vectors", g), readFileSync(join(upstream, "scripts", g), "utf8")]),
 ];
 let stale = false;
