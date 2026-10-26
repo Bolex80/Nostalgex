@@ -34,6 +34,21 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Half-done.** Not played on a TV through Plex: the stick stays on Emby. The cap is unmeasured (ffmpeg can't make a 7.1 E-AC-3 file).
 
+## 2026-10-25 (Roku: the Plex poster in Now Playing)
+
+**Shipped.** Nothing until the PR for #76 lands on main. Branch `roku/now-playing-poster`, off main `954473b`.
+
+**Why.** The Now Playing panel had no poster (issue #76). The Apple TV shows the Plex poster on the panel's left, Plex only.
+
+**Changed.**
+- `source/plex/PlexPoster.brs`, `components/PosterTask.*`: `posterURL(for:)` and `PlexAPIService.thumbnailURL` at 300 wide, 150 by 225 on screen. The request goes through `NxPlexTransfer`, so it follows every other Plex request's address rule (HTTPS, or plain HTTP to a home-network address) with the token in a header, never the URL. The file goes to `tmp:`.
+- `components/NowPlayingView.*`, one line in `GuideView.brs`: the poster left of the info zone, a 14% white placeholder until it comes. Nothing more in the saved library: an item read back from it asks for its own `/thumb`.
+- `tests/PosterTests.brs`: 15 cases, the home-network HTTP address among them.
+
+**Measured.** Tests pass off-device and on a Streaming Stick Plus. On Emby the panel shows no poster, as upstream.
+
+**Half-done.** A Plex poster hasn't been seen on a TV: the stick stays signed in to Emby. tydude was asked to check it on his.
+
 ## 2026-10-23 (web and Docker: START OVER while the library loads)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.8` from the same commit.

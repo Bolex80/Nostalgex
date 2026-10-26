@@ -5,7 +5,7 @@
      guide does what a row asks and sends the new state back. -->
 <component name="NowPlayingView" extends="Group">
   <interface>
-    <!-- { number, name, color, nowLine, rating, upNext, hasSubs, ccOn,
+    <!-- { number, name, color, nowLine, rating, upNext, poster, hasSubs, ccOn,
          autoOn, audio: [{ name, active }], retro, sleepMinutes,
          sleepLeft (seconds, -1 when off), info: [{ label, value }] } -->
     <field id="state" type="assocarray" onChange="render" />
@@ -19,6 +19,10 @@
   <script type="text/brightscript" uri="pkg:/components/NowPlayingView.brs" />
   <children>
     <Rectangle id="shade" width="1920" height="600" color="0x000000EB" />
+    <!-- Upstream's poster, 150 by 225, left of the info zone (Plex only):
+         a 14% white placeholder until the file comes. -->
+    <Rectangle id="posterBack" translation="[48, 40]" width="150" height="225" color="0xFFFFFF24" visible="false" />
+    <Poster id="poster" translation="[48, 40]" width="150" height="225" loadDisplayMode="scaleToZoom" visible="false" />
     <Group id="info" />
     <Group id="controls" />
   </children>

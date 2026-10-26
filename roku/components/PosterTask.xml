@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fetches the Now Playing panel's Plex poster to tmp: (source/plex/PlexPoster.brs).
+     The token is read from the registry here, never passed on a field. -->
+<component name="PosterTask" extends="Task">
+  <interface>
+    <!-- { path, serverIndex } from NxPosterRef. -->
+    <field id="ref" type="assocarray" />
+    <!-- The poster's file once fetched, "" when there is none. -->
+    <field id="file" type="string" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
+  <script type="text/brightscript" uri="pkg:/source/plex/PlexPoster.brs" />
+  <script type="text/brightscript" uri="pkg:/source/mediabrowser/ServerKind.brs" />
+  <script type="text/brightscript" uri="pkg:/components/PosterTask.brs" />
+</component>
