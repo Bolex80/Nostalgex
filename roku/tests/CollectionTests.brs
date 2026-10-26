@@ -449,6 +449,31 @@ sub NxClSplitCases(r as Object)
     ]
     NxCheck(r, "swift order: case-sensitive, digits as characters", NxClKeptIDs(swift, 10), "4,3,5,2,1 skipped 0")
 
+    ' Swift compares Strings by canonical equivalence (NFC) and uppercases
+    ' with Unicode's mappings. A precomposed É (U+00C9) and E + a combining
+    ' acute (U+0301) are the same name to Swift, so the id breaks the tie;
+    ' raw code units would put the decomposed one first. É (U+00C9) sorts
+    ' after F by scalar. Expected values from running the same comparisons
+    ' in Swift 6 (sorted ids c,d,a,b; the two names ==; uppercased()).
+    precomposed = "CAF" + Chr(201)
+    decomposed = "CAFE" + Chr(769)
+    accents = [
+        { id: "b", name: decomposed, films: 3 }, { id: "a", name: precomposed, films: 3 },
+        { id: "c", name: "CAFE", films: 3 }, { id: "d", name: "CAFF", films: 3 }
+    ]
+    NxCheck(r, "unicode: precomposed and decomposed are one name", NxClKeptIDs(accents, 10), "c,d,a,b skipped 0")
+    NxCheck(r, "unicode: NFC key", NxClBool(NxBlockNameKey(decomposed) = precomposed), "true")
+    NxCheck(r, "unicode: uppercase", NxFranchiseUpper("am" + Chr(233) + "lie, stra" + Chr(223) + "e, " + Chr(1076) + Chr(1086) + Chr(1084) + ", " + Chr(940)), "AM" + Chr(201) + "LIE, STRASSE, " + Chr(1044) + Chr(1054) + Chr(1052) + ", " + Chr(902))
+    NxCheck(r, "unicode: uppercase leaves the rest", NxFranchiseUpper("abc 123 " + Chr(201) + " " + Chr(8364)), "ABC 123 " + Chr(201) + " " + Chr(8364))
+    ' Through the step: a lowercase accented server title is upper-cased as
+    ' Swift's collection.title.uppercased().
+    films = NxClFilms(["Am" + Chr(233) + "lie 1", "Am" + Chr(233) + "lie 2", "Am" + Chr(233) + "lie 3"])
+    for each it in films
+        it.serverIndex = 0
+    end for
+    cs = NxCollectionsStep({ channels: [], raw: [NxClRaw0("am", "am" + Chr(233) + "lie", ["Am" + Chr(233) + "lie 1", "Am" + Chr(233) + "lie 2", "Am" + Chr(233) + "lie 3"])], items: films, serverKeys: {}, manifest: invalid, enabledKeys: NxCollectionKeySet(["0:am"]) })
+    NxCheck(r, "unicode: collection title upper-cased", cs.rows[0].title, "AM" + Chr(201) + "LIE")
+
     ' testCollectionRangeIsCappedAt699: unchanged, the first 200 A to Z.
     cands = []
     for i = 0 to 202

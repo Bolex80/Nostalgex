@@ -265,6 +265,9 @@ end function
 ' every platform drops the same ones. The kept ones are numbered by name,
 ' then id. Returns { kept (their values, in number order), skipped }.
 function NxBlockKept(entries as Object, capacity as Integer) as Object
+    for each e in entries
+        e.key = NxBlockNameKey(NxToStr(e.name))
+    end for
     skipped = 0
     pick = entries
     if entries.Count() > capacity then
@@ -284,14 +287,21 @@ end function
 
 ' Swift's `<` on the names and ids: case-sensitive, character by character
 ' (upper case before lower), not the natural, case-insensitive order
-' Settings lists by. BrightScript's string `<` compares the same way for the
-' text names and ids hold (tests/CollectionTests.brs checks it on the TV);
-' Swift orders by Unicode scalar, the interpreter by UTF-16 unit, which
-' differ only past U+FFFF.
+' Settings lists by. Swift compares canonically equivalent text as equal
+' (a precomposed é and e with a combining accent), ordering by NFC, so names
+' compare by NxBlockNameKey. BrightScript's string `<` then compares the
+' same way for the text names and ids hold (tests/CollectionTests.brs
+' checks it on the TV); Swift orders by Unicode scalar, the interpreter by
+' UTF-16 unit, which differ only past U+FFFF.
 function NxBlockLess(a as Object, b as Object, byFilms as Boolean) as Boolean
     if byFilms and a.films <> b.films then return a.films > b.films
-    if a.name <> b.name then return a.name < b.name
+    if a.key <> b.key then return a.key < b.key
     return a.id < b.id
+end function
+
+' A name as Swift compares it: composed (NxFranchiseCompose).
+function NxBlockNameKey(name as String) as String
+    return NxFranchiseCompose(name)
 end function
 
 ' A stable merge sort by NxBlockLess; a new list.

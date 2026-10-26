@@ -213,6 +213,93 @@ function NxFranchiseLower(s as String) as String
     return out
 end function
 
+' ── Uppercasing and composition (Swift's uppercased() and NFC) ───────────────
+
+' String.uppercased() (and JS toUpperCase, which agrees) for the scripts
+' NxFranchiseLower covers. ASCII-only text takes UCase, right on every Roku;
+' anything else goes through the Unicode table (FranchiseUnicode.brs), since
+' a TV's UCase, like its LCase, isn't Unicode's beyond ASCII. ß becomes SS.
+function NxFranchiseUpper(s as String) as String
+    g = GetGlobalAA()
+    if g.nxNonAscii = invalid then g.nxNonAscii = CreateObject("roRegex", "[^\x00-\x7F]", "")
+    if not g.nxNonAscii.IsMatch(s) then return UCase(s)
+    table = NxUnicodeUpperMap()
+    out = ""
+    for i = 1 to s.Len()
+        ch = Mid(s, i, 1)
+        cp = Asc(ch)
+        if cp < 128 then
+            out = out + UCase(ch)
+        else
+            u = table[cp.ToStr()]
+            if u = invalid then out = out + ch else out = out + u
+        end if
+    end for
+    return out
+end function
+
+' NxUnicodeUpperTable as { "<code point>": "<upper-case text>" }, built once
+' per thread.
+function NxUnicodeUpperMap() as Object
+    g = GetGlobalAA()
+    if g.nxUpperMap = invalid then
+        table = {}
+        for each e in NxUnicodeUpperTable().Split(",")
+            if e <> "" then
+                kv = e.Split(":")
+                u = ""
+                for each h in kv[1].Split(".")
+                    u = u + Chr(Val(h, 16))
+                end for
+                table[Val(kv[0], 16).ToStr()] = u
+            end if
+        end for
+        g.nxUpperMap = table
+    end if
+    return g.nxUpperMap
+end function
+
+' NxUnicodeComposeTable as { "<base>.<mark>": composed code point }, built
+' once per thread.
+function NxUnicodeComposeMap() as Object
+    g = GetGlobalAA()
+    if g.nxComposeMap = invalid then
+        table = {}
+        for each e in NxUnicodeComposeTable().Split(",")
+            if e <> "" then
+                kv = e.Split(":")
+                pair = kv[0].Split(".")
+                table[Val(pair[0], 16).ToStr() + "." + Val(pair[1], 16).ToStr()] = Val(kv[1], 16)
+            end if
+        end for
+        g.nxComposeMap = table
+    end if
+    return g.nxComposeMap
+end function
+
+' The text in NFC as far as the table goes: a base letter followed by a
+' combining mark it composes with becomes the precomposed letter, repeatedly
+' (ẹ + ̂ is ệ). Marks out of canonical order aren't reordered first, as full
+' NFC would; titles from servers rarely carry two marks on one letter.
+function NxFranchiseCompose(s as String) as String
+    g = GetGlobalAA()
+    if g.nxNonAscii = invalid then g.nxNonAscii = CreateObject("roRegex", "[^\x00-\x7F]", "")
+    if not g.nxNonAscii.IsMatch(s) then return s
+    table = NxUnicodeComposeMap()
+    cps = []
+    for i = 1 to s.Len()
+        cp = Asc(Mid(s, i, 1))
+        composed = invalid
+        if cps.Count() > 0 then composed = table[cps.Peek().ToStr() + "." + cp.ToStr()]
+        if composed <> invalid then cps[cps.Count() - 1] = composed else cps.Push(cp)
+    end for
+    out = ""
+    for each cp in cps
+        out = out + Chr(cp)
+    end for
+    return out
+end function
+
 function NxFranchiseLowerCp(cp as Integer) as Integer
     if cp < 128 then
         if cp >= 65 and cp <= 90 then return cp + 32
@@ -579,7 +666,7 @@ function NxFranchiseBuild(opts as Object) as Object
                 b.movies.Push(movie)
             else if fid <> invalid then
                 if not autoFoundNames.DoesExist(fid.ToStr()) and en.name <> invalid then
-                    autoFoundNames[fid.ToStr()] = UCase(NxFranchiseCleanName(en.name))
+                    autoFoundNames[fid.ToStr()] = NxFranchiseUpper(NxFranchiseCleanName(en.name))
                 end if
                 autoFoundFilms.Push({ movie: movie, fid: fid })
             end if

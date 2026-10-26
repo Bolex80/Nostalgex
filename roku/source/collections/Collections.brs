@@ -30,7 +30,7 @@
 '   - Requests run one at a time; upstream asks for four collections'
 '     children at once. Its results keep list order, so they are the same.
 '   - Text is lowercased with NxFranchiseLower (JS toLowerCase), upper-cased
-'     with UCase and sorted by code point, where upstream sorts by UTF-16
+'     as Swift's uppercased() (NxFranchiseUpper) and sorted by code point, where upstream sorts by UTF-16
 '     code unit. The two orders differ only between characters past U+FFFF
 '     and those from U+E000 to U+FFFF. JS trim() also removes Unicode spaces
 '     that Trim() keeps.
@@ -348,7 +348,7 @@ function NxCollectionsBuildCandidates(raw as Object, indexByServer as Object, ct
             title = NxToStr(c.title)
             if title = "" then title = "Untitled"
             candidate = {
-                id: NxToStr(c.id), title: UCase(title), serverTitle: title,
+                id: NxToStr(c.id), title: NxFranchiseUpper(title), serverTitle: title,
                 movieCount: counts.movies, showCount: counts.shows, episodeCount: counts.episodes,
                 items: items, enabled: enabledKeys.DoesExist(NxToStr(c.id)),
                 matchedChannel: NxCollectionsMatchStatic(c.title, staticChannels),
