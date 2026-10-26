@@ -922,7 +922,7 @@ sub resaveClearedLibrary(lib as Object)
         if type(snap.servers[s.key]) <> "roAssociativeArray" then
             t = CreateObject("roTimespan")
             fs = CreateObject("roFileSystem")
-            print "library: server "; s.index; "'s saved library is gone (dir has "; ListDir(snapDir).Count(); " files, saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists("cachefs:/nostalgex-enrichment.json"); "); saving it again"
+            print "library: server "; s.index; "'s saved library is gone (dir has "; ListDir(snapDir).Count(); " files, saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists(NxCacheRoot() + "/nostalgex-enrichment.json"); "); saving it again"
             ' Its first save time, so it still ages out a day after the scan.
             ' From JSON it may be an Integer or a Double.
             savedAt& = s.savedAt
