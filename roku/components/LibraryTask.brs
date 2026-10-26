@@ -582,6 +582,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' franchise switched on gets a channel from CH 300 that rides on the
     ' package's switch.
     franchiseRows = []
+    franchiseOverCap = 0
     foundIDs = []
     franchiseBundleIDs = []
     fr = invalid
@@ -603,13 +604,14 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
             foundIDs.Push(ch.id)
         end for
         franchiseRows = fr.rows
-        print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, in "; timer.TotalMilliseconds(); " ms"
+        franchiseOverCap = fr.overCap
+        print "library: franchises: "; fr.found.Count(); " found, "; foundIDs.Count(); " channels, "; fr.overCap; " past CH 449, in "; timer.TotalMilliseconds(); " ms"
     end if
 
     ' MY COLLECTIONS, read as the web tuner reads them and split as the Apple
     ' TV app splits them: a collection switched on airs outside every package,
-    ' a movie series under FRANCHISES after the found franchises (CH 300 up)
-    ' and the rest under OTHER COLLECTIONS (CH 500 up). One that is a
+    ' a movie series under FRANCHISES (CH 450-499) and the rest under OTHER
+    ' COLLECTIONS (CH 500-699), whatever the found franchises do. One that is a
     ' franchise the package already carries folds into it instead.
     timer.Mark()
     cl = NxCollectionsStep({
@@ -690,7 +692,9 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     end for
     guide = {
         channels: out, builtAt: builtAt&, poolsFingerprint: fingerprint, items: items.Count(), bundles: bundleList, enabledBundles: bundles,
-        franchises: franchiseRows, collections: { rows: cl.rows, overCap: cl.overCap, overCapFranchises: cl.overCapFranchises, overCapCustom: cl.overCapCustom, scanned: collections.raw.Count(), failed: collections.failed }
+        franchises: franchiseRows, franchiseOverCap: franchiseOverCap, franchiseCapacity: NxFranchiseCapacity(),
+        collections: { rows: cl.rows, overCap: cl.overCap, overCapFranchises: cl.overCapFranchises, overCapCustom: cl.overCapCustom,
+            capacityFranchises: NxCollectionFranchiseCapacity(), capacityCustom: NxCollectionsCapacity(), scanned: collections.raw.Count(), failed: collections.failed }
     }
     ' Only hand over a refresh that differs, so an unchanged library leaves the
     ' screen alone. Before the saves, so a first run's guide doesn't wait on

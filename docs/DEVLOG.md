@@ -3,6 +3,23 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: fixed channel blocks for franchises and collections, after the Apple TV)
+
+**Shipped.** Nothing until the PR for #70 and #71 lands on main. Branch `roku/my-collections`. The Apple TV side is `fix/franchise-numbering` (`8ab0bc6`).
+
+**Why.** Franchise collections numbered straight after the found franchises, on one id base, so switching the FRANCHISES package or a found franchise moved them. On the Apple TV they followed the found franchises even with the package off; matching that on the Roku meant finding franchises on every package-off load, measured at an estimated 1.8 s (5.4k items) to 20 s (60k) on a TV, so it was parked. Chad chose fixed blocks on every platform instead. On his Emby (1,544 films) the port finds 64 franchises with a switch (70 with no classic built), and one other library reached 86, so found franchises get 150 numbers and franchise collections 50.
+
+**Changed.**
+- `source/guide/Franchises.brs`: found franchises CH 300-449 (150), ids from 1,000,000 as before. `NxBlockKept` ports `DynamicChannelBlock.keptInDisplayOrder`: a full block keeps the most films, ties by name then id, and numbers the kept ones by name then id, with Swift's case-sensitive `<`. `NxFranchiseStep` returns how many didn't fit.
+- `source/collections/Collections.brs`: franchise collections CH 450-499, ids from 1,010,000, by the same rule; other collections CH 500-699 as before. Nothing depends on the found franchises any more.
+- `components/SettingsView.brs`: upstream's lines when a block is full, under the franchise list and under each MY COLLECTIONS accordion. The block sizes come with the build. The old "N SWITCHED ON PAST CH 499" note is gone.
+- `tests/CollectionTests.brs`, `tests/FranchiseGuideTests.brs`: the new `FranchiseNumberingTests.swift` cases (the 449 and 499 limits, the overflow order, ids per block), and a step case where the package and the found franchises switch while two collections keep CH 450 and 500 and their ids.
+- `docs/PORTING.md`, `README.md`: the blocks; the old package-off difference is gone.
+
+**Measured.** Off-device, one process. Before the change the new cases fail (old code: the collections suite errors on `NxFranchiseBlock`, and 2 franchise guide checks fail; old ranges with the new code: 15 collection and 2 franchise guide checks fail). After it, all pass.
+
+**Not measured.** Not on a TV yet. The tester re-runs the BoxSet checks: OAK at CH 450, MY SHOWS at CH 500. The on-device suite also checks that BrightScript's string `<` orders as Swift's does (a case in `tests/CollectionTests.brs`).
+
 ## 2026-10-26 (Roku: MY COLLECTIONS on Jellyfin and Emby, split into FRANCHISES and OTHER COLLECTIONS)
 
 **Shipped.** Nothing until the PR for #70 and #71 lands on main. Branch `roku/my-collections`, on top of `roku/advance-ended-slot` (the hand-over fix) and `roku/test-isolated-data` (a test build keeps its own saved data, for the BoxSet checks).
@@ -10,12 +27,12 @@ Commits carry the detail of *what*; this carries the *why*.
 **Why.** On Jellyfin and Emby, MY COLLECTIONS was always empty: the Roku read Plex collections only (issue #70). And every collection sat under OTHER COLLECTIONS from CH 500, where the Apple TV sorts movie series into FRANCHISES from CH 300 (issue #71). One branch, since both change `Collections.brs` and its tests.
 
 **Changed.**
-- `source/collections/Collections.brs`: `NxCollectionsFetchBoxSets`, a port of the web's `fetchBoxSetCollections` (BoxSets deduped by Id, each one's films and series paged). `NxCollectionsMaterialize` numbers per category as `materializeDynamicChannels`: FRANCHISES after the found franchise channels, up to CH 499; the rest from CH 500 to 699. The collections step classifies each collection and its rows carry the category and whether they warn.
+- `source/collections/Collections.brs`: `NxCollectionsFetchBoxSets`, a port of the web's `fetchBoxSetCollections` (BoxSets deduped by Id, each one's films and series paged). `NxCollectionsMaterialize` numbers per category as `materializeDynamicChannels`: FRANCHISES in CH 450-499, the rest in CH 500-699 (fixed blocks, the entry above). The collections step classifies each collection and its rows carry the category and whether they warn.
 - `source/collections/CollectionClassifier.brs` (new): a port of the Apple TV's `CollectionClassifier`.
 - `source/collections/CollectionChoices.brs`: the two category names and descriptions.
 - `components/LibraryTask.brs`: Jellyfin and Emby servers read their BoxSets. `MediaBrowserLibrary.brs` is untouched, so tydude's #63 rebases cleanly.
 - `components/SettingsView.brs`: MY COLLECTIONS has a FRANCHISES and an OTHER COLLECTIONS accordion, as upstream. A row that is off and already mostly on another channel is dimmed to 0.7, as upstream. The note under MY COLLECTIONS counts rows past CH 499 and past CH 699 separately.
-- `tests/gen-collections.mjs`: 7 BoxSet fixtures run through upstream's `fetchBoxSetCollections`. `tests/CollectionTests.brs`: those vectors, the cases of `CollectionClassifierTests.swift`, the classifier cases of `CollectionShowsTests.swift`, the numbering cases of `FranchiseNumberingTests.swift`, and a step case. With the package off, the step case "package off: three channels" now numbers 300, 301, 500.
+- `tests/gen-collections.mjs`: 7 BoxSet fixtures run through upstream's `fetchBoxSetCollections`. `tests/CollectionTests.brs`: those vectors, the cases of `CollectionClassifierTests.swift`, the classifier cases of `CollectionShowsTests.swift`, the numbering cases of `FranchiseNumberingTests.swift`, and a step case. With the package off, the step case "package off: three channels" numbers 450, 451, 500.
 - `docs/PORTING.md`, `docs/JELLYFIN-EMBY.md`.
 
 **Measured.**
@@ -24,7 +41,6 @@ Commits carry the detail of *what*; this carries the *why*.
 - On the stick, signed in to Chad's Emby, the load reads its BoxSet list in 93 ms. It has no BoxSets, so it lists none, and the guide builds as before.
 
 **Differences from upstream.**
-- The Apple TV finds franchises with the FRANCHISES package off too, so its FRANCHISES collections start after them even then. Here they start at CH 300 while the package is off.
 - The web tuner has no classifier. Its vectors still cover the OTHER COLLECTIONS numbering only.
 
 **Half-done.** No collection channel has been seen on a TV from a Jellyfin or Emby server with BoxSets: Chad's Emby has none, and the stick stays signed in to it.

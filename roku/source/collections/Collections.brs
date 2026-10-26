@@ -1,5 +1,5 @@
-' Server collections as channels (CH 300 up for movie series, CH 500 up for
-' the rest), and the fold that keeps a collection which is really a
+' Server collections as channels (CH 450-499 for movie series, CH 500-699
+' for the rest), and the fold that keeps a collection which is really a
 ' franchise from airing twice.
 '
 ' Copyright (c) 2024 Chad Mueller / Muell Haus Inc. (Nostalgex), MIT License.
@@ -48,6 +48,22 @@ end function
 ' CH 500-699: anything switched on past the 200th is not built.
 function NxCollectionsCapacity() as Integer
     return 200
+end function
+
+' DynamicChannelBlock.collectionFranchises: the Apple TV's FRANCHISES
+' collections, ids from 1,010,000 (ChannelIDSpace.dynamicBase + 1 *
+' categoryStride, once NOTABLE STARS'), CH 450-499. Their own block: the
+' found franchises and the FRANCHISES package never move them.
+function NxCollectionFranchiseIDBase() as Integer
+    return 1010000
+end function
+
+function NxCollectionFranchiseNumberBase() as Integer
+    return 450
+end function
+
+function NxCollectionFranchiseCapacity() as Integer
+    return 50
 end function
 
 ' A collection needs this many playable items, films plus episodes.
@@ -354,50 +370,56 @@ function NxCollectionsBuildCandidates(raw as Object, indexByServer as Object, ct
     return out
 end function
 
-' materialize: switched-on, unfolded candidates in list order, each in its
-' category's range (materializeDynamicChannels). OTHER COLLECTIONS
-' ("custom", and any candidate the classifier hasn't seen, as the web tuner's
-' all are) take CH 500 up to 699. FRANCHISES ("franchises") follow the found
-' franchise channels: franchiseSlot is how many of those were built, and
-' they share CH 300 up to 499. Anything switched on past its range is not
-' built. Returns { channels, overCap (both ranges), overCapFranchises,
-' overCapCustom }. The channels have the shape the library load builds; their
-' pool is the collection, unshuffled, as the web tuner airs it.
-function NxCollectionsMaterialize(candidates as Object, franchiseSlot = 0 as Integer) as Object
-    channels = []
-    over = { franchises: 0, custom: 0 }
-    slots = { franchises: franchiseSlot, custom: 0 }
-    colors = NxFranchiseColors()
-    for each category in ["franchises", "custom"]
-        for each c in candidates
-            cat = "custom"
-            if NxToStr(c.category) = "franchises" then cat = "franchises"
-            if cat = category and c.enabled and c.foldedInto = invalid then
-                slot = slots[cat]
-                if slot >= NxCollectionsCapacity() then
-                    over[cat] = over[cat] + 1
-                else
-                    pool = []
-                    pool.Append(c.items)
-                    id = NxCollectionsIDBase() + slot
-                    number = NxCollectionsNumberBase() + slot
-                    if cat = "franchises" then
-                        id = NxFranchiseIDBase() + slot
-                        number = NxFranchiseNumberBase() + slot
-                    end if
-                    channels.Push({
-                        id: id, number: number,
-                        name: c.title, colorHex: colors[slot mod colors.Count()],
-                        minItems: NxCollectionsMinItems(), isPremiereChannel: false, timeRestrictions: invalid,
-                        enabled: c.items.Count() >= NxCollectionsMinItems(), built: true,
-                        collection: true, collectionID: c.id, category: cat, pool: pool
-                    })
-                    slots[cat] = slot + 1
-                end if
+' materialize: switched-on, unfolded candidates, each category in its own
+' block (materializeDynamicChannels). FRANCHISES ("franchises") take CH
+' 450-499, filled by NxBlockKept: when more are on than fit, the ones with
+' the most films stay, numbered by name. OTHER COLLECTIONS ("custom", and any
+' candidate the classifier hasn't seen, as the web tuner's all are) take CH
+' 500-699, the first 200 in list order, as on the web. Neither depends on the
+' found franchises. Anything switched on past its block is not built.
+' Returns { channels, overCap (both blocks), overCapFranchises (past CH 499),
+' overCapCustom (past CH 699) }. The channels have the shape the library
+' load builds; their pool is the collection, unshuffled, as the web tuner
+' airs it.
+function NxCollectionsMaterialize(candidates as Object) as Object
+    franchises = []
+    custom = []
+    for each c in candidates
+        if c.enabled and c.foldedInto = invalid then
+            if NxToStr(c.category) = "franchises" then
+                franchises.Push({ name: NxToStr(c.title), id: NxToStr(c.id), films: NxNumberOr0(c.movieCount), value: c })
+            else
+                custom.Push(c)
             end if
-        end for
+        end if
     end for
-    return { channels: channels, overCap: over.franchises + over.custom, overCapFranchises: over.franchises, overCapCustom: over.custom }
+    channels = []
+    kept = NxBlockKept(franchises, NxCollectionFranchiseCapacity())
+    for slot = 0 to kept.kept.Count() - 1
+        channels.Push(NxCollectionsChannel(kept.kept[slot], "franchises", NxCollectionFranchiseIDBase() + slot, NxCollectionFranchiseNumberBase() + slot, slot))
+    end for
+    overCustom = 0
+    for slot = 0 to custom.Count() - 1
+        if slot < NxCollectionsCapacity() then
+            channels.Push(NxCollectionsChannel(custom[slot], "custom", NxCollectionsIDBase() + slot, NxCollectionsNumberBase() + slot, slot))
+        else
+            overCustom = overCustom + 1
+        end if
+    end for
+    return { channels: channels, overCap: kept.skipped + overCustom, overCapFranchises: kept.skipped, overCapCustom: overCustom }
+end function
+
+function NxCollectionsChannel(c as Object, category as String, id as Integer, number as Integer, slot as Integer) as Object
+    colors = NxFranchiseColors()
+    pool = []
+    pool.Append(c.items)
+    return {
+        id: id, number: number,
+        name: c.title, colorHex: colors[slot mod colors.Count()],
+        minItems: NxCollectionsMinItems(), isPremiereChannel: false, timeRestrictions: invalid,
+        enabled: c.items.Count() >= NxCollectionsMinItems(), built: true,
+        collection: true, collectionID: c.id, category: category, pool: pool
+    }
 end function
 
 ' ── The franchise fold (FranchiseCollectionFold.swift) ──────────────────────
@@ -770,13 +792,11 @@ function NxCollectionsStep(opts as Object) as Object
         enabledKeys: opts.enabledKeys, foldTargets: targets, defs: defs
     })
     ' The Apple TV app's split (CollectionClassifier.swift), which the web
-    ' tuner doesn't have: FRANCHISES follow the found franchise channels.
+    ' tuner doesn't have: FRANCHISES in their own block, CH 450-499.
     for each c in candidates
         c.category = NxCollectionClassify(c.serverTitle, c.items)
     end for
-    franchiseSlot = 0
-    if opts.franchise <> invalid then franchiseSlot = NxList(opts.franchise.channels).Count()
-    built = NxCollectionsMaterialize(candidates, franchiseSlot)
+    built = NxCollectionsMaterialize(candidates)
     numberOf = {}
     numberOf.SetModeCaseSensitive()
     for each ch in built.channels

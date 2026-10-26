@@ -11,6 +11,8 @@
     <field id="bundles" type="array" />
     <!-- The franchise list under FRANCHISES, from the last guide build. -->
     <field id="franchises" type="array" />
+    <field id="franchiseOverCap" type="integer" />
+    <field id="franchiseCapacity" type="integer" />
     <!-- MY COLLECTIONS from the last guide build: { rows, overCap, scanned, failed }. -->
     <field id="collections" type="assocarray" />
     <!-- Set when Settings closes: "close", "rebuild" or "signOut". -->

@@ -178,6 +178,8 @@ sub buildRows()
         b = m.top.bundles[i]
         m.rows.Push({ kind: "bundle", index: i })
         if b.id = NxFranchisesBundleID() and NxHasValue(m.enabled, b.id) and m.top.franchises.Count() > 0 then
+            full = franchisesFullNote()
+            if full <> "" then m.rows.Push({ kind: "info", text: full })
             m.rows.Push({ kind: "franchiseAll" })
             for each f in m.top.franchises
                 m.rows.Push({ kind: "franchise", franchise: f })
@@ -192,6 +194,8 @@ sub buildRows()
         rows = collectionRows(category)
         if rows.Count() > 0 then
             m.rows.Push({ kind: "collectionsToggle", category: category })
+            full = collectionsFullNote(category)
+            if full <> "" then m.rows.Push({ kind: "info", text: full })
             if m.collectionsOpen[category] = true then
                 for each row in rows
                     m.rows.Push({ kind: "collection", collection: row })
@@ -257,8 +261,8 @@ function collectionRows(category as String) as Object
 end function
 
 ' A line under MY COLLECTIONS when there is something to say beyond the
-' accordions' counts: none found, a read that failed, or channels switched
-' on past a category's range (CH 499 for FRANCHISES, CH 699 for the rest).
+' accordions' counts: none found, or a read that failed. A full block says
+' so under its own accordion (collectionsFullNote).
 function collectionsNote() as String
     c = m.top.collections
     if c = invalid then return ""
@@ -268,15 +272,33 @@ function collectionsNote() as String
         if NxNumberOr0(c.scanned) > 0 then return "NO COLLECTIONS WITH 3 OR MORE MOVIES OR EPISODES"
         return "Your server's collections show here after the library is read"
     end if
-    franchises = NxNumberOr0(c.overCapFranchises)
-    custom = NxNumberOr0(c.overCapCustom)
-    ' A build before the split counted only CH 699.
-    if c.overCapCustom = invalid then custom = NxNumberOr0(c.overCap)
-    notes = []
-    if franchises > 0 then notes.Push(franchises.ToStr() + " SWITCHED ON PAST CH 499")
-    if custom > 0 then notes.Push(custom.ToStr() + " SWITCHED ON PAST CH 699")
-    if notes.Count() > 0 then return notes.Join(", ") + ", NOT ON AIR"
     return ""
+end function
+
+' Under an accordion whose block is full, as upstream's: "Up to 50 of these
+' fit in the guide. 3 more are switched on but not shown." Empty otherwise.
+function collectionsFullNote(category as String) as String
+    c = m.top.collections
+    if c = invalid then return ""
+    ' The block sizes come with the build that filled them.
+    over = NxNumberOr0(c.overCapCustom)
+    capacity = NxNumberOr0(c.capacityCustom)
+    ' A build before the split counted only CH 699.
+    if c.overCapCustom = invalid then over = NxNumberOr0(c.overCap)
+    if category = "franchises" then
+        over = NxNumberOr0(c.overCapFranchises)
+        capacity = NxNumberOr0(c.capacityFranchises)
+    end if
+    if over <= 0 or capacity <= 0 then return ""
+    return "Up to " + capacity.ToStr() + " of these fit in the guide. " + over.ToStr() + " more are switched on but not shown."
+end function
+
+' Under the franchise list when CH 300-449 is full, as upstream's.
+function franchisesFullNote() as String
+    over = NxNumberOr0(m.top.franchiseOverCap)
+    capacity = NxNumberOr0(m.top.franchiseCapacity)
+    if over <= 0 or capacity <= 0 then return ""
+    return "Up to " + capacity.ToStr() + " franchise channels fit in the guide. " + over.ToStr() + " more are switched on but not shown."
 end function
 
 ' An accordion's "n/m ON AIR", counting this visit's switches.
@@ -614,7 +636,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             m.franchisesChanged = true
             render()
         else if row.kind = "collection" then
-            ' toggleCollection: switch one on and it airs from CH 300 or 500.
+            ' toggleCollection: switch one on and it airs from CH 450 or 500.
             id = row.collection.id
             if m.collectionKeys.DoesExist(id) then m.collectionKeys.Delete(id) else m.collectionKeys[id] = true
             m.collectionsChanged = true
