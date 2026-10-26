@@ -14,7 +14,14 @@ sub fetchPoster()
             if ref.serverIndex >= 0 and ref.serverIndex < servers.Count() then s = servers[ref.serverIndex]
         end if
     end if
-    if s = invalid or NxServerKind(s) <> "plex" or LCase(Left(NxToStr(s.uri), 8)) <> "https://" then
+    if s = invalid or NxServerKind(s) <> "plex" then
+        m.top.file = ""
+        return
+    end if
+    ' The same address rule as every other Plex request (NxServerTransfer):
+    ' HTTPS, or plain HTTP to a home-network address. The token is a header.
+    xfer = NxPlexTransfer(NxPlexPosterUrl(NxToStr(s.uri), ref.path, 300), NxToStr(s.accessToken))
+    if xfer = invalid then
         m.top.file = ""
         return
     end if
@@ -23,13 +30,7 @@ sub fetchPoster()
         if Left(f, 10) = "nx-poster-" then DeleteFile("tmp:/" + f)
     end for
     port = CreateObject("roMessagePort")
-    xfer = CreateObject("roUrlTransfer")
     xfer.SetMessagePort(port)
-    xfer.SetUrl(NxPlexPosterUrl(NxToStr(s.uri), ref.path, 300))
-    xfer.SetCertificatesFile("common:/certs/ca-bundle.crt")
-    xfer.EnablePeerVerification(true)
-    xfer.EnableHostVerification(true)
-    xfer.SetHeaders(NxPlexHeaders(NxToStr(s.accessToken)))
     code = -1
     if xfer.AsyncGetToFile(out) then
         msg = Wait(10000, port)

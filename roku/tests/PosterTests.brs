@@ -22,6 +22,13 @@ function NxRunPosterTests() as Integer
     NxCheck(r, "transcode url", url, "https://1-2-3-4.abc.plex.direct:32400/photo/:/transcode?url=%2Flibrary%2Fmetadata%2F123%2Fthumb%2F1700000000&width=300&height=450")
     NxCheck(r, "no token in it", FormatJson(Instr(1, LCase(url), "token") = 0), "true")
 
+    ' The request goes through NxServerTransfer's address rule, as every
+    ' other Plex request: plain HTTP to a home-network server is allowed.
+    lan = NxPlexPosterUrl("http://192.168.1.20:32400", "/library/metadata/123/thumb", 300)
+    NxCheck(r, "home network http url", lan, "http://192.168.1.20:32400/photo/:/transcode?url=%2Flibrary%2Fmetadata%2F123%2Fthumb&width=300&height=450")
+    NxCheck(r, "home network http allowed", FormatJson(NxServerUrlAllowed(lan)), "true")
+    NxCheck(r, "https allowed", FormatJson(NxServerUrlAllowed(url)), "true")
+    NxCheck(r, "public http refused", FormatJson(NxServerUrlAllowed(NxPlexPosterUrl("http://203.0.113.5:32400", "/library/metadata/1/thumb", 300))), "false")
     NxCheck(r, "file per address", NxPosterFile("/library/metadata/123/thumb/17"), "tmp:/nx-poster-_library_metadata_123_thumb_17.jpg")
 
     print "poster cases (upstream posterURL, thumbnailURL): "; r.pass; " passed,"; r.fail; " failed"
