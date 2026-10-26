@@ -421,8 +421,8 @@ class AppState {
         UserDefaults.standard.stringArray(forKey: AppState.disabledFranchisesKey) ?? []
     )
     /// Enabled items per category that did not get a channel because the category's
-    /// display range was full (see `CollectionCategory.displayNumberEnd`). Zero normally.
-    var dynamicChannelsOverCap: [CollectionCategory: Int] = [:]
+    /// display range was full (see `DynamicChannelBlock.displayNumberEnd`). Zero normally.
+    var dynamicChannelsOverCap: [DynamicChannelBlock: Int] = [:]
     /// Runtime channel ids of the found franchises currently materialised. They ride on
     /// the FRANCHISES bundle switch rather than a bundle of their own.
     var foundFranchiseChannelIDs: [Int] = []

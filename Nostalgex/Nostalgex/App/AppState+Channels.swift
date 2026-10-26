@@ -542,79 +542,80 @@ extension AppState {
 
         syncCollectionCategoryBundlesWithDiscoveries(persistPreferences: false)
 
-        // Each category hands out at most `displayCapacity` numbers. Anything enabled past
-        // that is not built, so a big library can never reach the next category's numbers.
-        var overCap: [CollectionCategory: Int] = [:]
+        // Each block hands out at most `capacity` numbers. Anything enabled past that is
+        // not built, so a big library can never reach the next block's numbers.
+        var overCap: [DynamicChannelBlock: Int] = [:]
 
-        // Found franchises first. They are not a bundle of their own: applyBundleFilter
-        // shows them whenever the stock FRANCHISES package is on.
-        var franchiseSlot = 0
-        var franchiseIDs: [Int] = []
-        let franchiseRange = CollectionCategory.franchises
-        for franchise in foundFranchises where franchise.enabled && !franchise.isCoveredByStock {
-            guard franchiseSlot < franchiseRange.displayCapacity else {
-                overCap[franchiseRange, default: 0] += 1
-                continue
-            }
-            let channelID = franchiseRange.idBase + franchiseSlot
-            let displayNumber = franchiseRange.displayNumberBase + franchiseSlot
-            let colorHex = Self.collectionColors[franchiseSlot % Self.collectionColors.count]
+        func makeChannel(_ block: DynamicChannelBlock, slot: Int, name: String,
+                         category: CollectionCategory, items: [PlexMediaItem]) -> Channel {
             var channel = Channel(
-                id: channelID,
-                number: displayNumber,
-                name: franchise.name,
-                color: Color(hex: colorHex),
-                category: franchiseRange.rawValue,
+                id: block.idBase + slot,
+                number: block.displayNumberBase + slot,
+                name: name,
+                color: Color(hex: Self.collectionColors[slot % Self.collectionColors.count]),
+                category: category.rawValue,
                 rules: nil,
                 timeRestrictions: nil,
                 minItems: 3
             )
-            channel.itemPool = franchise.items
+            channel.itemPool = items
+            return channel
+        }
+
+        // Found franchises: CH 300-449. They are not a bundle of their own: applyBundleFilter
+        // shows them whenever the stock FRANCHISES package is on.
+        let foundBlock = DynamicChannelBlock.foundFranchises
+        let found = DynamicChannelBlock.keptInDisplayOrder(
+            foundFranchises.filter { $0.enabled && !$0.isCoveredByStock },
+            capacity: foundBlock.capacity,
+            name: \.name, stableID: \.id, films: \.movies.count)
+        if found.skipped > 0 { overCap[foundBlock] = found.skipped }
+        var franchiseIDs: [Int] = []
+        for (slot, franchise) in found.kept.enumerated() {
+            let channel = makeChannel(foundBlock, slot: slot, name: franchise.name,
+                                      category: .franchises, items: franchise.items)
             allChannels.append(channel)
-            franchiseIDs.append(channelID)
-            franchiseSlot += 1
+            franchiseIDs.append(channel.id)
         }
         foundFranchiseChannelIDs = franchiseIDs
         if !franchiseIDs.isEmpty {
-            print("[Plex90] FRANCHISES: \(franchiseIDs.count) found-franchise channel(s) from CH \(franchiseRange.displayNumberBase)")
+            print("[Plex90] FRANCHISES: \(franchiseIDs.count) found-franchise channel(s) from CH \(foundBlock.displayNumberBase)")
         }
 
+        // Server collections, each category in its own block: franchise collections CH
+        // 450-499, everything else CH 500-699. Neither depends on the found franchises, so
+        // the FRANCHISES package and its switches never move them.
         // A folded collection is credited to a franchise and never materialised, even if
         // it was switched on before the fold existed.
         let visible = visibleDiscoveredCollections
         for category in CollectionCategory.allCases {
             let categoryCollections = visible.filter { $0.category == category }
-            let enabledInCategory = categoryCollections.filter(\.enabled)
 
             // Only create bundle if this category has discovered collections
             guard !categoryCollections.isEmpty else { continue }
 
+            let block = category.block
+            let enabledInCategory = categoryCollections.filter(\.enabled)
+            let kept: [DiscoveredCollection]
+            let skipped: Int
+            switch block {
+            case .otherCollections:
+                // Unchanged, and what the web tuner mirrors: scan order (A to Z), the first
+                // `capacity` switched on.
+                kept = Array(enabledInCategory.prefix(block.capacity))
+                skipped = enabledInCategory.count - kept.count
+            default:
+                (kept, skipped) = DynamicChannelBlock.keptInDisplayOrder(
+                    enabledInCategory, capacity: block.capacity,
+                    name: \.title, stableID: \.id, films: \.movieCount)
+            }
+            if skipped > 0 { overCap[block] = skipped }
+
             var channelIDs: [Int] = []
-            var slot = category == .franchises ? franchiseSlot : 0
-
-            for dc in enabledInCategory {
-                guard slot < category.displayCapacity else {
-                    overCap[category, default: 0] += 1
-                    continue
-                }
-                let channelID = category.idBase + slot
-                let displayNumber = category.displayNumberBase + slot
-                let colorHex = Self.collectionColors[slot % Self.collectionColors.count]
-                slot += 1
-
-                var channel = Channel(
-                    id: channelID,
-                    number: displayNumber,
-                    name: dc.title,
-                    color: Color(hex: colorHex),
-                    category: category.rawValue,
-                    rules: nil,
-                    timeRestrictions: nil,
-                    minItems: 3
-                )
-                channel.itemPool = dc.items
+            for (slot, dc) in kept.enumerated() {
+                let channel = makeChannel(block, slot: slot, name: dc.title, category: category, items: dc.items)
                 allChannels.append(channel)
-                channelIDs.append(channelID)
+                channelIDs.append(channel.id)
             }
 
             let bundle = ChannelBundle(
@@ -629,8 +630,8 @@ extension AppState {
             print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(enabledInCategory.count)/\(categoryCollections.count) enabled -> \(channelIDs.count) channels")
         }
 
-        for (category, skipped) in overCap.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
-            print("[Plex90] COLLECTIONS: [\(category.rawValue)] \(skipped) enabled channel(s) skipped, CH \(category.displayNumberBase)-\(category.displayNumberEnd) is full (\(category.displayCapacity) max)")
+        for (block, skipped) in overCap.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            print("[Plex90] COLLECTIONS: [\(block.rawValue)] \(skipped) enabled channel(s) skipped, CH \(block.displayNumberBase)-\(block.displayNumberEnd) is full (\(block.capacity) max)")
         }
         if overCap != dynamicChannelsOverCap { dynamicChannelsOverCap = overCap }
 

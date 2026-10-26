@@ -228,6 +228,24 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Half-done.** The 6-hour refresh itself hasn't been watched on a TV.
 
+## 2026-10-26 (Apple TV: franchise channel numbers that don't move with packages)
+
+**Shipped.** Nothing. Branch `fix/franchise-numbering`, held for the next Apple TV bug-fix bundle.
+
+**Why.** Chad, 2026-10-26. Found franchises and the server's franchise collections shared CH 300-499 and one id base, with the collections numbered straight after the found ones. Switching the FRANCHISES package, or any found franchise, renumbered and re-id'd every franchise collection. Channel numbers should stay put, and be the same on every platform for the same library.
+
+**Changed.**
+- `Models/Channel.swift`: `DynamicChannelBlock`, one fixed block per kind. Found franchises CH 300-449 (150), ids from 1,000,000 as before. Franchise collections CH 450-499 (50), ids from 1,010,000. Other collections CH 500-699 (200), ids from 1,020,000, unchanged. `CollectionCategory` reads its range from its block.
+- Overflow (`DynamicChannelBlock.keptInDisplayOrder`), for the two franchise blocks: when more are switched on than fit, the ones with the most films stay, ties by name and then stable id, so every platform drops the same ones; the kept ones are numbered A to Z (name, then stable id) as before. OTHER COLLECTIONS keeps its old rule (first 200 A to Z), which is what the web tuner mirrors, so the web doesn't change.
+- `AppState.materializeDynamicChannels` builds each block on its own; nothing in the collection blocks depends on the found franchises. `dynamicChannelsOverCap` is keyed by block. Settings: the found-franchise line says "Up to 150"; a collection category that is full gets the same line under its header.
+- 1,010,000 was the retired NOTABLE STARS base. Checked before reusing it: no channel id is kept across launches in UserDefaults or iCloud (saved choices are franchise and collection ids, never channel ids). Today's schedules are keyed by channel id but rebuilt from a pool fingerprint and purged daily; the snapshot's runtime rows are rebuilt on restore; Top Shelf is rewritten every load. Nothing can bring back an old NOTABLE STARS id pointing at a new channel.
+
+**Release notes (one-time move).** Franchise collections from your server move to CH 450 and up, and from then on they keep their numbers when you switch the FRANCHISES package or a found franchise. Their day's lineup reshuffles once, because the schedule is seeded by the channel. Found franchises keep their numbers (300 up) and their lineups.
+
+**Measured.** NostalgexTests: 903 passed, 0 failures, on a tvOS 26.1 simulator; 6 new and 2 rewritten in `FranchiseNumberingTests` (toggling the package and a found franchise leaves franchise-collection and collection ids and numbers alone, block limits, overflow order). `npm test`: pass; no golden file or web engine file changes.
+
+**Next.** Roku ports it on `roku/my-collections`.
+
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-virtual-channels-own-movies`.
