@@ -152,6 +152,7 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
     out = []
     for each section in sections
         title = NxToStr(section.title)
+        sectionStart = out.Count()
         items = NxPlexSectionItems(server, NxToStr(section.key))
         if items = invalid then
             print "plex: skipped a section that failed to load"
@@ -209,10 +210,59 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
                     progress.bar = -1
                 end if
             end if
+            if out.Count() > sectionStart and not NxLoadStopped() then
+                profiles = NxPlexDoviProfiles(server, NxToStr(section.key), NxToStr(section.type))
+                if profiles.Count() > 0 then
+                    for i = sectionStart to out.Count() - 1
+                        p = profiles[NxToStr(out[i].ratingKey)]
+                        if p <> invalid then out[i].doviProfile = p
+                    end for
+                end if
+            end if
         end if
         if NxLoadStopped() then exit for
     end for
     return out
+end function
+
+' A section's Dolby Vision profiles, { ratingKey: profile } (#69). The
+' listing carries no stream details, so one more request asks for just its
+' Dolby Vision items (dovi=1) with their streams. Measured on Plex 1.43.5
+' (2026-10-26): dovi=1 lists the profile 5 and 8 files, and type=4 the
+' episodes of a show section (without it, a show section lists none).
+function NxPlexDoviProfiles(server as Object, sectionKey as String, sectionType as String) as Object
+    out = {}
+    kind = "1"
+    if sectionType = "show" then kind = "4"
+    pageSize = 500
+    start = 0
+    while true
+        mc = NxPlexGetContainer(server, "/library/sections/" + sectionKey + "/all?type=" + kind + "&dovi=1&includeElements=Stream&X-Plex-Container-Start=" + start.ToStr() + "&X-Plex-Container-Size=" + pageSize.ToStr(), invalid, 30000)
+        if mc = invalid then exit while
+        list = NxList(mc.Metadata)
+        for each meta in list
+            p = NxPlexDoviOf(meta)
+            if p <> invalid then out[NxToStr(meta.ratingKey)] = p
+        end for
+        if list.Count() < pageSize or NxLoadStopped() then exit while
+        start = start + pageSize
+    end while
+    return out
+end function
+
+' The Dolby Vision profile of an item's best version (NxPickBestVersion, as
+' the item's codecs are taken), from its first part's video stream.
+function NxPlexDoviOf(meta as Object) as Dynamic
+    media = NxPickBestVersion(meta.Media)
+    if media = invalid then return invalid
+    parts = NxList(media.Part)
+    if parts.Count() = 0 or type(parts[0]) <> "roAssociativeArray" then return invalid
+    for each s in NxList(parts[0].Stream)
+        if type(s) = "roAssociativeArray" then
+            if s.streamType = 1 and NxIsNumber(s.DOVIProfile) then return s.DOVIProfile
+        end if
+    end for
+    return invalid
 end function
 
 function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, showTmdb as Dynamic, isMusicVideoSection as Boolean) as Dynamic
