@@ -117,6 +117,7 @@ This stays on your device. It is not synced to us, and it is removed when you de
 - plex.tv, for Plex sign-in using Plex's own PIN flow. That is Plex's system, not ours
 - TMDB (The Movie Database) and OMDb, for public movie and TV metadata used to sort titles onto the right channels. TMDB and OMDb lookups go through a small relay on nostalgex.app so the app never carries an API key. The relay forwards the public TMDB or IMDb id of the title being looked up and nothing else: no library titles, no account, no device or server details, and it keeps no log of what was asked.
 - MusicBrainz, then Deezer for any it can't place, to find the genres and years of your music videos for the music video channels. For each music video the app searches by song title and artist name, straight from your Apple TV. Nothing about you, your account, your server or your Apple TV goes with it. The answers are kept on your Apple TV, so it doesn't ask again every time it opens.
+- iCloud, only if you turn on SYNC WITH MY OTHER APPLE TVS in Settings under CONNECTION. It is off by default and set on each Apple TV separately. When it is on, your channel packages, collections and franchises, retro mode, subtitle, audio and stream quality settings, and the two playback reporting switches are stored in your own iCloud account, so your other Apple TVs on the same Apple ID match. That goes to Apple, not to us. Server addresses, tokens, user IDs and everything in the Keychain stay on each Apple TV, and so does the sync switch itself.
 - A Supabase database we run, which caches the metadata above so it does not have to be fetched again on every device
 
 These lookups use public identifiers and titles for the purpose of matching metadata. The Supabase cache is keyed on public TMDB identifiers and holds metadata about films and shows. It does not record who asked for it, and it holds no account, device, or server information.
@@ -132,7 +133,7 @@ The Apple TV app and the web tuner can report what you are watching back to your
 - Show Now Playing lets your server show what is playing.
 - Mark Watched counts a film or episode as watched when you join it in its first 15% and watch at least 75% of it.
 
-With both off, nothing is reported and nothing in your library changes. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched. On Jellyfin and Emby the app first reads the watch state your server already has and puts it back when the program ends; if it can't read it, it reports nothing for that program. When a switch is on, the reports go only to the server you connected. They do not come to us.
+With both off, nothing is reported and nothing in your library changes. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched. On Jellyfin and Emby the app first reads the watch state your server already has and puts it back when the program ends; if it can't read it, it reports nothing for that program. When a switch is on, the reports go only to the server you connected. They do not come to us. If you have turned on iCloud sync on your Apple TVs, the two switches are shared between them through your iCloud account.
 
 ## The Roku app
 
