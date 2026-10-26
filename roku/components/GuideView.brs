@@ -725,12 +725,14 @@ end sub
 
 ' Every 5 minutes, the forced subtitle files of airings on now or within the
 ' hour, asked of their Jellyfin or Emby server ahead of time, each once
-' (NxForcedWarmList), one batch at a time.
+' (NxForcedWarmList), one batch at a time. The list of files asked starts
+' again past 500, so a guide left up for weeks can't grow it without end; a
+' file then may be asked once more, from the server's own copy.
 sub warmForcedSubtitles(t as LongInteger)
     if m.warmTask <> invalid then return
     if m.warmAt <> invalid and t - m.warmAt < 300 then return
     m.warmAt = t
-    if m.warmDone = invalid then m.warmDone = {}
+    if m.warmDone = invalid or m.warmDone.Count() > 500 then m.warmDone = {}
     servers = {}
     saved = ParseJson(NxPlexRegistry().Read("servers"))
     if type(saved) = "roArray" then
