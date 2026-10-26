@@ -148,7 +148,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "video, re-encode on a 1080p TV is 1080p", NxMbVideoQuery(29000000, "server", 1920), "&VideoBitrate=40000000&MaxWidth=1920&AllowVideoStreamCopy=false")
     NxCheck(r, "video, a copy on a 1080p TV stays 3840", NxMbVideoQuery(19269041, "server", 1920), "&VideoBitrate=40000000&MaxWidth=3840")
     NxCheck(r, "video, no bitrate on a 1080p TV copies", NxMbVideoQuery(invalid, "server", 1920), "&VideoBitrate=40000000&MaxWidth=3840")
-    NxCheck(r, "video, 1080p rung whatever the TV", NxMbVideoQuery(29000000, "capped", 1280), "&VideoBitrate=8000000&MaxWidth=1920")
+    NxCheck(r, "video, 1080p rung whatever the TV", NxMbVideoQuery(29000000, "capped", 1280), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
     NxCheck(r, "width, 2160p60", NxMaxWidthFor("2160p60").ToStr(), "3840")
     NxCheck(r, "width, 2160p60b10", NxMaxWidthFor("2160p60b10").ToStr(), "3840")
     NxCheck(r, "width, 1080p", NxMaxWidthFor("1080p").ToStr(), "1920")

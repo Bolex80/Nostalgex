@@ -214,14 +214,17 @@ end function
 ' copied a 26.5 Mb/s clip that then stopped with that error. A 19 Mb/s 4K
 ' file played copied, pieces up to 32 MB included (docs/JELLYFIN-EMBY.md).
 ' bitrate invalid (none reported) copies. The "capped" rung is upstream's
-' cappedTranscodeURL (JellyfinPlaybackResolver.swift), 1080p at 8 Mb/s.
+' cappedTranscodeURL (JellyfinPlaybackResolver.swift), 1080p at 8 Mb/s,
+' and here never copied (AllowVideoStreamCopy=false): it is the rung a
+' failed copied stream steps down to (NxFallbackNext), and a file at or
+' under 8 Mb/s and 1080p would otherwise be copied again.
 ' A file re-encoded anyway comes no wider than this TV shows (width, from
 ' NxMaxWidthFor): a 4K re-encode costs about four times a 1080p one, for a
 ' 1080p TV that shows no more (PR #77). One that may be copied keeps 3840,
 ' since a narrower MaxWidth makes Emby re-encode what it would copy: a
 ' 46 Mb/s 4K HEVC clip came back copied at 3840 and as 1080p H.264 at 1920.
 function NxMbVideoQuery(bitrate as Dynamic, rung = "server" as String, width = 3840 as Integer) as String
-    if rung = "capped" then return "&VideoBitrate=8000000&MaxWidth=1920"
+    if rung = "capped" then return "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false"
     if NxIsNumber(bitrate) and bitrate > 20000000 then return "&VideoBitrate=40000000&MaxWidth=" + width.ToStr() + "&AllowVideoStreamCopy=false"
     return "&VideoBitrate=40000000&MaxWidth=3840"
 end function

@@ -119,7 +119,7 @@ function NxRunFallbackTests() as Integer
     ' What each rung asks of the server.
     NxCheck(r, "Plex server stream adds nothing", NxPlexRungQuery("server"), "")
     NxCheck(r, "Plex 1080p", NxPlexRungQuery("capped"), "&maxVideoBitrate=12000&videoQuality=90&videoResolution=1920x1080")
-    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920")
+    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
     NxCheck(r, "Jellyfin/Emby server stream as before", NxMbVideoQuery(29000000, "server"), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
 
     ' Starving: PlaybackStarvationTests, case for case. The measured shape is
@@ -196,6 +196,18 @@ function NxRunFallbackTests() as Integer
     NxCheck(r, "starved 1080p", NxAttemptText(NxStarvedNext({ rung: "capped", retry: false, fellBack: false })), "none")
     NxCheck(r, "starved card", NxFailureKind(0, 0, "", "starved", "capped"), "serverTooSlow")
     NxCheck(r, "starved outranks a refusal", NxFailureKind(500, -1, "http", "starved", "capped"), "serverTooSlow")
+
+    ' Jellyfin and Emby: an error on the server stream steps down to the
+    ' re-encoded 1080p stream, not the same request (Soldier on Emby).
+    for each kind in ["emby", "jellyfin"]
+        NxCheck(r, kind + ": server stream errors: 1080p", NxAttemptText(NxFallbackNext(server, "error", kind)), "capped")
+        NxCheck(r, kind + ": after direct play, errors: 1080p", NxAttemptText(NxFallbackNext(fellBack, "error", kind)), "capped fellBack")
+        NxCheck(r, kind + ": no picture: 1080p as before", NxAttemptText(NxFallbackNext(server, "nopicture", kind)), "capped")
+        NxCheck(r, kind + ": 1080p errors: give up", NxAttemptText(NxFallbackNext(capped, "error", kind)), "none")
+        NxCheck(r, kind + ": direct play errors: the server stream", NxAttemptText(NxFallbackNext(direct, "error", kind)), "server fellBack")
+    end for
+    NxCheck(r, "plex: server stream errors: one retry, as upstream", NxAttemptText(NxFallbackNext(server, "error", "plex")), "server retry")
+    NxCheck(r, "emby: the 1080p stream never copies", (Instr(1, NxMbVideoQuery(5000000, "capped"), "AllowVideoStreamCopy=false") > 0).ToStr(), "true")
 
     ' "finished" (NxFinishedAction). Soldier on CH 12: a server stream
     ' joined part way errors, the ladder retries it (GuideView clears the

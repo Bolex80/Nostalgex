@@ -27,10 +27,20 @@ end function
 '   - a server stream with no picture, retried or not: the 1080p stream
 '     (handleWatchdogNoPicture, allowCappedRetry).
 '   - the 1080p stream: gives up.
-function NxFallbackNext(attempt as Object, event as String) as Dynamic
+'
+' One Roku difference, for Jellyfin and Emby (kind): a server stream that
+' errors goes to the 1080p stream, which re-encodes, instead of the same
+' request again. Their server stream copies a file's video when it can, and
+' the player can fail to read a copied one where the re-encoded one plays:
+' Soldier (Emby, H.264 High level 5.1, keyframes 4 to 10 s apart) stopped
+' with error -3 (buffer:reader) from 0 s and part way, while the 1080p
+' stream gave even 2 s pieces. Plex keeps upstream's retry, which waits
+' out a refusal while its last stream winds down.
+function NxFallbackNext(attempt as Object, event as String, kind = "" as String) as Dynamic
     if attempt.rung = "direct" then return { rung: "server", retry: false, fellBack: true }
     if attempt.rung <> "server" then return invalid
     if event = "nopicture" then return { rung: "capped", retry: false, fellBack: attempt.fellBack }
+    if kind = "jellyfin" or kind = "emby" then return { rung: "capped", retry: false, fellBack: attempt.fellBack }
     if attempt.retry or attempt.fellBack then return invalid
     return { rung: "server", retry: true, fellBack: false }
 end function

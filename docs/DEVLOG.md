@@ -19,7 +19,13 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Measured.** Off-device only; the tester owns the stick.
 
-**Not here.** Soldier's stream itself fails at the join. The server copies the video, and the piece there is 18 MB holding 10 s where the playlist says 2 s, because the file's keyframes are 4 to 10 s apart. Whether an error on a copied stream should step down to the re-encoded 1080p rung waits on the tester's checks.
+**Then: the step down (second commit).** The tester found Soldier fails from 0 s too (an `item:` link: the same `error -3 … buffer:reader`), so a retry of the same stream can't help. Its server stream copies H.264 High level 5.1 with keyframes 4 to 10 s apart; at the 54-minute join the piece the playlist calls 2 s is 18 MB and 10 s long.
+- `source/guide/Fallback.brs`: on Jellyfin and Emby, an error on the server stream steps down to the 1080p rung instead of retrying the same request. Plex keeps upstream's retry.
+- `source/mediabrowser/MediaBrowserPlayback.brs`: that rung asks for `AllowVideoStreamCopy=false`, so it always re-encodes. Upstream's `cappedTranscodeURL` doesn't, and a file at or under 8 Mb/s would come back copied.
+- Measured off the TV, one probe on the home Emby, stopped after (204):
+  - Soldier's 1080p stream, from 0 s and at the join, comes in even 2 s pieces of 1.1 to 2.9 MB, H.264 Main level 4.0.
+  - The copied stream's piece at the join is 18 MB.
+- `tests/FallbackTests.brs`: 12 more cases. The Jellyfin/Emby ones fail on the first commit.
 
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 

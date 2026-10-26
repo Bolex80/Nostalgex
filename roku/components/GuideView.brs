@@ -1003,7 +1003,7 @@ end sub
 sub failAttempt(event as String)
     m.deadlineTimer.control = "stop"
     if m.attempt = invalid or m.playing = invalid or m.tuned < 0 or m.probing = true then return
-    nxt = NxFallbackNext(m.attempt, event)
+    nxt = NxFallbackNext(m.attempt, event, NxServerKind(NxStreamServer(m.playing)))
     if event = "nopicture" or nxt = invalid then
         startProbe(event, nxt, false)
         return
