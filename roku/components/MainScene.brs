@@ -7,6 +7,7 @@
 ' server (ServerPickerView), then load.
 
 sub init()
+    m.libraryBusy = false
     m.prompt = m.top.FindNode("prompt")
     m.hint = m.top.FindNode("hint")
     m.top.SetFocus(true)
@@ -223,12 +224,15 @@ sub launchComplete()
     m.top.signalBeacon("AppLaunchComplete")
 end sub
 
-sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean)
+sub startLibrary(useCache = false as Boolean, rebuild = false as Boolean, rescan = false as Boolean)
     releaseLibrary()
     m.library = CreateObject("roSGNode", "LibraryTask")
     m.library.ObserveField("bundleBuilt", "onBundleBuilt")
     m.library.useCache = useCache
     m.library.rebuild = rebuild
+    m.library.rescan = rescan
+    m.library.ObserveField("refreshed", "onLibraryRefreshed")
+    setLibraryBusy(true)
     m.library.ObserveField("phase", "onLibraryPhase")
     m.library.ObserveField("status", "onLibraryStatus")
     m.library.ObserveField("scanning", "onScanning")
@@ -311,6 +315,7 @@ sub onLibraryStatus()
     if m.library = invalid then return
     status = m.library.status
     if status = "error" then
+        setLibraryBusy(false)
         if m.guide <> invalid then return
         closeLoading()
         m.signedInClock = invalid
@@ -331,6 +336,8 @@ sub onLibraryStatus()
             m.guide = CreateObject("roSGNode", "GuideView")
             m.guide.ObserveField("action", "onGuideAction")
             m.guide.ObserveField("bundleRequest", "onBundleRequest")
+            m.guide.ObserveField("rescanRequest", "onRescanRequest")
+            m.guide.libraryBusy = m.libraryBusy
             if m.pendingLink <> invalid then m.guide.deepLink = m.pendingLink
             m.pendingLink = invalid
             if m.resumeId <> invalid then m.guide.resumeId = m.resumeId
@@ -388,9 +395,11 @@ sub releaseLibrary()
     m.library.UnobserveField("phase")
     m.library.UnobserveField("status")
     m.library.UnobserveField("scanning")
+    m.library.UnobserveField("refreshed")
     stopStallWatch()
     m.library.control = "stop"
     m.library = invalid
+    m.libraryBusy = false
 end sub
 
 sub dropGuide()
@@ -402,6 +411,26 @@ sub dropGuide()
     end if
     m.top.FindNode("title").visible = true
     m.top.SetFocus(true)
+end sub
+
+' RESCAN LIBRARY (upstream's rescanLibrary): every server read again behind
+' the guide, as the launch refresh is, and the guide swaps only if the pools
+' changed. Not while a load is still running, as upstream's row does nothing
+' while it says Updating.
+sub onRescanRequest()
+    if m.libraryBusy = true or m.guide = invalid then return
+    print "library: rescan asked for in Settings"
+    startLibrary(true, false, true)
+end sub
+
+sub onLibraryRefreshed()
+    setLibraryBusy(false)
+end sub
+
+' Whether a library load is running, for the RESCAN LIBRARY row.
+sub setLibraryBusy(busy as Boolean)
+    m.libraryBusy = busy
+    if m.guide <> invalid then m.guide.libraryBusy = busy
 end sub
 
 sub onGuideAction()

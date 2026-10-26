@@ -1094,6 +1094,10 @@ sub giveUp(event as String, probe = 1 as Integer)
     stopPrevious()
     hideHaze()
     ends = NxFailureRecord(m.failRun, tunedChannelId())
+    ' The verdict Settings' RESCAN LIBRARY row shows (PlaybackDiagnostics).
+    title = ""
+    if m.playing <> invalid then title = NxToStr(m.playing.title)
+    NxRecordPlaybackVerdict(NxPlaybackVerdictLine(e, card, ends, title, nowSec()))
     print "player: gave up ("; card.kind; "), "; m.failRun.count; " in a row on this channel"
     if ends then
         m.stopped = true
@@ -1899,6 +1903,8 @@ sub openSettings()
     m.settings.collections = collections
     m.settings.ObserveField("result", "onSettingsResult")
     m.settings.ObserveField("bundleChange", "onSettingsBundleChange")
+    m.settings.ObserveField("rescan", "onSettingsRescan")
+    m.settings.rescanning = m.top.libraryBusy
     m.top.AppendChild(m.settings)
     m.settings.callFunc("open", invalid)
     m.settings.callFunc("setBuilding", m.building.Keys())
@@ -1961,6 +1967,14 @@ sub refreshSettings()
     if m.top.guide.franchises <> invalid then m.settings.franchises = m.top.guide.franchises
     if m.top.guide.collections <> invalid then m.settings.collections = m.top.guide.collections
     m.settings.callFunc("refreshRows", invalid)
+end sub
+
+sub onSettingsRescan()
+    m.top.rescanRequest = true
+end sub
+
+sub onLibraryBusy()
+    if m.settings <> invalid then m.settings.rescanning = m.top.libraryBusy
 end sub
 
 sub onSettingsResult()
