@@ -21,7 +21,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         NxCheck(r, "requests", fetcher.requests.Join(" | "), NxList(v.requests).Join(" | "))
         NxCheck(r, "item count", got.Count().ToStr(), NxList(v.items).Count().ToStr())
         ' Port-only fields: none reaches the filter or schedule.
-        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true, videoWidth: true, videoHeight: true, audioTracks: true }
+        extras = { serverIndex: true, seasonNumber: true, episodeNumber: true, videoProfile: true, audioChannels: true, bitrate: true, videoWidth: true, videoHeight: true, audioTracks: true, forcedSubs: true }
         n = NxMinInt(got.Count(), NxList(v.items).Count())
         for i = 0 to n - 1
             want = v.items[i]
@@ -163,7 +163,56 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "scan headline, plex as before", NxScanHeadline("plex"), "SCANNING PLEX LIBRARY")
 
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
-    return r.fail + NxRunDirectPlayTests() + NxRunAudioPickTests()
+    return r.fail + NxRunDirectPlayTests() + NxRunAudioPickTests() + NxRunForcedSubTests()
+end function
+
+' Forced subtitles (#63): which tracks the scan keeps (NxMbForcedSubs),
+' which one an airing shows (NxMbForcedSub, upstream's forcedSubtitleToBurn
+' cases), its address, and the airings whose file is asked for ahead of time
+' (NxForcedWarmList).
+function NxRunForcedSubTests() as Integer
+    r = { pass: 0, fail: 0 }
+    src = { MediaStreams: [
+        { Type: "Video", Index: 0, Codec: "h264" }
+        { Type: "Subtitle", Index: 2, Language: "eng", Codec: "subrip", IsForced: true }
+        { Type: "Subtitle", Index: 3, Language: "eng", Codec: "PGSSUB", IsForced: true }
+        { Type: "Subtitle", Index: 4, Language: "eng", Codec: "subrip", IsForced: false, IsDefault: true }
+        { Type: "Subtitle", Index: 5, Language: "ger", Codec: "ass", IsForced: true }
+        { Type: "Subtitle", Index: 6, Codec: "srt", IsForced: true }
+    ] }
+    kept = []
+    for each t in NxList(NxMbForcedSubs(src))
+        kept.Push(NxToStr(t.index) + ":" + NxToStr(t.language))
+    end for
+    NxCheck(r, "forced text tracks, in order", kept.Join(" "), "2:eng 5:ger 6:")
+    NxCheck(r, "no forced track keeps nothing", NxToStr(NxMbForcedSubs({ MediaStreams: [src.MediaStreams[3]] }) = invalid), "true")
+    NxCheck(r, "an image forced track alone keeps nothing", NxToStr(NxMbForcedSubs({ MediaStreams: [src.MediaStreams[2]] }) = invalid), "true")
+    NxCheck(r, "no streams keeps nothing", NxToStr(NxMbForcedSubs({}) = invalid), "true")
+    it = { forcedSubs: NxMbForcedSubs(src) }
+    NxCheck(r, "english viewer: the english forced track", NxToStr(NxMbForcedSub(it, "en").index), "2")
+    NxCheck(r, "german viewer: ger matches de", NxToStr(NxMbForcedSub(it, "de").index), "5")
+    NxCheck(r, "french viewer: none", NxToStr(NxMbForcedSub(it, "fr") = invalid), "true")
+    NxCheck(r, "an airing with no forced track", NxToStr(NxMbForcedSub({}, "en") = invalid), "true")
+    NxCheck(r, "deu matches de too", NxToStr(NxMbForcedSub({ forcedSubs: [{ index: 7, language: "deu" }] }, "de").index), "7")
+    NxCheck(r, "the address", NxMbSubtitlePath("1650", "mediasource_1650", 4), "/Videos/1650/mediasource_1650/Subtitles/4/0/Stream.srt")
+    on = { startSec: 1000, endSec: 2800, ratingKey: "a", partKey: "pa", serverIndex: 0, forcedSubs: [{ index: 2, language: "eng" }] }
+    soon = { startSec: 4000, endSec: 5000, ratingKey: "b", partKey: "pb", serverIndex: 0, forcedSubs: [{ index: 3, language: "eng" }] }
+    later = { startSec: 6000, endSec: 7000, ratingKey: "c", partKey: "pc", serverIndex: 0, forcedSubs: [{ index: 2, language: "eng" }] }
+    gone = { startSec: 0, endSec: 900, ratingKey: "d", partKey: "pd", serverIndex: 0, forcedSubs: [{ index: 2, language: "eng" }] }
+    plex = { startSec: 1000, endSec: 2800, ratingKey: "e", partKey: "pe", serverIndex: 1, forcedSubs: [{ index: 2, language: "eng" }] }
+    french = { startSec: 1000, endSec: 2800, ratingKey: "f", partKey: "pf", serverIndex: 0, forcedSubs: [{ index: 2, language: "fre" }] }
+    plain = { startSec: 1000, endSec: 2800, ratingKey: "g", partKey: "pg", serverIndex: 0 }
+    channels = [{ blocks: [gone, on, soon, later] }, { blocks: [on, plex, french, plain] }]
+    servers = { "0": "http://emby:8096" }
+    urls = NxForcedWarmList(channels, 1200, 3600, "en", servers, {})
+    NxCheck(r, "warm: on now and within the hour, once each", urls.Join(" "), "http://emby:8096/Videos/a/pa/Subtitles/2/0/Stream.srt http://emby:8096/Videos/b/pb/Subtitles/3/0/Stream.srt")
+    done = {}
+    done[urls[0]] = true
+    NxCheck(r, "warm: asked before, not again", NxForcedWarmList(channels, 1200, 3600, "en", servers, done).Join(" "), urls[1])
+    NxCheck(r, "warm: another language", NxForcedWarmList(channels, 1200, 3600, "fr", servers, {}).Join(" "), "http://emby:8096/Videos/f/pf/Subtitles/2/0/Stream.srt")
+    NxCheck(r, "warm: no channels", NxForcedWarmList(invalid, 1200, 3600, "en", servers, {}).Count().ToStr(), "0")
+    print "forced subtitle cases: "; r.pass; " passed,"; r.fail; " failed"
+    return r.fail
 end function
 
 ' NxMbPreferredAudioIndex, the cases of upstream's

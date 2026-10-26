@@ -29,8 +29,9 @@ end function
 ' 4: Jellyfin and Emby items carry bitrate (NxMbVideoQuery).
 ' 5: and audioTracks, when a file has more than one (NxMbAudioTracks).
 ' 6: and videoWidth and videoHeight, for the no-picture deadline (NxPictureDeadline).
+' 7: and forcedSubs, a file's forced text subtitle tracks (NxMbForcedSubs).
 function NxSnapshotFormat() as Integer
-    return 6
+    return 7
 end function
 
 ' Items per chunk file: about 1 MB of JSON, so a read or write never holds

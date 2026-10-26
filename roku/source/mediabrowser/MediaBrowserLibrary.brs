@@ -143,11 +143,12 @@ end function
 ' mediaInfo: the best source's id, container, and first video and audio
 ' codecs, with the video's profile and the audio's channel count for the
 ' direct-play decision (source/util/DirectPlay.brs), the source's bitrate
-' for the server stream's (NxMbVideoQuery), and its audio tracks when it has
-' more than one, for the pick at tune (NxMbPreferredAudioIndex).
+' for the server stream's (NxMbVideoQuery), its audio tracks when it has
+' more than one, for the pick at tune (NxMbPreferredAudioIndex), and its
+' forced text subtitle tracks, shown as a sidecar at tune (NxMbForcedSub).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid, forcedSubs: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
@@ -168,7 +169,29 @@ function NxMbMediaInfo(item as Object) as Object
         if NxIsNumber(a.Channels) then out.audioChannels = a.Channels
     end if
     out.audioTracks = NxMbAudioTracks(src)
+    out.forcedSubs = NxMbForcedSubs(src)
     return out
+end function
+
+' A source's subtitle tracks flagged forced, as { index, language }, in the
+' file's order, or invalid when it has none. Text tracks only (upstream's
+' isTextSubtitle): the server makes those into an SRT file, which is how a
+' Roku shows them. It doesn't list a forced track inside the file (two
+' films on a TCL 55R617), and an image track comes back empty as SRT.
+function NxMbForcedSubs(src as Object) as Dynamic
+    text = ["srt", "subrip", "ass", "ssa", "vtt", "webvtt", "mov_text", "ttml", "sub", "smi", "sami"]
+    tracks = []
+    for each s in NxList(src.MediaStreams)
+        if type(s) = "roAssociativeArray" then
+            if s.Type = "Subtitle" and s.IsForced = true and NxIsNumber(s.Index) and NxHasValue(text, LCase(NxToStr(s.Codec))) then
+                t = { index: s.Index, language: invalid }
+                if NxTruthy(s.Language) then t.language = LCase(NxToStr(s.Language))
+                tracks.Push(t)
+            end if
+        end if
+    end for
+    if tracks.Count() = 0 then return invalid
+    return tracks
 end function
 
 ' A source's audio tracks as { index, language, channels, codec, isDefault },
@@ -265,6 +288,7 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         audioChannels: mi.audioChannels,
         bitrate: mi.bitrate,
         audioTracks: mi.audioTracks,
+        forcedSubs: mi.forcedSubs,
         genres: genres,
         rating: NxOr(jf.CommunityRating, 0),
         userRating: 0,
@@ -306,6 +330,7 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         audioChannels: mi.audioChannels,
         bitrate: mi.bitrate,
         audioTracks: mi.audioTracks,
+        forcedSubs: mi.forcedSubs,
         genres: showGenres,
         rating: NxOr(show.CommunityRating, 0),
         userRating: 0,

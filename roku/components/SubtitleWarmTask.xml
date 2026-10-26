@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Asks a Jellyfin or Emby server for forced subtitle files ahead of their
+     airings, one at a time, so each is ready when the channel tunes
+     (NxForcedWarmList). Nothing is kept: the server keeps the file. -->
+<component name="SubtitleWarmTask" extends="Task">
+  <interface>
+    <field id="urls" type="array" />
+    <!-- How many came back, once all have been asked. -->
+    <field id="done" type="integer" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/SubtitleWarmTask.brs" />
+</component>

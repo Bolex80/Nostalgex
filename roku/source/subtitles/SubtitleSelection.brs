@@ -52,6 +52,16 @@ function NxSubPreferredTrackIndex(tags as Object, preferred as String) as Intege
     return 0
 end function
 
+' pickLegibleOption: the first track in `preferred` that isn't forced
+' (`forced[i]` true), else NxSubPreferredTrackIndex over them all, which
+' may land on a forced one when that is all there is.
+function NxSubPickIndex(tags as Object, forced as Object, preferred as String) as Integer
+    for i = 0 to tags.Count() - 1
+        if forced[i] <> true and tags[i] <> invalid and NxSubMatches(LCase(tags[i]), preferred) then return i
+    end for
+    return NxSubPreferredTrackIndex(tags, preferred)
+end function
+
 function NxSubMatches(tag as String, want as String) as Boolean
     return tag = want or Left(tag, Len(want) + 1) = want + "-"
 end function
