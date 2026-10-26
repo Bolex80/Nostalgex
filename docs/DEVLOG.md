@@ -3,6 +3,24 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: a stream that fails no longer counts as the film's end)
+
+**Shipped.** Nothing until it lands on main. Branch `roku/failed-start-not-finished`, off #108 (`cd8f783`).
+
+**Why.** On 1.0.5, CH 12 joined 54 minutes into *Soldier* (Emby) failed within a second and jumped straight to the next film from its beginning. There was no retry, no card and nothing in Settings (tester's console: `error -3 … source buffer:reader`, `error on the server stream; retrying it`, `finished`, `finished, -2628 s past the slot`, `next is 2856, from its start`). The ladder clears the running attempt while its retry waits, and Roku's player then reports `finished`. `onVideoState` only checked a never-played end while an attempt was running, so this one fell through to the hand-over as if the file had ended.
+
+**Changed.**
+- `source/guide/Fallback.brs`: `NxFinishedAction` decides what `finished` means. If the start already failed (retry pending or card up), the answer is "ignore". Otherwise it is the same as before: hand over, ask the server, or a second unplayed end is an error.
+- `components/GuideView.brs`: `onVideoState` acts on it.
+- `source/plex/LibrarySnapshot.brs`: `NxClearPlaybackVerdicts`. A sign-out clears the stored playback failures, and so does a sign-in by another account or server: Settings kept Jellyfin's "Last playback failure" after signing in to Emby. The Apple TV keeps them too; that side is on Chad's board.
+- Tests:
+  - `tests/FallbackTests.brs`: 8 cases. Without the new rule, the three "after the start failed" cases fail.
+  - `tests/SnapshotTests.brs`: the failures cleared on sign-out and on another account's sign-in. These run on a TV, since the off-TV interpreter has no registry. The owner tests now run in a data space of their own, so a TV's run can't clear the app's.
+
+**Measured.** Off-device only; the tester owns the stick.
+
+**Not here.** Soldier's stream itself fails at the join. The server copies the video, and the piece there is 18 MB holding 10 s where the playlist says 2 s, because the file's keyframes are 4 to 10 s apart. Whether an error on a copied stream should step down to the re-encoded 1080p rung waits on the tester's checks.
+
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.

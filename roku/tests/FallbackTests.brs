@@ -197,8 +197,32 @@ function NxRunFallbackTests() as Integer
     NxCheck(r, "starved card", NxFailureKind(0, 0, "", "starved", "capped"), "serverTooSlow")
     NxCheck(r, "starved outranks a refusal", NxFailureKind(500, -1, "http", "starved", "capped"), "serverTooSlow")
 
+    ' "finished" (NxFinishedAction). Soldier on CH 12: a server stream
+    ' joined part way errors, the ladder retries it (GuideView clears the
+    ' running attempt while the retry waits), and the player then says
+    ' "finished". That must hand over nothing.
+    server = NxFirstAttempt("server")
+    nxt = NxFallbackNext(server, "error")
+    running = false
+    if nxt = invalid then running = true
+    NxCheck(r, "finished after an error, retry pending: nothing", NxFinishedText({ attemptRunning: running, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: false }), "ignore 0")
+    ' The retry errors too: the card is up, the attempt gone.
+    NxCheck(r, "finished after the card: nothing", NxFinishedText({ attemptRunning: false, sawPlaying: false, unplayedEnds: 0, rung: "", probing: false }), "ignore 0")
+    NxCheck(r, "finished after a played start failed: nothing", NxFinishedText({ attemptRunning: false, sawPlaying: true, unplayedEnds: 0, rung: "", probing: false }), "ignore 0")
+    ' What it did before, unchanged.
+    NxCheck(r, "a played file ends: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: true, unplayedEnds: 0, rung: "server", probing: false }), "handover 0")
+    NxCheck(r, "a server stream ends unplayed: ask the server", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: false }), "probe 1")
+    NxCheck(r, "a direct play ends unplayed: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "direct", probing: false }), "handover 1")
+    NxCheck(r, "ends unplayed while asking: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: true }), "handover 1")
+    NxCheck(r, "a second end without playing: an error", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 1, rung: "server", probing: false }), "error 2")
+
     print "fallback cases (upstream ladder): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
+end function
+
+function NxFinishedText(ctx as Object) as String
+    f = NxFinishedAction(ctx)
+    return f.action + " " + f.unplayedEnds.ToStr()
 end function
 
 function NxAttemptText(a as Dynamic) as String

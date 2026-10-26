@@ -35,6 +35,30 @@ function NxFallbackNext(attempt as Object, event as String) as Dynamic
     return { rung: "server", retry: true, fellBack: false }
 end function
 
+' What the player's "finished" means. ctx: attemptRunning (a start is
+' running: GuideView's m.attempt is set), sawPlaying (it reached
+' "playing"), unplayedEnds (ends without playing so far), rung and probing.
+' Returns { action, unplayedEnds }, action one of:
+'   "ignore": the start had already failed. Roku's player reports
+'     "finished" right after an error, while the retry waits or the card is
+'     up; that isn't the file's end, and handing over on it started the
+'     next film from its beginning, skipping the retry, the card and the
+'     count (CH 12, Soldier, a server stream joined 54 minutes in).
+'   "error": a second end in a row without playing is a failed start.
+'   "probe": a server stream that ended without playing: ask the server
+'     first, as a file gone from disk ends this way too.
+'   "handover": the file ended; the next airing (upstream's
+'     AVPlayerItemDidPlayToEndTime).
+function NxFinishedAction(ctx as Object) as Object
+    ends = ctx.unplayedEnds
+    if ctx.attemptRunning <> true then return { action: "ignore", unplayedEnds: ends }
+    if ctx.sawPlaying = true then return { action: "handover", unplayedEnds: ends }
+    ends = ends + 1
+    if ends >= 2 then return { action: "error", unplayedEnds: ends }
+    if NxToStr(ctx.rung) <> "direct" and ctx.probing <> true then return { action: "probe", unplayedEnds: ends }
+    return { action: "handover", unplayedEnds: ends }
+end function
+
 ' Seconds a start has to show a picture (PlaybackWatchdog.deadlineSeconds).
 ' A 4K source the server re-encodes needs its transcoder spun up, a seek and a
 ' first segment. Width as well as height: a 2.39:1 UHD frame is 3840 by 1606.

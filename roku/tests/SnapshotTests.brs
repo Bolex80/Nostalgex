@@ -96,6 +96,27 @@ function NxRunSnapshotTests() as Integer
     NxSnapshotClear(dir)
     NxSnapCheck(r, "cleared", ListDir("tmp:/").Count() > 0 and NxHasValue(ListDir("tmp:/"), "nx-snapshot-test"), false)
 
+    ' Clearing an account's caches also clears the stored playback failures
+    ' (registry "player"), so from here on the tests keep to a data space of
+    ' their own: a run on a TV must not touch the app's.
+    g = GetGlobalAA()
+    keepSpace = g.nxDataSpace
+    keepMade = g.nxCacheRootMade
+    g.nxDataSpace = "nxunittest"
+    g.nxCacheRootMade = invalid
+
+    ' ── The last playback failures go with the sign-in ──
+    ' The registry is the TV's only: these run in deploy.sh --test.
+    if NxTestRuntime() = "device" then
+        NxRecordPlaybackVerdict("Jellyfin: test failure")
+        NxSnapCheck(r, "verdicts: recorded", NxLastPlaybackVerdict(), "Jellyfin: test failure")
+        NxClearAccountCaches()
+        NxSnapCheck(r, "verdicts: a sign-out clears them", NxLastPlaybackVerdict(), "")
+        NxRecordPlaybackVerdict("Jellyfin: test failure")
+        NxClearPlaybackVerdicts()
+        NxSnapCheck(r, "verdicts: cleared on their own", NxLastPlaybackVerdict(), "")
+    end if
+
     ' ── Whose caches (NxClaimAccountCaches) ──
     ' roEVPDigest and roFileSystem are the TV's only: these run in deploy.sh --test.
     if NxTestRuntime() = "device" then
@@ -106,9 +127,13 @@ function NxRunSnapshotTests() as Integer
         NxSnapCheck(r, "owner: saved sign-in, none recorded, keeps", NxClaimAccountCaches("uuid-a", false, root), false)
         NxSnapCheck(r, "owner: ...and the guide stays", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", true)
         NxSnapCheck(r, "owner: ...and records the account", ReadAsciiFile(NxCacheOwnerPath(root)), NxCacheOwnerHash("uuid-a"))
+        NxRecordPlaybackVerdict("Jellyfin: test failure")
         NxSnapCheck(r, "owner: fresh, same account, keeps", NxClaimAccountCaches("uuid-a", true, root), false)
+        NxSnapCheck(r, "owner: ...and its playback failures", NxLastPlaybackVerdict(), "Jellyfin: test failure")
         NxSnapCheck(r, "owner: ...and the guide stays", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", true)
+        NxRecordPlaybackVerdict("Jellyfin: test failure")
         NxSnapCheck(r, "owner: saved sign-in, another account, keeps", NxClaimAccountCaches("uuid-b", false, root), false)
+        NxSnapCheck(r, "owner: ...but the last account's playback failures go", NxLastPlaybackVerdict(), "")
         NxSnapCheck(r, "owner: ...and records that account", ReadAsciiFile(NxCacheOwnerPath(root)), NxCacheOwnerHash("uuid-b"))
         NxSnapCheck(r, "owner: fresh, another account, clears", NxClaimAccountCaches("uuid-a", true, root), true)
         NxSnapCheck(r, "owner: ...the guide is gone", ReadAsciiFile(root + "/nostalgex-guide.json") <> "", false)
@@ -120,6 +145,11 @@ function NxRunSnapshotTests() as Integer
         NxClearAccountCaches(root)
         DeleteDirectory(root)
     end if
+
+    if NxTestRuntime() = "device" then CreateObject("roRegistry").Delete("nxunittest-player")
+    DeleteDirectory("cachefs:/nxunittest")
+    g.nxDataSpace = keepSpace
+    g.nxCacheRootMade = keepMade
 
     print "snapshot cases: "; r.pass; " passed,"; r.fail; " failed"
     return r.fail

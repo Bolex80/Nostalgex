@@ -217,6 +217,19 @@ sub NxClearAccountCaches(root = "" as String)
     DeleteFile(root + "/nostalgex-pools.json")
     DeleteFile(root + "/nostalgex-enrichment.json")
     DeleteFile(NxCacheOwnerPath(root))
+    NxClearPlaybackVerdicts()
+end sub
+
+' The last playback failures Settings shows under RESCAN LIBRARY
+' (NxRecordPlaybackVerdict, source/util/RescanInfo.brs) were another
+' server's after a sign-out or a sign-in elsewhere: Jellyfin's stayed on
+' screen once signed in to Emby.
+sub NxClearPlaybackVerdicts()
+    reg = NxRegSection("player")
+    ' The off-TV interpreter has no registry.
+    if reg = invalid then return
+    reg.Delete("verdicts")
+    reg.Flush()
 end sub
 
 ' After a sign-in: a fresh one (no saved token, as after reinstalling)
@@ -229,6 +242,9 @@ function NxClaimAccountCaches(accountID as String, fresh as Boolean, root = "" a
     saved = ""
     if CreateObject("roFileSystem").Exists(NxCacheOwnerPath(root)) then saved = ReadAsciiFile(NxCacheOwnerPath(root))
     if saved = owner then return false
+    ' Another account or server: its playback failures go, whether or not
+    ' its caches do.
+    NxClearPlaybackVerdicts()
     cleared = false
     if fresh then
         NxClearAccountCaches(root)
