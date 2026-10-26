@@ -50,7 +50,7 @@ function NxBundlesWithContent(bundles as Object, candidates as Object, channels 
 end function
 
 sub NxSaveEnabledBundles(ids as Object)
-    reg = CreateObject("roRegistrySection", "guide")
+    reg = NxRegSection("guide")
     reg.Write("bundles", FormatJson(ids))
     reg.Flush()
 end sub
