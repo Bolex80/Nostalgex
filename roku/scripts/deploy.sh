@@ -115,7 +115,9 @@ for host in $ROKU_HOSTS; do
         sleep 1
     done
     kill "$listener" 2>/dev/null || true
-    fresh | grep -E '^FAIL|^    (want|got)| vectors | took |filter: |TESTS|^LIVE |Micro Debugger|runtime error' | sed "s/^/$host: /" || true
+    # -a: the console carries the odd binary byte, and grep would print only
+    # "Binary file matches" in place of the lines.
+    fresh | grep -aE '^FAIL|^    (want|got)| vectors | cases| took |filter: |TESTS|^LIVE |Micro Debugger|runtime error' | sed "s/^/$host: /" || true
     if ! fresh | grep -qE 'ALL TESTS PASSED|LIVE DONE'; then
         echo "$host: tests did not pass — full console in $log" >&2
         failed=1
