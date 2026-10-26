@@ -27,6 +27,23 @@ function NxRunVersionTests() as Integer
         NxCheck(r, "test data: snapshot dir", NxSnapshotDir(), "cachefs:/nxtest/nostalgex-library")
         NxCheck(r, "test data: VERSION line says so", (Instr(1, NxVersionLabel(), "TEST DATA") > 0).ToStr(), "true")
     end if
+    ' A test build's SIGN OUT: NxClearAccountCaches on the render thread,
+    ' where roFileSystem isn't available, as it isn't in this interpreter.
+    ' With the test data space it must clear without one (it crashed).
+    g = GetGlobalAA()
+    keepSpace = g.nxDataSpace
+    keepMade = g.nxCacheRootMade
+    g.nxDataSpace = "nxtest"
+    g.nxCacheRootMade = invalid
+    NxCheck(r, "test data sign-out: cache root", NxCacheRoot(), "cachefs:/nxtest")
+    WriteAsciiFile("cachefs:/nxtest/nostalgex-guide.json", "{}")
+    NxClearAccountCaches()
+    NxCheck(r, "test data sign-out: clears its own guide", NxHasValue(ListDir("cachefs:/nxtest"), "nostalgex-guide.json").ToStr(), "false")
+    NxCheck(r, "test data sign-out: snapshot dir", NxSnapshotDir(), "cachefs:/nxtest/nostalgex-library")
+    DeleteDirectory("cachefs:/nxtest")
+    g.nxDataSpace = keepSpace
+    g.nxCacheRootMade = keepMade
+
     ' What a manifest value gives.
     NxCheck(r, "space: none", NxDataSpaceFrom(invalid), "")
     NxCheck(r, "space: empty", NxDataSpaceFrom(""), "")

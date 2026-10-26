@@ -44,6 +44,12 @@ if [ -n "$direct" ]; then
     echo "$direct" >&2
     exit 1
 fi
+# SIGN OUT reaches NxCacheRoot on the render thread, where roFileSystem
+# isn't available: Values.brs must do without it.
+if grep -n 'roFileSystem' source/util/Values.brs | grep -v ":\s*'"; then
+    echo "FAIL source/util/Values.brs uses roFileSystem, which the render thread can't create" >&2
+    exit 1
+fi
 
 # `m` is BrightScript's implicit this: a variable of that name silently holds
 # the component's AA instead. It has cost three debugging rounds; fail fast.

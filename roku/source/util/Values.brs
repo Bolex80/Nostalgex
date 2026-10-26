@@ -116,13 +116,20 @@ function NxRegName(name as String, space as String) as String
 end function
 
 ' The cachefs: folder this build keeps its files in: cachefs: itself for a
-' release, cachefs:/<space> for a test build (made when first asked for).
+' release, cachefs:/<space> for a test build (made when first asked for,
+' once per thread). The global CreateDirectory, not roFileSystem: SIGN OUT
+' clears the caches on the render thread, where CreateObject("roFileSystem")
+' gives invalid (a test build crashed there). It returns false for a folder
+' that is already there, which is fine.
 function NxCacheRoot() as String
     space = NxDataSpace()
     if space = "" then return "cachefs:"
     root = NxCacheRootFor("cachefs:", space)
-    fs = CreateObject("roFileSystem")
-    if not fs.Exists(root) then fs.CreateDirectory(root)
+    g = GetGlobalAA()
+    if g.nxCacheRootMade <> root then
+        CreateDirectory(root)
+        g.nxCacheRootMade = root
+    end if
     return root
 end function
 

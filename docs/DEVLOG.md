@@ -25,6 +25,8 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Measured.** Off-device only: the stamp test fails on main (no `stamp-manifest.sh`) and passes here, and the whole suite passes one process at a time. Not on a TV yet: the tester owns the stick.
 
+**Fixed after the tester's run.** SIGN OUT crashed every test-data build on a Streaming Stick Plus (`'Dot' Operator attempted with invalid BrightScript Component`, `NxCacheRoot` from `NxClearAccountCaches`). Sign-out runs on the render thread, where `CreateObject("roFileSystem")` gives invalid. `NxCacheRoot` now makes its folder with the global `CreateDirectory`. A release never reached that line. `tests/VersionTests.brs` signs a test-data build out off the TV, where roFileSystem is missing too. It reproduces the crash on the old code and passes now. `tests/run.sh` fails if `Values.brs` uses roFileSystem.
+
 **Half-done.** Whether `cachefs:` is shared between the sideload and the store copy isn't measured; the change keeps them apart either way. The registry's per-key size limit is shared, and a test-data build adds its own few KB.
 
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
