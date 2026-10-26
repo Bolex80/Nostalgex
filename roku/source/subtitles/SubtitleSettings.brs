@@ -68,13 +68,13 @@ end function
 ' saved, "__system__" until chosen, as upstream's
 ' loadPreferredSubtitleLanguageInitial and loadPreferredAudioLanguageInitial.
 function NxSavedLanguage(key as String) as String
-    v = CreateObject("roRegistrySection", "player").Read(key)
+    v = NxRegSection("player").Read(key)
     if v = "" then return "__system__"
     return v
 end function
 
 sub NxSaveLanguage(key as String, code as String)
-    reg = CreateObject("roRegistrySection", "player")
+    reg = NxRegSection("player")
     reg.Write(key, code)
     reg.Flush()
 end sub
