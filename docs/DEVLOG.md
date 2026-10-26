@@ -3,6 +3,21 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: a TV left on keeps a current library)
+
+**Shipped.** Nothing until the PR for #67 lands on main. Branch `roku/daily-library-refresh`, off main `2a0d3d4`. For Roku 1.0.6.
+
+**Why.** A Roku left on for a day kept yesterday's library; it was read only at launch, on a server switch and from RESCAN LIBRARY (issue #67). The Apple TV checks every 15 minutes and refreshes once the library is 6 hours old.
+
+**Changed.**
+- `roku/source/util/DailyRefresh.brs`: upstream's `startDailyRefresh` rule. Every 15 minutes, once the last load (the one RESCAN LIBRARY's row reports) and the last check are both 6 hours old, the library is read again.
+- `roku/components/MainScene.brs`: the 15-minute timer, started with the first guide, runs that read behind the guide through #98's path (`startLibrary`), never while a load already runs. A Plex server whose library signature is unchanged and whose save is under a day old isn't scanned (`NxSnapshotFresh`), as upstream's `refreshLibraryIfChanged` skips up to its 24-hour cap. Jellyfin and Emby have no signature and are read, as upstream.
+- `roku/tests/DailyRefreshTests.brs`: 8 cases from upstream's constants.
+
+**Measured.** The cases fail without `DailyRefresh.brs` and pass with it. Full suite passes off the TV and on a Streaming Stick Plus; the build launches clean there against Emby.
+
+**Half-done.** The 6-hour refresh itself hasn't been watched on a TV.
+
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-virtual-channels-own-movies`.
