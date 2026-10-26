@@ -29,6 +29,14 @@ function NxRunSubtitleTests() as Integer
     NxCheck(r, "auto case", NxSubShouldAutoEnable(["EN"], "en").ToStr(), "false")
     NxCheck(r, "auto many foreign", NxSubShouldAutoEnable(["fr", "de", "ja"], "en").ToStr(), "true")
 
+    ' The settings' defaults (#64): AppState.swift reads FOREIGN AUDIO as on
+    ' until it is chosen, fullscreen subtitles as off.
+    NxCheck(r, "fresh install: foreign on", FormatJson(NxSubtitleSettingsFrom("", "").foreign), "true")
+    NxCheck(r, "fresh install: always off", FormatJson(NxSubtitleSettingsFrom("", "").always), "false")
+    NxCheck(r, "foreign chosen off is kept", FormatJson(NxSubtitleSettingsFrom("", "0").foreign), "false")
+    NxCheck(r, "foreign chosen on", FormatJson(NxSubtitleSettingsFrom("", "1").foreign), "true")
+    NxCheck(r, "always chosen on", FormatJson(NxSubtitleSettingsFrom("1", "").always), "true")
+
     print "subtitle cases (upstream SubtitleSelectionLogicTests): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

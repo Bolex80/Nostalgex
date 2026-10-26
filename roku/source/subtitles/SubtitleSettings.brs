@@ -3,17 +3,27 @@
 '
 ' Copyright (c) 2026 nostalgex-roku contributors, MIT License.
 
-' { always, foreign }: upstream's subtitlesInFullscreenEnabled and
-' autoSubtitlesForForeignAudioEnabled, both off by default as there.
+' { always, foreign }: upstream's subtitlesInFullscreenEnabled, off until
+' chosen, and autoSubtitlesForForeignAudioEnabled, on until chosen
+' (AppState.swift: `?? true`), so a fresh install reads FOREIGN AUDIO.
 function NxSubtitleSettings() as Object
     reg = CreateObject("roRegistrySection", "player")
-    return { always: reg.Read("subsAlways") = "1", foreign: reg.Read("subsForeign") = "1" }
+    return NxSubtitleSettingsFrom(reg.Read("subsAlways"), reg.Read("subsForeign"))
 end function
 
+' From the saved values, "" when never saved.
+function NxSubtitleSettingsFrom(always as String, foreign as String) as Object
+    return { always: always = "1", foreign: foreign <> "0" }
+end function
+
+' Only a flag that changed is written, as upstream writes one key per
+' setting: the CC toggle saves ALWAYS and leaves FOREIGN AUDIO unchosen, so
+' its default still applies.
 sub NxSaveSubtitleSettings(s as Object)
     reg = CreateObject("roRegistrySection", "player")
-    reg.Write("subsAlways", NxFlag(s.always))
-    reg.Write("subsForeign", NxFlag(s.foreign))
+    was = NxSubtitleSettings()
+    if s.always <> was.always then reg.Write("subsAlways", NxFlag(s.always))
+    if s.foreign <> was.foreign then reg.Write("subsForeign", NxFlag(s.foreign))
     reg.Flush()
 end sub
 
