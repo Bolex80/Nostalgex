@@ -63,6 +63,24 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Known.** A TV that ever pressed CC on 1.0.4 or earlier saved FOREIGN AUDIO as off and keeps it off; there's no migration. Beta notes: "Subtitles now turn on by themselves when a film's audio isn't in your language. If you ever pressed CC on an earlier beta, turn it on in Settings > SUBTITLES (FOREIGN AUDIO)."
 
+## 2026-10-25 (Roku: RESCAN LIBRARY in Settings)
+
+**Shipped.** Nothing until the PR for #66 lands on main. Branch `roku/rescan-library`, off main `954473b`.
+
+**Why.** A film added on the server didn't show on Roku until the app was relaunched, and nothing in the app said what it held (issue #66). The Apple TV has RESCAN LIBRARY under CONNECTION for both.
+
+**Changed.**
+- `components/SettingsView.*`: a RESCAN LIBRARY row after the servers. Its lines, as upstream's subtitle: what the app holds (`LibraryDiagnostics.summary`), "Last updated ... Pull a fresh copy of your Emby library after adding content", and the last playback failure (`PlaybackDiagnostics.latestForSettings`). UPDATING while any load runs, when OK does nothing, as upstream.
+- `components/MainScene.brs`, `GuideView.*`, `LibraryTask.*`: OK reads every server again behind the guide, as the launch refresh does, even one whose saved library is still fresh. The guide swaps only if the pools changed.
+- `source/util/RescanInfo.brs`, `source/util/PlaybackVerdict.brs`: the counts are kept with the sign-in after each load; a programme given up on leaves a verdict line in upstream's wording.
+- `tests/RescanTests.brs`: 37 cases from `LibraryDiagnosticsTests.swift` and `PlaybackFailure.diagnosticSummary`.
+
+**Measured.** Tests pass off-device and on a Streaming Stick Plus (OS 15.3.4). Pressed on the stick against Emby: 1,544 items read again in about 3 s, the guide on screen unchanged ("background refresh matches the saved guide"), the row UPDATING meanwhile.
+
+**Differences.** Upstream also clears its day schedules on a rescan; this keeps them, as the issue asks. Upstream's verdicts also log fallbacks; here only a programme given up on.
+
+**Next.** Rebase after tydude's nine merge (MainScene.brs and the test lists overlap).
+
 ## 2026-10-23 (web and Docker: START OVER while the library loads)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.8` from the same commit.
