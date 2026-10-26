@@ -133,7 +133,7 @@ The Apple TV app and the web tuner can report what you are watching back to your
 - Show Now Playing lets your server show what is playing.
 - Mark Watched counts a film or episode as watched when you join it in its first 15% and watch at least 75% of it.
 
-With both off, nothing is reported and nothing in your library changes. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched. On Jellyfin and Emby the app first reads the watch state your server already has and puts it back when the program ends; if it can't read it, it reports nothing for that program. When a switch is on, the reports go only to the server you connected. They do not come to us. If you have turned on iCloud sync on your Apple TVs, the two switches are shared between them through your iCloud account.
+With both off, nothing is reported and nothing in your library changes. Channel surfing never fills your Continue Watching row. On Plex the reports carry no position, so nothing is left half watched. On Jellyfin and Emby the app first reads the watch state your server already has and puts it back when the program ends, except that a watch Mark Watched counts stays counted; if it can't read it, it reports nothing for that program. When a switch is on, the reports go only to the server you connected. They do not come to us. If you have turned on iCloud sync on your Apple TVs, the two switches are shared between them through your iCloud account.
 
 ## The Roku app
 
