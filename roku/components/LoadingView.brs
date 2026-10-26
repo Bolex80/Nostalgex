@@ -2,10 +2,12 @@
 '
 ' Upstream's LoadingView with its step rail. The steps are LibraryLoadPhase's
 ' (App/LibraryLoadPhase.swift), titles, headlines and hints as upstream has
-' them. Two differences: Collections is always a step, since the Roku reads
+' them. Three differences: Collections is always a step, since the Roku reads
 ' a server's collections on every scan, not only for a collection package;
-' and while channels build, the headline stays BUILDING CHANNELS rather than
-' naming each channel.
+' while channels build, the headline stays BUILDING CHANNELS rather than
+' naming each channel; and the library step's headline names the kind of
+' server (scanHeadline, from MainScene) where upstream's says CONNECTING TO
+' it and then each section.
 
 sub init()
     m.fonts = {}
@@ -145,6 +147,7 @@ sub render()
     renderRail(g, y, current)
     y = y + 56 + gap
     m.headlineText = st.headline
+    if st.id = "library" and m.top.scanHeadline <> "" then m.headlineText = m.top.scanHeadline
     m.headline = centred(m.headlineText + m.dots, "DMMono-Medium", 32, m.cyan + "FF", y)
     g.AppendChild(m.headline)
     y = y + 42 + gap
