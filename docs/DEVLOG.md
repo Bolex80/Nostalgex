@@ -49,6 +49,20 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Half-done.** A Plex poster hasn't been seen on a TV: the stick stays signed in to Emby. tydude was asked to check it on his.
 
+## 2026-10-25 (Roku: SUBTITLES reads FOREIGN AUDIO until chosen)
+
+**Shipped.** Nothing until the PR for #64 lands on main. Branch `roku/foreign-audio-default`, off main `954473b`.
+
+**Why.** A foreign-language film had no subtitles on Roku until the viewer found the setting (issue #64). The Apple TV's `autoSubtitlesForForeignAudioEnabled` defaults to true.
+
+**Changed.**
+- `source/subtitles/SubtitleSettings.brs`: FOREIGN AUDIO is on until chosen; a saved choice is kept. Only a setting that changed is written, as upstream writes one key per setting, so the CC toggle no longer saves FOREIGN AUDIO as off.
+- `tests/SubtitleTests.brs`: 5 cases for the defaults.
+
+**Measured.** 24 subtitle cases pass off-device and on a Streaming Stick Plus. Settings on the stick, with nothing saved, reads FOREIGN AUDIO.
+
+**Known.** A TV that ever pressed CC on 1.0.4 or earlier saved FOREIGN AUDIO as off and keeps it off; there's no migration. Beta notes: "Subtitles now turn on by themselves when a film's audio isn't in your language. If you ever pressed CC on an earlier beta, turn it on in Settings > SUBTITLES (FOREIGN AUDIO)."
+
 ## 2026-10-23 (web and Docker: START OVER while the library loads)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.8` from the same commit.
