@@ -109,7 +109,11 @@ curl -d '' "http://<tv>:8060/input?contentId=item%3A50929&mediaType=movie"
   programme you tuned into in its first 15% and watched 75% of counts as
   watched. A programme the guide played is never left in Continue Watching
   (Plex) or Resume (Jellyfin, Emby): Jellyfin and Emby get their watch state
-  put back when it ends.
+  put back when it ends. Leaving the app with Back waits up to 4 seconds for
+  the last stop and that cleanup, so on a slow server, or while Plex's
+  next-up cleanup looks for the new entry (up to three lookups, a second
+  apart), the cleanup can be cut short. A crash leaves the same state, as on
+  the Apple TV.
 - **The saved guide** (`cachefs:`) holds titles and schedules, and the saved
   pools the library items each channel draws on. Both are deleted on
   sign-out.
