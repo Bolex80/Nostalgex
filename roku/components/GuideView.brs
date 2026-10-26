@@ -825,7 +825,10 @@ sub startTune(idx as Integer)
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat
     m.tuneRoute = stream.route
+    ' The Jellyfin/Emby pick on a direct play; on every other stream, AUDIO
+    ' LANGUAGE among the tracks the player lists (issue #62).
     m.tuneAudio = stream.audioTrack
+    if m.tuneAudio = invalid then m.tuneAudio = { language: NxAudioPreferredLanguage(), byLanguage: true }
     m.deadlineTimer.duration = NxPictureDeadline(m.attempt.rung, b.videoWidth, b.videoHeight)
     m.deadlineTimer.control = "start"
     ' Each start watched afresh, so an old stream's stalls never count here.
@@ -1325,15 +1328,20 @@ sub onAudioTracks()
     refreshNowPlaying()
 end sub
 
-' A direct play selects the audio track the stream picked
-' (NxMbPreferredAudioIndex), once the player lists the file's tracks; the
-' server stream already carries only that one. Once per start, so a track
-' the viewer chooses in Now Playing stays chosen.
+' A Jellyfin or Emby direct play selects the audio track the stream picked
+' (NxMbAudioPick), once the player lists the file's tracks; their server
+' stream already carries only that one. Any other stream takes the first
+' track in AUDIO LANGUAGE, as upstream's applyAudioTrackSelection. Once per
+' start, so a track the viewer chooses in Now Playing stays chosen.
 sub applyAudioPick()
     if m.tuneAudio = invalid then return
     tracks = NxList(m.video.availableAudioTracks)
     if tracks.Count() = 0 then return
-    track = NxAudioTrackToSelect(tracks, m.tuneAudio)
+    if m.tuneAudio.byLanguage = true then
+        track = NxAudioTrackForLanguage(tracks, m.tuneAudio.language)
+    else
+        track = NxAudioTrackToSelect(tracks, m.tuneAudio)
+    end if
     listed = []
     for each a in tracks
         listed.Push(NxToStr(a.Track) + "=" + NxToStr(a.Language))
@@ -1347,14 +1355,16 @@ end sub
 
 ' Upstream's applySubtitleSelection: shown in fullscreen only, never over the
 ' guide; always when SUBTITLES is ALWAYS, and with FOREIGN AUDIO only when no
-' audio track is in the TV's language and the subtitles are. Upstream also
-' shows forced subtitles when they're off; Roku doesn't say which are forced.
+' audio track is in AUDIO LANGUAGE and the subtitles are in SUBTITLE
+' LANGUAGE. Upstream also shows forced subtitles when they're off; Roku
+' doesn't say which are forced.
 sub applySubtitles()
     tracks = NxList(m.video.availableSubtitleTracks)
     m.hasSubs = tracks.Count() > 0
     show = false
     if m.fullscreen and m.hasSubs then
         want = NxSubPreferredLanguage()
+        wantAudio = NxAudioPreferredLanguage()
         tags = []
         for each t in tracks
             tags.Push(NxSubComparableTag(t.Language))
@@ -1368,7 +1378,7 @@ sub applySubtitles()
                 audio.Push(NxSubComparableTag(a.Language))
             end for
             ' Wrong-language subtitles are worse than none, as upstream says.
-            if NxSubShouldAutoEnable(audio, want) and tags[idx] <> invalid then
+            if NxSubShouldAutoEnable(audio, wantAudio) and tags[idx] <> invalid then
                 show = NxSubMatches(tags[idx], want)
             end if
         end if

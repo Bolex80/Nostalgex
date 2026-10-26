@@ -154,6 +154,33 @@ function NxMbPreferredAudioIndex(tracks as Object, languages as Object) as Dynam
     return tracks[0].index
 end function
 
+' AUDIO LANGUAGE first (issue #62): a track in one of `languages`, most
+' channels first, before NxMbPreferredAudioIndex, whose English is always
+' wanted too. Otherwise a German viewer would get an English 5.1 mix over
+' the German stereo one. With nothing in `languages`, upstream's order. A
+' track's code is read as the subtitle code reads it (NxSubComparableTag),
+' since the first two letters of "ger" aren't "de".
+function NxMbChosenAudioIndex(tracks as Object, languages as Object) as Dynamic
+    if tracks.Count() < 2 then return invalid
+    wanted = {}
+    for each l in languages
+        if NxIsString(l) and l <> "" then wanted[LCase(l)] = true
+    end for
+    best = invalid
+    for each t in tracks
+        tag = NxSubComparableTag(t.language)
+        if tag <> invalid and wanted.DoesExist(Left(tag, 2)) then
+            if best = invalid then
+                best = t
+            else if NxNumberOr0(t.channels) > NxNumberOr0(best.channels) then
+                best = t
+            end if
+        end if
+    end for
+    if best <> invalid then return best.index
+    return NxMbPreferredAudioIndex(tracks, languages)
+end function
+
 ' The airing's audio pick: { index, position, language, count, airing }.
 ' index is the track's stream index for AudioStreamIndex, position its place
 ' among the file's `count` audio tracks and language its tag, all invalid
@@ -162,7 +189,7 @@ end function
 ' on that track and not the first.
 function NxMbAudioPick(b as Object, languages as Object) as Object
     tracks = NxList(b.audioTracks)
-    out = { index: NxMbPreferredAudioIndex(tracks, languages), position: invalid, language: invalid, count: invalid, airing: b }
+    out = { index: NxMbChosenAudioIndex(tracks, languages), position: invalid, language: invalid, count: invalid, airing: b }
     if out.index = invalid then return out
     for i = 0 to tracks.Count() - 1
         if tracks[i].index = out.index then out.position = i
@@ -195,13 +222,11 @@ function NxAudioTrackToSelect(listed as Object, want as Dynamic) as Dynamic
     return invalid
 end function
 
-' The viewer's languages for NxMbPreferredAudioIndex: the TV's own, the one
-' the subtitle code reads, as upstream reads the device's. English is always
-' added there.
+' The viewer's languages for NxMbAudioPick: AUDIO LANGUAGE, the TV's own
+' until chosen (upstream reads the device's here). English is always added
+' after it (NxMbPreferredAudioIndex).
 function NxMbViewerLanguages() as Object
-    primary = NxSubPrimary(CreateObject("roDeviceInfo").GetCurrentLocale())
-    if primary = invalid then return []
-    return [primary]
+    return [NxAudioPreferredLanguage()]
 end function
 
 ' The video part of the server stream's request. The Apple TV's Auto

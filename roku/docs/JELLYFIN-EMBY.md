@@ -331,7 +331,10 @@ dub: O Brother, Where Art Thou? came through in Portuguese. As the Apple
 TV's `JellyfinPlaybackResolver.preferredAudioIndex` does, a file with more
 than one audio track gets a track in the TV's language or English, most
 channels first, then the default, then the first (`NxMbPreferredAudioIndex`
-in `MediaBrowserPlayback.brs`). The scan keeps those files' tracks
+in `MediaBrowserPlayback.brs`). Since #62 the language is Settings > AUDIO
+LANGUAGE, the TV's until chosen, and a track in it comes before English
+(`NxMbChosenAudioIndex`): a German viewer gets the German stereo track over
+an English 5.1 one, where upstream's order, which wants both, takes the 5.1. The scan keeps those files' tracks
 (`NxMbAudioTracks`; one-track files keep nothing extra). The server stream
 asks for the pick with `AudioStreamIndex`, and direct play is decided on the
 picked track's codec, so an English Opus track behind a dubbed AAC default

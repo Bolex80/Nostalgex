@@ -37,6 +37,25 @@ function NxRunSubtitleTests() as Integer
     NxCheck(r, "foreign chosen on", FormatJson(NxSubtitleSettingsFrom("", "1").foreign), "true")
     NxCheck(r, "always chosen on", FormatJson(NxSubtitleSettingsFrom("1", "").always), "true")
 
+    ' SUBTITLE and AUDIO LANGUAGE (#62): upstream's presets, and a choice
+    ' reduced to its language, as tracks here carry none of the region.
+    presets = NxLanguagePresets()
+    NxCheck(r, "presets: fifteen languages and the device", presets.Count().ToStr(), "16")
+    NxCheck(r, "presets: the device first", presets[0].code + "=" + presets[0].label, "__system__=MATCH ROKU LANGUAGE")
+    NxCheck(r, "label of a preset", NxLanguageLabel("pt-BR"), "PORTUGUESE (BRAZIL)")
+    NxCheck(r, "label of an unknown code", NxLanguageLabel("fi"), "FI")
+    NxCheck(r, "preferred: the device", NxPreferredLanguageFrom("__system__", "fr_CA"), "fr")
+    NxCheck(r, "preferred: a choice beats the device", NxPreferredLanguageFrom("de", "en_US"), "de")
+    NxCheck(r, "preferred: region dropped", NxPreferredLanguageFrom("pt-BR", "en_US"), "pt")
+    NxCheck(r, "preferred: script dropped", NxPreferredLanguageFrom("zh-Hant", "en_US"), "zh")
+    NxCheck(r, "preferred: no locale is english", NxPreferredLanguageFrom("__system__", ""), "en")
+    listed = [{ Track: "a1", Language: "eng" }, { Track: "a2", Language: "ger" }, { Track: "a3", Language: "deu" }]
+    NxCheck(r, "audio track: the first in the language", NxToStr(NxAudioTrackForLanguage(listed, "de")), "a2")
+    NxCheck(r, "audio track: english", NxToStr(NxAudioTrackForLanguage(listed, "en")), "a1")
+    NxCheck(r, "audio track: none leaves the player's", NxToStr(NxAudioTrackForLanguage(listed, "ja") = invalid), "true")
+    NxCheck(r, "audio track: portuguese (brazil) takes por", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "eng" }, { Track: "y", Language: "por" }], NxPreferredLanguageFrom("pt-BR", "en_US"))), "y")
+    NxCheck(r, "audio track: untagged never matches", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "" }, { Track: "y" }], "en") = invalid), "true")
+
     print "subtitle cases (upstream SubtitleSelectionLogicTests): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

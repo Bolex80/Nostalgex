@@ -193,6 +193,17 @@ function NxRunAudioPickTests() as Integer
     NxCheck(r, "the first of equals", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "por", 6, invalid, true), NxMbTrack(2, "eng", 6, invalid, false), NxMbTrack(3, "en", 6, invalid, false)], ["en"])), "2")
     NxCheck(r, "an untagged track never matches", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, invalid, 6, invalid, false), NxMbTrack(2, "", 6, invalid, true)], ["en"])), "2")
 
+    ' AUDIO LANGUAGE first (#62), then upstream's order with English.
+    deStereo = [NxMbTrack(1, "eng", 6, invalid, true), NxMbTrack(2, "ger", 2, invalid, false)]
+    NxCheck(r, "language: german stereo beats an english 5.1 default", NxToStr(NxMbChosenAudioIndex(deStereo, ["de"])), "2")
+    NxCheck(r, "language: upstream's order would take the 5.1", NxToStr(NxMbPreferredAudioIndex(deStereo, ["de"])), "1")
+    NxCheck(r, "language: most channels within it", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "fre", 2, invalid, true), NxMbTrack(2, "eng", 6, invalid, false), NxMbTrack(3, "fra", 6, invalid, false)], ["fr"])), "3")
+    NxCheck(r, "language: none in it falls back to english", NxToStr(NxMbChosenAudioIndex(joeDirt, ["ja"])), "2")
+    NxCheck(r, "language: none in it and no english, the default", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "jpn", 2, invalid, false), NxMbTrack(2, "kor", 2, invalid, true)], ["de"])), "2")
+    NxCheck(r, "language: english is upstream's order", NxToStr(NxMbChosenAudioIndex(joeDirt, ["en"])), NxToStr(NxMbPreferredAudioIndex(joeDirt, ["en"])))
+    NxCheck(r, "language: one track is left to the server", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "ger", 2, invalid, false)], ["de"]) = invalid), "true")
+    NxCheck(r, "language: the pick follows it", NxToStr(NxMbAudioPick({ audioTracks: deStereo }, ["de"]).index), "2")
+
     ' Issue #78: O Brother, Where Art Thou?, Portuguese E-AC-3 5.1 the
     ' default ahead of English E-AC-3 5.1.
     oBrother = { audioCodec: "eac3", audioChannels: 6, container: "mkv", audioTracks: [NxMbTrack(1, "por", 6, "eac3", true), NxMbTrack(2, "eng", 6, "eac3", false)] }
