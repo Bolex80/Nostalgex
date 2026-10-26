@@ -1613,6 +1613,10 @@ sub positionHaze()
     bg = m.top.FindNode("hazeBg")
     snow = m.top.FindNode("snow")
     txt = m.top.FindNode("hazeText")
+    ' RETRO MODE off sets the text at 24 pt, 33 px tall to 26 pt's 36: down
+    ' 1.5 keeps its centre.
+    dy = 0
+    if not m.retro then dy = 1.5
     if m.fullscreen then
         bg.translation = [0, 0]
         bg.width = 1920
@@ -1620,7 +1624,7 @@ sub positionHaze()
         snow.translation = [0, 0]
         snow.width = 1920
         snow.height = 1080
-        txt.translation = [0, 520]
+        txt.translation = [0, 520 + dy]
         txt.width = 1920
     else
         bg.translation = [1180, 0]
@@ -1629,7 +1633,7 @@ sub positionHaze()
         snow.translation = [1180, 0]
         snow.width = 740
         snow.height = 556
-        txt.translation = [1180, 261]
+        txt.translation = [1180, 261 + dy]
         txt.width = 740
     end if
 end sub
@@ -1642,16 +1646,26 @@ sub armHaze()
 end sub
 
 ' The haze fades in over 0.35 s; its snow starts at 32% and settles to 14%
-' after 0.9 s, as StaticScreenView's.
+' after 0.9 s, as StaticScreenView's. With RETRO MODE off it is the plain
+' card instead (tuningOverlay in PlayerView and VideoAreaView): black, the
+' text at 24 pt and 35%, no snow.
 sub onHazeTimer()
     if m.video.state = "playing" or m.tuned < 0 then return
     m.top.FindNode("hazeText").text = "TUNING · CH " + m.channels[m.tuned].number.ToStr()
+    if m.retro then
+        styleLabel("hazeText", "DMMono-Medium", 26, "0xFFFFFF6B")
+    else
+        styleLabel("hazeText", "DMMono-Medium", 24, "0xFFFFFF59")
+    end if
     positionHaze()
     haze = m.top.FindNode("haze")
     haze.opacity = 0
     haze.visible = true
-    m.top.FindNode("snow").opacity = 0.32
+    snow = m.top.FindNode("snow")
+    snow.visible = m.retro
     m.top.FindNode("hazeIn").control = "start"
+    if not m.retro then return
+    snow.opacity = 0.32
     m.snowTimer.control = "start"
     if m.settleTimer = invalid then m.settleTimer = newTimer(0.9, false, "onSnowSettle")
     m.settleTimer.control = "start"
