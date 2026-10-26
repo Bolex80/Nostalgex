@@ -473,6 +473,28 @@ sub loadLibrary()
         end if
     end if
     if built = invalid then built = buildGuide(items, config, manifest, collections, shown, reuse)
+    ' A library the switched-on packages fill no channel from (a first run is
+    ' NOSTALGEX only): every other package with content is switched on and
+    ' kept as the viewer's choice, as upstream's autoEnableBundlesWithContent
+    ' (#60), so the guide isn't empty.
+    if NxList(built.guide.channels).Count() = 0 then
+        enabled = NxEnabledBundles()
+        extra = NxAutoEnableCandidates(config.bundles, enabled)
+        if extra.Count() > 0 then
+            trial = []
+            trial.Append(enabled)
+            trial.Append(extra)
+            NxSaveEnabledBundles(trial)
+            built = buildGuide(items, config, manifest, collections, shown)
+            keep = NxBundlesWithContent(config.bundles, extra, built.channels)
+            final = []
+            final.Append(enabled)
+            final.Append(keep)
+            NxSaveEnabledBundles(final)
+            print "library: no channel from the packages on; switched on "; FormatJson(keep)
+            if keep.Count() < extra.Count() then built = buildGuide(items, config, manifest, collections, shown)
+        end if
+    end if
     timer.Mark()
     for each s in scanned
         NxSnapshotSaveServer(snapDir, snap, s.key, items, s.index, s.collections, s.signature, nowSec&)

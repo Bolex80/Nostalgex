@@ -156,7 +156,8 @@ sub onGuide()
     ' Nothing reads a channel while the list is empty (#93).
     if m.channels = invalid then m.channels = []
     if m.channels.Count() = 0 then
-        m.top.FindNode("notice").text = "NO CHANNELS AVAILABLE"
+        ' Upstream's NO CHANNELS FOUND, with OK for its OPEN SETTINGS (#60).
+        m.top.FindNode("notice").text = "NO CHANNELS FOUND" + Chr(10) + "Your library didn't have enough content to fill any channels. Open Settings to see which packages your library supports." + Chr(10) + Chr(10) + "OK  OPEN SETTINGS"
         keepFocusVisible()
         renderGrid()
         return
@@ -2181,7 +2182,11 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     ' With no channel there is nothing to tune or fill the screen with.
-    if m.channels.Count() = 0 and (key = "OK" or key = "play" or key = "back") then return key <> "back"
+    if m.channels.Count() = 0 and key = "OK" then
+        openSettings()
+        return true
+    end if
+    if m.channels.Count() = 0 and (key = "play" or key = "back") then return key <> "back"
     if key = "OK" then
         ' A channel the sleep timer stopped starts again, and one that
         ' stopped trying tries again.
