@@ -71,6 +71,7 @@ sub Main(args = invalid as Dynamic)
     if NxTestWants("signin-flow") then failures = failures + NxRunSignInFlowTests()
     if NxTestWants("qr") then failures = failures + NxRunQrTests("pkg:/tests/vectors/qr.json", NxTestShard())
     if NxTestWants("version") then failures = failures + NxRunVersionTests()
+    if NxTestWants("plex-audio") then failures = failures + NxRunPlexAudioTests()
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
 
