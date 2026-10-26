@@ -34,6 +34,19 @@ function NxRunDolbyVisionTests(fixturePath as String) as Integer
     emby = { MediaSources: [{ Id: "e1", MediaStreams: [{ Type: "Video", Codec: "hevc", ExtendedVideoSubType: "DoviProfile81" }] }] }
     NxCheck(r, "emby: ExtendedVideoSubType still wins", NxToStr(NxMbMediaInfo(emby).doviProfile), "8")
 
+    ' The extra listing request only where the profile is read.
+    asks = { n: 0 }
+    asks.get = function(key as String, kind as String) as Object
+        m.n = m.n + 1
+        return { "7": 5 }
+    end function
+    out = [{ ratingKey: "6" }, { ratingKey: "7" }]
+    NxCheck(r, "Dolby Vision display: no request", FormatJson(NxPlexStampDovi(out, 0, "2", "movie", true, asks)) + " " + asks.n.ToStr(), "false 0")
+    NxCheck(r, "Dolby Vision display: no profile set", FormatJson(out[1].DoesExist("doviProfile")), "false")
+    NxCheck(r, "no Dolby Vision: one request", FormatJson(NxPlexStampDovi(out, 0, "2", "movie", false, asks)) + " " + asks.n.ToStr(), "true 1")
+    NxCheck(r, "no Dolby Vision: profile set", NxToStr(out[1].doviProfile) + "/" + FormatJson(out[0].DoesExist("doviProfile")), "5/false")
+    NxCheck(r, "an empty section: no request", FormatJson(NxPlexStampDovi(out, 2, "2", "movie", false, asks)) + " " + asks.n.ToStr(), "false 1")
+
     print "dolby vision cases (#69): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function

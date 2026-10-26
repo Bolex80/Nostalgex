@@ -210,19 +210,30 @@ function NxPlexScanServer(server as Object, serverIndex as Integer, progress = i
                     progress.bar = -1
                 end if
             end if
-            if out.Count() > sectionStart and not NxLoadStopped() then
-                profiles = NxPlexDoviProfiles(server, NxToStr(section.key), NxToStr(section.type))
-                if profiles.Count() > 0 then
-                    for i = sectionStart to out.Count() - 1
-                        p = profiles[NxToStr(out[i].ratingKey)]
-                        if p <> invalid then out[i].doviProfile = p
-                    end for
-                end if
-            end if
+            if not NxLoadStopped() then NxPlexStampDovi(out, sectionStart, NxToStr(section.key), NxToStr(section.type), NxDisplayShowsDolbyVision(), { server: server, get: function(key as String, kind as String) as Object
+                return NxPlexDoviProfiles(m.server, key, kind)
+            end function })
         end if
         if NxLoadStopped() then exit for
     end for
     return out
+end function
+
+' Sets doviProfile on a section's items (out[start] onwards) from one more
+' request (profiles.get(sectionKey, sectionType), NxPlexDoviProfiles). Only
+' a display that can't show Dolby Vision reads the profile
+' (NxLeftOffForDisplay), so one that can makes no request. Returns whether
+' it asked.
+function NxPlexStampDovi(out as Object, start as Integer, sectionKey as String, sectionType as String, displayDolbyVision as Boolean, profiles as Object) as Boolean
+    if displayDolbyVision or out.Count() <= start then return false
+    found = profiles.get(sectionKey, sectionType)
+    if found.Count() > 0 then
+        for i = start to out.Count() - 1
+            p = found[NxToStr(out[i].ratingKey)]
+            if p <> invalid then out[i].doviProfile = p
+        end for
+    end if
+    return true
 end function
 
 ' A section's Dolby Vision profiles, { ratingKey: profile } (#69). The

@@ -49,8 +49,10 @@ function NxPoolCachePath() as String
     return "cachefs:/nostalgex-pools.json"
 end function
 
+' The display's Dolby Vision answer counts too (#69): a stick moved to a TV
+' that answers otherwise builds its channel lists again.
 function NxPoolCacheKey(season as String, bundles as Object) as String
-    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey() + "|dv" + FormatJson(NxDisplayShowsDolbyVision())
 end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
