@@ -34,6 +34,7 @@ if [ -n "$leaks" ]; then
 fi
 
 python3 tests/tools/check-includes.py
+bash tests/stamp-test.sh
 
 # `m` is BrightScript's implicit this: a variable of that name silently holds
 # the component's AA instead. It has cost three debugging rounds; fail fast.

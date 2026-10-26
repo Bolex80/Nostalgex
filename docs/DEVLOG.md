@@ -3,6 +3,30 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-26 (Roku: a test build can keep its own saved data)
+
+**Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.
+
+**Why.** The sideloaded build and the store beta on one TV share the registry, since both are signed with one developer key. So a tester can't sign the sideload in to a lab Jellyfin or Emby server without signing the store copy out of the real one. That blocked device checks for #60 (a small library) and #70 (BoxSets).
+
+**Changed.**
+- `source/util/Values.brs`: `NxDataSpace` reads `nx_data_ns` from the manifest. `NxRegSection(name)` opens `<space>-<name>`, and `NxCacheRoot()` is `cachefs:/<space>`. A manifest without the key gives `""`, so every name stays what it was.
+- Every `roRegistrySection` in `source/` and `components/` (21) goes through `NxRegSection`. The saved library, guide, pools, enrichment cache and owner file go through `NxCacheRoot`.
+- `scripts/stamp-manifest.sh` (new): writes `nx_build`, and with `--test-data` `nx_data_ns=nxtest`. `deploy.sh` passes `--test-data` when `NX_TEST_DATA=1`. `release.sh` stamps through it without the flag, and refuses a staged manifest that has `nx_data_ns`.
+- `source/util/AppVersion.brs`: a test-data build's VERSION line ends in TEST DATA.
+- Tests: `tests/stamp-test.sh` (run by `tests/run.sh`) checks:
+  - the repo manifest has no `nx_data_ns`;
+  - release.sh's stamp never writes it, even with `NX_TEST_DATA=1` set;
+  - the test-data stamp writes it with the same build hash;
+  - release.sh keeps its single plain call and its guard.
+
+  `tests/VersionTests.brs` checks that a build without the key keeps `guide`, `cachefs:`, `cachefs:/nostalgex-library` and the plain VERSION line, and how a manifest value becomes a name.
+- `README.md`: how to make a test-data build.
+
+**Measured.** Off-device only: the stamp test fails on main (no `stamp-manifest.sh`) and passes here, and the whole suite passes one process at a time. Not on a TV yet: the tester owns the stick.
+
+**Half-done.** Whether `cachefs:` is shared between the sideload and the store copy isn't measured; the change keeps them apart either way. The registry's per-key size limit is shared, and a test-data build adds its own few KB.
+
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-virtual-channels-own-movies`.

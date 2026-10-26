@@ -15,6 +15,12 @@
 #                              (tests/signin), to walk with a remote and count
 #                              presses. Relaunch with ?discovery=none|several to
 #                              stand in for the network search.
+#
+# NX_TEST_DATA=1 scripts/deploy.sh: the build keeps its own registry sections
+# and cachefs: folder (scripts/stamp-manifest.sh --test-data), so it can sign
+# in to a lab server without touching the sign-in, packages and saved library
+# the store app on the same TV shares with a sideload. Settings' VERSION line
+# ends in TEST DATA. Never for a release: release.sh refuses it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test_build=false
@@ -59,16 +65,15 @@ elif [ "$mode" = tour ]; then
     cp tests/signin/SignInTourMain.brs "$stage"/source/main.brs
     cp tests/signin/SignInTourScene.xml tests/signin/SignInTourScene.brs "$stage"/components/
 fi
-# Which build this zip is, for the saved guide and pools' keys: a sideload
-# keeps the manifest's version, so without it a build installed over another
-# reused the old one's filter results (components/LibraryTask.brs
-# NxBuildKey). A hash of every staged file, so it holds from a copy without
-# git too (the personal repo's build/).
-# LC_ALL=C: sort's order, and so the hash, would otherwise follow the shell's
-# locale (the 1.0.2 tree hashed cca0d38 under C and d27182e under en_US).
-build=$(cd "$stage" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha1sum | sha1sum | cut -c1-12)
-printf 'nx_build=%s\n' "$build" >>"$stage"/manifest
-echo "build: $build"
+# Which build this zip is (nx_build), and with NX_TEST_DATA=1 its own data
+# space (nx_data_ns): scripts/stamp-manifest.sh.
+if [ "${NX_TEST_DATA:-0}" = 1 ]; then
+    build=$(scripts/stamp-manifest.sh "$stage" --test-data)
+    echo "build: $build, test data (its own registry sections and cachefs:/nxtest)"
+else
+    build=$(scripts/stamp-manifest.sh "$stage")
+    echo "build: $build"
+fi
 (cd "$stage" && zip -qr ../nostalgex-roku.zip .)
 
 failed=0
