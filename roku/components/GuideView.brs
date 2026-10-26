@@ -151,15 +151,25 @@ sub onGuide()
     previous = m.channels
     m.channels = m.top.guide.channels
     m.gaveWay = invalid
-    if m.channels = invalid or m.channels.Count() = 0 then
+    ' No channel at all (libraries that build none): the time header and
+    ' ChannelGuideView's NO CHANNELS AVAILABLE, and Up still reaches SETTINGS.
+    ' Nothing reads a channel while the list is empty (#93).
+    if m.channels = invalid then m.channels = []
+    if m.channels.Count() = 0 then
         m.top.FindNode("notice").text = "NO CHANNELS AVAILABLE"
+        keepFocusVisible()
+        renderGrid()
         return
     end if
     refreshOffer()
     refreshSettings()
-    if previous = invalid then
-        m.top.SetFocus(true)
+    ' An empty guide that now has channels starts as a first one: the clock
+    ' never ran for it.
+    if previous = invalid or previous.Count() = 0 then
+        if previous = invalid then m.top.SetFocus(true)
         m.tick.control = "start"
+        ' Back from SETTINGS on the empty guide left focus on m.tuned, -1.
+        m.focus = 0
         ' A launch deep link opens on its channel, fullscreen; an item link
         ' plays its item once it's found, and nothing starts before it.
         linked = NxDeepLinkChannel(m.channels, m.top.deepLink)
@@ -341,7 +351,7 @@ sub renderGrid()
     end for
     ' The focused row's outline and glow go over its neighbours; so does the
     ' invite, as its zIndex puts it.
-    if m.nav = "grid" then
+    if m.nav = "grid" and m.focus >= 0 and m.focus < m.channels.Count() then
         y = m.scrollY + (m.focus + lead) * m.rowPitch
         rows.AppendChild(newOutline("focus", y, colorOf(m.channels[m.focus].color, "FF")))
     end if
@@ -531,7 +541,7 @@ end function
 ' ── Info panel: follows focus; for the tuned channel, what is playing ───────
 
 sub renderInfo()
-    if m.channels = invalid then return
+    if m.channels = invalid or m.channels.Count() = 0 then return
     ch = m.channels[m.focus]
     t = nowSec()
     b = blockAt(ch, t)
@@ -1989,6 +1999,8 @@ sub onDeepLink()
 end sub
 
 sub applyDeepLink()
+    ' No channel to tune or to play a linked item on.
+    if m.channels.Count() = 0 then return
     itemId = NxDeepLinkItem(m.top.deepLink, CreateObject("roAppInfo").IsDev())
     if itemId <> "" then
         findLinkedItem(itemId)
@@ -2151,6 +2163,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         openSidebar()
         return true
     end if
+    ' With no channel there is nothing to tune or fill the screen with.
+    if m.channels.Count() = 0 and (key = "OK" or key = "play" or key = "back") then return key <> "back"
     if key = "OK" then
         ' A channel the sleep timer stopped starts again, and one that
         ' stopped trying tries again.
