@@ -675,7 +675,11 @@ at `6f05937` with 5,363 items on one server:
   decodes HEVC, `X-Plex-Client-Profile-Extra` with
   `add-transcode-target-codec(...videoCodec=hevc)` makes Plex copy HEVC rather
   than re-encode it. An equivalent hint for AAC audio was ignored, so audio
-  still converts to MP3, which costs little.
+  still converts to stereo MP3, which costs little. The same hint for AC3 and
+  E-AC-3 is taken (#68, measured on a Plex 1.43.5 server, 2026-10-25): on a TV
+  or receiver that decodes them, AC3 and E-AC-3 5.1 are copied and DTS and
+  5.1 AAC made into AC3 5.1, with E-AC-3 capped at 6 channels as upstream's
+  `eac3ChannelCap`. Playback information has an AUDIO row with what arrives.
 - Plex subtitles: `subtitles=auto` with
   `add-transcode-target(type=subtitleProfile&…&container=webvtt&subtitleCodec=webvtt)`
   sends text subtitles as a WebVTT rendition rather than burning them in.

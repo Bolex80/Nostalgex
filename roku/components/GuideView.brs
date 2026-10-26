@@ -1513,6 +1513,8 @@ function npState() as Object
         if m.tuneFormat = "hls" then kind = "Converted by Plex (transcode)"
         st.info.Push({ label: "Stream", value: kind })
         st.info.Push({ label: "Format", value: NxToStr(m.tuneFormat) })
+        ' The audio as it arrives, which a server stream may have changed (#68).
+        st.info.Push({ label: "Audio", value: UCase(NxToStr(m.video.audioFormat)) })
         st.info.Push({ label: "Route", value: NxToStr(m.tuneRoute) })
         st.info.Push({ label: "File", value: UCase(NxToStr(b.container)) + " · " + UCase(NxToStr(b.videoCodec)) + " · " + UCase(NxToStr(b.audioCodec)) })
         st.info.Push({ label: "Player", value: NxToStr(m.video.state) })

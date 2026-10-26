@@ -89,10 +89,16 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger, rung = "auto
         if profile = "hevc" then
             extra = extra + "+add-transcode-target-codec(type=videoProfile&context=streaming&protocol=hls&videoCodec=hevc)"
         end if
+        ' Dolby audio the TV or its receiver decodes is copied, or made, as
+        ' 5.1 (#68); else Plex sends stereo.
+        info = CreateObject("roDeviceInfo")
+        ac3 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "ac3" }))
+        eac3 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "eac3" }))
+        extra = extra + NxPlexAudioExtra(ac3, eac3)
         q = q + "&subtitles=auto"
         if rung <> "capped" then rung = "server"
         q = q + NxPlexRungQuery(rung)
-        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt")
+        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt" + NxPlexAudioKey(ac3, eac3))
         q = q + "&X-Plex-Client-Identifier=" + NxPlexClientId()
         q = q + "&X-Plex-Product=nostalgex-roku&X-Plex-Platform=Roku&X-Plex-Device=Roku"
         q = q + "&X-Plex-Client-Profile-Extra=" + NxUrlEncode(extra)
@@ -106,6 +112,36 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger, rung = "auto
         stopUrl = base + "/video/:/transcode/universal/stop?session=" + session
     end if
     return { content: content, stopUrl: stopUrl, route: route, rung: rung }
+end function
+
+' The server stream's audio, as upstream's Plex client profile keeps AC3 and
+' E-AC-3 (PlexAPIService.clientProfileExtra, CodecSupport
+' .transcodeAudioCodecs) with E-AC-3 capped at 6 channels (eac3ChannelCap),
+' but each only when this TV or its receiver decodes it (CanDecodeAudio), as
+' the Jellyfin/Emby request does (NxMbAudioQuery): a Dolby track copied to a
+' TV that can't decode it plays silent. Measured on a Plex 1.43.5 server
+' (2026-10-25) for the Roku's request: with both, AC3 and E-AC-3 5.1 are
+' copied, and DTS and 5.1 AAC made into AC3 5.1; with AC3 alone, E-AC-3 is
+' made into AC3 5.1; with neither, everything comes as stereo MP3, as before.
+' Plex ignores the same hint for AAC, so the "AAC otherwise" of the Apple TV
+' is MP3 here.
+function NxPlexAudioExtra(ac3 as Boolean, eac3 as Boolean) as String
+    x = ""
+    if ac3 then x = x + "+add-transcode-target-audio-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=ac3)"
+    if eac3 then
+        x = x + "+add-transcode-target-audio-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=eac3)"
+        x = x + "+add-limitation(scope=videoAudioCodec&scopeName=eac3&type=upperBound&name=audio.channels&value=6)"
+    end if
+    return x
+end function
+
+' Plex fixes a session's decision the first time it sees it, so the session
+' is per audio offer too.
+function NxPlexAudioKey(ac3 as Boolean, eac3 as Boolean) as String
+    k = ""
+    if ac3 then k = k + "-ac3"
+    if eac3 then k = k + "-eac3"
+    return k
 end function
 
 ' What the "capped" rung adds to the request: upstream's cappedTranscodeURL,

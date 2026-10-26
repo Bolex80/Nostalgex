@@ -19,6 +19,21 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Next.** Tomorrow's publish of the cable-TV post, then the planned link-backs on the Jellyfin and Tunarr posts.
 
+## 2026-10-25 (Roku: 5.1 Dolby audio through Plex)
+
+**Shipped.** Nothing until the PR for #68 lands on main. Branch `roku/plex-surround`, off main `954473b`.
+
+**Why.** A 5.1 film that Plex converts played in stereo on Roku (issue #68). The Apple TV's Plex profile keeps AC3 and E-AC-3, E-AC-3 capped at 6 channels.
+
+**Changed.**
+- `source/plex/PlexPlayback.brs`: the server stream offers AC3 and E-AC-3 (`add-transcode-target-audio-codec`) when `CanDecodeAudio` says the TV or its receiver takes them, as the Jellyfin/Emby request does, with upstream's `eac3ChannelCap`. The playback session is per audio offer.
+- `components/GuideView.brs`: Playback information has an AUDIO row with what arrives.
+- `tests/PlexAudioTests.brs`: 8 cases.
+
+**Measured.** On a local Plex Media Server 1.43.5 with 60-second 5.1 test films, the Roku's own request: today every film comes as stereo MP3. With AC3 and E-AC-3 offered, AC3 and E-AC-3 5.1 are copied and DTS and 5.1 AAC become AC3 5.1 (decision endpoint and ffprobe of the actual HLS). With AC3 alone, E-AC-3 becomes AC3 5.1. The same hint for AAC is ignored, so the Apple TV's "AAC otherwise" is MP3 here. Tests pass off-device and on a Streaming Stick Plus; that stick, set to stereo, offers neither, so its requests don't change.
+
+**Half-done.** Not played on a TV through Plex: the stick stays on Emby. The cap is unmeasured (ffmpeg can't make a 7.1 E-AC-3 file).
+
 ## 2026-10-23 (web and Docker: START OVER while the library loads)
 
 **Shipped.** The web tuner on nostalgex.app when this lands on main, and Docker as `tuner-v1.0.8` from the same commit.
