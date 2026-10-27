@@ -49,8 +49,10 @@ function NxPoolCachePath() as String
     return NxCacheRoot() + "/nostalgex-pools.json"
 end function
 
+' The display's Dolby Vision answer counts too (#69): a stick moved to a TV
+' that answers otherwise builds its channel lists again.
 function NxPoolCacheKey(season as String, bundles as Object) as String
-    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey() + "|dv" + FormatJson(NxDisplayShowsDolbyVision())
 end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
@@ -519,6 +521,13 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     ' Which server kind the items are from: an Emby Dolby Vision profile 5
     ' file goes on no channel.
     backend = NxSignedInKind()
+    ' A display that can't show Dolby Vision leaves profile 5 off every
+    ' channel, from any server (#69, source/guide/DolbyVision.brs).
+    if not NxDisplayShowsDolbyVision() then
+        before = items.Count()
+        items = NxOnChannelsForDisplay(items, false)
+        if items.Count() < before then print "library: this display doesn't show Dolby Vision: "; before - items.Count(); " profile 5 item(s) left off channels"
+    end if
     ' What the franchise and collection steps read, as upstream's onChannels:
     ' the filter leaves those files out itself, and these must too.
     onChannels = items

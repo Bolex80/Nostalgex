@@ -47,6 +47,23 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Half-done.** Whether `cachefs:` is shared between the sideload and the store copy isn't measured; the change keeps them apart either way. The registry's per-key size limit is shared, and a test-data build adds its own few KB.
 
+## 2026-10-26 (Roku: Dolby Vision profile 5 stays off channels on a TV without Dolby Vision)
+
+**Shipped.** Nothing until the PR for #69 lands on main. Branch `roku/dv5-off-channels`, off main `2a0d3d4`. For Roku 1.0.6.
+
+**Why.** On a Roku whose display can't show Dolby Vision, a profile 5 file plays green and purple (issue #69). Measured on a local Plex Media Server 1.43.5 with the Roku's own request: Plex copies profile 5 HEVC as it is when HEVC is offered, and refuses to convert it when it isn't ("Neither direct play nor conversion is available"), so there is no picture to ask for. Chad chose to keep such files off channels on such a TV, as the Emby rule already does on every TV.
+
+**Changed.**
+- `roku/source/guide/DolbyVision.brs`: on a display whose `GetDisplayProperties` says `DolbyVision` false, profile 5 goes on no channel, from any server. Profile 8 (an HDR10 or SDR base layer) and files without a profile stay. Called at the top of `buildGuide`; the shared `isLeftOffChannels` rule and `scripts/filter-golden.json` are unchanged.
+- `roku/source/plex/PlexLibrary.brs`: Plex's section listing has no stream details, so on a display without Dolby Vision each section gets one more request for its `dovi=1` items with `includeElements=Stream` (type 4 for show sections), and their `DOVIProfile` is set on the items. A display with Dolby Vision makes no extra request.
+- `roku/components/LibraryTask.brs`: the display's answer is part of the saved channel lists' key, so a stick moved to another TV builds them again.
+- `roku/source/mediabrowser/MediaBrowserLibrary.brs`: Jellyfin's `DvProfile` is read when Emby's `ExtendedVideoSubType` isn't there.
+- `roku/tests/DolbyVisionTests.brs` with trimmed real answers in `roku/tests/fixtures/dolby-vision.json` (Plex 1.43.5, Jellyfin 10.10.7): 14 cases.
+
+**Measured.** Plex 1.43.5: `dovi=1` lists the profile 5 and 8.1 files of a movie section and, with `type=4`, the profile 5 episode of a show section. Jellyfin 10.10.7: `DvProfile` 5 for both profile 5 files, 8 for 8.1. Tests pass off the TV and on a Streaming Stick Plus. On that stick (DolbyVision false) against a home Emby server, the build leaves a profile 5 film off channels: "this display doesn't show Dolby Vision: 1 profile 5 item(s) left off channels".
+
+**Half-done.** No eye test on a Roku with Dolby Vision (none here). Plex and Jellyfin profile 5 haven't been seen on a TV; the stick stays on Emby.
+
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/plex-virtual-channels-own-movies`.

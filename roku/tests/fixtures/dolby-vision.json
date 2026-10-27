@@ -1,0 +1,5 @@
+{
+  "about": "Trimmed real answers, 2026-10-26 (#69). plex: Plex Media Server 1.43.5, /library/sections/2/all?type=1&dovi=1&includeElements=Stream, the DV5 MP4 clip. jellyfin: Jellyfin 10.10.7, /Items?Fields=MediaSources,MediaStreams, the DV5 MKV clip.",
+  "plex": {"ratingKey": "7", "Media": [{"videoResolution": "4k", "bitrate": 27749, "Part": [{"key": "/library/parts/7/1792431718/file.mp4", "Stream": [{"streamType": 1, "codec": "hevc", "DOVIProfile": 5, "DOVIPresent": true, "bitDepth": 10}, {"streamType": 2, "codec": "aac"}]}]}]},
+  "jellyfin": {"MediaSources": [{"Id": "03a4057c38eed5d3df7daf3554fb30e7", "Container": "mkv", "Bitrate": 28370618, "MediaStreams": [{"Type": "Video", "Codec": "hevc", "Profile": "Main 10", "Width": 3840, "Height": 2160, "Index": 0, "Language": "eng", "IsDefault": true, "VideoRangeType": "DOVI", "DvProfile": 5}, {"Type": "Audio", "Codec": "aac", "Profile": "LC", "Index": 1, "Channels": 2, "Language": "eng", "IsDefault": true, "VideoRangeType": "Unknown"}]}]}
+}

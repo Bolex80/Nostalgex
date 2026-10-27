@@ -84,6 +84,14 @@ code path.
    in the video stream's `ExtendedVideoSubType` ("DoviProfile50"), and 4.10.1
    sends it in a form drawn green and purple (upstream `5d6d65f`,
    `ccb6854`). It stays in the library; only the channels leave it out.
+   On a Roku whose display doesn't show Dolby Vision (`GetDisplayProperties`
+   `DolbyVision` false), profile 5 goes on no channel from Plex or Jellyfin
+   either (#69): such a TV draws it green and purple whichever server sends
+   it. Jellyfin names the profile in the stream's `DvProfile` (10.10.7), Plex
+   in `DOVIProfile`, which its section listing leaves out, so the scan asks
+   each section once more for `dovi=1` items with their streams
+   (`NxPlexDoviProfiles`). The shared rule above and its golden cases don't
+   change: this is a Roku step before it (`source/guide/DolbyVision.brs`).
 
 ## What we checked on test servers
 

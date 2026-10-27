@@ -158,9 +158,12 @@ function NxMbMediaInfo(item as Object) as Object
         if NxTruthy(v.Profile) then out.videoProfile = LCase(NxToStr(v.Profile))
         if NxIsNumber(v.Width) then out.videoWidth = v.Width
         if NxIsNumber(v.Height) then out.videoHeight = v.Height
-        ' Emby only (Jellyfin has no ExtendedVideoSubType): a profile 5 file
-        ' goes on no channel (NxIsLeftOffChannels).
+        ' Emby names the profile in ExtendedVideoSubType: a profile 5 file
+        ' goes on no channel (NxIsLeftOffChannels). Jellyfin has DvProfile
+        ' (10.10.7: 5 for profile 5, 8 for 8.1), which only a display that
+        ' can't show Dolby Vision reads (#69, NxLeftOffForDisplay).
         out.doviProfile = NxMbDoviProfile(v.ExtendedVideoSubType)
+        if out.doviProfile = invalid and NxIsNumber(v.DvProfile) then out.doviProfile = v.DvProfile
     end if
     a = NxMbStream(src, "Audio")
     if a <> invalid then
