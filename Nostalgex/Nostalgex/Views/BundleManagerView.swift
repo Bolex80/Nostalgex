@@ -463,10 +463,10 @@ struct SettingsPageView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 6)
 
-                // Only when the range is actually full (CH 300-499); otherwise nothing.
-                let overCap = appState.dynamicChannelsOverCap[.franchises, default: 0]
+                // Only when the range is actually full (CH 300-449); otherwise nothing.
+                let overCap = appState.dynamicChannelsOverCap[.foundFranchises, default: 0]
                 if overCap > 0 {
-                    Text("Up to \(CollectionCategory.franchises.displayCapacity) franchise channels fit in the guide. \(overCap) more are switched on but not shown.")
+                    Text("Up to \(DynamicChannelBlock.foundFranchises.capacity) franchise channels fit in the guide. \(overCap) more are switched on but not shown.")
                         .font(.custom("DMMono-Regular", size: 18))
                         .foregroundStyle(.white.opacity(0.45))
                         .fixedSize(horizontal: false, vertical: true)
@@ -656,6 +656,16 @@ struct SettingsPageView: View {
             }
             .focused($focusedItem, equals: "accordion_\(category.rawValue)")
             .id("accordion_\(category.rawValue)")
+
+            // Only when this category's range is full.
+            let overCap = appState.dynamicChannelsOverCap[category.block, default: 0]
+            if overCap > 0 {
+                Text("Up to \(category.displayCapacity) of these fit in the guide. \(overCap) more are switched on but not shown.")
+                    .font(.custom("DMMono-Regular", size: 18))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 24)
+            }
 
             if expanded {
                 ForEach(rows) { collection in

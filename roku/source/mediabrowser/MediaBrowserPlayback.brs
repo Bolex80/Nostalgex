@@ -300,9 +300,13 @@ end function
 ' 1080p TV that shows no more (PR #77). One that may be copied keeps 3840,
 ' since a narrower MaxWidth makes Emby re-encode what it would copy: a
 ' 46 Mb/s 4K HEVC clip came back copied at 3840 and as 1080p H.264 at 1920.
+' `bitrate` is the file's, in kbps (an item's bitrate, as the web tuner and the
+' Apple TV hold it); over 20,000 kbps (20 Mb/s) it is re-encoded. Before the
+' unit change this compared bits per second with 20,000,000, so a file within
+' half a kbps of 20 Mb/s can now land on the other side.
 function NxMbVideoQuery(bitrate as Dynamic, rung = "server" as String, width = 3840 as Integer) as String
     if rung = "capped" then return "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false"
-    if NxIsNumber(bitrate) and bitrate > 20000000 then return "&VideoBitrate=40000000&MaxWidth=" + width.ToStr() + "&AllowVideoStreamCopy=false"
+    if NxIsNumber(bitrate) and bitrate > 20000 then return "&VideoBitrate=40000000&MaxWidth=" + width.ToStr() + "&AllowVideoStreamCopy=false"
     return "&VideoBitrate=40000000&MaxWidth=3840"
 end function
 

@@ -47,47 +47,91 @@ enum CollectionCategory: String, CaseIterable {
         }
     }
 
-    /// Where this category's runtime channel ids start. Well clear of channels.json and
-    /// of each other — see ChannelIDSpace.
-    var idBase: Int {
-        ChannelIDSpace.dynamicBase + (ordinal * ChannelIDSpace.categoryStride)
-    }
-
-    /// What the viewer sees on the row. Ids are large so they can never collide; the
-    /// numbers stay the short ones people recognise.
-    ///
-    /// Each category owns a block of 200 display numbers, clear of everything
-    /// channels.json numbers (1-140, music videos 200-213). They used to start at 220
-    /// and 260, which left found franchises forty numbers: a library with 86 franchises
-    /// ran past 260 under ADD ALL and two rows showed the same number, interleaved in
-    /// the guide (it sorts by number). `displayNumberEnd` is a hard cap; see
-    /// `AppState.materializeDynamicChannels`.
-    var displayNumberBase: Int {
+    /// The block of ids and display numbers this category's channels use.
+    var block: DynamicChannelBlock {
         switch self {
-        case .franchises: return 300
-        case .custom:     return 500
+        case .franchises: return .collectionFranchises
+        case .custom:     return .otherCollections
         }
     }
 
-    /// Last display number this category may hand out. Enabled items past it are not
-    /// built rather than spilling into the next category's numbers.
-    var displayNumberEnd: Int {
-        switch self {
-        case .franchises: return 499
-        case .custom:     return 699
-        }
-    }
+    var idBase: Int { block.idBase }
+    var displayNumberBase: Int { block.displayNumberBase }
+    var displayNumberEnd: Int { block.displayNumberEnd }
+    var displayCapacity: Int { block.capacity }
+}
 
-    /// How many channels fit in `displayNumberBase...displayNumberEnd` (200 each).
-    var displayCapacity: Int { displayNumberEnd - displayNumberBase + 1 }
+// MARK: - Runtime channel blocks
 
-    /// Ordinal 1 belonged to NOTABLE STARS and stays unused so `.custom` keeps the id
-    /// range it always had.
+/// Ids and display numbers for every runtime-created channel. Each kind owns a fixed block,
+/// so switching one kind on or off never moves another kind's numbers or ids. They used to
+/// share: found franchises and server franchise collections both numbered from CH 300 on one
+/// id base, collections straight after the found ones, so toggling the FRANCHISES package or
+/// any found franchise renumbered (and re-id'd) every franchise collection.
+///
+/// The two franchise blocks fill by `keptInDisplayOrder`. OTHER COLLECTIONS keeps the rule
+/// the web tuner already mirrors (A to Z, the first 200 switched on), so it is unchanged.
+enum DynamicChannelBlock: String, CaseIterable, Hashable {
+    /// Franchises found from TMDB data (FRANCHISES package). Libraries seen so far: 64 and 86.
+    case foundFranchises
+    /// The server's own franchise collections. No real library has come near 50.
+    case collectionFranchises
+    /// Every other server collection (actors, directors, themed sets).
+    case otherCollections
+
+    /// Stride ordinals inside `ChannelIDSpace`. 1 belonged to the retired NOTABLE STARS
+    /// category (1,010,000+). Nothing stores a channel id across launches except today's
+    /// schedules (rebuilt from a pool fingerprint) and the snapshot, whose runtime rows are
+    /// rebuilt on restore, so a NOTABLE STARS id can't come back pointing at a new channel.
     private var ordinal: Int {
         switch self {
-        case .franchises: return 0
-        case .custom:     return 2
+        case .foundFranchises:      return 0
+        case .collectionFranchises: return 1
+        case .otherCollections:     return 2
         }
+    }
+
+    var idBase: Int { ChannelIDSpace.dynamicBase + ordinal * ChannelIDSpace.categoryStride }
+
+    /// Clear of everything channels.json numbers (1-140, music videos 200-213).
+    var displayNumberBase: Int {
+        switch self {
+        case .foundFranchises:      return 300
+        case .collectionFranchises: return 450
+        case .otherCollections:     return 500
+        }
+    }
+
+    /// Hard cap: entries past it are not built rather than spilling into the next block.
+    var displayNumberEnd: Int {
+        switch self {
+        case .foundFranchises:      return 449
+        case .collectionFranchises: return 499
+        case .otherCollections:     return 699
+        }
+    }
+
+    /// 150, 50 and 200.
+    var capacity: Int { displayNumberEnd - displayNumberBase + 1 }
+
+    /// The switched-on entries a block keeps, in the order they are numbered.
+    ///
+    /// When more are on than fit, the ones with the most films stay; ties go to the name,
+    /// then the stable id, so every platform drops the same ones. The kept entries are then
+    /// numbered A to Z (name, then stable id), as they always were.
+    static func keptInDisplayOrder<T>(_ enabled: [T], capacity: Int,
+                                      name: (T) -> String, stableID: (T) -> String,
+                                      films: (T) -> Int) -> (kept: [T], skipped: Int) {
+        func alphabetical(_ a: T, _ b: T) -> Bool {
+            name(a) != name(b) ? name(a) < name(b) : stableID(a) < stableID(b)
+        }
+        guard enabled.count > capacity else {
+            return (enabled.sorted(by: alphabetical), 0)
+        }
+        let kept = enabled.sorted { a, b in
+            films(a) != films(b) ? films(a) > films(b) : alphabetical(a, b)
+        }.prefix(capacity)
+        return (kept.sorted(by: alphabetical), enabled.count - capacity)
     }
 }
 

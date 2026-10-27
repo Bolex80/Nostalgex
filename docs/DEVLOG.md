@@ -34,6 +34,61 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Next.** Reviewer v2 reads the branch before it is pushed.
 
+## 2026-10-27 (Roku: a Jellyfin or Emby item's bitrate is in kbps, as the web tuner and the Apple TV hold it)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/bitrate-kbps`, off main `ab60b31`.
+
+**Why.** The web tuner's STREAM QUALITY branch (PR #123) gives Jellyfin and Emby items a `bitrate` in kbps, `Math.round(Bitrate / 1000)`, as the Apple TV holds it. The Roku held the server's raw bits per second in the same field (19,269,041 where the web says 19269). `roku/tests/run.sh` compares each Roku item with the JS engine's, so with #123 merged the `mediabrowser` suite fails all 222 `bitrate` cases and nothing else (checked on a merged tree of main and #123). This lands the Roku side with no change in behaviour.
+
+**Changed.**
+- `source/mediabrowser/MediaBrowserLibrary.brs`: `NxMbBitrateKbps` (Integer sums, half up, 0 when there is none, as the JS); `NxMbMediaInfo` uses it. The best-source pick still reads the server's raw `Bitrate`, as the web's does.
+- `source/mediabrowser/MediaBrowserPlayback.brs`: `NxMbVideoQuery` compares with 20,000 kbps instead of 20,000,000 bps. That is the only user of an item's bitrate besides the pass-through in `GuideSchedule.brs`. Plex items already held kbps and nothing reads them for this. One rounding edge: a file within half a kbps of 20 Mb/s can now land on the other side of the re-encode line.
+- `source/plex/LibrarySnapshot.brs`: saved library format 7 to 8, since a saved item would no longer read the same (an old save in bits per second would re-encode every file). A library saved by 1.0.6 is read again once, as after the earlier bumps.
+- Tests: the expected bitrates and `NxMbVideoQuery` arguments in kbps; ten cases for `NxMbBitrateKbps` (rounding at 499 and 500, a Float, over 2 Gb/s, none, negative).
+
+**Tested.** `tests/run.sh`: ALL TESTS PASSED on this branch off main, and on a merged tree of main and web/stream-quality-123 (`326fd6a`), where it failed before this change. So it lands in either order.
+
+**Half-done.** None. STREAM QUALITY on the Roku (#65) is separate and stays with tydude001; it will read `scripts/stream-quality-golden.json` once #123 is in.
+
+## 2026-10-27 (web tuner: a Plex title with a bad byte keeps its accent)
+
+**Shipped.** Nothing until the PR for #125 lands on main. Branch `web/bad-byte-125`, off main `ab60b31`.
+
+**Why.** Plex copies a file or folder name into its JSON byte for byte, so an unmatched item named in Latin-1 puts a lone 0xE9 into its title. The Apple TV repairs that since 1.0.27 (`PlexUTF8Repair`). The web tuner's scan reads pages with `Response.json()`, which decodes UTF-8 with replacement characters instead of failing, so the library loaded but the title read "Caf\uFFFD Society" (issue #125).
+
+**Reproduced first.** The unchanged page, headless in Chromium, against a Plex-shaped server whose library page held raw bad bytes: the titles the tuner kept read "Caf\uFFFD Society", "Say \uFFFDHello\uFFFD", "Br\uFFFDl\uFFFDe" and "Cut Off \uFFFD", the summary kept one too, and the guide text had a replacement character in it. A title that was valid UTF-8 ("Am\u00e9lie") came through fine.
+
+**Changed.**
+- `scripts/nostalgex-utf8-repair.js`: the Apple TV's rule. A valid response is decoded untouched; otherwise every byte outside a well-formed UTF-8 sequence is read as Windows-1252 and every well-formed sequence is kept. A stray byte is always 0x80 or above, so the repair cannot add a quote, backslash or control character to the JSON. One console line says how many bytes were repaired. A byte order mark is valid UTF-8 and is never repaired: one at the very start of the text is dropped (as `Response.json()` does), one anywhere else is kept, including right after a repaired byte, as the Apple TV keeps it.
+- `plex-tuner.html`: the four reads of a Plex server (section pages, `allLeaves`, and the two library helpers that also carry server collections) go through `NostalgexUTF8Repair.json`.
+- `scripts/utf8-repair-golden.json`: 27 shared vectors, 8 of them about byte order marks (a reviewer's fuzzing found the first version dropped a mark that followed a repaired byte, in 6,776 of 60,019 inputs), made with an independent Python model, held by `scripts/nostalgex-utf8-repair-smoke.mjs` (`npm run test:utf8-repair`, in `npm test`) and by the new `Nostalgex/NostalgexTests/PlexUTF8RepairGoldenTests.swift`. Roku reads the same file for #121.
+- `scripts/plex-bad-byte-browser-smoke.mjs` (`npm run test:plex-bad-byte`, needs Playwright): the real page against the same Plex-shaped server, plus a negative control with the repair taken out.
+
+**Measured after.** The same page now keeps "Caf\u00e9 Society", curly quotes for 0x93 and 0x94, "Cr\u00e8me Br\u00e9l\u00e9e" and "Cut Off \u00e2", with no replacement character in a title or on the page. The Swift golden test passes on the tvOS 26.1 simulator along with the 11 existing `PlexUTF8RepairTests`.
+
+**Half-done.** Jellyfin and Emby are not touched: both send valid UTF-8. plex.tv's server list and the Continue Watching read still use `res.json()`: plex.tv sends valid UTF-8, and a replacement character there cannot stop a cleanup, which only reads ids. Not run against a real Plex server; the server in the test is a stand-in that returns the bytes Plex was measured to return (see the 2026-10-16 entry). The repair guesses Windows-1252 for any stray byte, so a name in another single-byte encoding loads with the wrong accented letter, the same as on the Apple TV.
+
+**Next.** Roku #121 follows with the same golden file. Nothing changes what is sent anywhere.
+## 2026-10-27 (web tuner: a small library no longer opens on a blank screen)
+
+**Shipped.** Nothing until the PR for #124 lands on main. Branch `web/empty-lineup-124`, off main `ab60b31`.
+
+**Why.** A first run starts with the NOSTALGEX package only. A library too small or too narrow to fill any NOSTALGEX channel left the web tuner on a black screen with nothing to press (issue #124). The Apple TV switches on every package that has content when the first lineup comes out empty (`autoEnableBundlesWithContent`), and Roku 1.0.6 does the same (#109). The web had no such step.
+
+**Measured first.** The unchanged page, headless, against a lab Jellyfin as three users: a 20-film documentary library and a 2-film one both landed on 0 channels with only NOSTALGEX on, and a black screen; a 34-item library that fills one NOSTALGEX channel opened on its guide. So the answer to "empty guide or fallback" was an empty guide.
+
+**Changed.**
+- `scripts/nostalgex-library-load.js`: `bundlesToAutoEnable`, the Apple TV's rule as a pure function. Every package that is off, not seasonal, not a server-collection package and has at least one channel with enough content, in the bundles' order.
+- `plex-tuner.html`: `autoEnableBundlesWithContent`, run at the end of a first (full) lineup build when no channel came out. It switches those packages on, saves the choice and builds their schedules. A later load never runs it, because only a full build knows which packages have content.
+- `scripts/empty-lineup-browser-smoke.mjs` (`npm run test:empty-lineup`, needs Playwright): the real page against a Jellyfin-shaped server with a 20-film, a 2-film, a 6-film (fills VHS VAULT on its own, nothing else switched on) and a no-match library, plus a negative control with the call removed.
+- `scripts/nostalgex-library-load-smoke.mjs`: four cases for the rule itself.
+
+**Measured after.** The 20-film library switches on ESSENTIALS and opens on 2 channels; the 2-film library opens on 1 (PREMIERES); the 34-item library is unchanged. Same numbers the Roku tester saw on the stick for the same lab users.
+
+**Half-done.** A library where no package has content still ends on the blank screen. The Apple TV and Roku show NO CHANNELS FOUND with an OPEN SETTINGS button there; the web does not yet. Nothing changes what is sent anywhere.
+
+**Next.** Decide whether the web gets that NO CHANNELS FOUND screen.
+
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/make-plex-feel-like-cable-tv`.
@@ -258,6 +313,24 @@ Commits carry the detail of *what*; this carries the *why*.
 **Measured.** The cases fail without `DailyRefresh.brs` and pass with it. Full suite passes off the TV and on a Streaming Stick Plus; the build launches clean there against Emby.
 
 **Half-done.** The 6-hour refresh itself hasn't been watched on a TV.
+
+## 2026-10-26 (Apple TV: franchise channel numbers that don't move with packages)
+
+**Shipped.** Nothing. Branch `fix/franchise-numbering`, held for the next Apple TV bug-fix bundle.
+
+**Why.** Chad, 2026-10-26. Found franchises and the server's franchise collections shared CH 300-499 and one id base, with the collections numbered straight after the found ones. Switching the FRANCHISES package, or any found franchise, renumbered and re-id'd every franchise collection. Channel numbers should stay put, and be the same on every platform for the same library.
+
+**Changed.**
+- `Models/Channel.swift`: `DynamicChannelBlock`, one fixed block per kind. Found franchises CH 300-449 (150), ids from 1,000,000 as before. Franchise collections CH 450-499 (50), ids from 1,010,000. Other collections CH 500-699 (200), ids from 1,020,000, unchanged. `CollectionCategory` reads its range from its block.
+- Overflow (`DynamicChannelBlock.keptInDisplayOrder`), for the two franchise blocks: when more are switched on than fit, the ones with the most films stay, ties by name and then stable id, so every platform drops the same ones; the kept ones are numbered A to Z (name, then stable id) as before. OTHER COLLECTIONS keeps its old rule (first 200 A to Z), which is what the web tuner mirrors, so the web doesn't change.
+- `AppState.materializeDynamicChannels` builds each block on its own; nothing in the collection blocks depends on the found franchises. `dynamicChannelsOverCap` is keyed by block. Settings: the found-franchise line says "Up to 150"; a collection category that is full gets the same line under its header.
+- 1,010,000 was the retired NOTABLE STARS base. Checked before reusing it: no channel id is kept across launches in UserDefaults or iCloud (saved choices are franchise and collection ids, never channel ids). Today's schedules are keyed by channel id but rebuilt from a pool fingerprint and purged daily; the snapshot's runtime rows are rebuilt on restore; Top Shelf is rewritten every load. Nothing can bring back an old NOTABLE STARS id pointing at a new channel.
+
+**Release notes (one-time move).** Franchise collections from your server move to CH 450 and up, and from then on they keep their numbers when you switch the FRANCHISES package or a found franchise. Their day's lineup reshuffles once, because the schedule is seeded by the channel. Found franchises keep their numbers (300 up) and their lineups.
+
+**Measured.** NostalgexTests: 903 passed, 0 failures, on a tvOS 26.1 simulator; 6 new and 2 rewritten in `FranchiseNumberingTests` (toggling the package and a found franchise leaves franchise-collection and collection ids and numbers alone, block limits, overflow order). `npm test`: pass; no golden file or web engine file changes.
+
+**Next.** Roku ports it on `roku/my-collections`.
 
 ## 2026-10-26 (publish Plex virtual channels from your own movies)
 
