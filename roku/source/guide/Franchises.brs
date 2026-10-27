@@ -25,19 +25,21 @@
 ' - An item's identity is its server and ratingKey (NxFranchiseItemKey), where
 '   Swift uses the item's id.
 
-' Runtime channel ids start here (ChannelIDSpace.dynamicBase), and found
-' franchises are the first category, so their ids are 1,000,000 + slot.
+' DynamicChannelBlock.foundFranchises: ids from 1,000,000
+' (ChannelIDSpace.dynamicBase), display numbers 300 to 449. Each kind of
+' runtime channel has its own fixed block (found franchises 300-449,
+' franchise collections 450-499, other collections 500-699), so switching
+' one kind never moves another's numbers or ids.
 function NxFranchiseIDBase() as Integer
     return 1000000
 end function
 
-' CollectionCategory.franchises: display numbers 300 to 499.
 function NxFranchiseNumberBase() as Integer
     return 300
 end function
 
 function NxFranchiseCapacity() as Integer
-    return 200
+    return 150
 end function
 
 ' AppState.collectionColors.
@@ -62,7 +64,8 @@ end function
 '
 ' Unions covered franchises into their stock pools, switches off the
 ' classics the viewer turned off, and returns { found, channels (the found
-' franchise channels to add), rows (Settings) }. Call it only while the
+' franchise channels to add), overCap (switched on past CH 449), rows
+' (Settings) }. Call it only while the
 ' package is on: upstream unions and shows found channels only then.
 function NxFranchiseStep(opts as Object) as Object
     available = []
@@ -94,7 +97,8 @@ function NxFranchiseStep(opts as Object) as Object
     for each ch in opts.channels
         if off.DoesExist(ch.id.ToStr()) then ch.enabled = false
     end for
-    return { found: found, channels: NxFranchiseChannels(found), rows: rows }
+    block = NxFranchiseBlock(found)
+    return { found: found, channels: block.channels, overCap: block.skipped, rows: rows }
 end function
 
 ' ── Stock switches ──────────────────────────────────────────────────────────
@@ -220,28 +224,122 @@ end function
 
 ' ── Channels ────────────────────────────────────────────────────────────────
 
-' materializeDynamicChannels, franchise half: one channel per found franchise
-' that is switched on and not covered by a stock channel, numbered from 300
-' in builder order, at most 200 of them. Their pools are the franchise's
-' items, movies first.
-function NxFranchiseChannels(found as Object) as Object
-    out = []
-    colors = NxFranchiseColors()
-    slot = 0
+' materializeDynamicChannels, found franchises: one channel per found
+' franchise that is switched on and not covered by a stock channel, in the
+' block CH 300-449 (NxBlockKept). Their pools are the franchise's items,
+' movies first. Returns { channels, skipped }.
+function NxFranchiseBlock(found as Object) as Object
+    entries = []
     for each f in found
-        if f.enabled and f.coveredByChannelID = invalid and slot < NxFranchiseCapacity() then
-            pool = []
-            pool.Append(f.movies)
-            pool.Append(f.tvItems)
-            out.Push({
-                id: NxFranchiseIDBase() + slot, number: NxFranchiseNumberBase() + slot,
-                name: f.name, colorHex: colors[slot mod colors.Count()],
-                minItems: 3, isPremiereChannel: false, timeRestrictions: invalid,
-                enabled: true, built: true, pool: pool
-            })
-            slot = slot + 1
+        if f.enabled and f.coveredByChannelID = invalid then
+            entries.Push({ name: NxToStr(f.name), id: NxToStr(f.id), films: NxList(f.movies).Count(), value: f })
         end if
     end for
+    kept = NxBlockKept(entries, NxFranchiseCapacity())
+    out = []
+    colors = NxFranchiseColors()
+    for slot = 0 to kept.kept.Count() - 1
+        f = kept.kept[slot]
+        pool = []
+        pool.Append(f.movies)
+        pool.Append(f.tvItems)
+        out.Push({
+            id: NxFranchiseIDBase() + slot, number: NxFranchiseNumberBase() + slot,
+            name: f.name, colorHex: colors[slot mod colors.Count()],
+            minItems: 3, isPremiereChannel: false, timeRestrictions: invalid,
+            enabled: true, built: true, pool: pool
+        })
+    end for
+    return { channels: out, skipped: kept.skipped }
+end function
+
+function NxFranchiseChannels(found as Object) as Object
+    return NxFranchiseBlock(found).channels
+end function
+
+' ── Full blocks (DynamicChannelBlock.keptInDisplayOrder) ─────────────────────
+
+' The switched-on entries a block keeps, in the order they are numbered.
+' entries: [{ name, id, films, value }]. When more are on than fit, the ones
+' with the most films stay; ties go to the name, then the stable id, so
+' every platform drops the same ones. The kept ones are numbered by name,
+' then id. Returns { kept (their values, in number order), skipped }.
+function NxBlockKept(entries as Object, capacity as Integer) as Object
+    for each e in entries
+        e.key = NxBlockNameKey(NxToStr(e.name))
+    end for
+    skipped = 0
+    pick = entries
+    if entries.Count() > capacity then
+        byFilms = NxBlockSort(entries, true)
+        pick = []
+        for i = 0 to capacity - 1
+            pick.Push(byFilms[i])
+        end for
+        skipped = entries.Count() - capacity
+    end if
+    kept = []
+    for each e in NxBlockSort(pick, false)
+        kept.Push(e.value)
+    end for
+    return { kept: kept, skipped: skipped }
+end function
+
+' Swift's `<` on the names and ids: case-sensitive, character by character
+' (upper case before lower), not the natural, case-insensitive order
+' Settings lists by. Swift compares canonically equivalent text as equal
+' (a precomposed é and e with a combining accent), ordering by NFC, so names
+' compare by NxBlockNameKey. BrightScript's string `<` then compares the
+' same way for the text names and ids hold (tests/CollectionTests.brs
+' checks it on the TV); Swift orders by Unicode scalar, the interpreter by
+' UTF-16 unit, which differ only past U+FFFF.
+function NxBlockLess(a as Object, b as Object, byFilms as Boolean) as Boolean
+    if byFilms and a.films <> b.films then return a.films > b.films
+    if a.key <> b.key then return a.key < b.key
+    return a.id < b.id
+end function
+
+' A name as Swift compares it: composed (NxFranchiseCompose).
+function NxBlockNameKey(name as String) as String
+    return NxFranchiseCompose(name)
+end function
+
+' A stable merge sort by NxBlockLess; a new list.
+function NxBlockSort(list as Object, byFilms as Boolean) as Object
+    n = list.Count()
+    if n <= 1 then
+        out = []
+        out.Append(list)
+        return out
+    end if
+    half = n \ 2
+    left = []
+    right = []
+    for i = 0 to n - 1
+        if i < half then left.Push(list[i]) else right.Push(list[i])
+    end for
+    left = NxBlockSort(left, byFilms)
+    right = NxBlockSort(right, byFilms)
+    out = []
+    i = 0
+    j = 0
+    while i < left.Count() and j < right.Count()
+        if NxBlockLess(right[j], left[i], byFilms) then
+            out.Push(right[j])
+            j = j + 1
+        else
+            out.Push(left[i])
+            i = i + 1
+        end if
+    end while
+    while i < left.Count()
+        out.Push(left[i])
+        i = i + 1
+    end while
+    while j < right.Count()
+        out.Push(right[j])
+        j = j + 1
+    end while
     return out
 end function
 

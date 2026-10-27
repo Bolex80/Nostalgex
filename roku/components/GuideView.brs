@@ -1899,6 +1899,8 @@ sub openSettings()
     franchises = m.top.guide.franchises
     if franchises = invalid then franchises = []
     m.settings.franchises = franchises
+    m.settings.franchiseOverCap = NxNumberOr0(m.top.guide.franchiseOverCap)
+    m.settings.franchiseCapacity = NxNumberOr0(m.top.guide.franchiseCapacity)
     collections = m.top.guide.collections
     if collections = invalid then collections = { rows: [], overCap: 0, scanned: 0, failed: 0 }
     m.settings.collections = collections
@@ -1966,6 +1968,8 @@ end sub
 sub refreshSettings()
     if m.settings = invalid then return
     if m.top.guide.franchises <> invalid then m.settings.franchises = m.top.guide.franchises
+    m.settings.franchiseOverCap = NxNumberOr0(m.top.guide.franchiseOverCap)
+    m.settings.franchiseCapacity = NxNumberOr0(m.top.guide.franchiseCapacity)
     if m.top.guide.collections <> invalid then m.settings.collections = m.top.guide.collections
     m.settings.callFunc("refreshRows", invalid)
 end sub

@@ -35,7 +35,8 @@ and already pinned to the Apple TV.
 | `scripts/nostalgex-enrichment.js` (Swift: `EnrichmentService.swift`): TMDB/OMDb enrichment through upstream's shared cache and relay (web, since 43f6ee7) | `source/enrich/` | ported; in a build only when `.env` turns it on (below) |
 | `scripts/nostalgex-franchise-builder.js` and `franchises.json` (Swift: `FranchiseChannelBuilder.swift`): a channel per film series (since 43f6ee7) | `source/franchise/FranchiseBuilder.brs`, `data/franchises.json` unchanged | ported, passing on device |
 | `AppState+Franchises.swift`, `materializeDynamicChannels` and `applyBundleFilter` (`AppState+Channels.swift`): franchise channels in the guide, and the franchise list under FRANCHISES in Settings | `source/guide/Franchises.brs`, `source/guide/FranchiseChoices.brs`, `components/` | ported, after the Apple TV app (below); cases transcribed from `FranchiseSettingsTests.swift` and `FranchiseNumberingTests.swift` |
-| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Plex only; checked live against upstream (below). On both TVs (2026-10-16) the load reads 67 collections and lists 26; a CH 500 channel hasn't been seen |
+| `scripts/nostalgex-collections.js`: server collections as channels from CH 500 (web, since 43f6ee7), collections of shows included (4b37674); MY COLLECTIONS in Settings (`plex-tuner.html` `renderCollectionList`) | `source/collections/Collections.brs`, `components/` | ported, Jellyfin and Emby BoxSets included (`fetchBoxSetCollections`, issue #70); checked live against upstream (below). On both TVs (2026-10-16) the load reads 67 collections and lists 26; a CH 500 channel hasn't been seen |
+| `CollectionClassifier.swift`, `CollectionCategory` and `DynamicChannelBlock` (`Models/Channel.swift`) and the MY COLLECTIONS accordions (`BundleManagerView.swift`): FRANCHISES in CH 450-499, OTHER COLLECTIONS in CH 500-699 (issue #71) | `source/collections/CollectionClassifier.brs`, `Collections.brs`, `components/SettingsView.brs` | ported; cases transcribed from `CollectionClassifierTests.swift`, `CollectionShowsTests.swift` and `FranchiseNumberingTests.swift` in `tests/CollectionTests.brs`. The web tuner has no classifier |
 | `FranchiseCollectionFold.swift` (`applyFranchiseFolds`, `AppState+Franchises.swift`): a collection that is a franchise the package carries folds into it | `source/collections/Collections.brs` | ported, after the Apple TV app (below); cases transcribed from `CollectionShowsTests.swift` and `FranchiseSettingsTests.swift` |
 | Playback | BrightScript | Roku's Video node over Plex, Jellyfin or Emby; with the guide |
 | The fallback ladder in `AppState+Playback.swift` (`fallbackToTranscode`, `retryLoad`, `handleWatchdogNoPicture`, `handleStarvation`), `PlaybackWatchdog`, `PlaybackStarvation`, `ChannelFailureRun`, `PlaybackFailure`, `PlaybackFailureCard`, `StreamFailureProbe` | `source/guide/Fallback.brs`, `components/GuideView.*`, `components/StreamProbeTask.*` | ported (issues #57 and #59; differences in [When a programme won't play](#when-a-programme-wont-play)); cases in `tests/FallbackTests.brs`; measured on a 43S45 against Emby |
@@ -125,21 +126,47 @@ Apple TV app ([Discussion #8](https://github.com/chadMueller/Nostalgex/discussio
 a film series the dictionary gives a classic (CH 100-106) joins that channel's
 pool, The Mandalorian on STAR WARS for example, unless another channel owns the
 item. Every other series the library has gets a switch in Settings under
-FRANCHISES and, when on, a channel from CH 300. STAR TREK and FAST & FURIOUS
-start on and the rest start off, as upstream's do. Each classic has a switch
-too.
+FRANCHISES and, when on, a channel from CH 300 up to 449. STAR TREK and FAST
+& FURIOUS start on and the rest start off, as upstream's do. Each classic has
+a switch too.
+
+Each kind of runtime channel has a fixed block, as on the Apple TV (its
+`DynamicChannelBlock`): found franchises CH 300-449 (ids from 1,000,000),
+franchise collections CH 450-499 (ids from 1,010,000), other collections CH
+500-699 (ids from 1,020,000, as on the web). Switching the FRANCHISES package
+or a found franchise never moves a collection's number or id. When more are
+switched on than a franchise block holds, the ones with the most films stay,
+ties by name then id, and the ones kept are numbered by name then id
+(`NxBlockKept`), with Swift's case-sensitive `<`, not the natural order the
+Settings list uses: SAW 10 numbers before SAW 2. As in Swift, a precomposed
+letter and the same letter with a combining accent are one name: names
+compare composed (`NxFranchiseCompose`, from Unicode's canonical pairs; marks
+out of canonical order aren't reordered first, as full NFC would). Collection
+titles and found franchise names are upper-cased as Swift's `uppercased()`
+(`NxFranchiseUpper`: é to É, ß to SS), not with `UCase`. The tables are
+generated by `tests/tools/gen-unicode.py` into
+`source/franchise/FranchiseUnicode.brs`. Other collections keep the
+web's rule, the first 200 in list order. A full block says so in Settings, in
+upstream's words ("Up to 150 franchise channels fit in the guide. N more are
+switched on but not shown."; "Up to 50 of these fit in the guide. ...").
 
 Server collections follow the web tuner's `nostalgex-collections.js`, and
 `tests/vectors/collections.json` holds the port to it. The library load reads
-each server's collections from its movie and TV sections. A collection with
-3 or more films or episodes gets a row under MY COLLECTIONS in Settings. A
-collection of shows counts every episode of each show the library has. Every
-row starts off. A row that is switched on airs from CH 500, alphabetical, up
-to CH 699. A collection channel belongs to no package, as on the web, and
-airs its collection in the collection's order, as every pool airs in library
-order. Not ported: Jellyfin and Emby BoxSets, and
-the Apple TV app's split into FRANCHISES and OTHER COLLECTIONS
-(`CollectionClassifier`), which the web tuner doesn't have either.
+each Plex server's collections from its movie and TV sections, and each
+Jellyfin or Emby server's BoxSets (`fetchBoxSetCollections`). A collection
+with 3 or more films or episodes gets a row under MY COLLECTIONS in Settings.
+A collection of shows counts every episode of each show the library has.
+Every row starts off. A collection channel belongs to no package, as on the
+web, and airs its collection in the collection's order, as every pool airs
+in library order.
+
+The rows split as the Apple TV app's do, which the web tuner's don't:
+`source/collections/CollectionClassifier.brs` ports `CollectionClassifier`,
+with the cases of its Swift tests in `tests/CollectionTests.brs`. FRANCHISES
+(movie series) and OTHER COLLECTIONS (the rest) are an accordion each. A
+FRANCHISES row switched on airs in CH 450-499 and an OTHER COLLECTIONS row in
+CH 500-699 (the blocks above). A row already mostly on another channel says
+so ("N% already on CH X") and is dimmed while off.
 
 While the FRANCHISES package is on, a collection that is a franchise the
 package already carries folds into it. It leaves the list and never gets a
@@ -702,7 +729,8 @@ at `6f05937` with 5,363 items on one server:
   full-width letters (`Ｓ`) and Roman numerals (`Ⅻ`) alone, maps `Έ` to `ҽ`,
   and never gives a final `ς`. The off-device interpreter uses JS's, so it
   hides this. Text that has to match upstream goes through
-  `NxFranchiseLower`.
+  `NxFranchiseLower`, and upper-cased text through `NxFranchiseUpper`, since
+  `UCase` is taken to be the same (not yet measured on a TV).
 - `step` is a reserved word, like `pos`. `run` passes the off-device
   interpreter but not a TV, which takes it for the builtin `Run()`: a
   parameter of that name stopped a 43S45 compiling the app ("Builtin

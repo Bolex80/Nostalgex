@@ -313,7 +313,7 @@ same shape as a Plex one, so none of them changed. What does differ by server:
 | Saved server | registry `plex` section, `servers` | the same list, one server with `kind`, `uri`, `userId`, `accessToken`, keyed by the server's `Id`; `kind` in the section too (`source/mediabrowser/ServerKind.brs`) |
 | Library | `NxPlexScanServer` | `NxMbScanServer` (`MediaBrowserLibrary.brs`), chosen by `NxScanServerFor` |
 | Change signature | section stamps | none, as upstream, so each load scans |
-| Collections | `NxCollectionsFetchPlex` | none yet (no BoxSets) |
+| Collections | `NxCollectionsFetchPlex` | `NxCollectionsFetchBoxSets` (`source/collections/Collections.brs`) |
 | Playback | `NxPlexStreamContent` | `NxMbStreamContent` (`MediaBrowserPlayback.brs`), both through `NxStreamContent` and `NxApplyStreamAuth` |
 | Stop | Plex's transcode stop | `DELETE /Videos/ActiveEncodings`, through `NxStopStream` |
 | Launch check | plex.tv account | `GET /Users/{id}`; a 401 signs out to CONNECT YOUR SERVER with the reason |

@@ -292,6 +292,61 @@ export async function collectionsVectors(upstream) {
   });
   await plex("no sections", { "/library/sections": { MediaContainer: {} } });
 
+  // ── Jellyfin and Emby calls ──
+  // Upstream reads four BoxSets at once, so its call order isn't the port's;
+  // the calls are kept sorted and compared as a set.
+  const boxSetCases = [];
+  const boxSet = async (name, docs) => {
+    const calls = [];
+    const getJSON = async (p) => {
+      calls.push(p);
+      if (!(p in docs)) throw new Error("404");
+      return docs[p];
+    };
+    let out;
+    try {
+      out = await C.fetchBoxSetCollections("srv", "u 1/2", getJSON);
+    } catch (err) {
+      out = "throws";
+    }
+    boxSetCases.push({ name, docs, calls: [...calls].sort(), out });
+  };
+  const uid = encodeURIComponent("u 1/2");
+  const list = `/Items?userId=${uid}&IncludeItemTypes=BoxSet&Recursive=true&Fields=ChildCount&SortBy=SortName`;
+  const page = (id, start) => `/Items?userId=${uid}&ParentId=${encodeURIComponent(id)}&Recursive=true`
+    + `&IncludeItemTypes=Movie,Series&StartIndex=${start}&Limit=200&SortBy=SortName`;
+  await boxSet("smoke: films and series ids, deduped, a failed BoxSet dropped", {
+    [list]: { Items: [{ Id: "b1", Name: "Alien Collection" }, { Id: "b2", Name: "Shows" }, { Id: "b1", Name: "Again" }, { Id: "b3", Name: "Gone" }] },
+    [page("b1", 0)]: { Items: [{ Id: "m1" }, { Id: "m2" }, { Id: "m3" }], TotalRecordCount: 3 },
+    [page("b2", 0)]: { Items: [{ Id: "s1", Type: "Series" }, { Id: "m4" }], TotalRecordCount: 2 },
+  });
+  await boxSet("no BoxSet list throws", {});
+  await boxSet("no BoxSets", { [list]: {} });
+  await boxSet("pages until TotalRecordCount", {
+    [list]: { Items: [{ Id: "big", Name: "Big Set" }] },
+    [page("big", 0)]: { Items: [{ Id: "a" }, { Id: "b" }], TotalRecordCount: 5 },
+    [page("big", 2)]: { Items: [{ Id: "c" }, { Id: "d" }], TotalRecordCount: 5 },
+    [page("big", 4)]: { Items: [{ Id: "e" }], TotalRecordCount: 5 },
+  });
+  await boxSet("an empty page ends it; no TotalRecordCount ends after one page", {
+    [list]: { Items: [{ Id: "short", Name: "Short" }, { Id: "open", Name: "Open" }, { Id: "none", Name: "None" }] },
+    [page("short", 0)]: { Items: [{ Id: "a" }], TotalRecordCount: 4 },
+    [page("short", 1)]: { Items: [], TotalRecordCount: 4 },
+    [page("open", 0)]: { Items: [{ Id: "x" }, { Id: "y" }] },
+    [page("none", 0)]: {},
+  });
+  await boxSet("a later page that fails drops the BoxSet", {
+    [list]: { Items: [{ Id: "half", Name: "Half" }, { Id: "ok", Name: "Ok" }] },
+    [page("half", 0)]: { Items: [{ Id: "a" }], TotalRecordCount: 2 },
+    [page("ok", 0)]: { Items: [{ Id: "z" }], TotalRecordCount: 1 },
+  });
+  await boxSet("odd rows and titles", {
+    [list]: { Items: [null, { Name: "No id" }, { Id: "", Name: "Empty id" }, { Id: 7, Name: "" }, { Id: "u", Name: null }, { Id: "w/ slash", Name: "Ünïcode Set" }] },
+    [page("7", 0)]: { Items: [{ Id: 70 }, { Name: "no id" }], TotalRecordCount: 2 },
+    [page("u", 0)]: { Items: [{ Id: "u1" }], TotalRecordCount: 1 },
+    [page("w/ slash", 0)]: { Items: [{ Id: "w1" }], TotalRecordCount: 1 },
+  });
+
   return {
     constants: {
       ID_BASE: C.ID_BASE, NUMBER_BASE: C.NUMBER_BASE, NUMBER_END: C.NUMBER_END, CAPACITY: C.CAPACITY,
@@ -303,5 +358,6 @@ export async function collectionsVectors(upstream) {
     overlap: overlapCases,
     candidates: candidateCases,
     plex: plexCases,
+    boxSets: boxSetCases,
   };
 }
