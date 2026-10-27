@@ -34,6 +34,9 @@ if [ -n "$leaks" ]; then
 fi
 
 python3 tests/tools/check-includes.py
+# A name an if / while condition reads but this path never assigned stops the app
+# on a TV and passes every other check (SettingsView, 2026-10-27).
+python3 tests/tools/check-uninit.py
 bash tests/stamp-test.sh
 # Saved data goes through NxRegSection and NxCacheRoot (source/util/Values.brs),
 # so a test-data build keeps its own. A registry section or cachefs: path

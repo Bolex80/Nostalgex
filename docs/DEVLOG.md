@@ -3,6 +3,16 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (Roku: Settings' package rows stopped the app, and a check for it)
+
+**Shipped.** Nothing until the PR for #72 (#114) takes it. Branch `roku/playback-report`.
+
+**Why.** The tester found the 1.0.6 release candidate crashing as soon as Settings scrolled to CHANNEL PACKAGES: `Use of uninitialized variable (runtime error &he9)` in `SettingsView.drawRow`. My own bug in #114: renaming `on` to `isOn` for the two reporting rows also changed the package rows' `if on then`, and that branch never sets `isOn`. The tester had run Settings on this branch without scrolling that far. Neither the suite nor static analysis can see a variable read before it is assigned.
+
+**Changed.**
+- `components/SettingsView.brs`: the package rows read `on` again.
+- `tests/tools/check-uninit.py` (new), run by `tests/run.sh`: flags a plain name an `if`, `else if` or `while` condition reads when this path has not assigned it, following if / else-if branches (a branch sees what came before the chain, not what a sibling set). On the broken commit and on the candidate it reports exactly this line; on the fixed tree and the rest of the repo it reports nothing. It checks conditions only, so it is not a general lint: a variable read outside a condition, or set on only some paths into a later read, is not caught.
+
 ## 2026-10-27 (Roku: SHOW NOW PLAYING and MARK WATCHED, off by default)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/playback-report`, off #108 (`cd8f783`).
