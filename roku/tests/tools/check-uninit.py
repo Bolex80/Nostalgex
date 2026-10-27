@@ -17,7 +17,7 @@ that at least one branch set. Names with a dot or call are skipped. Exits 1
 and lists each miss."""
 import glob, os, re, sys
 
-os.chdir(os.path.join(os.path.dirname(__file__), "..", ".."))
+os.chdir(sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # a roku/ directory, else this one
 KEYWORDS = {
     "if", "then", "else", "elseif", "end", "and", "or", "not", "true", "false", "invalid", "mod",
     "while", "for", "each", "in", "to", "step", "function", "sub", "return", "as", "stop", "print",

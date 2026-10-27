@@ -3,6 +3,37 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (Roku: `tests/pr-check.sh`, the mechanical review checks in one command)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/pr-check`, off main `8f994d8`. Test tooling only under `roku/tests/` and one CI step; none of it is in the channel package (`stage.sh` packs only manifest, source, components, images, data and fonts, and the script proves that on every run).
+
+**Why.** A reviewer and a tester were redoing the same mechanical checks by hand on every branch and release candidate: the suite, the include check, the saved-data guard, the test lists after a merge, the commit scan. Each costs tokens and attention, and a hand merge went wrong in exactly the places those checks cover (a test file dropped from a list, a line kept twice, an uninitialized variable that stopped the app on a TV). Now one command prints one line per check, and the reviewer reads the lines.
+
+**What each check proves, and what it can't.**
+- `testlists`: every `tests/*Tests.brs` is listed once in `deploy.sh` and once in `run.sh`, every suite function is reachable from `main.brs`, none is called or listed twice. Proves a merge didn't drop or repeat a suite. Doesn't prove the suite passes.
+- `includes`, `uninit`, `guards`: the existing include check, `check-uninit.py`, and the grep guards (secret in a print, saved data outside `NxRegSection`, a variable named `m` or `run`), now in `tests/tools/check-guards.sh` so `run.sh` and `pr-check.sh` share one copy. The tools run from the checkout you are in against the tree of REF, so an old head is held to a check that came later (4f0a467 and `check-uninit.py`).
+- `dupkeys` (new): an associative-array literal that names a key twice. A hand merge that keeps both sides of a changed line makes this, and nothing else sees it.
+- `package`: the staged channel contains nothing from `tests/`. Proves release tooling can't ship.
+- `trailers`, `secrets`, `addresses`, `dashes`: what the change adds, from the commits in BASE..REF and the lines BASE...REF adds. AI trailers (commits by tydude001 are counted and left as they are), tokens and keys and `.env` files, real server addresses (a deny list; other IPv4 addresses are a warning to read), em and en dashes. A warning isn't a failure; it is a line for a person to read.
+- `heads` and `held`: with `--prs` or `--heads`, every PR head is an ancestor of REF; with `--held`, a head that was to stay out isn't in it. Proves a candidate holds the reviewed heads, not newer or older ones.
+- `sca`: Roku's static analysis when Java 21 is here (or podman, as `scripts/sca.sh` needs); otherwise it says NOT RUN.
+- `suite`: `tests/run.sh`, the slow one (started first, runs while the others are checked).
+- `--since SHA`: lists what changed since the last head that passed and says whether any app file moved, so a device pass is only asked for what changed.
+
+**Stays manual.** Anything on a TV (the on-device suite, Settings scrolled to CHANNEL PACKAGES, a smoke test, playback), whether a change is right, the privacy wording, and whether a conflict hand-resolution kept the intended side (the checks only catch the mistakes that have a signature).
+
+**Changed.**
+- `roku/tests/pr-check.sh`: the command. `roku/tests/tools/check-testlists.py`, `check-dupkeys.py`, `scan-added.py`, `check-guards.sh`: its parts. `check-includes.py` and `check-uninit.py` take an optional roku/ directory.
+- `roku/tests/run.sh`: its inline grep guards moved to `check-guards.sh`, unchanged.
+- `.github/workflows/ci.yml`: on a pull request the `roku` job runs `pr-check.sh` (which includes the suite) and writes the report to the job summary; on a push it still runs `run.sh`.
+- `roku/tests/README.md`: how to run it and read it.
+
+**Tested.** On `f4d9f9e` (the 1.0.6 candidate, against its main `9ff822b`, with all ten PR heads and #105 held): every check passes. On `4f0a467`, the head before the Settings fix: `uninit` fails on `drawRow()` reading `isOn`. On a branch with a dropped list entry, a repeated key, an AI trailer, a token-shaped string, a real address, a dash and a test file in the package: each check fails on its own line.
+
+**Half-done.** None.
+
+**Next.** Reviewer v2 reads the branch before it is pushed.
+
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/make-plex-feel-like-cable-tv`.
