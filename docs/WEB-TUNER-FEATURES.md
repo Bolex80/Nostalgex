@@ -16,6 +16,7 @@ Entry point: `plex-tuner.html`. All features here are **web tuner only** unless 
 | Playback scrobbling (mark watched) | Yes | Yes | Yes |
 | Bookmark / saved auth | Yes | Yes | Yes |
 | Sleep timer | Yes | Yes | Yes |
+| Stream quality | Yes | Yes | Yes |
 | Playback information | Yes | Yes | Yes |
 
 One backend at a time. Jellyfin and Emby share the MediaBrowser code path; the few places Emby differs are listed under Emby below. Subtitles and audio language use the `MediaStreams` list and the `AudioStreamIndex` parameter, which both Jellyfin and Emby have (an external `.srt` came back as WebVTT from Emby 4.10.1.0). Plex handles these in its own player.
@@ -48,6 +49,18 @@ Same as the Apple TV app (`SleepTimerLogic` and the SLEEP TIMER rows of the Now 
 - Survives channel changes. Not saved: a reload turns it off, like a relaunch on Apple TV. A hidden tab's late timers are caught up when it is visible again.
 - Works with clicks alone (TV Bro on Google TV), touch, mouse and keyboard. In full screen the prompt is drawn inside the full-screen element; iPhone's own player is closed first so the prompt can be seen.
 - No keyboard shortcut.
+
+---
+
+## Stream quality
+
+The Apple TV's STREAM QUALITY (`StreamQuality.swift`), for every channel: Auto, Maximum, High (1080p, 12 Mbps), Medium (720p, 4 Mbps), Low (480p, 1.5 Mbps). Code: `scripts/nostalgex-stream-quality.js`, wired in the STREAM QUALITY section of `plex-tuner.html`. The table is shared with the Apple TV through `scripts/stream-quality-golden.json`.
+
+- **Where:** QUALITY in the rail (beside SETTINGS, the two share a row) and STREAM QUALITY in the phone drawer both open a small picker; Settings > General > PLAYBACK has the five choices inline. Saved in this browser (`nostalgex_stream_quality`). A change applies from the next program, on every channel.
+- **Auto and Maximum change nothing.** The web has always asked for the top (Jellyfin and Emby 120 Mbps, Plex no ceiling), so those two levels leave every request exactly as it was. The Apple TV's Auto and Maximum ask for 4K at 40 Mbps and differ only in a remote direct-play ceiling the browser cannot know it needs.
+- **High, Medium and Low add a ceiling.** Plex: `maxVideoBitrate`, `videoQuality`, `videoResolution` and `autoAdjustQuality=0` on the transcode URL. Jellyfin and Emby: `MaxStreamingBitrate` in PlaybackInfo and `VideoBitrate` and `MaxWidth` on the fallback URL.
+- **Direct play:** a file whose known bitrate is above the level's ceiling goes through the server's transcoder, on any connection. The Apple TV only does that for remote Plex servers. A file with no known bitrate direct plays.
+- Playback Information shows the level (High, Medium, Low) in QUALITY AT TUNE; at Auto and Maximum it shows what it always showed.
 
 ---
 

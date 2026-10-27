@@ -9,6 +9,7 @@ const root = new URL('../', import.meta.url);
 const tuner = readFileSync(new URL('plex-tuner.html', root), 'utf8');
 const urls = readFileSync(new URL('scripts/nostalgex-jellyfin-urls.js', root), 'utf8');
 const playbackInfoModule = readFileSync(new URL('scripts/nostalgex-playback-info.js', root), 'utf8');
+const streamQualityModule = readFileSync(new URL('scripts/nostalgex-stream-quality.js', root), 'utf8');
 const htmlIds = new Set([...tuner.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]));
 function between(start, end) {
   const a = tuner.indexOf(start), b = tuner.indexOf(end, a);
@@ -131,7 +132,7 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
   };
   context.window = context;
   vm.createContext(context);
-  const production = urls + playbackInfoModule
+  const production = urls + streamQualityModule + playbackInfoModule
     + between('  let activeTranscodeSession = null;', "  let appState = 'connect'")
     + between('  function switchChannel(', '  async function getJellyfinTranscodeUrl(')
     + between('  async function getJellyfinTranscodeUrl(', '  // ── Playback tracking')

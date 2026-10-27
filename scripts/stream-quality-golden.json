@@ -1,0 +1,47 @@
+{
+  "about": "The STREAM QUALITY table, as the Apple TV defines it in Nostalgex/Nostalgex/Models/StreamQuality.swift. Read by BOTH Nostalgex/NostalgexTests/StreamQualityGoldenTests.swift and scripts/nostalgex-stream-quality-smoke.mjs (the web tuner, npm run test:stream-quality). Same ids, same order, same numbers: maxBitrateKbps is Plex's maxVideoBitrate and, times 1000, the bits per second Jellyfin and Emby take; videoQualityIndex is Plex's videoQuality. The storage key is the Apple TV's UserDefaults key and the web's localStorage key. The web leaves every request exactly as it was for auto and maximum and applies the numbers for high, medium and low only (see the header of scripts/nostalgex-stream-quality.js); that rule is web only and is not in this table. When a level changes, change both engines, then update this file.",
+  "storageKey": "nostalgex_stream_quality",
+  "default": "auto",
+  "levels": [
+    {
+      "id": "auto",
+      "displayName": "Auto",
+      "maxBitrateKbps": 40000,
+      "width": 3840,
+      "height": 2160,
+      "videoQualityIndex": 100
+    },
+    {
+      "id": "maximum",
+      "displayName": "Maximum",
+      "maxBitrateKbps": 40000,
+      "width": 3840,
+      "height": 2160,
+      "videoQualityIndex": 100
+    },
+    {
+      "id": "high",
+      "displayName": "High",
+      "maxBitrateKbps": 12000,
+      "width": 1920,
+      "height": 1080,
+      "videoQualityIndex": 90
+    },
+    {
+      "id": "medium",
+      "displayName": "Medium",
+      "maxBitrateKbps": 4000,
+      "width": 1280,
+      "height": 720,
+      "videoQualityIndex": 75
+    },
+    {
+      "id": "low",
+      "displayName": "Low",
+      "maxBitrateKbps": 1500,
+      "width": 854,
+      "height": 480,
+      "videoQualityIndex": 60
+    }
+  ]
+}

@@ -25,6 +25,7 @@
 <script src="scripts/nostalgex-collections.js"></script>
 <script src="scripts/nostalgex-watch-state.js"></script>
 <script src="scripts/nostalgex-jellyfin-urls.js"></script>
+<script src="scripts/nostalgex-stream-quality.js"></script>
 <script src="scripts/nostalgex-sleep-timer.js"></script>
 <script src="scripts/nostalgex-playback-info.js"></script>
 <style>
@@ -3150,6 +3151,10 @@
       <span class="m-drawer-label">SLEEP TIMER</span>
       <span class="m-drawer-value off" id="dw-sleep-val">OFF</span>
     </button>
+    <button class="m-drawer-item" type="button" onclick="closeDrawer(); openQualityDialog();" aria-haspopup="dialog">
+      <span class="m-drawer-label">STREAM QUALITY</span>
+      <span class="m-drawer-value" id="dw-quality-val">AUTO</span>
+    </button>
     <button class="m-drawer-item" type="button" onclick="closeDrawer(); openPlaybackInfo();" aria-haspopup="dialog">
       <span class="m-drawer-label">PLAYBACK INFO</span>
     </button>
@@ -3230,11 +3235,21 @@
           <span class="v-btn-value v-key">[I]</span>
         </button>
       </div>
-      <button class="v-btn" onclick="showConfig()">
-        <span class="v-btn-label">SETTINGS</span>
-        <span class="v-btn-short">SETTINGS</span>
-        <span class="v-btn-value v-key">[H]</span>
-      </button>
+      <!-- STREAM QUALITY lives in the Apple TV's full-screen panel, so it is on the rail. It
+           shares a row with SETTINGS for the reason SLEEP and INFO share one: the rail is
+           full, and one more full-width button pushes Instagram out of sight. -->
+      <div class="v-btn-pair">
+        <button class="v-btn" type="button" id="tb-quality" onclick="openQualityDialog()" aria-haspopup="dialog">
+          <span class="v-btn-label">QUALITY</span>
+          <span class="v-btn-short">QUALITY</span>
+          <span class="v-btn-value" id="tb-quality-val">AUTO</span>
+        </button>
+        <button class="v-btn" type="button" onclick="showConfig()">
+          <span class="v-btn-label">SETTINGS</span>
+          <span class="v-btn-short">SETTINGS</span>
+          <span class="v-btn-value v-key">[H]</span>
+        </button>
+      </div>
       <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
         <span class="v-btn-label">APPLE TV</span>
         <span class="v-btn-short">APPLE TV</span>
@@ -3474,6 +3489,13 @@
       <p style="font-size: 12px; color: rgba(255,255,255,0.45);">Both are off on a new install. Existing Report Playback choices are preserved. Jellyfin and Emby session reporting restores prior watch state when the session ends; cleanup requires a working connection.</p>
       <div class="cfg-row cfg-row--wrap">
         <div>
+          <div class="cfg-row-title">Stream quality</div>
+          <div class="cfg-row-desc">How much your server is asked to send, on every channel. High is 1080p at 12 Mbps, Medium 720p at 4 Mbps, Low 480p at 1.5 Mbps. Applies from the next program.</div>
+        </div>
+        <div class="sleep-chips" id="cfg-quality-chips" role="group" aria-label="Stream quality"></div>
+      </div>
+      <div class="cfg-row cfg-row--wrap">
+        <div>
           <div class="cfg-row-title">Sleep timer</div>
           <div class="cfg-row-desc">Stops playback when time's up, after a 20 second "Still watching?" check. Keeps counting when you change channels.</div>
         </div>
@@ -3673,6 +3695,18 @@
     <button class="nx-close" type="button" onclick="closeSleepDialog()" aria-label="Close sleep timer">X</button>
   </div>
   <div class="sleep-rows" id="sleep-rows"></div>
+</div>
+
+<!-- STREAM QUALITY picker. Opened from the rail and the drawer; Settings > PLAYBACK has the
+     same five levels inline. Same levels as the Apple TV panel. -->
+<div class="nx-scrim" id="quality-scrim" hidden></div>
+<div class="nx-dialog" id="quality-dialog" role="dialog" aria-modal="true" aria-labelledby="quality-dialog-title" hidden>
+  <div class="nx-dialog-head">
+    <span class="nx-dialog-title" id="quality-dialog-title">STREAM QUALITY</span>
+    <button class="nx-close" type="button" onclick="closeQualityDialog()" aria-label="Close stream quality">X</button>
+  </div>
+  <div class="sleep-rows" id="quality-rows"></div>
+  <p class="pi-note">TAKES EFFECT ON THE NEXT PROGRAM, ON EVERY CHANNEL.</p>
 </div>
 
 <!-- "Still watching?" when the sleep timer reaches zero. Any click, tap or key keeps
@@ -4129,7 +4163,7 @@
     playbackInfo = NostalgexPlaybackInfo.create({
       generation: playbackInfoGeneration,
       backend,
-      qualityAtTune: NostalgexPlaybackInfo.webQualityLabel(backend),
+      qualityAtTune: NostalgexPlaybackInfo.webQualityLabel(backend, NostalgexStreamQuality.current()),
       videoCodec: item.videoCodec,
       audioCodec: item.audioCodec,
     });
@@ -5079,6 +5113,8 @@
   // always transcodes it. Falls back to a hand-built URL if PlaybackInfo is unavailable.
   async function getJellyfinTranscodeUrl(item, request) {
     const msid = item.partKey || item.ratingKey;
+    // Read once per programme: a change in Settings applies from the next one.
+    const streamQualityAtTune = NostalgexStreamQuality.current();
     const startTicks = item.offsetSeconds ? Math.floor(item.offsetSeconds) * 10000000 : 0;
     // No StartTimeTicks on the fallback URL. Jellyfin copies the master's query string onto
     // main.m3u8 and then onto every segment, and its segment handler refuses the parameter:
@@ -5097,6 +5133,7 @@
       mediaSourceId: msid,
       token: request.token,
       deviceId: request.deviceId,
+      ...NostalgexStreamQuality.mediaBrowserFallbackOptions(streamQualityAtTune),
     });
     const result = (url, sessionId = null) => ({
       url,
@@ -5113,7 +5150,7 @@
       lang => langMatches(lang, resolveSubtitleLanguage()));
     request.burnedSubtitleIndex = burn ? burn.index : null;
     const deviceProfile = {
-      MaxStreamingBitrate: 120000000,
+      MaxStreamingBitrate: NostalgexStreamQuality.mediaBrowserMaxBitrate(streamQualityAtTune),
       DirectPlayProfiles: [
         { Container: 'mp4,m4v,webm', Type: 'Video', VideoCodec: 'h264,vp8,vp9,av1', AudioCodec: 'aac,mp3,opus,vorbis,flac' },
       ],
@@ -5135,7 +5172,7 @@
         body: JSON.stringify((() => {
           const body = {
             DeviceProfile: deviceProfile,
-            MaxStreamingBitrate: 120000000,
+            MaxStreamingBitrate: NostalgexStreamQuality.mediaBrowserMaxBitrate(streamQualityAtTune),
             StartTimeTicks: startTicks,
             MediaSourceId: msid,
             SubtitleStreamIndex: burn ? burn.index : NostalgexJellyfinUrls.NO_SUBTITLE_STREAM,
@@ -5466,7 +5503,8 @@
       const audioOK = !acodec || ['aac', 'mp3', 'opus', 'vorbis', 'flac'].includes(acodec);
       // Only direct-play when we KNOW the codecs are browser-safe. Unknown video codec →
       // transcode (safer than a decode failure).
-      canDirectPlay = !item._forceTranscode && containerOK && videoOK && audioOK;
+      canDirectPlay = !item._forceTranscode && containerOK && videoOK && audioOK
+        && NostalgexStreamQuality.directPlayAllowed(NostalgexStreamQuality.current(), item.bitrate);
       beginInfoAttempt();
       if (canDirectPlay) {
         // stream.mp4 for the mp4/m4v/mov family: Jellyfin labels a static stream by file
@@ -5492,7 +5530,8 @@
         activeTranscodeSession = resolved.session;
       }
     } else {
-      canDirectPlay = !item._forceTranscode && item.partKey && ['mp4', 'webm', 'mov'].includes(item.container);
+      canDirectPlay = !item._forceTranscode && item.partKey && ['mp4', 'webm', 'mov'].includes(item.container)
+        && NostalgexStreamQuality.directPlayAllowed(NostalgexStreamQuality.current(), item.bitrate);
       beginInfoAttempt();
 
       // Use per-item server credentials for multi-server support; fall back to primary
@@ -5517,7 +5556,8 @@
           + `&X-Plex-Client-Identifier=${getClientId()}`
           + `&X-Plex-Product=Plex%2090`
           + `&X-Plex-Platform=Web&X-Plex-Platform-Version=1.0`
-          + `&X-Plex-Device=Browser&X-Plex-Device-Name=Plex90`;
+          + `&X-Plex-Device=Browser&X-Plex-Device-Name=Plex90`
+          + NostalgexStreamQuality.plexTranscodeQuery(NostalgexStreamQuality.current());
 
       }
     }
@@ -6452,6 +6492,107 @@
     NostalgexDailyManifest.clearManifests(manifestServerKey());
     fetchPlexLibrary();
   }
+
+  /* ══════════════════════════════════════
+     STREAM QUALITY
+     Parity with tvOS (StreamQuality.swift): Auto, Maximum, High, Medium, Low, for every
+     channel, read at the start of each program. The levels, what each asks of Plex, Jellyfin
+     and Emby, and the one way the web differs from the Apple TV are in
+     scripts/nostalgex-stream-quality.js. Shown on the rail, in the drawer, in a picker and in
+     Settings > PLAYBACK, all from this one renderer.
+  ══════════════════════════════════════ */
+  let qualityDialogReturnFocus = null;
+  const QUALITY_SHORT = { auto: 'AUTO', maximum: 'MAX', high: 'HIGH', medium: 'MED', low: 'LOW' };
+
+  function qualityChoice(id) {
+    NostalgexStreamQuality.save(id);
+    renderQualityControls();
+  }
+
+  function renderQualityControls() {
+    const SQ = NostalgexStreamQuality;
+    const now = SQ.current();
+    for (const id of ['tb-quality-val', 'dw-quality-val']) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = QUALITY_SHORT[now] || 'AUTO';
+    }
+    const rail = document.getElementById('tb-quality');
+    if (rail) rail.setAttribute('aria-label', `Stream quality, ${SQ.level(now).name}`);
+
+    const chips = document.getElementById('cfg-quality-chips');
+    if (chips) {
+      if (!chips.firstChild) {
+        for (const l of SQ.LEVELS) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'sleep-chip';
+          b.dataset.level = l.id;
+          b.textContent = SQ.chipLabel(l.id);
+          b.addEventListener('click', () => qualityChoice(l.id));
+          chips.appendChild(b);
+        }
+      }
+      for (const b of chips.querySelectorAll('.sleep-chip')) {
+        const active = b.dataset.level === now;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', String(active));
+      }
+    }
+    const rows = document.getElementById('quality-rows');
+    if (rows) {
+      if (!rows.firstChild) {
+        for (const l of SQ.LEVELS) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'sleep-row';
+          b.dataset.level = l.id;
+          const label = document.createElement('span'); label.className = 'sleep-row-label';
+          const value = document.createElement('span'); value.className = 'sleep-row-value';
+          b.append(label, value);
+          b.addEventListener('click', () => { qualityChoice(l.id); closeQualityDialog(); });
+          rows.appendChild(b);
+        }
+      }
+      for (const b of rows.querySelectorAll('.sleep-row')) {
+        const active = b.dataset.level === now;
+        b.querySelector('.sleep-row-label').textContent = SQ.chipLabel(b.dataset.level);
+        b.querySelector('.sleep-row-value').textContent = active ? 'ACTIVE' : '';
+        b.title = SQ.detail(b.dataset.level);
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', String(active));
+      }
+    }
+  }
+
+  function qualityDialogFocusables() {
+    const dialog = document.getElementById('quality-dialog');
+    return dialog ? [...dialog.querySelectorAll('button')] : [];
+  }
+  function isQualityDialogOpen() {
+    const dialog = document.getElementById('quality-dialog');
+    return !!dialog && !dialog.hidden;
+  }
+  function openQualityDialog() {
+    qualityDialogReturnFocus = document.activeElement;
+    renderQualityControls();
+    document.getElementById('quality-scrim').hidden = false;
+    document.getElementById('quality-dialog').hidden = false;
+    const active = document.querySelector('#quality-rows .sleep-row.active') || qualityDialogFocusables()[0];
+    if (active) active.focus({ preventScroll: true });
+  }
+  function closeQualityDialog() {
+    if (!isQualityDialogOpen()) return;
+    document.getElementById('quality-scrim').hidden = true;
+    document.getElementById('quality-dialog').hidden = true;
+    const back = qualityDialogReturnFocus && document.contains(qualityDialogReturnFocus) ? qualityDialogReturnFocus : null;
+    qualityDialogReturnFocus = null;
+    if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+  }
+
+  (() => {
+    document.getElementById('quality-scrim').addEventListener('click', closeQualityDialog);
+    renderQualityControls();
+  })();
 
   /* ══════════════════════════════════════
      SLEEP TIMER
@@ -8675,7 +8816,9 @@
             external: !!s.IsExternal,
           }));
       }
-      return { msid: src ? src.Id : null, container, videoCodec, audioCodec, subtitles, audioStreams, doviProfile };
+      // Kbps, as Plex reports it. STREAM QUALITY compares it with a level's ceiling.
+      const bitrate = src && src.Bitrate > 0 ? Math.round(src.Bitrate / 1000) : 0;
+      return { msid: src ? src.Id : null, container, videoCodec, audioCodec, subtitles, audioStreams, doviProfile, bitrate };
     }
 
     let allItems = [];
@@ -8728,6 +8871,7 @@
                     container: mi.container,
                     videoCodec: mi.videoCodec,
                     audioCodec: mi.audioCodec,
+                    bitrate: mi.bitrate,
                     genres: showGenres,
                     rating: show.CommunityRating || 0,
                     userRating: 0,
@@ -8790,6 +8934,7 @@
               container: mi.container,
               videoCodec: mi.videoCodec,
               audioCodec: mi.audioCodec,
+              bitrate: mi.bitrate,
               genres,
               rating: jf.CommunityRating || 0,
               userRating: 0,
@@ -9045,6 +9190,7 @@
                       container: container,
                       videoCodec: epVideoCodec,
                       audioCodec: epAudioCodec,
+                      bitrate: epMedia && Number(epMedia.bitrate) > 0 ? Number(epMedia.bitrate) : 0,
                       genres: showGenres,
                       rating: show.rating || 0,
                       userRating: show.userRating || 0,
@@ -9142,6 +9288,7 @@
             container: container,
             videoCodec: itemVideoCodec,
             audioCodec: itemAudioCodec,
+            bitrate: itemMedia && Number(itemMedia.bitrate) > 0 ? Number(itemMedia.bitrate) : 0,
             genres: genres,
             rating: item.rating || 0,
             userRating: item.userRating || 0,
@@ -9362,6 +9509,18 @@
     if (isPlaybackInfoOpen()) {
       if (key === 'Escape' || key === 'Backspace' || key === 'i' || key === 'I') { closePlaybackInfo(); e.preventDefault(); }
       else if (key === 'Tab' || key.startsWith('Arrow')) { document.getElementById('pi-back').focus(); e.preventDefault(); }
+      return;
+    }
+    if (isQualityDialogOpen()) {
+      if (key === 'Escape' || key === 'Backspace') { closeQualityDialog(); e.preventDefault(); return; }
+      if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Tab') {
+        const items = qualityDialogFocusables();
+        const back = key === 'ArrowUp' || (key === 'Tab' && e.shiftKey);
+        const at = items.indexOf(document.activeElement);
+        const next = at === -1 ? 0 : (at + (back ? -1 : 1) + items.length) % items.length;
+        if (items[next]) items[next].focus({ preventScroll: true });
+        e.preventDefault();
+      }
       return;
     }
     if (isSleepDialogOpen()) {

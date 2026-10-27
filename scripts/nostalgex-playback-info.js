@@ -75,8 +75,13 @@
     return Object.prototype.hasOwnProperty.call(known, key) ? known[key] : 'Unknown';
   }
 
-  /** The quality ceiling the web tuner asks for at tune time. It has no quality setting. */
-  function webQualityLabel(backend) {
+  /**
+   * The quality ceiling the web tuner asks for at tune time. With no STREAM QUALITY choice (or
+   * AUTO or MAXIMUM) that is what the web has always asked for; a capped level says its own.
+   */
+  function webQualityLabel(backend, level) {
+    const SQ = globalThis.NostalgexStreamQuality;
+    if (SQ && SQ.isCapped(level)) return SQ.infoLabel(level, backend);
     if (backend === 'jellyfin' || backend === 'emby') return 'Up to 120 Mbps';
     if (backend === 'plex') return 'Server default';
     return 'Unknown';
@@ -94,7 +99,8 @@
     const generation = opts.generation;
     const backend = Object.prototype.hasOwnProperty.call(BACKENDS, opts.backend) ? BACKENDS[opts.backend] : 'Unknown';
     // Only the fixed labels webQualityLabel produces are accepted.
-    const allowedQuality = new Set(['Up to 120 Mbps', 'Server default', 'Unknown']);
+    const allowedQuality = new Set(['Up to 120 Mbps', 'Server default', 'Unknown',
+      'High (1080p, 12 Mbps)', 'Medium (720p, 4 Mbps)', 'Low (480p, 1.5 Mbps)']);
     const qualityAtTune = allowedQuality.has(opts.qualityAtTune) ? opts.qualityAtTune : 'Unknown';
     const source = { video: codecLabel(opts.videoCodec, true), audio: codecLabel(opts.audioCodec, false) };
 

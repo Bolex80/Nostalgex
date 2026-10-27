@@ -3,6 +3,27 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (web tuner: STREAM QUALITY)
+
+**Shipped.** Nothing until the PR for #123 lands on main. Branch `web/stream-quality-123`, off main `ab60b31`.
+
+**Why.** The Apple TV has Settings > PLAYBACK > STREAM QUALITY: Auto, Maximum, High (1080p, 12 Mbps), Medium (720p, 4 Mbps), Low (480p, 1.5 Mbps), on every channel. The web tuner and Docker had nothing, so a slow link or a remote server could not ask for less (issue #123).
+
+**Compared first.** What the web sent before this change: Jellyfin and Emby `MaxStreamingBitrate` 120,000,000 in PlaybackInfo (profile and body) and `MaxWidth=3840` with no `VideoBitrate` on the fallback URL; Plex none of the four quality parameters. The Apple TV's Auto sends 40 Mbps and 4K on all three, and Maximum the same, so Auto and Maximum differ from the web's today. Playback is the product, so on the web Auto and Maximum leave every request exactly as it was; only High, Medium and Low change anything. Whether the web's Auto should move to the Apple TV's numbers is a separate decision.
+
+**Changed.**
+- `scripts/nostalgex-stream-quality.js`: the five levels, the saved choice (`nostalgex_stream_quality`, the Apple TV's key) and what a capped level asks of each backend. Plex: `maxVideoBitrate`, `videoQuality`, `videoResolution`, `autoAdjustQuality=0` on the transcode URL. Jellyfin and Emby: `MaxStreamingBitrate` in the PlaybackInfo profile and body, `VideoBitrate` and `MaxWidth` on the fallback URL (`fallbackHlsUrl` takes them as options and is byte for byte the same without). Read at the start of each program, so a change applies from the next one.
+- Direct play: a file whose bitrate is above a capped level's ceiling is transcoded instead, on any connection (the Apple TV does it for remote Plex servers only; a browser cannot tell). Items now carry `bitrate` in kbps, from Plex `Media.bitrate` and Jellyfin/Emby `MediaSource.Bitrate`. Items cached before this have none and direct play until the next library refresh.
+- `plex-tuner.html`: a QUALITY button on the rail (sharing a row with SETTINGS, so the rail keeps its height), STREAM QUALITY in the phone drawer, a picker, and a row of five chips in Settings > General > PLAYBACK, all from one renderer. Playback Information shows the level at High, Medium and Low.
+- `scripts/stream-quality-golden.json`, held by `scripts/nostalgex-stream-quality-smoke.mjs` (`npm run test:stream-quality`, in `npm test`) and by the new `StreamQualityGoldenTests.swift`. Roku #65 reads the same file.
+- `scripts/stream-quality-browser-smoke.mjs` (`npm run test:stream-quality:browser`, needs Playwright): the real page against a Jellyfin-shaped and a Plex-shaped server that record what a program start asks for, at every level, for a transcoded file and for direct-playable ones, plus the controls and a negative control.
+
+**Measured.** Against a Jellyfin 10.10.7 test server, PlaybackInfo for a 28 Mbps MKV: Auto asks for 120 Mbps and gets a transcode at `VideoBitrate=119360000`; Low sends `MaxStreamingBitrate=1500000` and gets `VideoBitrate=1116000` with `AudioBitrate=384000` and `TranscodeReasons=ContainerBitrateExceedsLimit`. Headless Chromium at 390x844, 820x1180, 1440x900 and 960x540: the picker, the drawer row and the Settings chips fit with no horizontal scroll, and the rail's last button sits where it did before. The Swift table test passes on the tvOS 26.1 simulator.
+
+**Half-done.** Not run against a real Plex or Emby server: the Plex parameters are the four the Apple TV sends, checked as URLs only. The resolution cap on Jellyfin and Emby is the fallback URL's `MaxWidth` and the server's own scaling for the bitrate; the test files were 360p, so a downscale was not seen. No iCloud-style sync of the choice, as the web has none for any setting.
+
+**Next.** Roku #65 follows with the same golden file. Decide whether the web's Auto should match the Apple TV's. Nothing changes what is sent anywhere beyond request parameters to the viewer's own server.
+
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/make-plex-feel-like-cable-tv`.

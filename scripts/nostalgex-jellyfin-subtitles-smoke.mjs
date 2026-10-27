@@ -24,6 +24,7 @@ const tunerPath = process.env.TUNER || path.join(root, "plex-tuner.html");
 const urlsPath = process.env.URLS || path.join(root, "scripts/nostalgex-jellyfin-urls.js");
 const tuner = fs.readFileSync(tunerPath, "utf8");
 await import(pathToFileURL(urlsPath).href);
+await import(pathToFileURL(path.join(root, "scripts/nostalgex-stream-quality.js")).href);
 const JU = globalThis.NostalgexJellyfinUrls;
 
 let passed = 0;
@@ -121,6 +122,7 @@ async function pageBody(backend, retry, subtitles, pref = "en") {
   const sent = [];
   const ctx = {
     NostalgexJellyfinUrls: JU,
+    NostalgexStreamQuality: globalThis.NostalgexStreamQuality,
     URL,
     console: { warn() {}, log() {} },
     pickAudioStream: () => null,
