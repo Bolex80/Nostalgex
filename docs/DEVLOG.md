@@ -3,6 +3,22 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (Roku: a Jellyfin or Emby item's bitrate is in kbps, as the web tuner and the Apple TV hold it)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/bitrate-kbps`, off main `ab60b31`.
+
+**Why.** The web tuner's STREAM QUALITY branch (PR #123) gives Jellyfin and Emby items a `bitrate` in kbps, `Math.round(Bitrate / 1000)`, as the Apple TV holds it. The Roku held the server's raw bits per second in the same field (19,269,041 where the web says 19269). `roku/tests/run.sh` compares each Roku item with the JS engine's, so with #123 merged the `mediabrowser` suite fails all 222 `bitrate` cases and nothing else (checked on a merged tree of main and #123). This lands the Roku side with no change in behaviour.
+
+**Changed.**
+- `source/mediabrowser/MediaBrowserLibrary.brs`: `NxMbBitrateKbps` (Integer sums, half up, 0 when there is none, as the JS); `NxMbMediaInfo` uses it. The best-source pick still reads the server's raw `Bitrate`, as the web's does.
+- `source/mediabrowser/MediaBrowserPlayback.brs`: `NxMbVideoQuery` compares with 20,000 kbps instead of 20,000,000 bps. That is the only user of an item's bitrate besides the pass-through in `GuideSchedule.brs`. Plex items already held kbps and nothing reads them for this. One rounding edge: a file within half a kbps of 20 Mb/s can now land on the other side of the re-encode line.
+- `source/plex/LibrarySnapshot.brs`: saved library format 7 to 8, since a saved item would no longer read the same (an old save in bits per second would re-encode every file). A library saved by 1.0.6 is read again once, as after the earlier bumps.
+- Tests: the expected bitrates and `NxMbVideoQuery` arguments in kbps; ten cases for `NxMbBitrateKbps` (rounding at 499 and 500, a Float, over 2 Gb/s, none, negative).
+
+**Tested.** `tests/run.sh`: ALL TESTS PASSED on this branch off main, and on a merged tree of main and web/stream-quality-123 (`326fd6a`), where it failed before this change. So it lands in either order.
+
+**Half-done.** None. STREAM QUALITY on the Roku (#65) is separate and stays with tydude001; it will read `scripts/stream-quality-golden.json` once #123 is in.
+
 ## 2026-10-27 (web tuner: a Plex title with a bad byte keeps its accent)
 
 **Shipped.** Nothing until the PR for #125 lands on main. Branch `web/bad-byte-125`, off main `ab60b31`.
