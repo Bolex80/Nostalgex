@@ -54,7 +54,7 @@ if [ "${NOSTALGEX_ENRICHMENT:-off}" = on ]; then
     echo "build: enrichment on"
 fi
 if [ "$mode" = test ]; then
-    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/ScheduleParityGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/FallbackTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/StallTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs tests/PlexAudioTests.brs tests/PosterTests.brs tests/RescanTests.brs tests/DolbyVisionTests.brs tests/DailyRefreshTests.brs "$stage"/source/
+    cp tests/main.brs tests/runtime-device.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/ScheduleParityGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/FallbackTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/StallTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs tests/PlexAudioTests.brs tests/PosterTests.brs tests/RescanTests.brs tests/DolbyVisionTests.brs tests/DailyRefreshTests.brs tests/SmallLibraryTests.brs "$stage"/source/
     # The vectors are generated from this tree's JS engine, never committed
     # (qr.json, from tests/gen-qr.mjs, is the one kept in git).
     NOSTALGEX_DIR=.. node tests/gen-vectors.mjs >/dev/null
@@ -115,7 +115,9 @@ for host in $ROKU_HOSTS; do
         sleep 1
     done
     kill "$listener" 2>/dev/null || true
-    fresh | grep -E '^FAIL|^    (want|got)| vectors | took |filter: |TESTS|^LIVE |Micro Debugger|runtime error' | sed "s/^/$host: /" || true
+    # -a: the console carries the odd binary byte, and grep would print only
+    # "Binary file matches" in place of the lines.
+    fresh | grep -aE '^FAIL|^    (want|got)| vectors | cases| took |filter: |TESTS|^LIVE |Micro Debugger|runtime error' | sed "s/^/$host: /" || true
     if ! fresh | grep -qE 'ALL TESTS PASSED|LIVE DONE'; then
         echo "$host: tests did not pass — full console in $log" >&2
         failed=1

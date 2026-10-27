@@ -21,6 +21,21 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Next.** The Tunarr post still has a build-notes reminder to add this walkthrough in "How does Nostalgex compare to Tunarr and ErsatzTV?". That was not in today's publish list.
 
+## 2026-10-26 (Roku: a small library no longer lands on an empty guide)
+
+**Shipped.** Nothing until the PR for #60 lands on main. Branch `roku/small-library`, off main `ae3cd6d`.
+
+**Why.** A first run starts with NOSTALGEX only. A library too small or too narrow to fill any NOSTALGEX channel landed on a guide that read NO CHANNELS AVAILABLE, with nothing to press (issue #60). The Apple TV switches on every package that has content when the channels come out empty (`autoEnableBundlesWithContent`), and if that still finds nothing it says NO CHANNELS FOUND with an OPEN SETTINGS button.
+
+**Changed.**
+- `components/LibraryTask.brs`: after a build with no channel, the packages that aren't on, aren't seasonal and aren't collection ones are tried together. The ones that built a channel with content stay on and are saved, as upstream saves its preferences. One more build if any of them came out empty.
+- `source/guide/BundleChoices.brs`: `NxAutoEnableCandidates`, `NxBundlesWithContent`, `NxSaveEnabledBundles`.
+- `components/GuideView.brs`: the empty guide reads upstream's NO CHANNELS FOUND text, and OK opens Settings.
+- `tests/SmallLibraryTests.brs`: 8 cases, among them a 20-film true-crime documentary library that fills no NOSTALGEX channel and gets ESSENTIALS switched on. Registered in `tests/main.brs`, `tests/run.sh`, `scripts/deploy.sh`.
+
+**Measured.** Before the change the new suite fails (the functions don't exist). After it, the whole suite passes off-device, one process at a time, and on a Streaming Stick Plus (`small library cases: 8 passed, 0 failed`). The stick's own library (Emby) launches and plays as before; its guide was never empty, so the fallback doesn't run there.
+
+**Half-done.** The fallback hasn't run on a TV with a small library: the stick stays signed in to Chad's Emby. tydude or a tester with a small library can check it.
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.
