@@ -302,7 +302,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           node --version
-          roku/tests/pr-check.sh --here HEAD --base "origin/${{ github.base_ref }}" --summary "$GITHUB_STEP_SUMMARY"
+          roku/tests/pr-check.sh HEAD --here --base "origin/${{ github.base_ref }}" --summary "$GITHUB_STEP_SUMMARY"
 
   tvos-unit-tests:
     name: tvOS unit tests (NostalgexTests)
