@@ -10,7 +10,15 @@ BrightScript compares raw code points.
 The tables come from this Python's unicodedata; the file records its
 Unicode version.
 """
-import os, unicodedata
+import os, sys, unicodedata
+
+# The committed tables are Unicode 16.0.0's. Another version would quietly
+# write different ones, so stop instead.
+UNICODE_VERSION = "16.0.0"
+if unicodedata.unidata_version != UNICODE_VERSION:
+    sys.exit(f"gen-unicode.py: this Python has Unicode {unicodedata.unidata_version}; "
+             f"the tables are Unicode {UNICODE_VERSION}. Run it with a Python whose "
+             f"unicodedata.unidata_version is {UNICODE_VERSION} (3.14 has it).")
 
 RANGES = [(0x80, 0x24F), (0x370, 0x3FF), (0x400, 0x52F), (0x531, 0x587),
           (0x1E00, 0x1EFF), (0x2160, 0x217F), (0x24B6, 0x24E9), (0xFF21, 0xFF5A)]
