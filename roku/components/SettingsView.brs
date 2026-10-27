@@ -393,7 +393,7 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         end if
         state = "OFF"
         stateColor = "0xFFFFFF59"
-        if isOn then
+        if on then
             state = "ON"
             stateColor = "0xFFE500FF"
         end if
