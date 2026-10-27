@@ -6,8 +6,8 @@
 ' Right move between the columns, Up and Down within one. PLAYBACK
 ' INFORMATION opens in place of the columns; Back closes it, then the panel.
 '
-' Left out, for what the Roku has: STREAM QUALITY and the language pickers
-' (no quality setting here, and Plex sends one subtitle track), and OPEN IN
+' Left out, for what the Roku has: STREAM QUALITY (no quality setting
+' here), the language pickers (in Settings only, for now), and OPEN IN
 ' PLEX. Rounded corners are square; the shade is flat where upstream's fades.
 
 sub init()

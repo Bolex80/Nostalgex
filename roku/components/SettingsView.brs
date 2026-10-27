@@ -11,6 +11,9 @@ sub init()
     ' The first OK on SIGN OUT only arms it; a second one signs out.
     m.signOutArmed = false
     m.collectionsChanged = false
+    ' The language list open under SUBTITLE LANGUAGE ("subsLanguage") or
+    ' AUDIO LANGUAGE ("audioLanguage"), "" when both are folded.
+    m.languageOpen = ""
     ' Packages switched on whose channels are still being built: { id: true }.
     ' A package switch is saved and built at once, behind Settings, as
     ' upstream's toggleBundle; needRebuild is set when that couldn't be done
@@ -138,6 +141,7 @@ sub open(unused = invalid as Dynamic)
     m.serversChanged = false
     ' Which MY COLLECTIONS categories are open, by category.
     m.collectionsOpen = {}
+    m.languageOpen = ""
     buildRows()
     m.focus = nextFocusable(-1, 1)
     m.scroll = 0
@@ -151,8 +155,9 @@ end sub
 ' category folded closed behind a SHOW/HIDE row, as upstream's
 ' CollectionAccordionHeaderRow. Kinds:
 '   header, subheader, info: text only, never focused
-'   support, server, signOut, retro, subtitles, bundle, franchiseAll,
-'   franchise, collectionsToggle, collection: rows
+'   support, server, signOut, retro, subtitles, language (SUBTITLE or
+'   AUDIO LANGUAGE), languageChoice, bundle, franchiseAll, franchise,
+'   collectionsToggle, collection: rows
 ' The franchise rows are the last guide build's, so they show once the
 ' package was on for a build. MY COLLECTIONS has upstream's two categories,
 ' FRANCHISES then OTHER COLLECTIONS, each shown only when it has a row.
@@ -177,6 +182,9 @@ sub buildRows()
     m.rows.Push({ kind: "header", title: "PLAYBACK", subtitle: "Picture and subtitles" })
     m.rows.Push({ kind: "retro" })
     m.rows.Push({ kind: "subtitles" })
+    ' SUBTITLE LANGUAGE only while subtitles can show, as upstream's.
+    if m.subs.always or m.subs.foreign then pushLanguage("subsLanguage")
+    pushLanguage("audioLanguage")
 
     m.rows.Push({ kind: "header", title: "CHANNEL PACKAGES", subtitle: "Toggle packages to customize your lineup" })
     for i = 0 to m.top.bundles.Count() - 1
@@ -209,6 +217,34 @@ sub buildRows()
         end if
     end for
     m.rows.Push({ kind: "version", text: NxVersionLabel() })
+end sub
+
+' A language row, and the presets under it while it is open, as upstream's
+' picker sheet lists them.
+sub pushLanguage(key as String)
+    m.rows.Push({ kind: "language", key: key })
+    if m.languageOpen <> key then return
+    for each p in NxLanguagePresets()
+        m.rows.Push({ kind: "languageChoice", key: key, code: p.code, label: p.label })
+    end for
+end sub
+
+' The row of `kind` (and `key`, for the language rows), else -1.
+function rowIndex(kind as String, key = "" as String, code = "" as String) as Integer
+    for i = 0 to rowCount() - 1
+        row = m.rows[i]
+        if row.kind = kind and (key = "" or row.key = key) and (code = "" or row.code = code) then return i
+    end for
+    return -1
+end function
+
+' Folds the open language list, focus back on its row.
+sub foldLanguage()
+    key = m.languageOpen
+    m.languageOpen = ""
+    buildRows()
+    m.focus = rowIndex("language", key)
+    render()
 end sub
 
 function focusable(row as Object) as Boolean
@@ -562,6 +598,24 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         state = subtitleModeLabel()
         stateColor = "0xFFFFFF59"
         if state <> "OFF" then stateColor = "0xFFE500FF"
+    else if row.kind = "language" then
+        ' Upstream's SUBTITLE LANGUAGE and AUDIO LANGUAGE rows.
+        if row.key = "subsLanguage" then
+            label = "SUBTITLE LANGUAGE"
+            detail = "When the video has multiple subtitle tracks, prefer this language"
+        else
+            label = "AUDIO LANGUAGE"
+            detail = "When the video has multiple audio tracks, prefer this language"
+        end if
+        state = NxLanguageLabel(NxSavedLanguage(row.key))
+        stateColor = "0xFFE500FF"
+    else if row.kind = "languageChoice" then
+        indent = 40
+        label = row.label
+        detail = ""
+        state = ""
+        stateColor = "0xFFE500FF"
+        if NxSavedLanguage(row.key) = row.code then state = "SELECTED"
     else
         kindName = NxKindName(NxSignedInKind())
         label = "SIGN OUT OF " + UCase(kindName)
@@ -589,7 +643,10 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         detailColor = "0xFFFFFF5A"
     end if
     if focused then nameColor = "0xFFFFFFFF"
-    page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
+    ' A row with no detail line (a language in the list) centres its name.
+    nameY = y + 10
+    if detail = "" then nameY = y + 22
+    page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, nameY))
     page.AppendChild(newLabel(detail, "VT323-Regular", 24, detailColor, indent + 30, y + 40))
     if row.kind = "rescan" or extra.Count() > 0 then
         ' Its other lines, each cut to the row's width.
@@ -700,13 +757,36 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             render()
         else if row.kind = "subtitles" then
             cycleSubtitleMode()
+            ' SUBTITLE LANGUAGE comes and goes with it.
+            m.languageOpen = ""
+            buildRows()
+            m.focus = rowIndex("subtitles")
             render()
+        else if row.kind = "language" then
+            ' Opens its list on the saved choice; OK again folds it.
+            if m.languageOpen = row.key then
+                foldLanguage()
+            else
+                m.languageOpen = row.key
+                buildRows()
+                m.focus = rowIndex("languageChoice", row.key, NxSavedLanguage(row.key))
+                if m.focus < 0 then m.focus = rowIndex("language", row.key)
+                render()
+            end if
+        else if row.kind = "languageChoice" then
+            NxSaveLanguage(row.key, row.code)
+            print "settings: "; row.key; " set to "; row.code
+            foldLanguage()
         else if m.signOutArmed then
             m.top.result = "signOut"
         else
             m.signOutArmed = true
             render()
         end if
+        return true
+    end if
+    if (key = "back" or key = "left") and m.languageOpen <> "" then
+        foldLanguage()
         return true
     end if
     if key = "back" or key = "left" then

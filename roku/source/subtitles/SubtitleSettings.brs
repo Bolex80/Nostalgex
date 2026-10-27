@@ -32,11 +32,85 @@ function NxFlag(on as Boolean) as String
     return "0"
 end function
 
-' The TV's language, as upstream's "__system__" setting resolves it. There is
-' no language picker here: Plex sends one subtitle track, the one this Plex
-' account has selected, so a preference has nothing to choose between.
+' Upstream's SubtitleLanguagePreset.all (Models/SubtitleLanguagePreset.swift),
+' the list both language settings offer, with the Roku's name for "follow the
+' device".
+function NxLanguagePresets() as Object
+    return [
+        { code: "__system__", label: "MATCH ROKU LANGUAGE" }
+        { code: "en", label: "ENGLISH" }
+        { code: "es", label: "SPANISH" }
+        { code: "fr", label: "FRENCH" }
+        { code: "de", label: "GERMAN" }
+        { code: "it", label: "ITALIAN" }
+        { code: "pt-BR", label: "PORTUGUESE (BRAZIL)" }
+        { code: "ja", label: "JAPANESE" }
+        { code: "ko", label: "KOREAN" }
+        { code: "zh-Hans", label: "CHINESE (SIMPLIFIED)" }
+        { code: "zh-Hant", label: "CHINESE (TRADITIONAL)" }
+        { code: "ru", label: "RUSSIAN" }
+        { code: "ar", label: "ARABIC" }
+        { code: "nl", label: "DUTCH" }
+        { code: "pl", label: "POLISH" }
+        { code: "sv", label: "SWEDISH" }
+    ]
+end function
+
+' displayLabel(for:): the preset's label, else the code in capitals.
+function NxLanguageLabel(code as String) as String
+    for each p in NxLanguagePresets()
+        if p.code = code then return p.label
+    end for
+    return UCase(code)
+end function
+
+' SUBTITLE LANGUAGE ("subsLanguage") or AUDIO LANGUAGE ("audioLanguage") as
+' saved, "__system__" until chosen, as upstream's
+' loadPreferredSubtitleLanguageInitial and loadPreferredAudioLanguageInitial.
+function NxSavedLanguage(key as String) as String
+    v = NxRegSection("player").Read(key)
+    if v = "" then return "__system__"
+    return v
+end function
+
+sub NxSaveLanguage(key as String, code as String)
+    reg = NxRegSection("player")
+    reg.Write(key, code)
+    reg.Flush()
+end sub
+
+' The language a setting asks for, as tracks here are compared: Roku hands a
+' track's language over without a region (NxSubComparableTag), so the
+' setting is reduced to its language too, and PORTUGUESE (BRAZIL) matches a
+' Portuguese track. "__system__" is the TV's locale.
+function NxPreferredLanguageFrom(code as String, localeId as String) as String
+    primary = NxSubPrimary(NxSubResolvedLanguage(code, localeId))
+    if primary = invalid then return "en"
+    return primary
+end function
+
+' upstream's resolvedPreferredSubtitleLanguageCode. Plex still sends the
+' subtitle track the Plex account has selected: this picks among the tracks
+' the player lists, and asks nothing of Plex.
 function NxSubPreferredLanguage() as String
-    return NxSubResolvedLanguage("__system__", CreateObject("roDeviceInfo").GetCurrentLocale())
+    return NxPreferredLanguageFrom(NxSavedLanguage("subsLanguage"), CreateObject("roDeviceInfo").GetCurrentLocale())
+end function
+
+' upstream's resolvedPreferredAudioLanguageCode.
+function NxAudioPreferredLanguage() as String
+    return NxPreferredLanguageFrom(NxSavedLanguage("audioLanguage"), CreateObject("roDeviceInfo").GetCurrentLocale())
+end function
+
+' The player's track for `lang` among `listed` (availableAudioTracks), as
+' upstream's applyAudioTrackSelection picks with preferredTrackIndex: the
+' first in that language. invalid when none is, which leaves the player's
+' own choice where upstream takes the first track.
+function NxAudioTrackForLanguage(listed as Object, lang as String) as Dynamic
+    for each t in listed
+        tag = NxSubComparableTag(t.Language)
+        if tag <> invalid and NxSubMatches(tag, lang) then return t.Track
+    end for
+    return invalid
 end function
 
 ' Roku reports a track's language as the stream gives it: Plex's HLS says
