@@ -21,57 +21,19 @@ done
 # the vectors from it don't.
 (cd "$upstream" && node scripts/nostalgex-franchise-smoke.mjs && node scripts/nostalgex-filter-golden-smoke.mjs && node scripts/nostalgex-rating-smoke.mjs && node scripts/nostalgex-collections-smoke.mjs && node scripts/nostalgex-season-smoke.mjs)
 NOSTALGEX_DIR=$upstream node tests/gen-vectors.mjs
-# Secrets never reach the debug console, which anyone on the network can read:
-# no print statement may output a variable named like a token, URL or header.
-# Quoted text is ignored, so a message may say "token".
-leaks=$(grep -rnE '^\s*print\b' source components | perl -ne '
-    my ($loc, $code) = /^([^:]+:\d+):(.*)$/; $code =~ s/"(?:[^"]|"")*"//g;
-    print "$loc\n" if $code =~ /token|\buri\b|\burl\b|header/i;')
-if [ -n "$leaks" ]; then
-    echo "FAIL a print statement may output a secret:" >&2
-    echo "$leaks" >&2
-    exit 1
-fi
+# The grep guards (no secret in a print, saved data only through NxRegSection and
+# NxCacheRoot, no variable named m or run): tests/tools/check-guards.sh.
+bash tests/tools/check-guards.sh
 
 python3 tests/tools/check-includes.py
 # A name an if / while condition reads but this path never assigned stops the app
 # on a TV and passes every other check (SettingsView, 2026-10-27).
 python3 tests/tools/check-uninit.py
+# A merge that dropped a suite from a list, repeated a line or kept both sides of a
+# key (tests/pr-check.sh runs the same two, so they also run on a push to main).
+python3 tests/tools/check-testlists.py
+python3 tests/tools/check-dupkeys.py
 bash tests/stamp-test.sh
-# Saved data goes through NxRegSection and NxCacheRoot (source/util/Values.brs),
-# so a test-data build keeps its own. A registry section or cachefs: path
-# opened anywhere else would be shared with the store app again.
-direct=$(grep -rnE 'roRegistrySection|"cachefs:' source components --include=*.brs | grep -vE "^source/util/Values\.brs:|^[^:]+:[0-9]+:\s*'" || true)
-if [ -n "$direct" ]; then
-    echo "FAIL saved data opened outside NxRegSection or NxCacheRoot:" >&2
-    echo "$direct" >&2
-    exit 1
-fi
-# SIGN OUT reaches NxCacheRoot on the render thread, where roFileSystem
-# isn't available: Values.brs must do without it.
-if grep -n 'roFileSystem' source/util/Values.brs | grep -v ":\s*'"; then
-    echo "FAIL source/util/Values.brs uses roFileSystem, which the render thread can't create" >&2
-    exit 1
-fi
-
-# `m` is BrightScript's implicit this: a variable of that name silently holds
-# the component's AA instead. It has cost three debugging rounds; fail fast.
-shadow=$(grep -rnE '^\s*(for\s+)?m\s*=[^=]|\bas\s+\w+\s*,?\s*m\s+as\b|\(\s*m\s+as\b' source components tests --include=*.brs || true)
-if [ -n "$shadow" ]; then
-    echo "FAIL a variable named m (BrightScript's this):" >&2
-    echo "$shadow" >&2
-    exit 1
-fi
-
-# `run` names Roku's builtin Run(): a TV refuses it as a variable or
-# parameter ("Builtin function call expected") though the interpreter takes
-# it, so a build that passes here wouldn't start.
-builtin=$(grep -rnEi '^\s*(for\s+)?run\s*=[^=]|[(,]\s*run\s+as\b' source components tests --include=*.brs || true)
-if [ -n "$builtin" ]; then
-    echo "FAIL a variable named run (Roku's Run()):" >&2
-    echo "$builtin" >&2
-    exit 1
-fi
 
 brs=$(npx -y -p @rokucommunity/brs@0.47.6 -c 'command -v brs')
 
