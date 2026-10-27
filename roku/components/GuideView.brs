@@ -920,17 +920,25 @@ sub onVideoState()
         hideHaze()
         applySubtitles()
     end if
-    ' A start the server refused can end as "finished", never having played:
-    ' handing over then bounced between the airing on now and the next one,
-    ' three requests a second for four minutes against an Emby answering 401.
-    ' One such end hands over (joined past where a file shorter than its slot
-    ' ends, the next airing is right); a second in a row is a failed start.
-    if state = "finished" and m.sawPlaying = false then
-        m.unplayedEnds = m.unplayedEnds + 1
-        if m.unplayedEnds >= 2 then
+    ' What "finished" means (NxFinishedAction). A start the server refused
+    ' can end this way never having played: handing over then bounced
+    ' between the airing on now and the next one, three requests a second
+    ' for four minutes against an Emby answering 401. One such end hands
+    ' over (joined past where a file shorter than its slot ends, the next
+    ' airing is right); a second in a row is a failed start. And one that
+    ' comes after the start already failed is the player's, not the file's.
+    if state = "finished" then
+        rung = ""
+        if m.attempt <> invalid then rung = m.attempt.rung
+        fin = NxFinishedAction({ attemptRunning: m.attempt <> invalid, sawPlaying: m.sawPlaying, unplayedEnds: m.unplayedEnds, rung: rung, probing: m.probing })
+        m.unplayedEnds = fin.unplayedEnds
+        if fin.action = "ignore" then
+            print "player: finished after the start failed; its retry or card goes on"
+            return
+        else if fin.action = "error" then
             print "player: finished without playing again; treating it as an error"
             state = "error"
-        else if m.attempt <> invalid and m.attempt.rung <> "direct" and m.probing <> true then
+        else if fin.action = "probe" then
             ' A server stream the server couldn't make ends this way too
             ' (a file gone from disk: Emby's playlist failed and the player
             ' reported "finished"). Asked first, so a join past the end of
@@ -938,13 +946,12 @@ sub onVideoState()
             print "player: the server stream finished without playing; asking the server"
             startProbe("error", invalid, true)
             return
+        else
+            ' The file ended: hand over to the next airing, as upstream does
+            ' on AVPlayerItemDidPlayToEndTime.
+            handOver()
+            return
         end if
-    end if
-    ' The file ended: hand over to the next airing, as upstream does on
-    ' AVPlayerItemDidPlayToEndTime.
-    if state = "finished" then
-        handOver()
-        return
     end if
     if state = "error" then
         print "player: error "; m.video.errorCode; " "; m.video.errorMsg
@@ -997,7 +1004,7 @@ end sub
 sub failAttempt(event as String)
     m.deadlineTimer.control = "stop"
     if m.attempt = invalid or m.playing = invalid or m.tuned < 0 or m.probing = true then return
-    nxt = NxFallbackNext(m.attempt, event)
+    nxt = NxFallbackNext(m.attempt, event, NxServerKind(NxStreamServer(m.playing)))
     if event = "nopicture" or nxt = invalid then
         startProbe(event, nxt, false)
         return

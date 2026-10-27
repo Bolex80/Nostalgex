@@ -27,12 +27,46 @@ end function
 '   - a server stream with no picture, retried or not: the 1080p stream
 '     (handleWatchdogNoPicture, allowCappedRetry).
 '   - the 1080p stream: gives up.
-function NxFallbackNext(attempt as Object, event as String) as Dynamic
+'
+' One Roku difference, for Jellyfin and Emby (kind): a server stream that
+' errors goes to the 1080p stream, which re-encodes, instead of the same
+' request again. Their server stream copies a file's video when it can, and
+' the player can fail to read a copied one where the re-encoded one plays:
+' Soldier (Emby, H.264 High level 5.1, keyframes 4 to 10 s apart) stopped
+' with error -3 (buffer:reader) from 0 s and part way, while the 1080p
+' stream gave even 2 s pieces. Plex keeps upstream's retry, which waits
+' out a refusal while its last stream winds down.
+function NxFallbackNext(attempt as Object, event as String, kind = "" as String) as Dynamic
     if attempt.rung = "direct" then return { rung: "server", retry: false, fellBack: true }
     if attempt.rung <> "server" then return invalid
     if event = "nopicture" then return { rung: "capped", retry: false, fellBack: attempt.fellBack }
+    if kind = "jellyfin" or kind = "emby" then return { rung: "capped", retry: false, fellBack: attempt.fellBack }
     if attempt.retry or attempt.fellBack then return invalid
     return { rung: "server", retry: true, fellBack: false }
+end function
+
+' What the player's "finished" means. ctx: attemptRunning (a start is
+' running: GuideView's m.attempt is set), sawPlaying (it reached
+' "playing"), unplayedEnds (ends without playing so far), rung and probing.
+' Returns { action, unplayedEnds }, action one of:
+'   "ignore": the start had already failed. Roku's player reports
+'     "finished" right after an error, while the retry waits or the card is
+'     up; that isn't the file's end, and handing over on it started the
+'     next film from its beginning, skipping the retry, the card and the
+'     count (CH 12, Soldier, a server stream joined 54 minutes in).
+'   "error": a second end in a row without playing is a failed start.
+'   "probe": a server stream that ended without playing: ask the server
+'     first, as a file gone from disk ends this way too.
+'   "handover": the file ended; the next airing (upstream's
+'     AVPlayerItemDidPlayToEndTime).
+function NxFinishedAction(ctx as Object) as Object
+    ends = ctx.unplayedEnds
+    if ctx.attemptRunning <> true then return { action: "ignore", unplayedEnds: ends }
+    if ctx.sawPlaying = true then return { action: "handover", unplayedEnds: ends }
+    ends = ends + 1
+    if ends >= 2 then return { action: "error", unplayedEnds: ends }
+    if NxToStr(ctx.rung) <> "direct" and ctx.probing <> true then return { action: "probe", unplayedEnds: ends }
+    return { action: "handover", unplayedEnds: ends }
 end function
 
 ' Seconds a start has to show a picture (PlaybackWatchdog.deadlineSeconds).

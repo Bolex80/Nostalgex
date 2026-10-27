@@ -106,6 +106,30 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Not measured.** Not seen on a TV after the fix; the tester re-runs it.
 
+## 2026-10-26 (Roku: a stream that fails no longer counts as the film's end)
+
+**Shipped.** Nothing until it lands on main. Branch `roku/failed-start-not-finished`, off #108 (`cd8f783`).
+
+**Why.** On 1.0.5, CH 12 joined 54 minutes into *Soldier* (Emby) failed within a second and jumped straight to the next film from its beginning. There was no retry, no card and nothing in Settings (tester's console: `error -3 … source buffer:reader`, `error on the server stream; retrying it`, `finished`, `finished, -2628 s past the slot`, `next is 2856, from its start`). The ladder clears the running attempt while its retry waits, and Roku's player then reports `finished`. `onVideoState` only checked a never-played end while an attempt was running, so this one fell through to the hand-over as if the file had ended.
+
+**Changed.**
+- `source/guide/Fallback.brs`: `NxFinishedAction` decides what `finished` means. If the start already failed (retry pending or card up), the answer is "ignore". Otherwise it is the same as before: hand over, ask the server, or a second unplayed end is an error.
+- `components/GuideView.brs`: `onVideoState` acts on it.
+- `source/plex/LibrarySnapshot.brs`: `NxClearPlaybackVerdicts`. A sign-out clears the stored playback failures, and so does a sign-in by another account or server: Settings kept Jellyfin's "Last playback failure" after signing in to Emby. The Apple TV keeps them too; that side is on Chad's board.
+- Tests:
+  - `tests/FallbackTests.brs`: 8 cases. Without the new rule, the three "after the start failed" cases fail.
+  - `tests/SnapshotTests.brs`: the failures cleared on sign-out and on another account's sign-in. These run on a TV, since the off-TV interpreter has no registry. The owner tests now run in a data space of their own, so a TV's run can't clear the app's.
+
+**Measured.** Off-device only; the tester owns the stick.
+
+**Then: the step down (second commit).** The tester found Soldier fails from 0 s too (an `item:` link: the same `error -3 … buffer:reader`), so a retry of the same stream can't help. Its server stream copies H.264 High level 5.1 with keyframes 4 to 10 s apart; at the 54-minute join the piece the playlist calls 2 s is 18 MB and 10 s long.
+- `source/guide/Fallback.brs`: on Jellyfin and Emby, an error on the server stream steps down to the 1080p rung instead of retrying the same request. Plex keeps upstream's retry.
+- `source/mediabrowser/MediaBrowserPlayback.brs`: that rung asks for `AllowVideoStreamCopy=false`, so it always re-encodes. Upstream's `cappedTranscodeURL` doesn't, and a file at or under 8 Mb/s would come back copied.
+- Measured off the TV, one probe on the home Emby, stopped after (204):
+  - Soldier's 1080p stream, from 0 s and at the join, comes in even 2 s pieces of 1.1 to 2.9 MB, H.264 Main level 4.0.
+  - The copied stream's piece at the join is 18 MB.
+- `tests/FallbackTests.brs`: 12 more cases. The Jellyfin/Emby ones fail on the first commit.
+
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.

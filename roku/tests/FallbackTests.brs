@@ -119,7 +119,7 @@ function NxRunFallbackTests() as Integer
     ' What each rung asks of the server.
     NxCheck(r, "Plex server stream adds nothing", NxPlexRungQuery("server"), "")
     NxCheck(r, "Plex 1080p", NxPlexRungQuery("capped"), "&maxVideoBitrate=12000&videoQuality=90&videoResolution=1920x1080")
-    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920")
+    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
     NxCheck(r, "Jellyfin/Emby server stream as before", NxMbVideoQuery(29000000, "server"), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
 
     ' Starving: PlaybackStarvationTests, case for case. The measured shape is
@@ -197,8 +197,44 @@ function NxRunFallbackTests() as Integer
     NxCheck(r, "starved card", NxFailureKind(0, 0, "", "starved", "capped"), "serverTooSlow")
     NxCheck(r, "starved outranks a refusal", NxFailureKind(500, -1, "http", "starved", "capped"), "serverTooSlow")
 
+    ' Jellyfin and Emby: an error on the server stream steps down to the
+    ' re-encoded 1080p stream, not the same request (Soldier on Emby).
+    for each kind in ["emby", "jellyfin"]
+        NxCheck(r, kind + ": server stream errors: 1080p", NxAttemptText(NxFallbackNext(server, "error", kind)), "capped")
+        NxCheck(r, kind + ": after direct play, errors: 1080p", NxAttemptText(NxFallbackNext(fellBack, "error", kind)), "capped fellBack")
+        NxCheck(r, kind + ": no picture: 1080p as before", NxAttemptText(NxFallbackNext(server, "nopicture", kind)), "capped")
+        NxCheck(r, kind + ": 1080p errors: give up", NxAttemptText(NxFallbackNext(capped, "error", kind)), "none")
+        NxCheck(r, kind + ": direct play errors: the server stream", NxAttemptText(NxFallbackNext(direct, "error", kind)), "server fellBack")
+    end for
+    NxCheck(r, "plex: server stream errors: one retry, as upstream", NxAttemptText(NxFallbackNext(server, "error", "plex")), "server retry")
+    NxCheck(r, "emby: the 1080p stream never copies", (Instr(1, NxMbVideoQuery(5000000, "capped"), "AllowVideoStreamCopy=false") > 0).ToStr(), "true")
+
+    ' "finished" (NxFinishedAction). Soldier on CH 12: a server stream
+    ' joined part way errors, the ladder retries it (GuideView clears the
+    ' running attempt while the retry waits), and the player then says
+    ' "finished". That must hand over nothing.
+    server = NxFirstAttempt("server")
+    nxt = NxFallbackNext(server, "error")
+    running = false
+    if nxt = invalid then running = true
+    NxCheck(r, "finished after an error, retry pending: nothing", NxFinishedText({ attemptRunning: running, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: false }), "ignore 0")
+    ' The retry errors too: the card is up, the attempt gone.
+    NxCheck(r, "finished after the card: nothing", NxFinishedText({ attemptRunning: false, sawPlaying: false, unplayedEnds: 0, rung: "", probing: false }), "ignore 0")
+    NxCheck(r, "finished after a played start failed: nothing", NxFinishedText({ attemptRunning: false, sawPlaying: true, unplayedEnds: 0, rung: "", probing: false }), "ignore 0")
+    ' What it did before, unchanged.
+    NxCheck(r, "a played file ends: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: true, unplayedEnds: 0, rung: "server", probing: false }), "handover 0")
+    NxCheck(r, "a server stream ends unplayed: ask the server", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: false }), "probe 1")
+    NxCheck(r, "a direct play ends unplayed: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "direct", probing: false }), "handover 1")
+    NxCheck(r, "ends unplayed while asking: hand over", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 0, rung: "server", probing: true }), "handover 1")
+    NxCheck(r, "a second end without playing: an error", NxFinishedText({ attemptRunning: true, sawPlaying: false, unplayedEnds: 1, rung: "server", probing: false }), "error 2")
+
     print "fallback cases (upstream ladder): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
+end function
+
+function NxFinishedText(ctx as Object) as String
+    f = NxFinishedAction(ctx)
+    return f.action + " " + f.unplayedEnds.ToStr()
 end function
 
 function NxAttemptText(a as Dynamic) as String
