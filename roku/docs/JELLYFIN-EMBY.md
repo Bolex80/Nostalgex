@@ -347,7 +347,10 @@ an English 5.1 one, where upstream's order, which wants both, takes the 5.1. The
 asks for the pick with `AudioStreamIndex`, and direct play is decided on the
 picked track's codec, so an English Opus track behind a dubbed AAC default
 goes to the server rather than playing the dub as stored. On a direct play
-the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`):
+the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`),
+once the first picture is up: switching while the start still buffered ended
+it on a TCL 43S45 and stalled it 15 s on a Streaming Stick, and the switch
+after it costs one rebuffer of about 2.5 s (#106). It picks
 by position when it lists as many tracks as the file has, else by language:
 once, on a full library, the 55R617 below listed one track for a file the
 scan said had more (which file, and so why, wasn't recorded).
