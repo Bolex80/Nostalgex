@@ -20,6 +20,7 @@
 <script src="scripts/nostalgex-music-brainz.js"></script>
 <script src="scripts/nostalgex-daily-manifest.js"></script>
 <script src="scripts/nostalgex-library-load.js"></script>
+<script src="scripts/nostalgex-utf8-repair.js"></script>
 <script src="scripts/nostalgex-season.js"></script>
 <script src="scripts/nostalgex-enrichment.js"></script>
 <script src="scripts/nostalgex-collections.js"></script>
@@ -8885,7 +8886,7 @@
         }
         if (!res.ok) { lastError = new Error(`HTTP ${res.status} from ${uri}`); continue; }
 
-        const data = await res.json();
+        const data = await NostalgexUTF8Repair.json(res, path);
         if (!data || !data.MediaContainer) { lastError = new Error(`Malformed response from ${uri}`); continue; }
 
         if (uri !== plexServerUrl) {
@@ -8927,7 +8928,7 @@
         }
         if (!res.ok) { lastError = new Error(`HTTP ${res.status} from ${uri}`); continue; }
 
-        const data = await res.json();
+        const data = await NostalgexUTF8Repair.json(res, path);
         if (!data || !data.MediaContainer) { lastError = new Error(`Malformed response from ${uri}`); continue; }
 
         if (uri !== server.url) {
@@ -8967,7 +8968,7 @@
         headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
       });
       if (!res.ok) throw new Error(`Section ${section.title} returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await NostalgexUTF8Repair.json(res, `${section.key} page ${start}`);
       const container = (data && data.MediaContainer) || {};
       const page = container.Metadata || [];
       all.push(...page);
@@ -9027,7 +9028,7 @@
                   const epRes = await fetch(`${server.url}/library/metadata/${show.ratingKey}/allLeaves`, {
                     headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
                   });
-                  const epData = await epRes.json();
+                  const epData = await NostalgexUTF8Repair.json(epRes, `allLeaves ${show.ratingKey}`);
                   const episodes = epData.MediaContainer.Metadata || [];
 
                   return episodes.map(ep => {
