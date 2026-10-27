@@ -3,6 +3,14 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (tuner 1.0.9)
+
+**Shipped.** `tuner-v1.0.9`, the Docker image and the hosted tuner. Merged since `tuner-v1.0.8`: an empty first lineup falls back to every package with content (#124), a Plex title with a bad byte keeps its accent (#125), STREAM QUALITY (#123).
+
+**Changed.** `tunerVersion` 1.0.8 to 1.0.9 and the README's latest-release lines. The first load after the update reads each library once more, because the library cache is now version 3.
+
+**Next.** The GitHub release note for `tuner-v1.0.9`.
+
 ## 2026-10-27 (web tuner: STREAM QUALITY)
 
 **Shipped.** Nothing until the PR for #123 lands on main. Branch `web/stream-quality-123`, off main `ab60b31`.
