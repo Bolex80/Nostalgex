@@ -27,6 +27,7 @@
     "test:schedule-parity": "node scripts/nostalgex-schedule-parity-smoke.mjs",
     "test:start-over": "node scripts/start-over-smoke.mjs",
     "test:start-over:browser": "node scripts/start-over-browser-smoke.mjs",
+    "test:empty-lineup": "node scripts/empty-lineup-browser-smoke.mjs",
     "test:utf8-repair": "node scripts/nostalgex-utf8-repair-smoke.mjs",
     "test:plex-bad-byte": "node scripts/plex-bad-byte-browser-smoke.mjs",
     "test:subscribe": "node scripts/subscribe-smoke.mjs",
