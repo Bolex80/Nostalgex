@@ -152,9 +152,13 @@
   function fallbackHlsUrl(opts) {
     const { serverUrl, itemId, mediaSourceId, token, deviceId } = opts;
     const playSessionId = opts.playSessionId || newPlaySessionId();
+    // STREAM QUALITY (scripts/nostalgex-stream-quality.js): a capped level passes its width and
+    // a VideoBitrate in bits per second. Left out, the URL is what it always was.
+    const maxWidth = opts.maxWidth || 3840;
+    const videoBitrate = opts.videoBitrate ? `&VideoBitrate=${opts.videoBitrate}` : '';
     return withApiKey(`${serverUrl}/Videos/${itemId}/master.m3u8`
       + `?MediaSourceId=${encodeURIComponent(mediaSourceId)}&api_key=${token}`
-      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=3840&SegmentContainer=ts&DeviceId=${deviceId}`
+      + `&VideoCodec=h264&AudioCodec=aac&MaxWidth=${maxWidth}${videoBitrate}&SegmentContainer=ts&DeviceId=${deviceId}`
       + `&PlaySessionId=${encodeURIComponent(playSessionId)}`, token);
   }
 
