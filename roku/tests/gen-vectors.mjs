@@ -274,8 +274,9 @@ const files = [
   // Upstream's own golden files, copied byte for byte: FranchiseTests.brs,
   // FilterGoldenTests.brs, RatingGoldenTests.brs, SeasonalTests.brs,
   // ScheduleDSTGoldenTests.brs, ScheduleParityGoldenTests.brs, ReportTests.brs
-  // (watch-cleanup-golden.json) and StreamQualityTests.brs read them.
-  ...["franchise-golden.json", "filter-golden.json", "rating-golden.json", "season-golden.json", "schedule-dst-golden.json", "schedule-parity-golden.json", "watch-cleanup-golden.json", "stream-quality-golden.json"].map((g) =>
+  // (watch-cleanup-golden.json), StreamQualityTests.brs and Utf8RepairTests.brs
+  // read them.
+  ...["franchise-golden.json", "filter-golden.json", "rating-golden.json", "season-golden.json", "schedule-dst-golden.json", "schedule-parity-golden.json", "watch-cleanup-golden.json", "stream-quality-golden.json", "utf8-repair-golden.json"].map((g) =>
     [join(here, "vectors", g), readFileSync(join(upstream, "scripts", g), "utf8")]),
 ];
 let stale = false;

@@ -95,8 +95,9 @@ function NxPlexHeaders(token as String) as Object
 end function
 
 ' One HTTPS request. Returns { code, json } where code is the HTTP status, or
-' a negative curl code (-28 is a timeout), or 0 if the URL was refused.
-function NxHttp(method as String, url as String, headers as Object, timeoutMs = 10000 as Integer) as Object
+' a negative curl code (-28 is a timeout), or 0 if the URL was refused. With
+' plex set, the answer is repaired first (NxPlexUtf8Repair).
+function NxHttp(method as String, url as String, headers as Object, timeoutMs = 10000 as Integer, plex = false as Boolean) as Object
     if LCase(Left(url, 8)) <> "https://" then
         print "nxhttp: refused a non-HTTPS URL"
         return { code: 0, json: invalid }
@@ -126,6 +127,7 @@ function NxHttp(method as String, url as String, headers as Object, timeoutMs = 
     if code < 200 or code > 299 then print "nxhttp: "; method; " answered "; code; " "; msg.GetFailureReason()
     body = msg.GetString()
     json = invalid
+    if plex then body = NxPlexRepaired(body, url)
     if body <> "" then json = ParseJson(body)
     return { code: code, json: json }
 end function
@@ -134,20 +136,20 @@ end function
 ' is private (the home-network address sign-in found). Anything else is
 ' refused. Returns { code, json } like NxHttp; code 0 if refused.
 function NxPlexServerGet(url as String, token as String, timeoutMs = 15000 as Integer) as Object
-    return NxServerRequest("GET", url, NxPlexHeaders(token), "", timeoutMs)
+    return NxServerRequest("GET", url, NxPlexHeaders(token), "", timeoutMs, true)
 end function
 
 ' Several GETs to one Plex server, up to `width` in flight at once, under the
 ' same rules as NxPlexServerGet. Returns { code, json } per URL, in order.
 function NxPlexServerGetMany(urls as Object, token as String, width as Integer, timeoutMs = 15000 as Integer) as Object
-    return NxServerGetMany(urls, NxPlexHeaders(token), width, timeoutMs)
+    return NxServerGetMany(urls, NxPlexHeaders(token), width, timeoutMs, true)
 end function
 
 ' One request to a media server (Plex, Jellyfin or Emby): HTTPS with
 ' verification, or plain HTTP only when the host is private. Anything else is
 ' refused. A POST sends `body`. Returns { code, json } like NxHttp; code 0 if
-' refused.
-function NxServerRequest(method as String, url as String, headers as Object, body = "" as String, timeoutMs = 15000 as Integer) as Object
+' refused. With plex set, the answer is repaired first (NxPlexUtf8Repair).
+function NxServerRequest(method as String, url as String, headers as Object, body = "" as String, timeoutMs = 15000 as Integer, plex = false as Boolean) as Object
     xfer = NxServerTransfer(url, headers)
     if xfer = invalid then return { code: 0, json: invalid }
     port = CreateObject("roMessagePort")
@@ -164,12 +166,14 @@ function NxServerRequest(method as String, url as String, headers as Object, bod
         xfer.AsyncCancel()
         return { code: -28, json: invalid }
     end if
-    return { code: msg.GetResponseCode(), json: NxParseJsonBody(msg.GetString()) }
+    text = msg.GetString()
+    if plex then text = NxPlexRepaired(text, url)
+    return { code: msg.GetResponseCode(), json: NxParseJsonBody(text) }
 end function
 
 ' Several GETs to one server, up to `width` in flight at once, under the
 ' same rules as NxServerRequest. Returns { code, json } per URL, in order.
-function NxServerGetMany(urls as Object, headers as Object, width as Integer, timeoutMs = 15000 as Integer) as Object
+function NxServerGetMany(urls as Object, headers as Object, width as Integer, timeoutMs = 15000 as Integer, plex = false as Boolean) as Object
     out = []
     for i = 1 to urls.Count()
         out.Push({ code: -1, json: invalid })
@@ -208,7 +212,9 @@ function NxServerGetMany(urls as Object, headers as Object, width as Integer, ti
             if job <> invalid then
                 live.Delete(id)
                 pending = pending - 1
-                out[job.index] = { code: msg.GetResponseCode(), json: NxParseJsonBody(msg.GetString()) }
+                text = msg.GetString()
+                if plex then text = NxPlexRepaired(text, urls[job.index])
+                out[job.index] = { code: msg.GetResponseCode(), json: NxParseJsonBody(text) }
             end if
         else if msg = invalid then
             ' Nothing answered in time: what's still out timed out.
@@ -251,6 +257,134 @@ end function
 function NxLoadStopped() as Boolean
     watch = m.nxLoadWatch
     return watch <> invalid and watch.stopWaiting <> ""
+end function
+
+' A Plex answer as text a JSON parser reads, as upstream's PlexUTF8Repair
+' (Services/PlexResponseDecoding.swift) and the web tuner's
+' scripts/nostalgex-utf8-repair.js. Plex copies a file or folder name into
+' its JSON byte for byte, so a name written in Latin-1 puts a byte there that
+' isn't UTF-8. The Roku keeps that byte, and a label draws it as a box that
+' swallows the letters after it ("Caf" and a box, then "ociety", issue
+' #121). One line in the log when anything was repaired, as upstream's.
+function NxPlexRepaired(text as String, url as String) as String
+    fixed = NxPlexUtf8Repair(text)
+    if fixed.repairedBytes > 0 then print "PLEX UTF-8 "; NxUrlPathAndQuery(url); ": repaired "; fixed.repairedBytes; " byte(s) that were not UTF-8, read as Windows-1252"
+    return fixed.text
+end function
+
+' A URL's path and query, as upstream's logContext. The port sends the token
+' in a header, never in a URL.
+function NxUrlPathAndQuery(url as String) as String
+    i = Instr(1, url, "://")
+    if i = 0 then return url
+    j = Instr(i + 3, url, "/")
+    if j = 0 then return "/"
+    return Mid(url, j)
+end function
+
+' { text, repairedBytes }: valid UTF-8 comes back as it is, less one leading
+' byte order mark (a JSON decoder ignores it; ParseJson fails on it). Else
+' every byte outside a well-formed UTF-8 sequence is read as Windows-1252.
+function NxPlexUtf8Repair(text as String) as Object
+    ' roRegex is UTF-8 and matches nothing in a string that isn't, so the
+    ' empty pattern is the check: 7 ms a megabyte on a TV, where a byte loop
+    ' takes 570. It agrees with every case in the golden vectors.
+    valid = CreateObject("roRegex", "^", "")
+    if valid.IsMatch(text) then
+        if Left(text, 1) = Chr(65279) then text = Mid(text, 2)
+        return { text: text, repairedBytes: 0 }
+    end if
+    ' The byte loop took 3.8 s on a 1 MB page with one bad title, so only
+    ' the items that fail the check go through it. A page splits between
+    ' its items at "},{", ASCII that no UTF-8 sequence spans, and joins back
+    ' byte for byte.
+    parts = text.Split("},{")
+    repaired = 0
+    for i = 0 to parts.Count() - 1
+        if not valid.IsMatch(parts[i]) then
+            bytes = CreateObject("roByteArray")
+            bytes.FromAsciiString(parts[i])
+            fixed = NxUtf8RepairBytes(bytes, i = 0)
+            parts[i] = fixed.text
+            repaired = repaired + fixed.repairedBytes
+        else if i = 0 and Left(parts[0], 1) = Chr(65279) then
+            parts[0] = Mid(parts[0], 2)
+        end if
+    end for
+    return { text: parts.Join("},{"), repairedBytes: repaired }
+end function
+
+' The repair itself, over bytes, as PlexUTF8Repair.repair: well-formed
+' sequences are copied, each other byte becomes its Windows-1252 character.
+' With leading set, one leading byte order mark is dropped. { text,
+' repairedBytes }.
+function NxUtf8RepairBytes(b as Object, leading = true as Boolean) as Object
+    n = b.Count()
+    out = CreateObject("roByteArray")
+    i = 0
+    if leading and n >= 3 then
+        if b[0] = &hEF and b[1] = &hBB and b[2] = &hBF then i = 3
+    end if
+    repaired = 0
+    while i < n
+        k = NxUtf8SequenceLength(b, i, n)
+        if k > 0 then
+            for j = i to i + k - 1
+                out.Push(b[j])
+            end for
+            i = i + k
+        else
+            cp = NxWindows1252(b[i])
+            if cp < &h800 then
+                out.Push(&hC0 or (cp >> 6))
+                out.Push(&h80 or (cp and &h3F))
+            else
+                out.Push(&hE0 or (cp >> 12))
+                out.Push(&h80 or ((cp >> 6) and &h3F))
+                out.Push(&h80 or (cp and &h3F))
+            end if
+            repaired = repaired + 1
+            i = i + 1
+        end if
+    end while
+    return { text: out.ToAsciiString(), repairedBytes: repaired }
+end function
+
+' Length of the well-formed UTF-8 sequence at i (Unicode table 3-7), or 0,
+' as upstream's sequenceLength.
+function NxUtf8SequenceLength(b as Object, i as Integer, n as Integer) as Integer
+    b0 = b[i]
+    if b0 < &h80 then return 1
+    if b0 >= &hC2 and b0 <= &hDF then
+        if NxUtf8Cont(b, i + 1, n, &h80, &hBF) then return 2
+    else if b0 = &hE0 then
+        if NxUtf8Cont(b, i + 1, n, &hA0, &hBF) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) then return 3
+    else if (b0 >= &hE1 and b0 <= &hEC) or b0 = &hEE or b0 = &hEF then
+        if NxUtf8Cont(b, i + 1, n, &h80, &hBF) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) then return 3
+    else if b0 = &hED then
+        if NxUtf8Cont(b, i + 1, n, &h80, &h9F) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) then return 3
+    else if b0 = &hF0 then
+        if NxUtf8Cont(b, i + 1, n, &h90, &hBF) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) and NxUtf8Cont(b, i + 3, n, &h80, &hBF) then return 4
+    else if b0 >= &hF1 and b0 <= &hF3 then
+        if NxUtf8Cont(b, i + 1, n, &h80, &hBF) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) and NxUtf8Cont(b, i + 3, n, &h80, &hBF) then return 4
+    else if b0 = &hF4 then
+        if NxUtf8Cont(b, i + 1, n, &h80, &h8F) and NxUtf8Cont(b, i + 2, n, &h80, &hBF) and NxUtf8Cont(b, i + 3, n, &h80, &hBF) then return 4
+    end if
+    return 0
+end function
+
+function NxUtf8Cont(b as Object, k as Integer, n as Integer, low as Integer, high as Integer) as Boolean
+    if k >= n then return false
+    return b[k] >= low and b[k] <= high
+end function
+
+' A byte as Windows-1252: 0x80 to 0x9F hold the curly quotes, dashes, the
+' euro sign and the rest; 0xA0 to 0xFF match Latin-1. The five bytes
+' Windows-1252 leaves undefined keep their Latin-1 code point, as browsers do.
+function NxWindows1252(value as Integer) as Integer
+    if value < &h80 or value > &h9F then return value
+    high = [&h20AC, &h0081, &h201A, &h0192, &h201E, &h2026, &h2020, &h2021, &h02C6, &h2030, &h0160, &h2039, &h0152, &h008D, &h017D, &h008F, &h0090, &h2018, &h2019, &h201C, &h201D, &h2022, &h2013, &h2014, &h02DC, &h2122, &h0161, &h203A, &h0153, &h009D, &h017E, &h0178]
+    return high[value - &h80]
 end function
 
 ' A response body as JSON, or invalid. Only a body that starts as JSON is
@@ -381,7 +515,7 @@ end function
 ' Servers on the account: [{ name, machineIdentifier, owned, accessToken,
 ' connections }], or invalid if plex.tv couldn't be reached.
 function NxPlexServers(token as String) as Dynamic
-    res = NxHttp("GET", "https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1", NxPlexHeaders(token), 15000)
+    res = NxHttp("GET", "https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1", NxPlexHeaders(token), 15000, true)
     if res.code < 200 or res.code > 299 or type(res.json) <> "roArray" then return invalid
     out = []
     for each r in res.json
