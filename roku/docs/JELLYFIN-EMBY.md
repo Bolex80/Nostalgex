@@ -391,14 +391,17 @@ SUBTITLES on, a full track in the language comes first, as
   `<dev_3_0>http://…` and keeps its Description.
 - It never held up the picture: 3.3 s with the file ready, 4.0 s while Emby
   was still making it.
-- The player waits 30 s for the file, twice, then plays without it. A
+- The player waits 30 s for the file, twice, then plays without it; a
+  refused file (Emby's 500, or the empty 200 it gives a wrong index) it
+  asks once and plays on at once. A
   server makes the file from the whole video the first time: Emby 330 s
   for a 6.6 GB film (96 s when asked again after its copy was deleted),
   27 s for a 165 MB episode just read by a failed burn-in; Jellyfin 48 s
   for that episode. After that each server answers from its own copy in
   milliseconds. So every 5 minutes the guide asks for the files of airings
   on now or within the hour, once each and one at a time
-  (`NxForcedWarmList`, `SubtitleWarmTask`).
+  (`NxForcedWarmList`, `SubtitleWarmTask`). The console prints each
+  file's answer and time; the list of files asked starts again past 500.
 - Burning the track in, as the Apple TV does
   (`SubtitleStreamIndex=<index>&SubtitleMethod=Encode` on the stream), works
   on Jellyfin and not on Emby: Emby's ffmpeg reads the whole file for the
