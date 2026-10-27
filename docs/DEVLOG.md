@@ -3,6 +3,26 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-27 (web tuner: a Plex title with a bad byte keeps its accent)
+
+**Shipped.** Nothing until the PR for #125 lands on main. Branch `web/bad-byte-125`, off main `ab60b31`.
+
+**Why.** Plex copies a file or folder name into its JSON byte for byte, so an unmatched item named in Latin-1 puts a lone 0xE9 into its title. The Apple TV repairs that since 1.0.27 (`PlexUTF8Repair`). The web tuner's scan reads pages with `Response.json()`, which decodes UTF-8 with replacement characters instead of failing, so the library loaded but the title read "Caf\uFFFD Society" (issue #125).
+
+**Reproduced first.** The unchanged page, headless in Chromium, against a Plex-shaped server whose library page held raw bad bytes: the titles the tuner kept read "Caf\uFFFD Society", "Say \uFFFDHello\uFFFD", "Br\uFFFDl\uFFFDe" and "Cut Off \uFFFD", the summary kept one too, and the guide text had a replacement character in it. A title that was valid UTF-8 ("Am\u00e9lie") came through fine.
+
+**Changed.**
+- `scripts/nostalgex-utf8-repair.js`: the Apple TV's rule. A valid response is decoded untouched; otherwise every byte outside a well-formed UTF-8 sequence is read as Windows-1252 and every well-formed sequence is kept. A stray byte is always 0x80 or above, so the repair cannot add a quote, backslash or control character to the JSON. One console line says how many bytes were repaired.
+- `plex-tuner.html`: the four reads of a Plex server (section pages, `allLeaves`, and the two library helpers that also carry server collections) go through `NostalgexUTF8Repair.json`.
+- `scripts/utf8-repair-golden.json`: 19 shared vectors, made with an independent Python model, held by `scripts/nostalgex-utf8-repair-smoke.mjs` (`npm run test:utf8-repair`, in `npm test`) and by the new `Nostalgex/NostalgexTests/PlexUTF8RepairGoldenTests.swift`. Roku reads the same file for #121.
+- `scripts/plex-bad-byte-browser-smoke.mjs` (`npm run test:plex-bad-byte`, needs Playwright): the real page against the same Plex-shaped server, plus a negative control with the repair taken out.
+
+**Measured after.** The same page now keeps "Caf\u00e9 Society", curly quotes for 0x93 and 0x94, "Cr\u00e8me Br\u00e9l\u00e9e" and "Cut Off \u00e2", with no replacement character in a title or on the page. The Swift golden test passes on the tvOS 26.1 simulator along with the 11 existing `PlexUTF8RepairTests`.
+
+**Half-done.** Jellyfin and Emby are not touched: both send valid UTF-8. plex.tv's server list and the Continue Watching read still use `res.json()`: plex.tv sends valid UTF-8, and a replacement character there cannot stop a cleanup, which only reads ids. Not run against a real Plex server; the server in the test is a stand-in that returns the bytes Plex was measured to return (see the 2026-10-16 entry). The repair guesses Windows-1252 for any stray byte, so a name in another single-byte encoding loads with the wrong accented letter, the same as on the Apple TV.
+
+**Next.** Roku #121 follows with the same golden file. Nothing changes what is sent anywhere.
+
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/make-plex-feel-like-cable-tv`.
