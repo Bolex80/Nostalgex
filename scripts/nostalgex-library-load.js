@@ -5,6 +5,26 @@
   const INITIAL_LOAD_KEY = 'nostalgex_completed_initial_load';
   const MUSIC_BUNDLE_ID = 'high-rotation';
 
+  // Mirrors AppState+Channels.swift `autoEnableBundlesWithContent`: when a first lineup comes
+  // out with no channel, every package that is off and has at least one channel with content
+  // is switched on, so a small or narrow library lands on a guide and not a blank screen.
+  // Seasonal packages are left out (they are offered, never switched on for anyone) and so
+  // are the server-collection packages (`collections-` ids). Returns the ids to switch on,
+  // in the bundles' own order. `availableChannelIDs` are the channels whose pool is big
+  // enough, which is only known for every package after a full (first-load) build.
+  function bundlesToAutoEnable(ctx) {
+    const { bundles: bundleList, enabledBundleIDs, availableChannelIDs } = ctx;
+    const available = new Set(availableChannelIDs);
+    const ids = [];
+    for (const bundle of bundleList || []) {
+      if (String(bundle.id).startsWith('collections-')) continue;
+      if (Array.isArray(bundle.activeMonths)) continue;
+      if (enabledBundleIDs.has(bundle.id)) continue;
+      if ((bundle.channelIDs || []).some((id) => available.has(id))) ids.push(bundle.id);
+    }
+    return ids;
+  }
+
   function isMusicBundleEnabled(enabledBundleIDs) {
     return enabledBundleIDs.has(MUSIC_BUNDLE_ID);
   }
@@ -292,6 +312,7 @@
     isFirstLibraryLoad,
     markInitialLibraryLoadComplete,
     staticChannelIDsForPoolBuild,
+    bundlesToAutoEnable,
     refreshStepRail,
     setPhase,
     pulsePhase,
