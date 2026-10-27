@@ -19,6 +19,26 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Half-done.** None. STREAM QUALITY on the Roku (#65) is separate and stays with tydude001; it will read `scripts/stream-quality-golden.json` once #123 is in.
 
+## 2026-10-27 (web tuner: a small library no longer opens on a blank screen)
+
+**Shipped.** Nothing until the PR for #124 lands on main. Branch `web/empty-lineup-124`, off main `ab60b31`.
+
+**Why.** A first run starts with the NOSTALGEX package only. A library too small or too narrow to fill any NOSTALGEX channel left the web tuner on a black screen with nothing to press (issue #124). The Apple TV switches on every package that has content when the first lineup comes out empty (`autoEnableBundlesWithContent`), and Roku 1.0.6 does the same (#109). The web had no such step.
+
+**Measured first.** The unchanged page, headless, against a lab Jellyfin as three users: a 20-film documentary library and a 2-film one both landed on 0 channels with only NOSTALGEX on, and a black screen; a 34-item library that fills one NOSTALGEX channel opened on its guide. So the answer to "empty guide or fallback" was an empty guide.
+
+**Changed.**
+- `scripts/nostalgex-library-load.js`: `bundlesToAutoEnable`, the Apple TV's rule as a pure function. Every package that is off, not seasonal, not a server-collection package and has at least one channel with enough content, in the bundles' order.
+- `plex-tuner.html`: `autoEnableBundlesWithContent`, run at the end of a first (full) lineup build when no channel came out. It switches those packages on, saves the choice and builds their schedules. A later load never runs it, because only a full build knows which packages have content.
+- `scripts/empty-lineup-browser-smoke.mjs` (`npm run test:empty-lineup`, needs Playwright): the real page against a Jellyfin-shaped server with a 20-film, a 2-film, a 6-film (fills VHS VAULT on its own, nothing else switched on) and a no-match library, plus a negative control with the call removed.
+- `scripts/nostalgex-library-load-smoke.mjs`: four cases for the rule itself.
+
+**Measured after.** The 20-film library switches on ESSENTIALS and opens on 2 channels; the 2-film library opens on 1 (PREMIERES); the 34-item library is unchanged. Same numbers the Roku tester saw on the stick for the same lab users.
+
+**Half-done.** A library where no package has content still ends on the blank screen. The Apple TV and Roku show NO CHANNELS FOUND with an OPEN SETTINGS button there; the web does not yet. Nothing changes what is sent anywhere.
+
+**Next.** Decide whether the web gets that NO CHANNELS FOUND screen.
+
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
 **Shipped.** Nothing until this lands on main. Vercel then deploys `https://www.nostalgex.app/blog/make-plex-feel-like-cable-tv`.

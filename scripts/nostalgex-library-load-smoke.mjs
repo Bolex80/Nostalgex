@@ -106,6 +106,36 @@ check("the first load builds every channel", () => {
   assert.equal(ids.size, channels.length);
 });
 
+// An empty first lineup switches on every package with content (AppState.autoEnableBundlesWithContent).
+const firstChannelOf = (id) => byID.get(id).channelIDs[0];
+check("auto-enable: packages with content are switched on, in the bundles' order", () => {
+  const ids = LL.bundlesToAutoEnable({
+    bundles, enabledBundleIDs: new Set(["nostalgex"]),
+    availableChannelIDs: [firstChannelOf("essentials"), firstChannelOf("truecrime"), firstChannelOf("kids")],
+  });
+  assert.deepEqual([...ids], ["kids", "truecrime", "essentials"]);
+});
+check("auto-enable: a package already on, or with no content, is left alone", () => {
+  const ids = LL.bundlesToAutoEnable({
+    bundles, enabledBundleIDs: new Set(["nostalgex", "essentials"]), availableChannelIDs: [firstChannelOf("essentials")],
+  });
+  assert.deepEqual([...ids], []);
+});
+check("auto-enable: seasonal and collection packages are never switched on", () => {
+  const withCollection = [...bundles, { id: "collections-123", name: "A collection", channelIDs: [900001], activeMonths: null }];
+  const ids = LL.bundlesToAutoEnable({
+    bundles: withCollection, enabledBundleIDs: new Set(["nostalgex"]),
+    availableChannelIDs: [...seasonal.flatMap((b) => b.channelIDs), 900001],
+  });
+  assert.deepEqual([...ids], []);
+});
+check("auto-enable: nothing available means nothing switched on", () => {
+  assert.deepEqual([...LL.bundlesToAutoEnable({ bundles, enabledBundleIDs: new Set(["nostalgex"]), availableChannelIDs: [] })], []);
+});
+check("plex-tuner.html runs the fallback after a first (full) build only", () => {
+  assert.equal(tuner.includes("if (buildAll) autoEnableBundlesWithContent();"), true);
+});
+
 check("activeMonths still drives the invite and the guide lead (isBundleInSeason)", () => {
   const scream = byID.get("seasonal");
   const holiday = byID.get("tis-the-season");

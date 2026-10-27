@@ -8175,6 +8175,31 @@
     }
   }
 
+  // Mirrors AppState.autoEnableBundlesWithContent (called when the first lineup has no channel).
+  // A small library, or one that fits no NOSTALGEX channel, would otherwise open on a blank
+  // screen. Switches on every package with content (not seasonal, not collections), saves the
+  // choice, and builds what that brings in. Returns true if it switched any on.
+  function autoEnableBundlesWithContent() {
+    if (CHANNELS.some(ch => ch.enabled)) return false;
+    const ids = globalThis.NostalgexLibraryLoad.bundlesToAutoEnable({
+      bundles,
+      enabledBundleIDs,
+      availableChannelIDs: allChannelsUnfiltered
+        .filter(ch => ch.itemPool && ch.itemPool.length >= (ch.minItems || 50))
+        .map(ch => ch.id),
+    });
+    if (!ids.length) return false;
+    ids.forEach(id => enabledBundleIDs.add(id));
+    bundles.forEach(b => { b.enabled = enabledBundleIDs.has(b.id); });
+    saveBundlePreferences();
+    applyBundleFilter();
+    CHANNELS.forEach(ch => {
+      if (ch.itemPool && ch.itemPool.length >= (ch.minItems || 50)) buildChannelSchedule(ch);
+    });
+    console.log('[Nostalgex] AUTO-ENABLE: no channel in the first lineup, switched on ' + ids.join(', '));
+    return true;
+  }
+
   async function repopulateChannelsFromLibrary(allItems, options = {}) {
     const LL = globalThis.NostalgexLibraryLoad;
     const buildAll = options.buildAllChannels ?? LL.isFirstLibraryLoad();
@@ -8213,6 +8238,7 @@
     });
 
     autoGenerateChannels(allItems);
+    if (buildAll) autoEnableBundlesWithContent();
     renderConfig();
 
     if (!options.skipMarkComplete) LL.markInitialLibraryLoadComplete();
