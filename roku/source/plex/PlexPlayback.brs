@@ -14,8 +14,8 @@
 ' one answered as that server (private addresses only, see
 ' source/plex/ServerResolve.brs), else
 ' HTTPS with certificates checked. Nothing here
-' reports playback back to Plex (no timeline, no scrobble): the app reads
-' your library and never changes it.
+' reports playback back to Plex: that is SHOW NOW PLAYING and MARK WATCHED,
+' off unless the viewer turns them on (source/guide/PlaybackReport.brs).
 
 ' Video nodes take headers through their own ifHttpAgent; a ContentNode's
 ' HttpHeaders field alone left this TV buffering with no request reaching Plex.

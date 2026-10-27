@@ -34,6 +34,9 @@ if [ -n "$leaks" ]; then
 fi
 
 python3 tests/tools/check-includes.py
+# A name an if / while condition reads but this path never assigned stops the app
+# on a TV and passes every other check (SettingsView, 2026-10-27).
+python3 tests/tools/check-uninit.py
 bash tests/stamp-test.sh
 # Saved data goes through NxRegSection and NxCacheRoot (source/util/Values.brs),
 # so a test-data build keeps its own. A registry section or cachefs: path
@@ -110,7 +113,7 @@ for suite in $suites; do
         printf 'function NxTestShard() as Dynamic\n    return { suite: "%s", index: %d, count: %d }\nend function\n' "$suite" "$i" "$n" >"$parts/$suite-$i.brs"
     done
 done
-files=(tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/ScheduleParityGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/FallbackTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/StallTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs tests/PlexAudioTests.brs tests/PosterTests.brs tests/RescanTests.brs tests/DolbyVisionTests.brs tests/DailyRefreshTests.brs tests/SmallLibraryTests.brs source/plex/PlexPoster.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/plex/PlexPlayback.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs)
+files=(tests/main.brs tests/runtime-interpreter.brs tests/ScheduleTests.brs tests/FilterTests.brs tests/FilterGoldenTests.brs tests/RatingGoldenTests.brs tests/LineupTests.brs tests/ScheduleDSTGoldenTests.brs tests/ScheduleParityGoldenTests.brs tests/FranchiseTests.brs tests/FranchiseGuideTests.brs tests/EnrichmentTests.brs tests/SubtitleTests.brs tests/GuideNavTests.brs tests/TuneQueueTests.brs tests/AdvanceTests.brs tests/FallbackTests.brs tests/SleepTimerTests.brs tests/DeepLinkTests.brs tests/CollectionTests.brs tests/ServerChoiceTests.brs tests/ServerResolveTests.brs tests/SnapshotTests.brs tests/StallTests.brs tests/SeasonalTests.brs tests/MediaBrowserTests.brs tests/SignInFlowTests.brs tests/QrTests.brs tests/VersionTests.brs tests/PlexAudioTests.brs tests/PosterTests.brs tests/RescanTests.brs tests/DolbyVisionTests.brs tests/DailyRefreshTests.brs tests/SmallLibraryTests.brs tests/ReportTests.brs source/plex/PlexPoster.brs source/plex/ServerChoice.brs source/plex/ServerResolve.brs source/plex/LibrarySnapshot.brs source/plex/PlexLibrary.brs source/plex/PlexApi.brs source/plex/PlexPlayback.brs source/util/*.brs source/schedule/*.brs source/filter/*.brs source/guide/*.brs source/franchise/*.brs source/enrich/*.brs source/subtitles/*.brs source/collections/*.brs source/mediabrowser/*.brs)
 # One part per CPU thread at a time ($NX_TEST_JOBS overrides), the split
 # suites' parts first, so the small ones fill in around them.
 jobs=${NX_TEST_JOBS:-$cpus}

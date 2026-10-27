@@ -130,6 +130,46 @@ Commits carry the detail of *what*; this carries the *why*.
   - The copied stream's piece at the join is 18 MB.
 - `tests/FallbackTests.brs`: 12 more cases. The Jellyfin/Emby ones fail on the first commit.
 
+## 2026-10-27 (Roku: Settings' package rows stopped the app, and a check for it)
+
+**Shipped.** Nothing until the PR for #72 (#114) takes it. Branch `roku/playback-report`.
+
+**Why.** The tester found the 1.0.6 release candidate crashing as soon as Settings scrolled to CHANNEL PACKAGES: `Use of uninitialized variable (runtime error &he9)` in `SettingsView.drawRow`. My own bug in #114: renaming `on` to `isOn` for the two reporting rows also changed the package rows' `if on then`, and that branch never sets `isOn`. The tester had run Settings on this branch without scrolling that far. Neither the suite nor static analysis can see a variable read before it is assigned.
+
+**Changed.**
+- `components/SettingsView.brs`: the package rows read `on` again.
+- `tests/tools/check-uninit.py` (new), run by `tests/run.sh`: flags a plain name an `if`, `else if` or `while` condition reads when this path has not assigned it, following if / else-if branches (a branch sees what came before the chain, not what a sibling set). On the broken commit and on the candidate it reports exactly this line; on the fixed tree and the rest of the repo it reports nothing. It checks conditions only, so it is not a general lint: a variable read outside a condition, or set on only some paths into a later read, is not caught.
+
+## 2026-10-27 (Roku: SHOW NOW PLAYING and MARK WATCHED, off by default)
+
+**Shipped.** Nothing until it lands on main. Branch `roku/playback-report`, off #108 (`cd8f783`).
+
+**Why.** Issue #72: the Roku never told Plex, Jellyfin or Emby what was playing, and never counted a watch. The Apple TV has two opt-in switches for that (w6trp's work, in 1.0.28's source). Chad asked for the Roku to match.
+
+**Changed.**
+- `source/guide/PlaybackReport.brs` (new): the two choices, saved through `NxRegSection("player")` and off until turned on; the epochs that revoke queued work when a choice goes off; the 15% entry / 75% watched gate; the tracker. The tracker is pure: it takes the clock and returns events.
+- `source/guide/ReportExecutor.brs` (new): what goes to the server, one event at a time, as upstream's queued operations.
+  - **Plex:** position-free `PUT /:/timeline` with the session in `X-Plex-Session-Identifier`. A counted watch is `GET /:/scrobble` with the bare key. For a counted episode whose show wasn't already in Continue Watching, the next-up entry is removed (three lookups, a second apart).
+  - **Jellyfin and Emby:** the item's UserData is read first. With no reading there is no report and no mark. Then `/Sessions/Playing`, `/Progress` and `/Stopped`, the stop capped at 89% of the runtime. A counted watch is an explicit `POST PlayedItems`. When the session ends, the prior UserData goes back, or the counted state.
+  - **Pulse backoff:** a server that stops answering gets fewer pulses (skip 1, 2, 4 ... 30). The setting never changes.
+- `components/ReportTask.*` (new): runs the events on its own thread, so a slow or silent server never holds up the picture or the guide. It is created only once there is something to send; with both choices off since launch, nothing is created and nothing is sent.
+- `components/GuideView.*`:
+  - a tracker per airing (a retry or a step down keeps it), started at the first picture, pulsed every 10 s and stopped on a channel change, the card, the sleep timer, a rebuild or sign-out, and Back;
+  - leaving with Back waits up to 4 s for the stop and the cleanup.
+- `components/SettingsView.*`: SHOW NOW PLAYING ON <SERVER> and MARK WATCHED ON <SERVER> under CONNECTION, with upstream's wording.
+- `source/guide/GuideSchedule.brs`: a block carries its item's runtime.
+- Tests: `tests/ReportTests.brs`, 80 cases.
+  - The cleanup plans against `scripts/watch-cleanup-golden.json` and upstream's module.
+  - The backoff against `nostalgex-watch-state.js` (`tests/gen-watch.mjs`).
+  - The gate, all four combinations of the two choices on Plex, Jellyfin and Emby, an unreadable baseline, the next-up removal with its retry, revocation and epochs, and the request shapes.
+- `README.md` Security and the read-only notes in the playback files.
+
+**Measured.** Off-device only: the tester owns the stick. The new suite crashes on the base (the functions don't exist) and passes here. Mutating the 89% cap or the 15% gate fails it.
+
+**Half-done.**
+- Not on a TV yet.
+- The Roku section of the privacy page and the store listing still say read-only. Updating them needs the maintainer's OK (issue #72) and the site agent.
+
 ## 2026-10-26 (Roku: a test build can keep its own saved data)
 
 **Shipped.** Nothing until it lands on main. Branch `roku/test-isolated-data`, off main `ae3cd6d`. Tooling for testing; a release is unchanged.

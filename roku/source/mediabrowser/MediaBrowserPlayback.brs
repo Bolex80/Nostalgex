@@ -23,7 +23,8 @@
 ' Security: the token goes in the Authorization header, never in the URL,
 ' as for Plex. Emby wants it on the playlist, Jellyfin on every segment too,
 ' and the Video node sends its headers with each request. Nothing here
-' reports playback back to the server.
+' reports playback back to the server: that is SHOW NOW PLAYING and MARK
+' WATCHED, off unless the viewer turns them on (source/guide/PlaybackReport.brs).
 
 ' Returns { content, stopUrl, route, rung, audioTrack } (stopUrl "" for
 ' direct play; audioTrack the pick for the player to select on a direct

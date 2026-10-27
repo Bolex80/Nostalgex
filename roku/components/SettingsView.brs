@@ -125,6 +125,7 @@ sub open(unused = invalid as Dynamic)
     ' switched off, and the next switch would save it again.
     m.enabled = NxEnabledBundles()
     m.subs = NxSubtitleSettings()
+    m.report = NxReportPrefs()
     m.choices = NxSavedFranchiseChoices()
     m.collectionKeys = NxSavedCollectionKeys()
     reg = NxPlexRegistry()
@@ -167,6 +168,10 @@ sub buildRows()
     end for
     ' Upstream's RESCAN LIBRARY, after the servers.
     m.rows.Push({ kind: "rescan" })
+    ' Upstream's two reporting switches, after the server, both off by
+    ' default (issue #72, source/guide/PlaybackReport.brs).
+    m.rows.Push({ kind: "reportNowPlaying" })
+    m.rows.Push({ kind: "reportMarkWatched" })
     m.rows.Push({ kind: "signOut" })
 
     m.rows.Push({ kind: "header", title: "PLAYBACK", subtitle: "Picture and subtitles" })
@@ -228,6 +233,8 @@ function rowHeight(row as Object) as Integer
     if row.kind = "subheader" or row.kind = "info" then return 44
     if row.kind = "version" then return 56
     if row.kind = "rescan" then return 126
+    ' Upstream's subtitle in two lines.
+    if row.kind = "reportNowPlaying" or row.kind = "reportMarkWatched" then return 100
     return 74
 end function
 
@@ -516,6 +523,30 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
         state = ""
         stateColor = "0xFFE500FF"
         if m.top.rescanning then state = "UPDATING…"
+    else if row.kind = "reportNowPlaying" or row.kind = "reportMarkWatched" then
+        kind = NxSignedInKind()
+        isOn = m.report.markWatched = true
+        if row.kind = "reportNowPlaying" then
+            label = "SHOW NOW PLAYING ON " + UCase(NxKindName(kind))
+            isOn = m.report.nowPlaying = true
+            if kind = "plex" then
+                detail = "Show the current program on Plex."
+                extra = ["Leave Mark Watched off to keep watch history unchanged."]
+            else
+                detail = "Show the current program. Prior watch state is restored when playback ends;"
+                extra = ["a working connection is required."]
+            end if
+        else
+            label = "MARK WATCHED ON " + UCase(NxKindName(kind))
+            detail = "Count a program as watched when you tune in during its first 15% and watch at least 75%."
+            extra = ["Independent of Now Playing. Off by default."]
+        end if
+        state = "OFF"
+        stateColor = "0xFFFFFF59"
+        if isOn then
+            state = "ON"
+            stateColor = "0xFFE500FF"
+        end if
     else if row.kind = "retro" then
         label = "RETRO MODE"
         detail = "CRT scanlines, vignette, VHS glitch, 4:3 aspect ratio"
@@ -560,7 +591,7 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
     if focused then nameColor = "0xFFFFFFFF"
     page.AppendChild(newLabel(label, "DMMono-Medium", 24, nameColor, indent + 30, y + 10))
     page.AppendChild(newLabel(detail, "VT323-Regular", 24, detailColor, indent + 30, y + 40))
-    if row.kind = "rescan" then
+    if row.kind = "rescan" or extra.Count() > 0 then
         ' Its other lines, each cut to the row's width.
         ly = y + 66
         for each text in extra
@@ -654,6 +685,16 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             end if
         else if row.kind = "rescan" then
             if not m.top.rescanning then m.top.rescan = true
+        else if row.kind = "reportNowPlaying" then
+            m.report.nowPlaying = not (m.report.nowPlaying = true)
+            NxSaveReportPrefs(m.report)
+            print "settings: show now playing "; m.report.nowPlaying
+            render()
+        else if row.kind = "reportMarkWatched" then
+            m.report.markWatched = not (m.report.markWatched = true)
+            NxSaveReportPrefs(m.report)
+            print "settings: mark watched "; m.report.markWatched
+            render()
         else if row.kind = "retro" then
             NxSaveRetroMode(not NxRetroMode())
             render()
