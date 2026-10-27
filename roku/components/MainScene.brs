@@ -354,7 +354,34 @@ sub onLibraryStatus()
             m.scheduleTimer.ObserveField("fire", "onScheduleTimer")
             m.scheduleTimer.control = "start"
         end if
+        startDailyRefresh()
     end if
+end sub
+
+' The 15-minute check behind a TV left on (#67, source/util/DailyRefresh.brs).
+sub startDailyRefresh()
+    if m.dailyTimer <> invalid then return
+    m.lastLibraryCheck = 0
+    m.dailyTimer = CreateObject("roSGNode", "Timer")
+    m.dailyTimer.duration = NxDailyRefreshCheckSec()
+    m.dailyTimer.repeat = true
+    m.dailyTimer.ObserveField("fire", "onDailyTick")
+    m.dailyTimer.control = "start"
+end sub
+
+' The last load is the one RESCAN LIBRARY's row reports (NxLibraryHeld);
+' none yet counts as now, as upstream sets lastLoadAtUnix when it's 0. Not
+' while a load already runs, nor without a guide (signed out).
+sub onDailyTick()
+    if m.guide = invalid or m.libraryBusy = true then return
+    now& = CreateObject("roDateTime").AsSeconds()
+    last& = now&
+    held = NxLibraryHeld()
+    if held <> invalid then last& = held.at
+    if not NxDailyRefreshDue(now&, last&, m.lastLibraryCheck) then return
+    m.lastLibraryCheck = now&
+    print "library: "; (now& - last&) \ 3600; " h since the last load; reading the library again behind the guide"
+    startLibrary(true)
 end sub
 
 ' A deep link goes to the guide, or waits for it while sign-in or the

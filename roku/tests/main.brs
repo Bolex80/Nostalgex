@@ -72,6 +72,8 @@ sub Main(args = invalid as Dynamic)
     if NxTestWants("qr") then failures = failures + NxRunQrTests("pkg:/tests/vectors/qr.json", NxTestShard())
     if NxTestWants("version") then failures = failures + NxRunVersionTests()
     if NxTestWants("dolby-vision") then failures = failures + NxRunDolbyVisionTests("pkg:/tests/fixtures/dolby-vision.json")
+
+    if NxTestWants("daily-refresh") then failures = failures + NxRunDailyRefreshTests()
     if NxTestWants("plex-audio") then failures = failures + NxRunPlexAudioTests()
     if NxTestWants("poster") then failures = failures + NxRunPosterTests()
     if NxTestWants("rescan") then failures = failures + NxRunRescanTests()
