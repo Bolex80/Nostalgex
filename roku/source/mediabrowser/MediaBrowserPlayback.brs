@@ -133,9 +133,10 @@ end function
 ' has no audio picker, so it picks the sensible track itself.
 '
 ' A track in one of `languages`, most channels first (the first of equals);
-' then the file's default; then the first track. A track matches on the
-' first two letters of its language, as upstream compares. invalid when
-' there is nothing to choose between, which leaves the server's own choice.
+' then the file's default; then the first track. A track's language is
+' read as NxSubComparableTag reads it, where upstream compares its first
+' two letters, so "est" is not Spanish (issue #119). invalid when there is
+' nothing to choose between, which leaves the server's own choice.
 ' `tracks` as NxMbAudioTracks keeps them.
 function NxMbPreferredAudioIndex(tracks as Object, languages as Object) as Dynamic
     if tracks.Count() < 2 then return invalid
@@ -145,8 +146,8 @@ function NxMbPreferredAudioIndex(tracks as Object, languages as Object) as Dynam
     end for
     best = invalid
     for each t in tracks
-        l = NxToStr(t.language)
-        if l <> "" and wanted.DoesExist(LCase(Left(l, 2))) then
+        tag = NxSubComparableTag(t.language)
+        if tag <> invalid and wanted.DoesExist(tag) then
             if best = invalid then
                 best = t
             else if NxNumberOr0(t.channels) > NxNumberOr0(best.channels) then
@@ -166,7 +167,7 @@ end function
 ' wanted too. Otherwise a German viewer would get an English 5.1 mix over
 ' the German stereo one. With nothing in `languages`, upstream's order. A
 ' track's code is read as the subtitle code reads it (NxSubComparableTag),
-' since the first two letters of "ger" aren't "de".
+' since "ger" is "de".
 function NxMbChosenAudioIndex(tracks as Object, languages as Object) as Dynamic
     if tracks.Count() < 2 then return invalid
     wanted = {}
@@ -176,7 +177,7 @@ function NxMbChosenAudioIndex(tracks as Object, languages as Object) as Dynamic
     best = invalid
     for each t in tracks
         tag = NxSubComparableTag(t.language)
-        if tag <> invalid and wanted.DoesExist(Left(tag, 2)) then
+        if tag <> invalid and wanted.DoesExist(tag) then
             if best = invalid then
                 best = t
             else if NxNumberOr0(t.channels) > NxNumberOr0(best.channels) then

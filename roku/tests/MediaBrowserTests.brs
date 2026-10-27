@@ -194,6 +194,9 @@ function NxRunForcedSubTests() as Integer
     NxCheck(r, "french viewer: none", NxToStr(NxMbForcedSub(it, "fr") = invalid), "true")
     NxCheck(r, "an airing with no forced track", NxToStr(NxMbForcedSub({}, "en") = invalid), "true")
     NxCheck(r, "deu matches de too", NxToStr(NxMbForcedSub({ forcedSubs: [{ index: 7, language: "deu" }] }, "de").index), "7")
+    NxCheck(r, "forced: spanish skips estonian", NxToStr(NxMbForcedSub({ forcedSubs: [{ index: 3, language: "est" }, { index: 4, language: "spa" }] }, "es").index), "4")
+    NxCheck(r, "forced: japanese skips javanese", NxToStr(NxMbForcedSub({ forcedSubs: [{ index: 3, language: "jav" }] }, "ja") = invalid), "true")
+    NxCheck(r, "forced: czech takes cze", NxToStr(NxMbForcedSub({ forcedSubs: [{ index: 3, language: "cze" }] }, "cs") <> invalid), "true")
     NxCheck(r, "the address", NxMbSubtitlePath("1650", "mediasource_1650", 4), "/Videos/1650/mediasource_1650/Subtitles/4/0/Stream.srt")
     on = { startSec: 1000, endSec: 2800, ratingKey: "a", partKey: "pa", serverIndex: 0, forcedSubs: [{ index: 2, language: "eng" }] }
     soon = { startSec: 4000, endSec: 5000, ratingKey: "b", partKey: "pb", serverIndex: 0, forcedSubs: [{ index: 3, language: "eng" }] }
@@ -252,6 +255,12 @@ function NxRunAudioPickTests() as Integer
     NxCheck(r, "language: english is upstream's order", NxToStr(NxMbChosenAudioIndex(joeDirt, ["en"])), NxToStr(NxMbPreferredAudioIndex(joeDirt, ["en"])))
     NxCheck(r, "language: one track is left to the server", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "ger", 2, invalid, false)], ["de"]) = invalid), "true")
     NxCheck(r, "language: the pick follows it", NxToStr(NxMbAudioPick({ audioTracks: deStereo }, ["de"]).index), "2")
+    ' One code per language (#119): an Estonian 5.1 is not Spanish.
+    estSpa = [NxMbTrack(1, "est", 6, invalid, false), NxMbTrack(2, "spa", 2, invalid, false), NxMbTrack(3, "eng", 2, invalid, true)]
+    NxCheck(r, "language: spanish skips an estonian 5.1", NxToStr(NxMbChosenAudioIndex(estSpa, ["es"])), "2")
+    NxCheck(r, "language: czech takes cze", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "eng", 2, invalid, true), NxMbTrack(2, "cze", 2, invalid, false)], ["cs"])), "2")
+    NxCheck(r, "language: arabic skips armenian", NxToStr(NxMbChosenAudioIndex([NxMbTrack(1, "arm", 6, invalid, false), NxMbTrack(2, "ara", 2, invalid, false)], ["ar"])), "2")
+    NxCheck(r, "upstream's order: estonian is not spanish", NxToStr(NxMbPreferredAudioIndex([NxMbTrack(1, "est", 6, invalid, false), NxMbTrack(2, "kor", 2, invalid, true)], ["es"])), "2")
 
     ' Issue #78: O Brother, Where Art Thou?, Portuguese E-AC-3 5.1 the
     ' default ahead of English E-AC-3 5.1.
