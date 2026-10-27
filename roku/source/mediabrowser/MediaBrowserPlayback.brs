@@ -26,10 +26,11 @@
 ' reports playback back to the server: that is SHOW NOW PLAYING and MARK
 ' WATCHED, off unless the viewer turns them on (source/guide/PlaybackReport.brs).
 
-' Returns { content, stopUrl, route, rung, audioTrack } (stopUrl "" for
-' direct play; audioTrack the pick for the player to select on a direct
-' play, as NxAudioTrackToSelect takes it, else invalid), or invalid. rung as
-' for NxPlexStreamContent.
+' Returns { content, stopUrl, route, rung, audioTrack, forcedSub } (stopUrl
+' "" for direct play; audioTrack the pick for the player to select on a
+' direct play, as NxAudioTrackToSelect takes it, else invalid; forcedSub
+' true when the content carries a forced track as a sidecar), or invalid.
+' rung as for NxPlexStreamContent.
 function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, rung = "auto" as String) as Dynamic
     base = NxToStr(s.uri)
     lower = LCase(base)
@@ -46,6 +47,11 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     content.HttpCertificatesFile = "common:/certs/ca-bundle.crt"
     content.HttpHeaders = ["Authorization:" + NxMbAuthHeader(NxToStr(s.accessToken))]
     content.PlayStart = offsetSec
+    ' A forced track in SUBTITLE LANGUAGE, as the server's SRT, set before
+    ' play: the Apple TV burns it in (forcedSubtitleToBurn), which Emby
+    ' refuses (docs/JELLYFIN-EMBY.md). The server needs no token for it.
+    forced = NxMbForcedSub(b, NxSubPreferredLanguage())
+    if forced <> invalid then content.SubtitleTracks = [{ Language: NxToStr(forced.language), TrackName: base + NxMbSubtitlePath(itemId, msid, forced.index), Description: "Forced" }]
 
     ' The audio track a viewer here wants, when the file has a choice: the
     ' server hands over the file's default, which can be a dub.
@@ -81,7 +87,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
         end if
         content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/stream." + ext + "?Static=true&MediaSourceId=" + NxUrlEncode(msid)
         content.streamFormat = format
-        return { content: content, stopUrl: "", route: route, rung: "direct", audioTrack: audioTrack }
+        return { content: content, stopUrl: "", route: route, rung: "direct", audioTrack: audioTrack, forcedSub: forced <> invalid }
     end if
 
     ' Emby needs a PlaySessionId on a hand-built address or every segment
@@ -117,7 +123,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
-    return { content: content, stopUrl: stopUrl, route: route, rung: rung, audioTrack: invalid }
+    return { content: content, stopUrl: stopUrl, route: route, rung: rung, audioTrack: invalid, forcedSub: forced <> invalid }
 end function
 
 ' Which audio track to ask for, when the file offers more than one: the
@@ -221,6 +227,51 @@ function NxAudioTrackToSelect(listed as Object, want as Dynamic) as Dynamic
         if NxSubComparableTag(t.Language) = tag then return t.Track
     end for
     return invalid
+end function
+
+' The airing's first forced subtitle track in `lang` (NxMbForcedSubs), or
+' invalid: forcedSubtitleToBurn's rule, its languages compared as the
+' subtitle code compares them, so "eng" and "ger" match "en" and "de".
+function NxMbForcedSub(b as Object, lang as String) as Dynamic
+    for each t in NxList(b.forcedSubs)
+        tag = NxSubComparableTag(t.language)
+        if tag <> invalid and NxSubMatches(tag, lang) then return t
+    end for
+    return invalid
+end function
+
+' A subtitle track as SRT, from the server's root. Jellyfin and Emby both
+' answer this form, with no token.
+function NxMbSubtitlePath(itemId as String, msid as String, index as Integer) as String
+    return "/Videos/" + NxUrlEncode(itemId) + "/" + NxUrlEncode(msid) + "/Subtitles/" + index.ToStr() + "/0/Stream.srt"
+end function
+
+' The forced SRTs to ask the server for ahead of time: one per airing that
+' is on or starts within `windowSec` of `nowSec`, with a forced track in
+' `lang`, as addresses, less those in `done`. A server makes
+' the file from the whole video, a minute or more for a large one the first
+' time, and a Roku waits 30 s for it, twice, then shows the film without it;
+' asked before the airing, the file is ready. `servers` maps an airing's
+' serverIndex to its root, Jellyfin and Emby only.
+function NxForcedWarmList(channels as Object, nowSec as LongInteger, windowSec as Integer, lang as String, servers as Object, done as Object) as Object
+    out = []
+    seen = {}
+    for each ch in NxList(channels)
+        for each b in NxList(ch.blocks)
+            if b.endSec > nowSec and b.startSec < nowSec + windowSec and b.forcedSubs <> invalid then
+                base = servers[NxToStr(b.serverIndex)]
+                t = NxMbForcedSub(b, lang)
+                if base <> invalid and t <> invalid then
+                    key = base + NxMbSubtitlePath(NxToStr(b.ratingKey), NxToStr(NxOr(b.partKey, b.ratingKey)), t.index)
+                    if not done.DoesExist(key) and not seen.DoesExist(key) then
+                        seen[key] = true
+                        out.Push(key)
+                    end if
+                end if
+            end if
+        end for
+    end for
+    return out
 end function
 
 ' The viewer's languages for NxMbAudioPick: AUDIO LANGUAGE, the TV's own

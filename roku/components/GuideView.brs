@@ -728,6 +728,44 @@ sub onTick()
     ' A deep-linked item ends with its file, however long it stalled.
     linked = m.playing <> invalid and m.playing.linked = true
     if NxAiringEnded(m.playing, t, m.video.state) and not m.stopped and not linked then advance(false)
+    warmForcedSubtitles(t)
+end sub
+
+' Every 5 minutes, the forced subtitle files of airings on now or within the
+' hour, asked of their Jellyfin or Emby server ahead of time, each once
+' (NxForcedWarmList), one batch at a time. The list of files asked starts
+' again past 500, so a guide left up for weeks can't grow it without end; a
+' file then may be asked once more, from the server's own copy.
+sub warmForcedSubtitles(t as LongInteger)
+    if m.warmTask <> invalid then return
+    if m.warmAt <> invalid and t - m.warmAt < 300 then return
+    m.warmAt = t
+    if m.warmDone = invalid or m.warmDone.Count() > 500 then m.warmDone = {}
+    servers = {}
+    saved = ParseJson(NxPlexRegistry().Read("servers"))
+    if type(saved) = "roArray" then
+        for i = 0 to saved.Count() - 1
+            base = NxToStr(saved[i].uri)
+            lower = LCase(base)
+            ' As NxMbStreamContent: HTTPS, or plain HTTP to a home address.
+            ok = Left(lower, 8) = "https://" or (Left(lower, 7) = "http://" and NxIsPrivateHost(NxUrlHost(base)))
+            if NxServerKind(saved[i]) <> "plex" and ok then servers[i.ToStr()] = base
+        end for
+    end if
+    if servers.Count() = 0 then return
+    urls = NxForcedWarmList(m.channels, t, 3600, NxSubPreferredLanguage(), servers, m.warmDone)
+    if urls.Count() = 0 then return
+    for each u in urls
+        m.warmDone[u] = true
+    end for
+    m.warmTask = CreateObject("roSGNode", "SubtitleWarmTask")
+    m.warmTask.ObserveField("done", "onWarmDone")
+    m.warmTask.urls = urls
+    m.warmTask.control = "run"
+end sub
+
+sub onWarmDone()
+    m.warmTask = invalid
 end sub
 
 ' ── Playback ────────────────────────────────────────────────────────────────
@@ -838,6 +876,7 @@ sub startTune(idx as Integer)
     ' The Jellyfin/Emby pick on a direct play; on every other stream, AUDIO
     ' LANGUAGE among the tracks the player lists (issue #62).
     m.tuneAudio = stream.audioTrack
+    m.tuneForced = stream.forcedSub = true
     if m.tuneAudio = invalid then m.tuneAudio = { language: NxAudioPreferredLanguage(), byLanguage: true }
     m.deadlineTimer.duration = NxPictureDeadline(m.attempt.rung, b.videoWidth, b.videoHeight)
     m.deadlineTimer.control = "start"
@@ -1493,20 +1532,28 @@ end sub
 ' Upstream's applySubtitleSelection: shown in fullscreen only, never over the
 ' guide; always when SUBTITLES is ALWAYS, and with FOREIGN AUDIO only when no
 ' audio track is in AUDIO LANGUAGE and the subtitles are in SUBTITLE
-' LANGUAGE. Upstream also shows forced subtitles when they're off; Roku
-' doesn't say which are forced.
+' LANGUAGE. Otherwise the forced track in SUBTITLE LANGUAGE, when the stream
+' carries one as a sidecar (NxMbForcedSub), over the guide too, as upstream
+' burns it in. Roku doesn't list a forced track inside the file.
 sub applySubtitles()
     tracks = NxList(m.video.availableSubtitleTracks)
-    m.hasSubs = tracks.Count() > 0
+    tags = []
+    forced = []
+    sidecar = invalid
+    m.hasSubs = false
+    for each t in tracks
+        tags.Push(NxSubComparableTag(t.Language))
+        ' The player keeps a sidecar's Description and puts its own prefix
+        ' on the TrackName ("<dev_3_0>http://…").
+        isForced = m.tuneForced = true and NxToStr(t.Description) = "Forced" and Instr(1, NxToStr(t.TrackName), "/Subtitles/") > 0
+        forced.Push(isForced)
+        if isForced then sidecar = t else m.hasSubs = true
+    end for
     show = false
     if m.fullscreen and m.hasSubs then
         want = NxSubPreferredLanguage()
         wantAudio = NxAudioPreferredLanguage()
-        tags = []
-        for each t in tracks
-            tags.Push(NxSubComparableTag(t.Language))
-        end for
-        idx = NxSubPreferredTrackIndex(tags, want)
+        idx = NxSubPickIndex(tags, forced, want)
         if m.subs.always then
             show = true
         else if m.subs.foreign then
@@ -1520,6 +1567,11 @@ sub applySubtitles()
             end if
         end if
         if show then m.video.subtitleTrack = tracks[idx].TrackName
+    end if
+    if not show and sidecar <> invalid then
+        m.video.subtitleTrack = sidecar.TrackName
+        print "player: forced subtitles ("; NxToStr(sidecar.Language); ")"
+        show = true
     end if
     setCaptions(show)
     refreshNowPlaying()

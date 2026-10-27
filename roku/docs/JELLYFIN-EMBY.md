@@ -366,6 +366,46 @@ Jellyfin (12.2), server only: the same request without an index returned
 the Portuguese default for AAC, E-AC-3 and Opus clips alike, and with
 `AudioStreamIndex=2` the English track.
 
+**Forced subtitles come as a sidecar (issue #63).** A film's forced track
+in SUBTITLE LANGUAGE (the lines it always shows, such as dialogue in
+another language) is shown whatever SUBTITLES says, as on the Apple TV. The
+scan keeps a file's forced text tracks (`NxMbForcedSubs`); at tune the
+content carries the first in SUBTITLE LANGUAGE as the server's SRT
+(`/Videos/{id}/{source}/Subtitles/{index}/0/Stream.srt`, which both servers
+answer without a token), and `applySubtitles` selects it when no full
+track is showing, over the guide too, as a burned-in line would be. With
+SUBTITLES on, a full track in the language comes first, as
+`pickLegibleOption`. Measured on a TCL 55R617 against the test Emby,
+2026-10-26:
+
+- The Roku doesn't list a forced track inside the file: of *American Dad!*
+  "Pilot"'s 23 SRT tracks it listed 22, all but the forced one, and of
+  *Little Amélie*'s four, three. So a direct play can't show it from the
+  file.
+- The sidecar showed: a dev screenshot at 4:59 caught the forced line
+  ("Foolish round-eye, your failure will blossom like a thousand cherry
+  trees."), the server's cue word for word. The player renames the track
+  `<dev_3_0>http://…` and keeps its Description.
+- It never held up the picture: 3.3 s with the file ready, 4.0 s while Emby
+  was still making it.
+- The player waits 30 s for the file, twice, then plays without it. A
+  server makes the file from the whole video the first time: Emby 330 s
+  for a 6.6 GB film (96 s when asked again after its copy was deleted),
+  27 s for a 165 MB episode just read by a failed burn-in; Jellyfin 48 s
+  for that episode. After that each server answers from its own copy in
+  milliseconds. So every 5 minutes the guide asks for the files of airings
+  on now or within the hour, once each and one at a time
+  (`NxForcedWarmList`, `SubtitleWarmTask`).
+- Burning the track in, as the Apple TV does
+  (`SubtitleStreamIndex=<index>&SubtitleMethod=Encode` on the stream), works
+  on Jellyfin and not on Emby: Emby's ffmpeg reads the whole file for the
+  subtitle before its first segment, and Emby stops it after 15 s
+  ("Error starting ffmpeg", HTTP 500). With the file just read, a 165 MB
+  episode made it in 12.9 s.
+- Image tracks (PGS, VobSub) aren't kept: as SRT Emby answers an empty
+  file. On the test Emby 297 items have an English forced track, 28 of them
+  only as an image; those play without it.
+
 **No reporting to the server.** The Roku app sends Plex nothing about what you
 watch, and its privacy policy says so; Jellyfin and Emby are the same, which
 also leaves out upstream's watch-state restore.

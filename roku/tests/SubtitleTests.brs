@@ -56,6 +56,13 @@ function NxRunSubtitleTests() as Integer
     NxCheck(r, "audio track: portuguese (brazil) takes por", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "eng" }, { Track: "y", Language: "por" }], NxPreferredLanguageFrom("pt-BR", "en_US"))), "y")
     NxCheck(r, "audio track: untagged never matches", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "" }, { Track: "y" }], "en") = invalid), "true")
 
+    ' pickLegibleOption (#63): a full track before a forced one.
+    NxCheck(r, "pick: the full track over a forced one", NxSubPickIndex(["en", "en"], [true, false], "en").ToStr(), "1")
+    NxCheck(r, "pick: a forced one when it's all there is", NxSubPickIndex(["en"], [true], "en").ToStr(), "0")
+    NxCheck(r, "pick: forced in the language over another", NxSubPickIndex(["fr", "en"], [false, true], "en").ToStr(), "1")
+    NxCheck(r, "pick: none in the language, the first", NxSubPickIndex(["fr", "de"], [false, false], "ja").ToStr(), "0")
+    NxCheck(r, "pick: case of the tag", NxSubPickIndex(["EN"], [false], "en").ToStr(), "0")
+
     print "subtitle cases (upstream SubtitleSelectionLogicTests): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function
