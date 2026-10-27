@@ -200,6 +200,35 @@ check("plex: no page errors", px.errors.length === 0, px.errors.join(" | "));
 await jf.ctx.close();
 await px.ctx.close();
 
+// ── A library cache written by the page before this setting ───────────────────
+// Its items carry no bitrate. A cache is served for up to a day, so unless the version is
+// bumped a 20 Mbps MP4 would direct play at LOW until it expired. Each case seeds the cache the
+// way the previous page wrote it (version 2, no bitrate) and reloads.
+async function staleCache(backend, ratingKey, version) {
+  const { ctx, page } = await open(backend);
+  await page.evaluate((v) => {
+    const cache = JSON.parse(localStorage.getItem("plex90_library_cache"));
+    cache.v = v;
+    cache.items = cache.items.map((i) => { const { bitrate, ...rest } = i; return rest; });
+    localStorage.setItem("plex90_library_cache", JSON.stringify(cache));
+  }, version);
+  await page.reload();
+  await page.waitForFunction(() => typeof appState !== "undefined" && appState === "player" && allItemsCache.length === 6, null, { timeout: 40000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const withBitrate = await page.evaluate(() => allItemsCache.filter((i) => i.bitrate > 0).length);
+  const reqs = await start(page, backend, backend === "plex" ? "102" : "jf2", "low");
+  await ctx.close();
+  return { withBitrate, reqs };
+}
+for (const backend of ["jellyfin", "plex"]) {
+  const old = await staleCache(backend, null, 2);
+  check(`${backend}: a version-2 library cache is refused and the library is read again`, old.withBitrate === 6, String(old.withBitrate));
+  check(`${backend}: after that, a 20 Mbps MP4 goes through the transcoder at LOW`, backend === "plex" ? plexTranscode(old.reqs) && !plexDirect(old.reqs) : viaServer(old.reqs) && !direct(old.reqs), old.reqs.map((r) => r.url.slice(0, 50)).join(" | "));
+  // Negative control: a cache the page would accept (current version) that holds no bitrate really does direct play.
+  const kept = await staleCache(backend, null, 3);
+  check(`${backend} negative control: an accepted cache with no bitrate direct plays at LOW`, kept.withBitrate === 0 && (backend === "plex" ? plexDirect(kept.reqs) : direct(kept.reqs)), `${kept.withBitrate} ${kept.reqs.map((r) => r.url.slice(0, 50)).join(" | ")}`);
+}
+
 // ── The controls ─────────────────────────────────────────────────────────────
 {
   const { ctx, page, errors } = await open("plex");

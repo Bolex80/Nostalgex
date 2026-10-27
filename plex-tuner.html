@@ -8262,7 +8262,9 @@
   const LIBRARY_CACHE_TTL = 86400000; // 24 hours
   // 2: Plex items carry a tmdbID now that the scan asks for includeGuids=1. A version-1
   // cache would serve a whole day of items with no ids, so it is refused once.
-  const LIBRARY_CACHE_VERSION = 2;
+  // 3: items carry a bitrate (kbps) for STREAM QUALITY's direct-play ceiling. A version-2 cache
+  // has none, and at LOW a 20 Mbps MP4 would direct play for up to a day, so it is refused once.
+  const LIBRARY_CACHE_VERSION = 3;
 
   // localStorage, not sessionStorage. The 24 hour TTL above only means something
   // if the cache outlives the tab, and sessionStorage is cleared the moment the
