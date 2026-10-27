@@ -34,6 +34,22 @@ if [ -n "$leaks" ]; then
 fi
 
 python3 tests/tools/check-includes.py
+bash tests/stamp-test.sh
+# Saved data goes through NxRegSection and NxCacheRoot (source/util/Values.brs),
+# so a test-data build keeps its own. A registry section or cachefs: path
+# opened anywhere else would be shared with the store app again.
+direct=$(grep -rnE 'roRegistrySection|"cachefs:' source components --include=*.brs | grep -vE "^source/util/Values\.brs:|^[^:]+:[0-9]+:\s*'" || true)
+if [ -n "$direct" ]; then
+    echo "FAIL saved data opened outside NxRegSection or NxCacheRoot:" >&2
+    echo "$direct" >&2
+    exit 1
+fi
+# SIGN OUT reaches NxCacheRoot on the render thread, where roFileSystem
+# isn't available: Values.brs must do without it.
+if grep -n 'roFileSystem' source/util/Values.brs | grep -v ":\s*'"; then
+    echo "FAIL source/util/Values.brs uses roFileSystem, which the render thread can't create" >&2
+    exit 1
+fi
 
 # `m` is BrightScript's implicit this: a variable of that name silently holds
 # the component's AA instead. It has cost three debugging rounds; fail fast.

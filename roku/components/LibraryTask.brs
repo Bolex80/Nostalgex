@@ -9,7 +9,7 @@ end sub
 ' same build, NxBuildKey).
 ' It holds titles and schedules, nothing secret.
 function NxGuideCachePath() as String
-    return "cachefs:/nostalgex-guide.json"
+    return NxCacheRoot() + "/nostalgex-guide.json"
 end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
@@ -46,7 +46,7 @@ end function
 ' season (NxSeasonKey: the guide's lead, and the year the filter reads),
 ' packages, franchise and collection choices and servers on are the same.
 function NxPoolCachePath() as String
-    return "cachefs:/nostalgex-pools.json"
+    return NxCacheRoot() + "/nostalgex-pools.json"
 end function
 
 function NxPoolCacheKey(season as String, bundles as Object) as String
@@ -441,7 +441,7 @@ sub loadLibrary()
     ' already showing, and the guide is rebuilt only if they added anything.
     opts = {
         config: NxEnrichmentConfig(), net: NxEnrichmentNet(),
-        cache: NxEnrichFileCache("cachefs:/nostalgex-enrichment.json"),
+        cache: NxEnrichFileCache(NxCacheRoot() + "/nostalgex-enrichment.json"),
         nowSec: NxFilterClock().nowSec, channels: config.channels,
         backoff: NxEnrichOMDbBackoff(NxEnrichRegistryStore()), progress: NxEnrichTopProgress(m.top)
     }
@@ -922,7 +922,7 @@ sub resaveClearedLibrary(lib as Object)
         if type(snap.servers[s.key]) <> "roAssociativeArray" then
             t = CreateObject("roTimespan")
             fs = CreateObject("roFileSystem")
-            print "library: server "; s.index; "'s saved library is gone (dir has "; ListDir(snapDir).Count(); " files, saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists("cachefs:/nostalgex-enrichment.json"); "); saving it again"
+            print "library: server "; s.index; "'s saved library is gone (dir has "; ListDir(snapDir).Count(); " files, saved guide "; fs.Exists(NxGuideCachePath()); ", pools "; fs.Exists(NxPoolCachePath()); ", enrichment cache "; fs.Exists(NxCacheRoot() + "/nostalgex-enrichment.json"); "); saving it again"
             ' Its first save time, so it still ages out a day after the scan.
             ' From JSON it may be an Integer or a Double.
             savedAt& = s.savedAt
