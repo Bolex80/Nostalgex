@@ -14,7 +14,7 @@ Commits carry the detail of *what*; this carries the *why*.
 - `includes`, `uninit`, `guards`: the existing include check, `check-uninit.py`, and the grep guards (secret in a print, saved data outside `NxRegSection`, a variable named `m` or `run`), now in `tests/tools/check-guards.sh` so `run.sh` and `pr-check.sh` share one copy. The tools run from the checkout you are in against the tree of REF, so an old head is held to a check that came later (4f0a467 and `check-uninit.py`).
 - `dupkeys` (new): an associative-array literal that names a key twice. A hand merge that keeps both sides of a changed line makes this, and nothing else sees it.
 - `package`: the staged channel contains nothing from `tests/`. Proves release tooling can't ship.
-- `trailers`, `secrets`, `addresses`, `dashes`: what the change adds, from the commits in BASE..REF and the lines BASE...REF adds. AI trailers (commits by tydude001 are counted and left as they are), tokens and keys and `.env` files, real server addresses (a deny list; other IPv4 addresses are a warning to read), em and en dashes. A warning isn't a failure; it is a line for a person to read.
+- `trailers`, `secrets`, `addresses`, `dashes`: what the change adds, from the commits in BASE..REF that aren't already on origin/main and the lines REF would add to BASE (the diff to a `git merge-tree` merge, so lines main already has aren't counted again). A `range` row warns when there is nothing to scan. AI trailers (commits by tydude001 are counted and left as they are), tokens and keys and `.env` files, real server addresses (a deny list; other IPv4 addresses are a warning to read), em and en dashes. A warning isn't a failure; it is a line for a person to read.
 - `heads` and `held`: with `--prs` or `--heads`, every PR head is an ancestor of REF; with `--held`, a head that was to stay out isn't in it. Proves a candidate holds the reviewed heads, not newer or older ones.
 - `sca`: Roku's static analysis when Java 21 is here (or podman, as `scripts/sca.sh` needs); otherwise it says NOT RUN.
 - `suite`: `tests/run.sh`, the slow one (started first, runs while the others are checked).
@@ -24,7 +24,7 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Changed.**
 - `roku/tests/pr-check.sh`: the command. `roku/tests/tools/check-testlists.py`, `check-dupkeys.py`, `scan-added.py`, `check-guards.sh`: its parts. `check-includes.py` and `check-uninit.py` take an optional roku/ directory.
-- `roku/tests/run.sh`: its inline grep guards moved to `check-guards.sh`, unchanged.
+- `roku/tests/run.sh`: its inline grep guards moved to `check-guards.sh`, unchanged; it now also runs `check-testlists.py` and `check-dupkeys.py`.
 - `.github/workflows/ci.yml`: on a pull request the `roku` job runs `pr-check.sh` (which includes the suite) and writes the report to the job summary; on a push it still runs `run.sh`.
 - `roku/tests/README.md`: how to run it and read it.
 

@@ -29,6 +29,10 @@ python3 tests/tools/check-includes.py
 # A name an if / while condition reads but this path never assigned stops the app
 # on a TV and passes every other check (SettingsView, 2026-10-27).
 python3 tests/tools/check-uninit.py
+# A merge that dropped a suite from a list, repeated a line or kept both sides of a
+# key (tests/pr-check.sh runs the same two, so they also run on a push to main).
+python3 tests/tools/check-testlists.py
+python3 tests/tools/check-dupkeys.py
 bash tests/stamp-test.sh
 
 brs=$(npx -y -p @rokucommunity/brs@0.47.6 -c 'command -v brs')

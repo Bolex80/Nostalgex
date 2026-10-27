@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """What a change adds that must never reach the public repo. Reads the commits
-in BASE..REF and the lines BASE...REF adds (the diff from their merge base, so
-a candidate built on an older main isn't blamed for main's newer lines), and
-prints one result per check:
+in BASE..REF that are not already public, and the lines REF would add to BASE,
+and prints one result per check:
+
+  Commits: those reachable from REF and not from BASE or from $NX_PRCHECK_PUBLIC
+  (default origin/main). History that is already public isn't under review, and
+  it can't be rewritten: three blog commits on main carry a Cursor Agent
+  co-author line, and a range that includes them would fail every time.
+  Lines: the diff from BASE to the tree `git merge-tree` makes by merging REF
+  into BASE, so lines main already has aren't counted again, however many merge
+  bases (a candidate rebuilt over merged PRs has one per PR) the two have.
+  When there is nothing to scan (no new commit, no added line) a `range` result
+  warns, since a pass on nothing proves nothing.
 
   trailers   an AI co-author or "Generated with" line in a commit message.
              Commits by an author in $NX_TRAILER_OK (default: tydude001, whose
@@ -49,7 +58,11 @@ def emit(name, bad, warn, summary_pass, summary_fail, details=()):
 
 
 # ---- commits -------------------------------------------------------------
-log = git("log", "--format=%H%x1f%an%x1f%s%x1f%B%x1e", f"{base}..{ref}")
+public = os.environ.get("NX_PRCHECK_PUBLIC", "origin/main")
+have_public = bool(git("rev-parse", "--verify", "--quiet", public + "^{commit}").strip())
+total_range = len([x for x in git("rev-list", f"{base}..{ref}").split("\n") if x])
+exclude = [f"^{public}"] if have_public else []
+log = git("log", "--format=%H%x1f%an%x1f%s%x1f%B%x1e", f"{base}..{ref}", *exclude)
 commits = []
 for rec in log.split("\x1e"):
     rec = rec.strip("\n")
@@ -66,11 +79,19 @@ for h, an, subj, body in commits:
             tok += 1
         else:
             tbad.append(f"{h} ({an}) {subj[:60]}")
-summary = f"{len(commits)} commits, none" + (f"; {tok} by {', '.join(allow)} left as they are" if tok else "")
+public_skipped = total_range - len(commits)
+summary = f"{len(commits)} commits, none" + (f"; {tok} by {', '.join(allow)} left as they are" if tok else "") + (f"; {public_skipped} already on {public}, not scanned" if public_skipped > 0 else "")
 emit("trailers", tbad, False, summary, f"{len(tbad)} commit(s) with an AI trailer" + (f" ({tok} more by an allowed author)" if tok else ""), tbad[:8])
 
 # ---- added lines ---------------------------------------------------------
-diff = git("diff", "--unified=0", "--no-color", "--no-ext-diff", "-M", f"{base}...{ref}")
+def merged_tree():
+    out = subprocess.run(["git", "-C", repo, "merge-tree", "--write-tree", "--no-messages", base, ref], capture_output=True, text=True, errors="replace")
+    first = out.stdout.split("\n")[0].strip()
+    return first if re.fullmatch(r"[0-9a-f]{40,64}", first) else None
+
+
+target = merged_tree() or ref        # older git: the plain two-dot diff of the trees
+diff = git("diff", "--unified=0", "--no-color", "--no-ext-diff", "-M", base, target)
 added = []  # (file, line number, text)
 newfiles = []
 cur, ln = None, 0
@@ -85,7 +106,7 @@ for raw in diff.split("\n"):
     elif raw.startswith("+") and not raw.startswith("+++") and cur:
         added.append((cur, ln, raw[1:]))
         ln += 1
-for line in git("diff", "--name-status", "--no-renames", f"{base}...{ref}").split("\n"):
+for line in git("diff", "--name-status", "--no-renames", base, target).split("\n"):
     p = line.split("\t")
     if len(p) == 2 and p[0] == "A":
         newfiles.append(p[1])
@@ -172,6 +193,9 @@ for f, n, t in text:
     if f.endswith(TEXT_EXT) and "/fixtures/" not in f and DASH.search(t):
         dbad.append(f"{f}:{n}")
 emit("dashes", dbad, False, "no em or en dash", f"{len(dbad)} em or en dash(es)", dbad[:8])
+
+if not commits and not added:
+    results.insert(0, ("range", "WARN", f"nothing to scan: {ref[:12]} adds no commit and no line over {base[:12]}, so the four rows below prove nothing", []))
 
 for name, status, summary, details in results:
     print(f"RESULT\t{name}\t{status}\t{summary}")

@@ -53,9 +53,11 @@ Options: `--base REF` (default `origin/main`; use the main the branch was built 
 | `sca` | Roku's static analysis finds no errors or warnings | the three dashboard items about the listing's account setting (not code) |
 | `suite` | `tests/run.sh` ends with ALL TESTS PASSED | anything on a TV |
 
-`trailers`, `secrets`, `addresses` and `dashes` read the commits in `BASE..REF` and the lines `BASE...REF` adds, so a candidate built on an older main isn't blamed for main's newer lines.
+`trailers`, `secrets`, `addresses` and `dashes` read the commits in `BASE..REF` that are not already on `origin/main` (`NX_PRCHECK_PUBLIC` changes that), and the lines REF would add to BASE: the diff from BASE to the tree `git merge-tree` makes by merging REF into it. Lines main already has aren't counted again, however many merge bases the two have (a candidate rebuilt over merged PRs has one per PR). Public history isn't under review and can't be rewritten: three blog commits on main (`905bf0e`, `77a5701`, `693b856`) carry a Cursor Agent co-author line, and a range that included them would fail `trailers` every time. When there is nothing to scan, a `range` row warns, because a pass on nothing proves nothing.
 
-Static analysis runs when `java` (Temurin 21) is on the path and Roku's `sca-cmd.jar` is in `~/.cache/roku-sca/tool/sca-cmd/lib/` (fetched on first use; `NX_JAVA` and `NX_SCA_JAR` point at others). With only `podman` it runs `scripts/sca.sh`. With neither it says `NOT RUN`.
+`run.sh` runs `testlists` and `dupkeys` too, so they also run on a push to main.
+
+Static analysis runs when `java` (Temurin 21) is on the path and Roku's `sca-cmd.jar` is in `$SCA_DIR/tool/sca-cmd/lib/` (`SCA_DIR` defaults to `~/.cache/roku-sca`, as for `scripts/sca.sh`; fetched on first use; `NX_JAVA` and `NX_SCA_JAR` point at others). With only `podman` it runs `scripts/sca.sh`. With neither it says `NOT RUN`.
 
 ### What stays manual
 

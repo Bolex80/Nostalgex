@@ -95,7 +95,8 @@ runcheck() {
     else
         local n; n=$(printf '%s\n' "$out" | grep -c '^FAIL')
         [ "$n" -gt 0 ] || n=1
-        line FAIL "$name" "$n problem(s)" < <(printf '%s\n' "$out" | head -8)
+        local shown=""; [ "$n" -gt 8 ] && shown=" (first 8 shown)"
+        line FAIL "$name" "$n problem(s)$shown" < <(printf '%s\n' "$out" | head -8)
     fi
 }
 
@@ -131,10 +132,13 @@ fi
 # ---- what the change adds: trailers, secrets, addresses, dashes -------------
 scanout=$(NX_PRCHECK_ENVFILE="$here/.env" python3 "$tools/scan-added.py" "$repo" "$base" "$sha" 2>&1)
 if printf '%s\n' "$scanout" | grep -q '^RESULT'; then
-    for name in trailers secrets addresses dashes; do
+    for name in range trailers secrets addresses dashes; do
         row=$(printf '%s\n' "$scanout" | awk -F'\t' -v n="$name" '$1=="RESULT" && $2==n {print $3 "\t" $4}')
         st=${row%%$'\t'*}; txt=${row#*$'\t'}
-        [ -n "$st" ] || { line FAIL "$name" "scan produced no result" </dev/null; continue; }
+        if [ -z "$st" ]; then
+            [ "$name" = range ] && continue     # only present when there is nothing to scan
+            line FAIL "$name" "scan produced no result" </dev/null; continue
+        fi
         line "$st" "$name" "$txt" < <(printf '%s\n' "$scanout" | awk -F'\t' -v n="$name" '$1=="DETAIL" && $2==n {print $3}')
     done
 else
@@ -187,12 +191,12 @@ fi
 # ---- static analysis ---------------------------------------------------------
 if [ "$sca" = 1 ]; then
     java=${NX_JAVA:-$(command -v java 2>/dev/null || true)}
-    jar=${NX_SCA_JAR:-${SCA_DIR:-$HOME/.cache/roku-sca}/tool/sca-cmd/lib/sca-cmd.jar}
+    scadir=${SCA_DIR:-$HOME/.cache/roku-sca}     # as scripts/sca.sh: $scadir/tool/sca-cmd/lib/sca-cmd.jar
+    jar=${NX_SCA_JAR:-$scadir/tool/sca-cmd/lib/sca-cmd.jar}
     if [ -n "$java" ] && "$java" -version >/dev/null 2>&1; then
-        if [ ! -f "$jar" ] && [ "${NX_SCA_DOWNLOAD:-1}" = 1 ] && command -v curl >/dev/null && command -v unzip >/dev/null; then
-            d=$(dirname "$(dirname "$(dirname "$jar")")")   # .../tool/sca-cmd/lib/sca-cmd.jar -> ...
-            mkdir -p "$d/tool" && curl -sSfL -o "$d/sca-cmd.zip" https://devtools.web.roku.com/static-channel-analysis/sca-cmd.zip \
-                && rm -rf "$d/tool" && mkdir -p "$d/tool" && unzip -q "$d/sca-cmd.zip" -d "$d/tool" 2>/dev/null
+        if [ ! -f "$jar" ] && [ -z "${NX_SCA_JAR:-}" ] && [ "${NX_SCA_DOWNLOAD:-1}" = 1 ] && command -v curl >/dev/null && command -v unzip >/dev/null; then
+            mkdir -p "$scadir" && curl -sSfL -o "$scadir/sca-cmd.zip" https://devtools.web.roku.com/static-channel-analysis/sca-cmd.zip \
+                && rm -rf "$scadir/tool" && mkdir -p "$scadir/tool" && unzip -q "$scadir/sca-cmd.zip" -d "$scadir/tool" 2>/dev/null
         fi
         if [ -f "$jar" ] && [ -d "$stage" ]; then
             ( cd "$stage" && rm -f "$work/app.zip" && zip -qr "$work/app.zip" . )
