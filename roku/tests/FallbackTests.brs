@@ -119,8 +119,8 @@ function NxRunFallbackTests() as Integer
     ' What each rung asks of the server.
     NxCheck(r, "Plex server stream adds nothing", NxPlexRungQuery("server"), "")
     NxCheck(r, "Plex 1080p", NxPlexRungQuery("capped"), "&maxVideoBitrate=12000&videoQuality=90&videoResolution=1920x1080")
-    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
-    NxCheck(r, "Jellyfin/Emby server stream as before", NxMbVideoQuery(29000000, "server"), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
+    NxCheck(r, "Jellyfin/Emby 1080p", NxMbVideoQuery(29000, "capped"), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
+    NxCheck(r, "Jellyfin/Emby server stream as before", NxMbVideoQuery(29000, "server"), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
 
     ' Starving: PlaybackStarvationTests, case for case. The measured shape is
     ' the basement Apple TV's Armageddon, 2026-10-06.
@@ -207,7 +207,7 @@ function NxRunFallbackTests() as Integer
         NxCheck(r, kind + ": direct play errors: the server stream", NxAttemptText(NxFallbackNext(direct, "error", kind)), "server fellBack")
     end for
     NxCheck(r, "plex: server stream errors: one retry, as upstream", NxAttemptText(NxFallbackNext(server, "error", "plex")), "server retry")
-    NxCheck(r, "emby: the 1080p stream never copies", (Instr(1, NxMbVideoQuery(5000000, "capped"), "AllowVideoStreamCopy=false") > 0).ToStr(), "true")
+    NxCheck(r, "emby: the 1080p stream never copies", (Instr(1, NxMbVideoQuery(5000, "capped"), "AllowVideoStreamCopy=false") > 0).ToStr(), "true")
 
     ' "finished" (NxFinishedAction). Soldier on CH 12: a server stream
     ' joined part way errors, the ladder retries it (GuideView clears the

@@ -140,19 +140,31 @@ function NxMbHeight(source as Object) as Dynamic
     return v.Height
 end function
 
+' A source's Bitrate (bits per second, as the server gives it) in kilobits per
+' second, rounded as the web tuner's `Math.round(src.Bitrate / 1000)` and the
+' Apple TV do; 0 when it has none. Item bitrates are kbps on every surface
+' (the web's mediaInfo, scripts/stream-quality-golden.json). The sums are
+' Integer, since a Float holds 24 bits and 19,269,499 would round up.
+function NxMbBitrateKbps(bps as Dynamic) as Integer
+    if not NxIsNumber(bps) then return 0
+    if bps <= 0 then return 0
+    if bps >= 2000000000 then return Int(bps / 1000)
+    return (Int(bps) + 500) \ 1000
+end function
+
 ' mediaInfo: the best source's id, container, and first video and audio
 ' codecs, with the video's profile and the audio's channel count for the
 ' direct-play decision (source/util/DirectPlay.brs), the source's bitrate
-' for the server stream's (NxMbVideoQuery), its audio tracks when it has
+' in kbps for the server stream's (NxMbVideoQuery), its audio tracks when it has
 ' more than one, for the pick at tune (NxMbPreferredAudioIndex), and its
 ' forced text subtitle tracks, shown as a sidecar at tune (NxMbForcedSub).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: invalid, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid, forcedSubs: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: 0, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid, forcedSubs: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
-    if NxIsNumber(src.Bitrate) then out.bitrate = src.Bitrate
+    out.bitrate = NxMbBitrateKbps(src.Bitrate)
     v = NxMbStream(src, "Video")
     if v <> invalid then
         if NxTruthy(v.Codec) then out.videoCodec = LCase(NxToStr(v.Codec))
