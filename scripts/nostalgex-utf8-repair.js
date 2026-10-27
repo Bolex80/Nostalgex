@@ -53,13 +53,16 @@
 
   /**
    * `bytes` (a Uint8Array) as text. `repairedBytes` is 0 for a valid response, which is decoded
-   * untouched (a leading byte order mark is dropped, as Response.json() does).
+   * untouched (one leading byte order mark is dropped, as Response.json() does; a U+FEFF anywhere else is kept, even right after a repaired byte).
    */
   function decode(bytes) {
     try {
       return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), repairedBytes: 0 };
     } catch (_) { /* not valid UTF-8: repair below */ }
-    const lenient = new TextDecoder('utf-8');
+    // ignoreBOM: every segment is decoded on its own, and a decoder that strips a BOM would drop
+    // a U+FEFF that follows a repaired byte. Swift keeps it, so only the one at the very start of
+    // the whole text goes (below), as Response.json() drops it.
+    const lenient = new TextDecoder('utf-8', { ignoreBOM: true });
     let out = '';
     let repairedBytes = 0;
     let i = 0;
@@ -74,6 +77,7 @@
       runStart = i;
     }
     out += lenient.decode(bytes.subarray(runStart), { stream: false });
+    if (out.charCodeAt(0) === 0xFEFF) out = out.slice(1);
     return { text: out, repairedBytes };
   }
 

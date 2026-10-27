@@ -39,18 +39,24 @@ final class PlexUTF8RepairGoldenTests: XCTestCase {
         return data
     }
 
+    /// What a JSON parser sees: one leading U+FEFF is ignored (the web drops it as Response.json()
+    /// does, JSONDecoder skips it), a U+FEFF anywhere else stays.
+    private func parsed(_ text: String) -> String {
+        text.unicodeScalars.first == "\u{FEFF}" ? String(String.UnicodeScalarView(text.unicodeScalars.dropFirst())) : text
+    }
+
     func testEveryGoldenVector() throws {
         let cases = try golden().cases
-        XCTAssertGreaterThan(cases.count, 10)
+        XCTAssertGreaterThan(cases.count, 20)
         for c in cases {
             let input = bytes(c.hex)
             if let repaired = PlexUTF8Repair.repair(input) {
-                XCTAssertEqual(String(decoding: repaired.data, as: UTF8.self), c.text, c.name)
+                XCTAssertEqual(parsed(String(decoding: repaired.data, as: UTF8.self)), c.text, c.name)
                 XCTAssertEqual(repaired.repairedBytes, c.repairedBytes, c.name)
             } else {
                 // Nil means the bytes were already valid UTF-8 and are decoded untouched.
                 XCTAssertEqual(c.repairedBytes, 0, c.name)
-                XCTAssertEqual(String(decoding: input, as: UTF8.self), c.text, c.name)
+                XCTAssertEqual(parsed(String(decoding: input, as: UTF8.self)), c.text, c.name)
             }
         }
     }

@@ -1,5 +1,5 @@
 {
-  "about": "Golden vectors for repairing a Plex response that holds bytes that are not UTF-8. Read by BOTH Nostalgex/NostalgexTests/PlexUTF8RepairGoldenTests.swift (PlexUTF8Repair, the Apple TV) and scripts/nostalgex-utf8-repair-smoke.mjs (the web tuner, npm run test:utf8-repair). Each case gives the input bytes as hex, the text they must decode to, and how many bytes were repaired (0 means the input is valid UTF-8 and is decoded untouched). The rule: every byte outside a well-formed UTF-8 sequence (Unicode table 3-7) is read as Windows-1252, the five bytes that table leaves undefined keep their Latin-1 code point. When the rule changes, change both engines, then update or add a case here. A leading byte order mark is not covered: the web drops it, as Response.json() does.",
+  "about": "Golden vectors for repairing a Plex response that holds bytes that are not UTF-8. Read by BOTH Nostalgex/NostalgexTests/PlexUTF8RepairGoldenTests.swift (PlexUTF8Repair, the Apple TV) and scripts/nostalgex-utf8-repair-smoke.mjs (the web tuner, npm run test:utf8-repair). Each case gives the input bytes as hex, the text they must decode to, and how many bytes were repaired (0 means the input is valid UTF-8 and is decoded untouched). The rule: every byte outside a well-formed UTF-8 sequence (Unicode table 3-7) is read as Windows-1252, the five bytes that table leaves undefined keep their Latin-1 code point. When the rule changes, change both engines, then update or add a case here. A byte order mark (EF BB BF) is valid UTF-8 and is never repaired. The text a case gives is what a JSON parser sees: ONE leading U+FEFF is dropped (Response.json() does, a JSON decoder ignores it), and a U+FEFF anywhere else is kept, including right after a repaired byte. A Swift check compares after dropping one leading U+FEFF.",
   "cases": [
     {
       "name": "ascii only",
@@ -114,6 +114,54 @@
       "hex": "7b227469746c65223a22436166e920536f6369657479222c2279656172223a323031367d",
       "text": "{\"title\":\"Caf\u00e9 Society\",\"year\":2016}",
       "repairedBytes": 1
+    },
+    {
+      "name": "a byte order mark on its own is dropped",
+      "hex": "efbbbf",
+      "text": "",
+      "repairedBytes": 0
+    },
+    {
+      "name": "a leading byte order mark is dropped",
+      "hex": "efbbbf6f6b",
+      "text": "ok",
+      "repairedBytes": 0
+    },
+    {
+      "name": "a leading byte order mark before a bad byte is dropped and the byte repaired",
+      "hex": "efbbbf636166e9",
+      "text": "caf\u00e9",
+      "repairedBytes": 1
+    },
+    {
+      "name": "only one leading byte order mark is dropped",
+      "hex": "efbbbfefbbbf61",
+      "text": "\ufeffa",
+      "repairedBytes": 0
+    },
+    {
+      "name": "a byte order mark in the middle of valid text is kept",
+      "hex": "61efbbbf62",
+      "text": "a\ufeffb",
+      "repairedBytes": 0
+    },
+    {
+      "name": "a byte order mark after a bad byte is kept",
+      "hex": "636166e9efbbbf78",
+      "text": "caf\u00e9\ufeffx",
+      "repairedBytes": 1
+    },
+    {
+      "name": "a bad byte then a byte order mark at the very end",
+      "hex": "78e9efbbbf",
+      "text": "x\u00e9\ufeff",
+      "repairedBytes": 1
+    },
+    {
+      "name": "a byte order mark between two bad bytes is kept",
+      "hex": "e9efbbbfe8",
+      "text": "\u00e9\ufeff\u00e8",
+      "repairedBytes": 2
     }
   ]
 }
