@@ -418,7 +418,10 @@ Three differences are on purpose:
   whole-minute slot plays to the end (`source/guide/Advance.brs`, cases in
   `tests/AdvanceTests.brs`). Unlike upstream, the clock takes over anyway
   five minutes past the slot, so a stream that never reports finishing
-  can't hold the channel.
+  can't hold the channel. For that clock, a pick that skips a title another
+  channel has on, and lands on an airing already over (the entry after the
+  title's first in the window), airs as from now for its slot's length;
+  upstream has no clock to confuse.
 
 ## Parity is proven, not eyeballed
 

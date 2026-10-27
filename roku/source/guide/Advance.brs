@@ -163,7 +163,8 @@ end function
 ' from its start. natural says the file played to its end, so the pick
 ' starts from its beginning; after a stall or a failure, one already airing
 ' joins where the clock is. Returns { block, seek }, or invalid when the
-' window holds nothing.
+' window holds nothing. A block already over at t comes back as a copy that
+' airs from t.
 function NxAdvancePick(channels as Object, idx as Integer, prevKey as Dynamic, t as LongInteger, natural as Boolean) as Dynamic
     s = NxChannelSchedule(channels[idx].blocks, t)
     if s = invalid then return invalid
@@ -198,6 +199,19 @@ function NxAdvancePick(channels as Object, idx as Integer, prevKey as Dynamic, t
                 exit for
             end if
         end for
+    end if
+    ' The skip takes the entry after the title's first airing in the window,
+    ' which can be one already over. Upstream just plays the item from its
+    ' start; here the player's clock reads the airing's slot, and an ended
+    ' one would hand over again on the next tick, to the same pick, forever.
+    ' So it airs as from now, for its slot's length. A copy: the schedule
+    ' keeps its own.
+    if pick.endSec <= t then
+        shifted = {}
+        shifted.Append(pick)
+        shifted.endSec = t + (pick.endSec - pick.startSec)
+        shifted.startSec = t
+        pick = shifted
     end if
     return { block: pick, seek: seek& }
 end function

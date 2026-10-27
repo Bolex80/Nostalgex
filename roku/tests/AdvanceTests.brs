@@ -35,6 +35,28 @@ function NxRunAdvanceTests() as Integer
     NxCheck(r, "after a failure, b on channel 9 too, so c from its start", NxAdvancePickLine([chans[0], other], 0, "a", 1700&, false), "c@0")
     NxCheck(r, "a channel is no conflict for itself", NxAdvancePickLine([other], 0, "b", 1700&, true), "b@0")
 
+    ' The skip takes the entry after the title's FIRST airing in the window,
+    ' which can be one already over (short files, a small pool: a collection
+    ' channel on a lab server, where the stick re-tuned the same file every
+    ' 9 s). Channel 5 airs b, a, x, b, a; channel 9 has b on too. x ran 18 s
+    ' over, so the pick is a, from its start, as upstream picks it; its slot
+    ' then runs from now, or the clock ends it on the next tick.
+    short = { id: 5, blocks: [
+        { ratingKey: "b", startSec: 1000&, endSec: 1100& }, { ratingKey: "a", startSec: 1100&, endSec: 1200& },
+        { ratingKey: "x", startSec: 1200&, endSec: 1300& }, { ratingKey: "b", startSec: 1300&, endSec: 1400& },
+        { ratingKey: "a", startSec: 1400&, endSec: 1500& }
+    ] }
+    alsoB = { id: 9, blocks: [{ ratingKey: "b", startSec: 1300&, endSec: 1400& }] }
+    pair = [short, alsoB]
+    NxCheck(r, "skip to an airing already over: upstream's pick", NxAdvancePickLine(pair, 0, "x", 1318&, true), "a@0")
+    p = NxAdvancePick(pair, 0, "x", 1318&, true)
+    if p <> invalid then
+        NxCheck(r, "skip to an airing already over: its slot from now", p.block.startSec.ToStr() + "-" + p.block.endSec.ToStr(), "1318-1418")
+        NxCheck(r, "skip to an airing already over: not over on the next tick", NxAiringEnded(p.block, 1319&, "buffering").ToStr(), "false")
+        NxCheck(r, "skip to an airing already over: the schedule is untouched", short.blocks[1].startSec.ToStr(), "1100")
+    end if
+    NxCheck(r, "skip to an airing already over: one hand-over in a minute", NxAdvanceLoopCount(pair, 0, "x", 1318&).ToStr(), "1")
+
     ' One title on two channels: the lowest channel id keeps it.
     low = { id: 3, blocks: [{ ratingKey: "b", startSec: 1500&, endSec: 1700& }, { ratingKey: "x", startSec: 1700&, endSec: 1900& }] }
     gave = NxGaveWay([chans[0], low, other], 1690&)
@@ -46,6 +68,29 @@ function NxRunAdvanceTests() as Integer
 
     print "advance cases (upstream hand-over): "; r.pass; " passed,"; r.fail; " failed"
     return r.fail
+end function
+
+' GuideView's hand-over, cut down: a natural end at t picks the next airing,
+' then onTick runs once a second for a minute with the new stream still
+' buffering, and advances whenever NxAiringEnded says so. Returns how many
+' hand-overs that made (1 is the natural one).
+function NxAdvanceLoopCount(channels as Object, idx as Integer, prevKey as Dynamic, t as LongInteger) as Integer
+    n = 0
+    p = NxAdvancePick(channels, idx, prevKey, t, true)
+    if p = invalid then return n
+    n = n + 1
+    playing = p.block
+    s& = t + 1
+    while s& <= t + 60
+        if NxAiringEnded(playing, s&, "buffering") then
+            p = NxAdvancePick(channels, idx, playing.ratingKey, s&, false)
+            if p = invalid then return n
+            n = n + 1
+            playing = p.block
+        end if
+        s& = s& + 1
+    end while
+    return n
 end function
 
 function NxAdvancePickLine(channels as Object, idx as Integer, prevKey as Dynamic, t as LongInteger, natural as Boolean) as String
