@@ -135,6 +135,14 @@ tests/run.sh               # off-device, in the RokuCommunity brs interpreter
 scripts/deploy.sh --test   # on every TV in ROKU_HOSTS; the one that counts
 ```
 
+```sh
+tests/pr-check.sh REF      # the mechanical review checks on a branch, one line each
+```
+
+`pr-check.sh` is what a reviewer runs instead of redoing the suite, the test
+lists, the include and uninitialized-variable checks and the commit scan by
+hand; see [tests/README.md](tests/README.md).
+
 Both generate `tests/vectors/` (git-ignored) from this repo's own JS engine
 and data first, so there is nothing to regenerate by hand. The `roku` job in
 the repo's `.github/workflows/ci.yml` runs `tests/run.sh` whenever `roku/`,

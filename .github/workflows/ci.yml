@@ -267,10 +267,21 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          # pr-check reads the commits and the lines a PR adds against its base.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      # Java 21 is for Roku's static analysis, which pr-check runs when it is
+      # here. If the tool can't be fetched the check says NOT RUN.
+      - uses: actions/setup-java@v4
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          distribution: temurin
+          java-version: "21"
 
       # roku/tests/run.sh regenerates the golden vectors from this checkout's
       # JS engine and data, then runs the BrightScript port against them in the
@@ -278,9 +289,20 @@ jobs:
       # only. The interpreter is a first check; roku/scripts/deploy.sh --test
       # on a TV is the one that counts.
       - name: Golden vectors (off-device)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           node --version
           roku/tests/run.sh
+
+      # On a pull request: the same suite plus the mechanical review checks
+      # (test lists, includes, uninitialized reads, repeated keys, the package,
+      # AI trailers, secrets, addresses, dashes, static analysis), one line each,
+      # in the job summary. roku/tests/README.md says what each proves.
+      - name: Roku PR checks (the suite and the review checks)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          node --version
+          roku/tests/pr-check.sh HEAD --here --base "origin/${{ github.base_ref }}" --summary "$GITHUB_STEP_SUMMARY"
 
   tvos-unit-tests:
     name: tvOS unit tests (NostalgexTests)

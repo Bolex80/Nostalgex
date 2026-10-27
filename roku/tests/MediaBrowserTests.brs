@@ -47,7 +47,7 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
         for each it in got
             byKey[NxToStr(it.ratingKey)] = it
         end for
-        bitrates = [["27ef0d2ba6cf3fe966bfc892bb26ac05", "19269041"], ["m-two", "9000000"], ["m-nobr", ""]]
+        bitrates = [["27ef0d2ba6cf3fe966bfc892bb26ac05", "19269"], ["m-two", "9000"], ["m-nobr", "0"]]
         for each pair in bitrates
             it = byKey[pair[0]]
             NxCheck(r, "bitrate " + pair[0] + " scanned", NxToStr(it <> invalid), "true")
@@ -141,14 +141,27 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "audio, no dolby, stereo", NxMbAudioQuery(false, false, false), "&AudioCodec=aac&TranscodingMaxAudioChannels=2")
     NxCheck(r, "audio, all of it", NxMbAudioQuery(true, true, true), "&AudioCodec=aac,ac3,eac3&TranscodingMaxAudioChannels=6")
     NxCheck(r, "audio, ac3 only", NxMbAudioQuery(true, false, false), "&AudioCodec=aac,ac3&TranscodingMaxAudioChannels=2")
+    ' A source's Bitrate in kbps, rounded half up as the web's Math.round(Bitrate / 1000);
+    ' 0 when it has none. 19,269,499 would round up through a Float (24 bits).
+    NxCheck(r, "kbps: 19269041", NxMbBitrateKbps(19269041).ToStr(), "19269")
+    NxCheck(r, "kbps: 19269499 rounds down", NxMbBitrateKbps(19269499).ToStr(), "19269")
+    NxCheck(r, "kbps: 19269500 rounds up", NxMbBitrateKbps(19269500).ToStr(), "19270")
+    NxCheck(r, "kbps: 500 rounds up", NxMbBitrateKbps(500).ToStr(), "1")
+    NxCheck(r, "kbps: 499 rounds down", NxMbBitrateKbps(499).ToStr(), "0")
+    NxCheck(r, "kbps: a Float", NxMbBitrateKbps(19269041.9).ToStr(), "19269")
+    NxCheck(r, "kbps: over 2 Gb/s", NxMbBitrateKbps(2500000000#).ToStr(), "2500000")
+    NxCheck(r, "kbps: zero", NxMbBitrateKbps(0).ToStr(), "0")
+    NxCheck(r, "kbps: negative", NxMbBitrateKbps(-5).ToStr(), "0")
+    NxCheck(r, "kbps: missing", NxMbBitrateKbps(invalid).ToStr(), "0")
     NxCheck(r, "video, no bitrate copies", NxMbVideoQuery(invalid), "&VideoBitrate=40000000&MaxWidth=3840")
-    NxCheck(r, "video, 19 Mb/s copies", NxMbVideoQuery(19269041), "&VideoBitrate=40000000&MaxWidth=3840")
-    NxCheck(r, "video, 20 Mb/s copies", NxMbVideoQuery(20000000), "&VideoBitrate=40000000&MaxWidth=3840")
-    NxCheck(r, "video, 29 Mb/s re-encodes", NxMbVideoQuery(29000000), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
-    NxCheck(r, "video, re-encode on a 1080p TV is 1080p", NxMbVideoQuery(29000000, "server", 1920), "&VideoBitrate=40000000&MaxWidth=1920&AllowVideoStreamCopy=false")
-    NxCheck(r, "video, a copy on a 1080p TV stays 3840", NxMbVideoQuery(19269041, "server", 1920), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, 19 Mb/s copies", NxMbVideoQuery(19269), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, 20 Mb/s copies", NxMbVideoQuery(20000), "&VideoBitrate=40000000&MaxWidth=3840")
+    NxCheck(r, "video, just over 20 Mb/s re-encodes", NxMbVideoQuery(20001), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
+    NxCheck(r, "video, 29 Mb/s re-encodes", NxMbVideoQuery(29000), "&VideoBitrate=40000000&MaxWidth=3840&AllowVideoStreamCopy=false")
+    NxCheck(r, "video, re-encode on a 1080p TV is 1080p", NxMbVideoQuery(29000, "server", 1920), "&VideoBitrate=40000000&MaxWidth=1920&AllowVideoStreamCopy=false")
+    NxCheck(r, "video, a copy on a 1080p TV stays 3840", NxMbVideoQuery(19269, "server", 1920), "&VideoBitrate=40000000&MaxWidth=3840")
     NxCheck(r, "video, no bitrate on a 1080p TV copies", NxMbVideoQuery(invalid, "server", 1920), "&VideoBitrate=40000000&MaxWidth=3840")
-    NxCheck(r, "video, 1080p rung whatever the TV", NxMbVideoQuery(29000000, "capped", 1280), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
+    NxCheck(r, "video, 1080p rung whatever the TV", NxMbVideoQuery(29000, "capped", 1280), "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false")
     NxCheck(r, "width, 2160p60", NxMaxWidthFor("2160p60").ToStr(), "3840")
     NxCheck(r, "width, 2160p60b10", NxMaxWidthFor("2160p60b10").ToStr(), "3840")
     NxCheck(r, "width, 1080p", NxMaxWidthFor("1080p").ToStr(), "1920")

@@ -20,6 +20,7 @@
 <script src="scripts/nostalgex-music-brainz.js"></script>
 <script src="scripts/nostalgex-daily-manifest.js"></script>
 <script src="scripts/nostalgex-library-load.js"></script>
+<script src="scripts/nostalgex-utf8-repair.js"></script>
 <script src="scripts/nostalgex-season.js"></script>
 <script src="scripts/nostalgex-enrichment.js"></script>
 <script src="scripts/nostalgex-collections.js"></script>
@@ -8318,6 +8319,31 @@
     }
   }
 
+  // Mirrors AppState.autoEnableBundlesWithContent (called when the first lineup has no channel).
+  // A small library, or one that fits no NOSTALGEX channel, would otherwise open on a blank
+  // screen. Switches on every package with content (not seasonal, not collections), saves the
+  // choice, and builds what that brings in. Returns true if it switched any on.
+  function autoEnableBundlesWithContent() {
+    if (CHANNELS.some(ch => ch.enabled)) return false;
+    const ids = globalThis.NostalgexLibraryLoad.bundlesToAutoEnable({
+      bundles,
+      enabledBundleIDs,
+      availableChannelIDs: allChannelsUnfiltered
+        .filter(ch => ch.itemPool && ch.itemPool.length >= (ch.minItems || 50))
+        .map(ch => ch.id),
+    });
+    if (!ids.length) return false;
+    ids.forEach(id => enabledBundleIDs.add(id));
+    bundles.forEach(b => { b.enabled = enabledBundleIDs.has(b.id); });
+    saveBundlePreferences();
+    applyBundleFilter();
+    CHANNELS.forEach(ch => {
+      if (ch.itemPool && ch.itemPool.length >= (ch.minItems || 50)) buildChannelSchedule(ch);
+    });
+    console.log('[Nostalgex] AUTO-ENABLE: no channel in the first lineup, switched on ' + ids.join(', '));
+    return true;
+  }
+
   async function repopulateChannelsFromLibrary(allItems, options = {}) {
     const LL = globalThis.NostalgexLibraryLoad;
     const buildAll = options.buildAllChannels ?? LL.isFirstLibraryLoad();
@@ -8356,6 +8382,7 @@
     });
 
     autoGenerateChannels(allItems);
+    if (buildAll) autoEnableBundlesWithContent();
     renderConfig();
 
     if (!options.skipMarkComplete) LL.markInitialLibraryLoadComplete();
@@ -9006,7 +9033,7 @@
         }
         if (!res.ok) { lastError = new Error(`HTTP ${res.status} from ${uri}`); continue; }
 
-        const data = await res.json();
+        const data = await NostalgexUTF8Repair.json(res, path);
         if (!data || !data.MediaContainer) { lastError = new Error(`Malformed response from ${uri}`); continue; }
 
         if (uri !== plexServerUrl) {
@@ -9048,7 +9075,7 @@
         }
         if (!res.ok) { lastError = new Error(`HTTP ${res.status} from ${uri}`); continue; }
 
-        const data = await res.json();
+        const data = await NostalgexUTF8Repair.json(res, path);
         if (!data || !data.MediaContainer) { lastError = new Error(`Malformed response from ${uri}`); continue; }
 
         if (uri !== server.url) {
@@ -9088,7 +9115,7 @@
         headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
       });
       if (!res.ok) throw new Error(`Section ${section.title} returned HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await NostalgexUTF8Repair.json(res, `${section.key} page ${start}`);
       const container = (data && data.MediaContainer) || {};
       const page = container.Metadata || [];
       all.push(...page);
@@ -9148,7 +9175,7 @@
                   const epRes = await fetch(`${server.url}/library/metadata/${show.ratingKey}/allLeaves`, {
                     headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
                   });
-                  const epData = await epRes.json();
+                  const epData = await NostalgexUTF8Repair.json(epRes, `allLeaves ${show.ratingKey}`);
                   const episodes = epData.MediaContainer.Metadata || [];
 
                   return episodes.map(ep => {

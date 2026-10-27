@@ -23,6 +23,91 @@ Commits carry the detail of *what*; this carries the *why*.
 **Half-done.** Not run against a real Plex or Emby server: the Plex parameters are the four the Apple TV sends, checked as URLs only. The resolution cap on Jellyfin and Emby is the fallback URL's `MaxWidth` and the server's own scaling for the bitrate; the test files were 360p, so a downscale was not seen. No iCloud-style sync of the choice, as the web has none for any setting.
 
 **Next.** Roku #65 follows with the same golden file. Decide whether the web's Auto should match the Apple TV's. Nothing changes what is sent anywhere beyond request parameters to the viewer's own server.
+## 2026-10-27 (Roku: `tests/pr-check.sh`, the mechanical review checks in one command)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/pr-check`, off main `8f994d8`. Test tooling only under `roku/tests/` and one CI step; none of it is in the channel package (`stage.sh` packs only manifest, source, components, images, data and fonts, and the script proves that on every run).
+
+**Why.** A reviewer and a tester were redoing the same mechanical checks by hand on every branch and release candidate: the suite, the include check, the saved-data guard, the test lists after a merge, the commit scan. Each costs tokens and attention, and a hand merge went wrong in exactly the places those checks cover (a test file dropped from a list, a line kept twice, an uninitialized variable that stopped the app on a TV). Now one command prints one line per check, and the reviewer reads the lines.
+
+**What each check proves, and what it can't.**
+- `testlists`: every `tests/*Tests.brs` is listed once in `deploy.sh` and once in `run.sh`, every suite function is reachable from `main.brs`, none is called or listed twice. Proves a merge didn't drop or repeat a suite. Doesn't prove the suite passes.
+- `includes`, `uninit`, `guards`: the existing include check, `check-uninit.py`, and the grep guards (secret in a print, saved data outside `NxRegSection`, a variable named `m` or `run`), now in `tests/tools/check-guards.sh` so `run.sh` and `pr-check.sh` share one copy. The tools run from the checkout you are in against the tree of REF, so an old head is held to a check that came later (4f0a467 and `check-uninit.py`).
+- `dupkeys` (new): an associative-array literal that names a key twice. A hand merge that keeps both sides of a changed line makes this, and nothing else sees it.
+- `package`: the staged channel contains nothing from `tests/`. Proves release tooling can't ship.
+- `trailers`, `secrets`, `addresses`, `dashes`: what the change adds, from the commits in BASE..REF that aren't already on origin/main and the lines REF would add to BASE (the diff to a `git merge-tree` merge, so lines main already has aren't counted again). A `range` row warns when there is nothing to scan. AI trailers (commits by tydude001 are counted and left as they are), tokens and keys and `.env` files, real server addresses (a deny list; other IPv4 addresses are a warning to read), em and en dashes. A warning isn't a failure; it is a line for a person to read.
+- `heads` and `held`: with `--prs` or `--heads`, every PR head is an ancestor of REF; with `--held`, a head that was to stay out isn't in it. Proves a candidate holds the reviewed heads, not newer or older ones.
+- `sca`: Roku's static analysis when Java 21 is here (or podman, as `scripts/sca.sh` needs); otherwise it says NOT RUN.
+- `suite`: `tests/run.sh`, the slow one (started first, runs while the others are checked).
+- `--since SHA`: lists what changed since the last head that passed and says whether any app file moved, so a device pass is only asked for what changed.
+
+**Stays manual.** Anything on a TV (the on-device suite, Settings scrolled to CHANNEL PACKAGES, a smoke test, playback), whether a change is right, the privacy wording, and whether a conflict hand-resolution kept the intended side (the checks only catch the mistakes that have a signature).
+
+**Changed.**
+- `roku/tests/pr-check.sh`: the command. `roku/tests/tools/check-testlists.py`, `check-dupkeys.py`, `scan-added.py`, `check-guards.sh`: its parts. `check-includes.py` and `check-uninit.py` take an optional roku/ directory.
+- `roku/tests/run.sh`: its inline grep guards moved to `check-guards.sh`, unchanged; it now also runs `check-testlists.py` and `check-dupkeys.py`.
+- `.github/workflows/ci.yml`: on a pull request the `roku` job runs `pr-check.sh` (which includes the suite) and writes the report to the job summary; on a push it still runs `run.sh`.
+- `roku/tests/README.md`: how to run it and read it.
+
+**Tested.** On `f4d9f9e` (the 1.0.6 candidate, against its main `9ff822b`, with all ten PR heads and #105 held): every check passes. On `4f0a467`, the head before the Settings fix: `uninit` fails on `drawRow()` reading `isOn`. On a branch with a dropped list entry, a repeated key, an AI trailer, a token-shaped string, a real address, a dash and a test file in the package: each check fails on its own line.
+
+**Half-done.** None.
+
+**Next.** Reviewer v2 reads the branch before it is pushed.
+
+## 2026-10-27 (Roku: a Jellyfin or Emby item's bitrate is in kbps, as the web tuner and the Apple TV hold it)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/bitrate-kbps`, off main `ab60b31`.
+
+**Why.** The web tuner's STREAM QUALITY branch (PR #123) gives Jellyfin and Emby items a `bitrate` in kbps, `Math.round(Bitrate / 1000)`, as the Apple TV holds it. The Roku held the server's raw bits per second in the same field (19,269,041 where the web says 19269). `roku/tests/run.sh` compares each Roku item with the JS engine's, so with #123 merged the `mediabrowser` suite fails all 222 `bitrate` cases and nothing else (checked on a merged tree of main and #123). This lands the Roku side with no change in behaviour.
+
+**Changed.**
+- `source/mediabrowser/MediaBrowserLibrary.brs`: `NxMbBitrateKbps` (Integer sums, half up, 0 when there is none, as the JS); `NxMbMediaInfo` uses it. The best-source pick still reads the server's raw `Bitrate`, as the web's does.
+- `source/mediabrowser/MediaBrowserPlayback.brs`: `NxMbVideoQuery` compares with 20,000 kbps instead of 20,000,000 bps. That is the only user of an item's bitrate besides the pass-through in `GuideSchedule.brs`. Plex items already held kbps and nothing reads them for this. One rounding edge: a file within half a kbps of 20 Mb/s can now land on the other side of the re-encode line.
+- `source/plex/LibrarySnapshot.brs`: saved library format 7 to 8, since a saved item would no longer read the same (an old save in bits per second would re-encode every file). A library saved by 1.0.6 is read again once, as after the earlier bumps.
+- Tests: the expected bitrates and `NxMbVideoQuery` arguments in kbps; ten cases for `NxMbBitrateKbps` (rounding at 499 and 500, a Float, over 2 Gb/s, none, negative).
+
+**Tested.** `tests/run.sh`: ALL TESTS PASSED on this branch off main, and on a merged tree of main and web/stream-quality-123 (`326fd6a`), where it failed before this change. So it lands in either order.
+
+**Half-done.** None. STREAM QUALITY on the Roku (#65) is separate and stays with tydude001; it will read `scripts/stream-quality-golden.json` once #123 is in.
+
+## 2026-10-27 (web tuner: a Plex title with a bad byte keeps its accent)
+
+**Shipped.** Nothing until the PR for #125 lands on main. Branch `web/bad-byte-125`, off main `ab60b31`.
+
+**Why.** Plex copies a file or folder name into its JSON byte for byte, so an unmatched item named in Latin-1 puts a lone 0xE9 into its title. The Apple TV repairs that since 1.0.27 (`PlexUTF8Repair`). The web tuner's scan reads pages with `Response.json()`, which decodes UTF-8 with replacement characters instead of failing, so the library loaded but the title read "Caf\uFFFD Society" (issue #125).
+
+**Reproduced first.** The unchanged page, headless in Chromium, against a Plex-shaped server whose library page held raw bad bytes: the titles the tuner kept read "Caf\uFFFD Society", "Say \uFFFDHello\uFFFD", "Br\uFFFDl\uFFFDe" and "Cut Off \uFFFD", the summary kept one too, and the guide text had a replacement character in it. A title that was valid UTF-8 ("Am\u00e9lie") came through fine.
+
+**Changed.**
+- `scripts/nostalgex-utf8-repair.js`: the Apple TV's rule. A valid response is decoded untouched; otherwise every byte outside a well-formed UTF-8 sequence is read as Windows-1252 and every well-formed sequence is kept. A stray byte is always 0x80 or above, so the repair cannot add a quote, backslash or control character to the JSON. One console line says how many bytes were repaired. A byte order mark is valid UTF-8 and is never repaired: one at the very start of the text is dropped (as `Response.json()` does), one anywhere else is kept, including right after a repaired byte, as the Apple TV keeps it.
+- `plex-tuner.html`: the four reads of a Plex server (section pages, `allLeaves`, and the two library helpers that also carry server collections) go through `NostalgexUTF8Repair.json`.
+- `scripts/utf8-repair-golden.json`: 27 shared vectors, 8 of them about byte order marks (a reviewer's fuzzing found the first version dropped a mark that followed a repaired byte, in 6,776 of 60,019 inputs), made with an independent Python model, held by `scripts/nostalgex-utf8-repair-smoke.mjs` (`npm run test:utf8-repair`, in `npm test`) and by the new `Nostalgex/NostalgexTests/PlexUTF8RepairGoldenTests.swift`. Roku reads the same file for #121.
+- `scripts/plex-bad-byte-browser-smoke.mjs` (`npm run test:plex-bad-byte`, needs Playwright): the real page against the same Plex-shaped server, plus a negative control with the repair taken out.
+
+**Measured after.** The same page now keeps "Caf\u00e9 Society", curly quotes for 0x93 and 0x94, "Cr\u00e8me Br\u00e9l\u00e9e" and "Cut Off \u00e2", with no replacement character in a title or on the page. The Swift golden test passes on the tvOS 26.1 simulator along with the 11 existing `PlexUTF8RepairTests`.
+
+**Half-done.** Jellyfin and Emby are not touched: both send valid UTF-8. plex.tv's server list and the Continue Watching read still use `res.json()`: plex.tv sends valid UTF-8, and a replacement character there cannot stop a cleanup, which only reads ids. Not run against a real Plex server; the server in the test is a stand-in that returns the bytes Plex was measured to return (see the 2026-10-16 entry). The repair guesses Windows-1252 for any stray byte, so a name in another single-byte encoding loads with the wrong accented letter, the same as on the Apple TV.
+
+**Next.** Roku #121 follows with the same golden file. Nothing changes what is sent anywhere.
+## 2026-10-27 (web tuner: a small library no longer opens on a blank screen)
+
+**Shipped.** Nothing until the PR for #124 lands on main. Branch `web/empty-lineup-124`, off main `ab60b31`.
+
+**Why.** A first run starts with the NOSTALGEX package only. A library too small or too narrow to fill any NOSTALGEX channel left the web tuner on a black screen with nothing to press (issue #124). The Apple TV switches on every package that has content when the first lineup comes out empty (`autoEnableBundlesWithContent`), and Roku 1.0.6 does the same (#109). The web had no such step.
+
+**Measured first.** The unchanged page, headless, against a lab Jellyfin as three users: a 20-film documentary library and a 2-film one both landed on 0 channels with only NOSTALGEX on, and a black screen; a 34-item library that fills one NOSTALGEX channel opened on its guide. So the answer to "empty guide or fallback" was an empty guide.
+
+**Changed.**
+- `scripts/nostalgex-library-load.js`: `bundlesToAutoEnable`, the Apple TV's rule as a pure function. Every package that is off, not seasonal, not a server-collection package and has at least one channel with enough content, in the bundles' order.
+- `plex-tuner.html`: `autoEnableBundlesWithContent`, run at the end of a first (full) lineup build when no channel came out. It switches those packages on, saves the choice and builds their schedules. A later load never runs it, because only a full build knows which packages have content.
+- `scripts/empty-lineup-browser-smoke.mjs` (`npm run test:empty-lineup`, needs Playwright): the real page against a Jellyfin-shaped server with a 20-film, a 2-film, a 6-film (fills VHS VAULT on its own, nothing else switched on) and a no-match library, plus a negative control with the call removed.
+- `scripts/nostalgex-library-load-smoke.mjs`: four cases for the rule itself.
+
+**Measured after.** The 20-film library switches on ESSENTIALS and opens on 2 channels; the 2-film library opens on 1 (PREMIERES); the 34-item library is unchanged. Same numbers the Roku tester saw on the stick for the same lab users.
+
+**Half-done.** A library where no package has content still ends on the blank screen. The Apple TV and Roku show NO CHANNELS FOUND with an OPEN SETTINGS button there; the web does not yet. Nothing changes what is sent anywhere.
+
+**Next.** Decide whether the web gets that NO CHANNELS FOUND screen.
 
 ## 2026-10-27 (publish how to make Plex feel like cable TV)
 
