@@ -80,14 +80,16 @@ function NxAdvanceLoopCount(channels as Object, idx as Integer, prevKey as Dynam
     if p = invalid then return n
     n = n + 1
     playing = p.block
-    for s& = t + 1 to t + 60
+    s& = t + 1
+    while s& <= t + 60
         if NxAiringEnded(playing, s&, "buffering") then
             p = NxAdvancePick(channels, idx, playing.ratingKey, s&, false)
             if p = invalid then return n
             n = n + 1
             playing = p.block
         end if
-    end for
+        s& = s& + 1
+    end while
     return n
 end function
 
