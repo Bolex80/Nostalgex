@@ -4,16 +4,17 @@ sub init()
     m.top.functionName = "loadLibrary"
 end sub
 
-' The saved guide: the last build's output, reused only while a fresh build
-' would give the same thing (same local day, same packages, same servers on,
-' same build, NxBuildKey).
+' The saved guide: the last build's output, shown at launch while it is for
+' the same local day, packages, choices and servers on, from this build or
+' another (NxSavedKeyShowable in source/util/SavedKey.brs). The full build
+' runs behind it either way.
 ' It holds titles and schedules, nothing secret.
 function NxGuideCachePath() as String
     return NxCacheRoot() + "/nostalgex-guide.json"
 end function
 
 function NxGuideCacheKey(nowSec as LongInteger, bundles as Object) as String
-    return NxBuildKey() + "|" + NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey()
+    return NxSavedKey(NxBuildKey(), NxLocalDay(nowSec).dayKey + "|" + FormatJson(bundles) + "|" + NxChoicesKey())
 end function
 
 ' Which build this is, for the cache keys: the app version and the hash of
@@ -42,9 +43,10 @@ end function
 ' with the items they hold. Filtering is most of a build (over a minute on a
 ' TV), and a pool rarely changes from one day to the next, so when the saved
 ' guide is a day old these are scheduled for today instead, in seconds, and the full build still runs
-' behind them. Kept while the build, the month and which packages are in
-' season (NxSeasonKey: the guide's lead, and the year the filter reads),
-' packages, franchise and collection choices and servers on are the same.
+' behind them. Shown while the month and which packages are in season
+' (NxSeasonKey: the guide's lead, and the year the filter reads), packages,
+' franchise and collection choices and servers on are the same, from any
+' build; their filter results are reused only by the same build.
 function NxPoolCachePath() as String
     return NxCacheRoot() + "/nostalgex-pools.json"
 end function
@@ -52,7 +54,7 @@ end function
 ' The display's Dolby Vision answer counts too (#69): a stick moved to a TV
 ' that answers otherwise builds its channel lists again.
 function NxPoolCacheKey(season as String, bundles as Object) as String
-    return NxBuildKey() + "|" + season + "|" + FormatJson(bundles) + "|" + NxChoicesKey() + "|dv" + FormatJson(NxDisplayShowsDolbyVision())
+    return NxSavedKey(NxBuildKey(), season + "|" + FormatJson(bundles) + "|" + NxChoicesKey() + "|dv" + FormatJson(NxDisplayShowsDolbyVision()))
 end function
 
 ' Written in pieces: one FormatJson of every pooled item, on top of the
@@ -194,8 +196,8 @@ end function
 ' there are none for this key.
 ' Only today is scheduled: the launch's guide goes up first, and the caller
 ' schedules tomorrow after.
-' The season key comes from the file's own packages: a matching build key
-' means the same channels.json.
+' The season key comes from the file's own packages, as they were in the
+' channels.json of the build that saved them.
 function NxGuideFromSavedPools(nowSec as LongInteger, bundles as Object) as Dynamic
     if not CreateObject("roFileSystem").Exists(NxPoolCachePath()) then return invalid
     timer = CreateObject("roTimespan")
@@ -207,7 +209,7 @@ function NxGuideFromSavedPools(nowSec as LongInteger, bundles as Object) as Dyna
     print "library: saved pools read in "; readMs; " ms, parsed in "; timer.TotalMilliseconds(); " ms"
     if type(saved) <> "roAssociativeArray" then return invalid
     if type(saved.bundles) <> "roArray" or type(saved.channels) <> "roArray" or type(saved.items) <> "roArray" then return invalid
-    if saved.key <> NxPoolCacheKey(NxSeasonKey(saved.bundles, NxFilterClock(nowSec)), bundles) then return invalid
+    if not NxSavedKeyShowable(saved.key, NxPoolCacheKey(NxSeasonKey(saved.bundles, NxFilterClock(nowSec)), bundles)) then return invalid
     ordered = []
     for each ch in saved.channels
         pool = []
@@ -238,6 +240,7 @@ sub loadLibrary()
     m.savedGuideKey = ""
     m.savedPoolsKey = ""
     m.savedPoolsFingerprint = ""
+    m.shownOtherBuild = false
     m.top.status = "loading"
     setPhase("preparing")
     timer = CreateObject("roTimespan")
@@ -249,14 +252,22 @@ sub loadLibrary()
         if raw <> "" then
             saved = ParseJson(raw)
             if type(saved) = "roAssociativeArray" then
-                if saved.key = NxGuideCacheKey(clock0.nowSec, NxEnabledBundles()) and type(saved.guide) = "roAssociativeArray" then
+                guideKey = NxGuideCacheKey(clock0.nowSec, NxEnabledBundles())
+                if NxSavedKeyShowable(saved.key, guideKey) and type(saved.guide) = "roAssociativeArray" then
                     m.savedGuideKey = saved.key
+                    ' Another build scheduled it, so its schedules don't
+                    ' stand for this one's (buildGuide).
+                    m.shownOtherBuild = saved.key <> guideKey
                     m.top.fromCache = true
                     m.top.guide = saved.guide
                     m.shownGuide = saved.guide
                     m.top.status = "ready"
                     shown = true
-                    print "library: showing the saved guide after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
+                    if m.shownOtherBuild then
+                        print "library: showing the saved guide from another build after "; timer.TotalMilliseconds(); " ms; rebuilding in the background"
+                    else
+                        print "library: showing the saved guide after "; timer.TotalMilliseconds(); " ms; refreshing in the background"
+                    end if
                 end if
             end if
         end if
@@ -695,7 +706,7 @@ function buildGuide(items as Object, config as Object, manifest as Object, colle
     old = m.shownGuide
     sameSchedule = false
     builtAt& = nowSec&
-    if shown and old <> invalid then
+    if shown and old <> invalid and not m.shownOtherBuild then
         if NxToStr(old.poolsFingerprint) = fingerprint and type(old.channels) = "roArray" and NxIsNumber(old.builtAt) then
             oldAt& = old.builtAt
             sameSchedule = NxLocalDay(oldAt&).dayKey = NxLocalDay(nowSec&).dayKey

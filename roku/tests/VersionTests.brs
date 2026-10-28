@@ -1,7 +1,8 @@
 ' Runs source/util/AppVersion.brs: the VERSION line, with and without the
 ' manifest's nx_build; and the data space in source/util/Values.brs, which a
-' release (no nx_data_ns) must leave at the names it always had. Returns the
-' failure count.
+' release (no nx_data_ns) must leave at the names it always had; and the
+' saved guide's keys in source/util/SavedKey.brs, which say when a launch may
+' show what another build saved. Returns the failure count.
 
 function NxRunVersionTests() as Integer
     r = { pass: 0, fail: 0 }
@@ -54,6 +55,19 @@ function NxRunVersionTests() as Integer
     NxCheck(r, "test build: registry section", NxRegName("guide", "nxtest"), "nxtest-guide")
     NxCheck(r, "test build: cache root", NxCacheRootFor("cachefs:", "nxtest"), "cachefs:/nxtest")
     NxCheck(r, "release: cache root for none", NxCacheRootFor("cachefs:", ""), "cachefs:")
+
+    ' The saved guide's and pools' keys (#115).
+    cur = NxSavedKey("1.0.7+bbbb", "20261028|[""nostalgex""]|[]")
+    NxCheck(r, "saved key: build, format, the rest", cur, "1.0.7+bbbb|" + NxSavedFormat() + "|20261028|[""nostalgex""]|[]")
+    NxCheck(r, "saved key: same build shows", FormatJson(NxSavedKeyShowable(cur, cur)), "true")
+    NxCheck(r, "saved key: another build shows", FormatJson(NxSavedKeyShowable(NxSavedKey("1.0.6+aaaa", "20261028|[""nostalgex""]|[]"), cur)), "true")
+    NxCheck(r, "saved key: another day doesn't", FormatJson(NxSavedKeyShowable(NxSavedKey("1.0.7+bbbb", "20261027|[""nostalgex""]|[]"), cur)), "false")
+    NxCheck(r, "saved key: other packages don't", FormatJson(NxSavedKeyShowable(NxSavedKey("1.0.6+aaaa", "20261028|[""nostalgex"",""horror""]|[]"), cur)), "false")
+    NxCheck(r, "saved key: saved before the format doesn't", FormatJson(NxSavedKeyShowable("1.0.6+aaaa|20261028|[""nostalgex""]|[]", cur)), "false")
+    NxCheck(r, "saved key: another format doesn't", FormatJson(NxSavedKeyShowable("1.0.6+aaaa|g0|20261028|[""nostalgex""]|[]", cur)), "false")
+    NxCheck(r, "saved key: its own format, not the library's", NxSavedFormat(), "g1")
+    NxCheck(r, "saved key: none saved", FormatJson(NxSavedKeyShowable(invalid, cur)), "false")
+    NxCheck(r, "saved key: a current key with no parts", FormatJson(NxSavedKeyShowable("x", "x")), "false")
     print "version cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail
 end function
