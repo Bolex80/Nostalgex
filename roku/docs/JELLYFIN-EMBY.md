@@ -447,19 +447,27 @@ reads it; the warm-up asks for it too, for airings this TV won't play as
 stored (`NxMbDirectPlays`). Measured on a TCL 55R617 (Roku OS 15.3.4)
 against the test Emby, 2026-10-28, with silent lab clips:
 
-- *Lab Forced Opus* (English forced and full tracks, Opus audio, so a
-  server stream), ALWAYS, English: two sidecars, picture in 2.2 s, and a dev
-  screenshot at 0:21.5 caught the full track's line. The player asks for the
-  track it shows only: Emby's log has one request, for the full file. With
-  SUBTITLES OFF, one sidecar, the forced one, and one request for it. With
-  SUBTITLE LANGUAGE on French, none and no request.
+- *Lab Forced Opus* (English forced and full tracks; a Portuguese AAC and
+  an English Opus track, so with AUDIO LANGUAGE English a server stream),
+  ALWAYS, English: two sidecars, picture in 2.2 s, and a dev screenshot at
+  0:21.5 caught the full track's line. Emby's log has the full file asked
+  on every start. On the two `item:` starts from another film it was the
+  only request, so the forced sidecar, attached but not picked, wasn't
+  fetched. On three `item:` links that started the same film again while
+  it played, the forced file was asked about 1.5 s before the full one,
+  though the app didn't pick it (no `forced subtitles` line); why isn't
+  known. When the app showed the forced track over the guide, its file was
+  asked then. With SUBTITLES OFF, one sidecar, the forced one, and one
+  request for it. With SUBTITLE LANGUAGE on French, none and no request.
+  Jellyfin 12.2 the same way: two sidecars, picture in 2.4 s, the full line
+  on screen at 0:21.
 - *Lab Full Big Opus* (3.6 GB, 2 hours), cold: picture in 2.1 s; Emby made
   the SRT in 1.5 s from local disk, so this didn't stand in for a slow NAS.
 - A file the server is slow to make, or refuses: on a throwaway build whose
   full sidecar pointed at a stand-in server, a file answered after 90 s,
   a 500 and an empty file each left the picture at 2.1 to 2.4 s and the
-  clip playing. The slow one was asked twice, 30 s apart, then dropped, as
-  for a forced file.
+  clip playing. The slow one was asked twice, 30 s apart, and not again, as
+  a forced file is.
 
 **No reporting to the server.** The Roku app sends Plex nothing about what you
 watch, and its privacy policy says so; Jellyfin and Emby are the same, which
