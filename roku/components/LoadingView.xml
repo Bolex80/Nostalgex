@@ -13,6 +13,7 @@
     <field id="scanHeadline" type="string" value="" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/LoadingNote.brs" />
   <script type="text/brightscript" uri="pkg:/components/LoadingView.brs" />
   <children>
     <Rectangle width="1920" height="1080" color="0x000000FF" />

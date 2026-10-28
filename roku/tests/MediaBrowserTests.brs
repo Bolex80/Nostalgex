@@ -175,6 +175,22 @@ function NxRunMediaBrowserTests(vectorsPath as String, fixturePath as String) as
     NxCheck(r, "scan headline, emby", NxScanHeadline("emby"), "SCANNING EMBY LIBRARY")
     NxCheck(r, "scan headline, plex as before", NxScanHeadline("plex"), "SCANNING PLEX LIBRARY")
 
+    ' The note under the logo while a library is read for the first time on this
+    ' TV (source/util/LoadingNote.brs): a first-ever setup keeps its line; a
+    ' library saved before and cleared by the TV (savedBefore, from the
+    ' registry's librarySaved) says so, with no time; a library still saved
+    ' shows none.
+    NxCheck(r, "note: first setup, as before", NxLoadingNote(true, false), "First setup can take a few minutes to scan and build channels.")
+    NxCheck(r, "note: cleared by the TV", NxLoadingNote(true, true), "The TV cleared the saved library, so it's being read again.")
+    NxCheck(r, "note: cleared, no time estimate", NxToStr(Instr(1, LCase(NxLoadingNote(true, true)), "minute") > 0), "false")
+    NxCheck(r, "note: cleared, fits the line", NxToStr(Len(NxLoadingNote(true, true)) <= 70), "true")
+    NxCheck(r, "note: library still saved", NxLoadingNote(false, false), "")
+    NxCheck(r, "note: not a first run, whatever the flag", NxLoadingNote(false, true), "")
+    ' The loading screen uses it, and holds no copy of the old lines.
+    view = ReadAsciiFile("pkg:/components/LoadingView.brs")
+    NxCheck(r, "note: LoadingView calls NxLoadingNote", NxToStr(Instr(1, view, "NxLoadingNote(t.firstRun, t.savedBefore)") > 0), "true")
+    NxCheck(r, "note: LoadingView has no copy of the old line", NxToStr(Instr(1, view, "cleared the saved library") > 0), "false")
+
     print "mediabrowser cases:"; r.pass; " passed,"; r.fail; " failed"
     return r.fail + NxRunDirectPlayTests() + NxRunAudioPickTests() + NxRunForcedSubTests() + NxRunFullSubTests()
 end function

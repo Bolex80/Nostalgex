@@ -139,9 +139,7 @@ sub render()
     g.AppendChild(logo)
     y = y + 66 + 20 + gap
     if t.firstRun then
-        note = "First setup can take a few minutes to scan and build channels."
-        if t.savedBefore then note = "The TV cleared the saved library, so it's being read again. This can take a few minutes."
-        g.AppendChild(centred(note, "DMMono-Regular", 22, "0xFFFFFF8C", y))
+        g.AppendChild(centred(NxLoadingNote(t.firstRun, t.savedBefore), "DMMono-Regular", 22, "0xFFFFFF8C", y))
         y = y + 30 + gap
     end if
     renderRail(g, y, current)
