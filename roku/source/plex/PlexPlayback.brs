@@ -62,6 +62,10 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger, rung = "auto
     direct = direct and NxHasValue(["aac", "ac3", "eac3", "mp3"], acodec)
     ' And only what this TV decodes, profile and channels included.
     if direct then direct = NxDeviceDecodes(b)
+    ' STREAM QUALITY's remote ceiling: away from home, a file over it plays
+    ' through the server, which can bring it down (NxSqDirectPlayAllowed).
+    quality = NxSqCurrent()
+    if direct then direct = NxSqDirectPlayAllowed("plex", quality, b.bitrate, NxSqIsLocalHost(NxUrlHost(base)))
     if rung <> "auto" then direct = false
 
     if direct then
@@ -98,7 +102,9 @@ function NxPlexStreamContent(b as Object, offsetSec as LongInteger, rung = "auto
         q = q + "&subtitles=auto"
         if rung <> "capped" then rung = "server"
         q = q + NxPlexRungQuery(rung)
-        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt" + NxPlexAudioKey(ac3, eac3))
+        ' The level's ceiling; the 1080p rung keeps its own (NxSqPlexQuery).
+        if rung <> "capped" then q = q + NxSqPlexQuery(quality)
+        q = q + "&session=" + session + "&X-Plex-Session-Identifier=" + NxPlexPlaybackSessionId(profile + "-vtt" + NxPlexAudioKey(ac3, eac3) + NxSqSessionKey(quality, rung))
         q = q + "&X-Plex-Client-Identifier=" + NxPlexClientId()
         q = q + "&X-Plex-Product=nostalgex-roku&X-Plex-Platform=Roku&X-Plex-Device=Roku"
         q = q + "&X-Plex-Client-Profile-Extra=" + NxUrlEncode(extra)

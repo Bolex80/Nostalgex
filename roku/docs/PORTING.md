@@ -439,12 +439,21 @@ Three differences are on purpose:
   Up opens the mini channel strip, Down the Now Playing panel, Back closes
   either, then returns to the guide. The panel has CC, then SUBTITLE
   LANGUAGE and auto subtitles when the film has subtitles, the audio tracks,
-  then AUDIO LANGUAGE when there are two or more, RETRO MODE, the sleep
-  timer and playback information, in upstream's `programRows` order
-  (`source/guide/NowPlayingLayout.brs`). A language row opens upstream's
-  two-column list, and a choice applies to the film playing (#118). It
-  leaves out stream quality and OPEN IN PLEX, which have nothing to act on
-  here. OK flashes the OSD rather than leaving.
+  then AUDIO LANGUAGE when there are two or more, RETRO MODE, STREAM
+  QUALITY, the sleep timer and playback information, in upstream's
+  `programRows` order (`source/guide/NowPlayingLayout.brs`). A language row
+  opens upstream's two-column list, and a choice applies to the film playing
+  (#118); a STREAM QUALITY level is saved for the next programme (#65). It
+  leaves out OPEN IN PLEX, which has nothing to act on here. OK flashes the
+  OSD rather than leaving.
+- STREAM QUALITY, in Settings and the panel, is upstream's
+  `StreamQuality.swift`, its five levels held to
+  `scripts/stream-quality-golden.json` (`source/util/StreamQuality.brs`,
+  `tests/StreamQualityTests.brs`). High, Medium and Low cap the server
+  stream on every server and, on Jellyfin and Emby, direct play too; Auto
+  and Maximum ask as the port always has, as the web tuner keeps its own.
+  Away from home (upstream's `isLikelyLocalServer`), direct play stays
+  under the level's remote ceiling, 20 Mbps on Auto and none on Maximum.
 - An airing hands over as `advanceToNextItem` does: when its file ends,
   the next one starts from its beginning, so an episode running past its
   whole-minute slot plays to the end (`source/guide/Advance.brs`, cases in

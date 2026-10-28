@@ -11,8 +11,9 @@ sub init()
     ' The first OK on SIGN OUT only arms it; a second one signs out.
     m.signOutArmed = false
     m.collectionsChanged = false
-    ' The language list open under SUBTITLE LANGUAGE ("subsLanguage") or
-    ' AUDIO LANGUAGE ("audioLanguage"), "" when both are folded.
+    ' The list open under SUBTITLE LANGUAGE ("subsLanguage"), AUDIO LANGUAGE
+    ' ("audioLanguage") or STREAM QUALITY ("streamQuality"), "" when all are
+    ' folded.
     m.languageOpen = ""
     ' Packages switched on whose channels are still being built: { id: true }.
     ' A package switch is saved and built at once, behind Settings, as
@@ -155,8 +156,9 @@ end sub
 ' category folded closed behind a SHOW/HIDE row, as upstream's
 ' CollectionAccordionHeaderRow. Kinds:
 '   header, subheader, info: text only, never focused
-'   support, server, signOut, retro, subtitles, language (SUBTITLE or
-'   AUDIO LANGUAGE), languageChoice, bundle, franchiseAll, franchise,
+'   support, server, signOut, retro, quality (STREAM QUALITY),
+'   qualityChoice, subtitles, language (SUBTITLE or AUDIO LANGUAGE),
+'   languageChoice, bundle, franchiseAll, franchise,
 '   collectionsToggle, collection: rows
 ' The franchise rows are the last guide build's, so they show once the
 ' package was on for a build. MY COLLECTIONS has upstream's two categories,
@@ -181,6 +183,7 @@ sub buildRows()
 
     m.rows.Push({ kind: "header", title: "PLAYBACK", subtitle: "Picture and subtitles" })
     m.rows.Push({ kind: "retro" })
+    pushQuality()
     m.rows.Push({ kind: "subtitles" })
     ' SUBTITLE LANGUAGE only while subtitles can show, as upstream's.
     if m.subs.always or m.subs.foreign then pushLanguage("subsLanguage")
@@ -229,6 +232,17 @@ sub pushLanguage(key as String)
     end for
 end sub
 
+' STREAM QUALITY, and while it is open the Apple TV's picker sheet in place:
+' its line, then the five levels, each with its detail.
+sub pushQuality()
+    m.rows.Push({ kind: "quality" })
+    if m.languageOpen <> "streamQuality" then return
+    m.rows.Push({ kind: "info", text: "Lower quality uses less bandwidth. Auto adjusts as your connection changes." })
+    for each l in NxSqLevels()
+        m.rows.Push({ kind: "qualityChoice", key: "streamQuality", code: l.id, label: l.name, detail: l.detail })
+    end for
+end sub
+
 ' The row of `kind` (and `key`, for the language rows), else -1.
 function rowIndex(kind as String, key = "" as String, code = "" as String) as Integer
     for i = 0 to rowCount() - 1
@@ -238,12 +252,12 @@ function rowIndex(kind as String, key = "" as String, code = "" as String) as In
     return -1
 end function
 
-' Folds the open language list, focus back on its row.
+' Folds the open list, focus back on its row.
 sub foldLanguage()
     key = m.languageOpen
     m.languageOpen = ""
     buildRows()
-    m.focus = rowIndex("language", key)
+    if key = "streamQuality" then m.focus = rowIndex("quality") else m.focus = rowIndex("language", key)
     render()
 end sub
 
@@ -592,6 +606,19 @@ sub drawRow(page as Object, i as Integer, row as Object, y as Float)
             state = "ON"
             stateColor = "0xFFE500FF"
         end if
+    else if row.kind = "quality" then
+        label = "STREAM QUALITY"
+        detail = "Lower this when your connection is slow or shared"
+        state = NxSqLevel(NxSqCurrent()).name
+        stateColor = "0xFFE500FF"
+    else if row.kind = "qualityChoice" then
+        ' The Apple TV's sheet marks the level in use ACTIVE.
+        indent = 40
+        label = row.label
+        detail = row.detail
+        state = ""
+        stateColor = "0xFFE500FF"
+        if NxSqCurrent() = row.code then state = "ACTIVE"
     else if row.kind = "subtitles" then
         label = "SUBTITLES"
         detail = subtitleModeExplanation()
@@ -776,6 +803,20 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         else if row.kind = "languageChoice" then
             NxSaveLanguage(row.key, row.code)
             print "settings: "; row.key; " set to "; row.code
+            foldLanguage()
+        else if row.kind = "quality" then
+            ' As a language row: opens on the saved level, OK again folds it.
+            if m.languageOpen = "streamQuality" then
+                foldLanguage()
+            else
+                m.languageOpen = "streamQuality"
+                buildRows()
+                m.focus = rowIndex("qualityChoice", "streamQuality", NxSqCurrent())
+                render()
+            end if
+        else if row.kind = "qualityChoice" then
+            NxSqSave(row.code)
+            print "settings: stream quality set to "; row.code
             foldLanguage()
         else if m.signOutArmed then
             m.top.result = "signOut"

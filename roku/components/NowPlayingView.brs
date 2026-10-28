@@ -2,22 +2,21 @@
 '
 ' Upstream's NowPlayingPanel: the info zone (the Plex poster, channel, what's
 ' on, rating, up next) and two control columns, one for the program (CAPTIONS, AUDIO) and
-' one for the device (PICTURE, SLEEP TIMER, PLAYBACK INFORMATION). Left and
-' Right move between the columns, Up and Down within one. PLAYBACK
-' INFORMATION, SUBTITLE LANGUAGE and AUDIO LANGUAGE open in place of the
-' columns; Back closes them, then the panel.
+' one for the device (PICTURE with STREAM QUALITY, SLEEP TIMER, PLAYBACK
+' INFORMATION). Left and Right move between the columns, Up and Down within
+' one. PLAYBACK INFORMATION, STREAM QUALITY, SUBTITLE LANGUAGE and AUDIO
+' LANGUAGE open in place of the columns; Back closes them, then the panel.
 '
-' Left out, for what the Roku has: STREAM QUALITY (no quality setting
-' here) and OPEN IN PLEX. Rounded corners are square; the shade is flat
-' where upstream's fades.
+' Left out, for what the Roku has: OPEN IN PLEX. Rounded corners are
+' square; the shade is flat where upstream's fades.
 
 sub init()
     m.fonts = {}
     m.col = 0
     m.idx = [0, 0]
     m.infoOpen = false
-    ' The language list open in place of the columns: "subsLanguage",
-    ' "audioLanguage", or "".
+    ' The list open in place of the columns: "subsLanguage",
+    ' "audioLanguage", "streamQuality", or "".
     m.picker = ""
     m.pickIdx = 0
     m.colX = [992, 1452]
@@ -95,7 +94,7 @@ sub open(unused = invalid as Dynamic)
 end sub
 
 ' The two columns as lists of { kind: hdr | row, label, value, active,
-' disabled, id }; only rows with an id take focus.
+' disabled, id, note }; only rows with an id take focus.
 function columns() as Object
     s = m.top.state
     tracks = NxList(s.audio)
@@ -142,6 +141,9 @@ function columns() as Object
     v = "OFF"
     if s.retro then v = "ON"
     dev.Push({ kind: "row", label: "RETRO MODE", value: v, active: s.retro, id: "retro" })
+    ' Upstream's streamQualityRow: shown for every programme, with the one
+    ' thing its value can't say.
+    dev.Push({ kind: "row", label: "STREAM QUALITY", value: UCase(NxToStr(s.qualityLabel)), id: "pick:streamQuality", note: "Takes effect on the next program." })
     dev.Push({ kind: "hdr", label: "SLEEP TIMER" })
     armed = s.sleepMinutes
     v = ""
@@ -174,6 +176,8 @@ sub render()
     bottom = 0
     if m.infoOpen then
         bottom = renderInformation(g, s)
+    else if m.picker = "streamQuality" then
+        bottom = renderQualities(g, s)
     else if m.picker <> "" then
         bottom = renderLanguages(g, s)
     else
@@ -189,8 +193,7 @@ sub render()
                     y = y + 34
                 else
                     focused = c = m.col and f.Count() > 0 and f[m.idx[c]] = i
-                    drawRow(g, m.colX[c], y, e, focused, s.color)
-                    y = y + 58
+                    y = y + drawRow(g, m.colX[c], y, e, focused, s.color) + 10
                 end if
             end for
             if y > bottom then bottom = y
@@ -201,19 +204,15 @@ sub render()
     m.top.FindNode("shade").height = bottom + 32
 end sub
 
-sub drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean, color as String, w = 0 as Integer)
+' Draws a row and returns its height: 48, taller for a note, which goes
+' inside the row under the label in up to two lines, as upstream's
+' controlRow (lineLimit 2).
+function drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean, color as String, w = 0 as Integer) as Integer
     if w <= 0 then w = m.colW
     fill = "0xFFFFFF24"
     if focused then fill = "0x0D0D12FF"
-    g.AppendChild(newRect(x, y, w, 48, fill))
-    border = "0xFFFFFF38"
-    if e.active = true then border = tint(color, "80")
-    t = 1
-    if focused then
-        border = color
-        t = 2
-    end if
-    outline(g, x, y, w, 48, t, border)
+    back = newRect(x, y, w, 48, fill)
+    g.AppendChild(back)
     labelColor = "0xFFFFFFFF"
     if e.disabled = true then labelColor = "0xFFFFFF59"
     g.AppendChild(newLabel(e.label, "DMMono-Medium", 20, labelColor, x + 16, y + 11, w - 140))
@@ -224,7 +223,45 @@ sub drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean
         v.horizAlign = "right"
         g.AppendChild(v)
     end if
-end sub
+    ' A wrapped label measures its lines only once it is on screen.
+    h = 48
+    if NxToStr(e.note) <> "" then
+        note = newLabel(e.note, "DMMono-Regular", 16, "0xFFFFFF99", x + 16, y + 40, w - 32)
+        note.wrap = true
+        note.maxLines = 2
+        g.AppendChild(note)
+        h = 40 + Int(note.BoundingRect().height + 0.5) + 12
+        back.height = h
+    end if
+    border = "0xFFFFFF38"
+    if e.active = true then border = tint(color, "80")
+    t = 1
+    if focused then
+        border = color
+        t = 2
+    end if
+    outline(g, x, y, w, h, t, border)
+    return h
+end function
+
+' STREAM QUALITY in place of the columns, as upstream's pickerZone: the
+' title, Settings' line with what the panel adds, and the five levels in one
+' column 560 wide, each with its detail, the one in use ACTIVE.
+function renderQualities(g as Object, s as Object) as Integer
+    x = m.colX[0]
+    g.AppendChild(newLabel("STREAM QUALITY", "DMMono-Medium", 16, "0xFFFFFF99", x, 46, 0))
+    g.AppendChild(newLabel("Lower this when your connection is slow or shared. Takes effect on the next program.", "DMMono-Regular", 17, "0xFFFFFF99", x, 76, 0))
+    y = 112
+    levels = NxList(s.qualities)
+    for i = 0 to levels.Count() - 1
+        on = levels[i].id = NxToStr(s.quality)
+        v = ""
+        if on then v = "ACTIVE"
+        e = { label: UCase(levels[i].name), value: v, active: on, note: levels[i].detail }
+        y = y + drawRow(g, x, y, e, i = m.pickIdx, s.color, 560) + 10
+    end for
+    return y
+end function
 
 ' SUBTITLE LANGUAGE or AUDIO LANGUAGE in place of the columns, as upstream's
 ' pickerZone: the title, Settings' wording, and every preset in two columns,
@@ -262,13 +299,21 @@ function renderLanguages(g as Object, s as Object) as Integer
     return bottom
 end function
 
-' Opens a language list on its saved choice (upstream's selectedOptionID).
+' Opens a list on its saved choice (upstream's selectedOptionID).
 sub openLanguages(key as String)
     m.picker = key
     s = m.top.state
+    m.pickIdx = 0
+    if key = "streamQuality" then
+        levels = NxList(s.qualities)
+        for i = 0 to levels.Count() - 1
+            if levels[i].id = NxToStr(s.quality) then m.pickIdx = i
+        end for
+        render()
+        return
+    end if
     saved = NxToStr(s.audioLanguage)
     if key = "subsLanguage" then saved = NxToStr(s.subsLanguage)
-    m.pickIdx = 0
     langs = NxList(s.languages)
     for i = 0 to langs.Count() - 1
         if langs[i].code = saved then m.pickIdx = i
@@ -276,18 +321,44 @@ sub openLanguages(key as String)
     render()
 end sub
 
-' Closes the list, with focus back on the row that opened it, as upstream's
-' collapsePicker.
+' Closes the list, with focus back on the row that opened it, in whichever
+' column, as upstream's collapsePicker.
 sub closeLanguages()
     owner = "pick:" + m.picker
     m.picker = ""
-    m.col = 0
     cols = columns()
-    f = focusables(cols[0])
-    for k = 0 to f.Count() - 1
-        if cols[0][f[k]].id = owner then m.idx[0] = k
+    for c = 0 to 1
+        f = focusables(cols[c])
+        for k = 0 to f.Count() - 1
+            if cols[c][f[k]].id = owner then
+                m.col = c
+                m.idx[c] = k
+            end if
+        end for
     end for
     render()
+end sub
+
+' Up, Down, OK and Back in STREAM QUALITY's one column.
+sub qualityKey(key as String)
+    levels = NxList(m.top.state.qualities)
+    i = m.pickIdx
+    if key = "up" and i > 0 then
+        i = i - 1
+    else if key = "down" and i < levels.Count() - 1 then
+        i = i + 1
+    else if key = "OK" then
+        if levels.Count() > 0 then m.top.action = "streamQuality:" + levels[i].id
+        closeLanguages()
+        return
+    else if key = "back" then
+        closeLanguages()
+        return
+    end if
+    if i <> m.pickIdx then
+        m.pickIdx = i
+        render()
+    end if
 end sub
 
 ' Up, Down, Left, Right, OK and Back in a language list.
@@ -413,6 +484,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
             setInfoOpen(false)
             render()
         end if
+        return true
+    end if
+    if m.picker = "streamQuality" then
+        qualityKey(key)
         return true
     end if
     if m.picker <> "" then

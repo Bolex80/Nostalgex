@@ -65,12 +65,12 @@ function NxRunPlaybackInfoTests(vectorsPath as String) as Integer
     nxt = NxFallbackNext(NxFirstAttempt("server"), "nopicture", "jellyfin")
     NxCheck(r, "ladder: Jellyfin no picture", FormatJson(NxPiStepReason("server", "nopicture", nxt)), FormatJson({ reason: "startupNoPicture", recovery: "compatibility1080p" }))
 
-    ' ── QUALITY AT TUNE, what this app asks for ──
-    NxCheck(r, "quality: Jellyfin is Auto", NxPiQualityLabel("jellyfin"), "Auto")
-    NxCheck(r, "quality: Emby is Auto", NxPiQualityLabel("emby"), "Auto")
-    NxCheck(r, "quality: Plex is the server's default", NxPiQualityLabel("plex"), "Server default")
-    NxCheck(r, "quality: no server", NxPiQualityLabel(""), "Unknown")
-    NxCheck(r, "quality: Auto shows", NxPiCreate({ generation: 1, backend: "emby", qualityAtTune: "Auto" }).quality, "Auto")
+    ' ── QUALITY AT TUNE, the STREAM QUALITY level by its Apple TV name ──
+    for each c in [["auto", "Auto"], ["maximum", "Maximum"], ["high", "High"], ["medium", "Medium"], ["low", "Low"], ["", "Auto"], ["turbo", "Auto"]]
+        NxCheck(r, "quality: level " + FormatJson(c[0]), NxPiQualityLabel(c[0]), c[1])
+        NxCheck(r, "quality: " + c[1] + " shows", NxPiCreate({ generation: 1, backend: "plex", qualityAtTune: c[1] }).quality, c[1])
+    end for
+    NxCheck(r, "quality: the web's Plex label doesn't", NxPiCreate({ generation: 1, backend: "plex", qualityAtTune: "Server default" }).quality, "Unknown")
     NxCheck(r, "quality: anything else doesn't", NxPiCreate({ generation: 1, backend: "emby", qualityAtTune: "http://x" }).quality, "Unknown")
     print "playback info cases (upstream nostalgex-playback-info.js):"; r.pass; " passed,"; r.fail; " failed"
     return r.fail

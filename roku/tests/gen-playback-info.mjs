@@ -80,11 +80,15 @@ export async function playbackInfoVectors(upstream) {
       { op: "rows", w: 1920, h: 1080 },
     ],
   };
+  // No quality: the web's labels say what the web asks for ("Server default",
+  // "High (1080p, 12 Mbps)"), the Roku's are the Apple TV's level names
+  // (NxPiQualityLabel), so the two share only Unknown. PlaybackInfoTests.brs
+  // checks the Roku's names by hand.
   const creates = [
-    { generation: 1, backend: "plex", qualityAtTune: "Server default", videoCodec: "hevc", audioCodec: "eac3" },
-    { generation: 2, backend: "jellyfin", qualityAtTune: "Server default", videoCodec: "h264", audioCodec: "aac" },
-    { generation: 3, backend: "emby", qualityAtTune: "Server default", videoCodec: "av1", audioCodec: "truehd" },
-    { generation: 4, backend: "emby", qualityAtTune: "Server default", videoCodec: "mpeg2video", audioCodec: "ac3" },
+    { generation: 1, backend: "plex", videoCodec: "hevc", audioCodec: "eac3" },
+    { generation: 2, backend: "jellyfin", videoCodec: "h264", audioCodec: "aac" },
+    { generation: 3, backend: "emby", videoCodec: "av1", audioCodec: "truehd" },
+    { generation: 4, backend: "emby", videoCodec: "mpeg2video", audioCodec: "ac3" },
     { generation: 1, backend: "kodi", qualityAtTune: "Turbo", videoCodec: "x264", audioCodec: "" },
   ];
   const sequences = [];

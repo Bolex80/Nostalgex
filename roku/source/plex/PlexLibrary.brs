@@ -284,10 +284,10 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
     media = NxPickBestVersion(ep.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid, bitrate: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height, bitrate: media.bitrate }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -330,7 +330,10 @@ function NxPlexEpisodeItem(ep as Object, show as Object, showGenres as Object, s
         videoProfile: codecs.videoProfile,
         audioChannels: codecs.audioChannels,
         videoWidth: codecs.width,
-        videoHeight: codecs.height
+        videoHeight: codecs.height,
+        ' In kbps, as Plex gives it: STREAM QUALITY's remote ceiling
+        ' (NxSqDirectPlayAllowed).
+        bitrate: codecs.bitrate
     }
 end function
 
@@ -352,10 +355,10 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
     media = NxPickBestVersion(item.Media)
     partKey = invalid
     container = invalid
-    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid }
+    codecs = { video: invalid, audio: invalid, videoProfile: invalid, audioChannels: invalid, width: invalid, height: invalid, bitrate: invalid }
     if media <> invalid then
         container = media.container
-        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height }
+        codecs = { video: media.videoCodec, audio: media.audioCodec, videoProfile: media.videoProfile, audioChannels: media.audioChannels, width: media.width, height: media.height, bitrate: media.bitrate }
         parts = NxList(media.Part)
         if parts.Count() > 0 then
             if type(parts[0]) = "roAssociativeArray" then partKey = parts[0].key
@@ -403,7 +406,10 @@ function NxPlexMovieItem(item as Object, section as Object, isMusicVideoSection 
         videoProfile: codecs.videoProfile,
         audioChannels: codecs.audioChannels,
         videoWidth: codecs.width,
-        videoHeight: codecs.height
+        videoHeight: codecs.height,
+        ' In kbps, as Plex gives it: STREAM QUALITY's remote ceiling
+        ' (NxSqDirectPlayAllowed).
+        bitrate: codecs.bitrate
     }
 end function
 

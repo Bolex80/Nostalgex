@@ -60,14 +60,11 @@ function NxPiSizeLabel(width as Dynamic, height as Dynamic) as String
     return Int(width + 0.5).ToStr() + " × " + Int(height + 0.5).ToStr()
 end function
 
-' QUALITY AT TUNE: what this app asks for. Jellyfin and Emby get the Apple
-' TV's Auto (40 Mbps, up to 4K: NxMbVideoQuery); Plex gets no quality
-' parameters, so the server's default, the web tuner's wording for the same.
-' STREAM QUALITY (#65) will replace this with the level chosen.
-function NxPiQualityLabel(kind as String) as String
-    if kind = "jellyfin" or kind = "emby" then return "Auto"
-    if kind = "plex" then return "Server default"
-    return "Unknown"
+' QUALITY AT TUNE: the STREAM QUALITY level chosen when the programme was
+' tuned, by its Apple TV name, on every kind of server, as the Apple TV's
+' qualityAtTune (source/util/StreamQuality.brs). Auto for no level.
+function NxPiQualityLabel(quality as Dynamic) as String
+    return NxSqLevel(quality).name
 end function
 
 ' opts: { generation, backend, qualityAtTune, videoCodec, audioCodec }.
@@ -78,8 +75,8 @@ function NxPiCreate(opts as Object) as Object
     if key <> "" and backends.DoesExist(key) then backend = backends[key]
     quality = "Unknown"
     q = NxToStr(opts.qualityAtTune)
-    ' The Apple TV's level names, and the Plex label above.
-    if NxHasValue(["Auto", "Maximum", "High", "Medium", "Low", "Server default"], q) then quality = q
+    ' The Apple TV's level names.
+    if NxHasValue(["Auto", "Maximum", "High", "Medium", "Low"], q) then quality = q
     return {
         generation: opts.generation, backend: backend, quality: quality,
         video: NxPiCodecLabel(opts.videoCodec, true), audio: NxPiCodecLabel(opts.audioCodec, false),

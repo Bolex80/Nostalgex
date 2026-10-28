@@ -31,6 +31,9 @@ end function
 ' 6: and videoWidth and videoHeight, for the no-picture deadline (NxPictureDeadline).
 ' 7: and forcedSubs, a file's forced text subtitle tracks (NxMbForcedSubs).
 ' 8: a Jellyfin or Emby item's bitrate is in kbps, not bits per second (NxMbBitrateKbps).
+' Plex items gained bitrate (STREAM QUALITY's remote ceiling) with no bump:
+' one saved before has none, which direct plays as it did, until its server
+' is next scanned, as a save over a day old always is (NxSnapshotFresh).
 function NxSnapshotFormat() as Integer
     return 8
 end function
