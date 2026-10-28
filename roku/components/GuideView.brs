@@ -1814,13 +1814,13 @@ end sub
 ' applyAudioTrackSelection on it, so the player takes the first track in the
 ' new language (NxAudioTrackForLanguage), and keeps its own when none is. A
 ' server stream carries one track, so it takes the new language at the next
-' tune.
+' tune. Only a track the player isn't on is set, as applyAudioPick.
 sub applyAudioLanguage()
     tracks = NxList(m.video.availableAudioTracks)
     if tracks.Count() < 2 then return
     track = NxAudioTrackForLanguage(tracks, NxAudioPreferredLanguage())
     print "player: audio language "; NxAudioPreferredLanguage(); ", track "; track; ", was "; m.video.currentAudioTrack
-    if track <> invalid then m.video.audioTrack = track
+    if track <> invalid and NxToStr(track) <> NxToStr(m.video.currentAudioTrack) then m.video.audioTrack = track
 end sub
 
 ' ── Sleep timer (AppState+Playback's), with its STILL WATCHING? prompt ─────
