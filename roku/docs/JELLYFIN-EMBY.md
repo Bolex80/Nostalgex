@@ -350,7 +350,9 @@ goes to the server rather than playing the dub as stored. On a direct play
 the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`),
 once the first picture is up: switching while the start still buffered ended
 it on a TCL 43S45 and stalled it 15 s on a Streaming Stick, and the switch
-after it costs one rebuffer of about 2.5 s (#106). It picks
+after it costs one rebuffer (2.4 to 2.9 s on a full film in #106, 0.5 s on a
+60 s lab clip). It sets only a track the player isn't on: on the 43S45,
+setting the one it was on caused no rebuffer. It picks
 by position when it lists as many tracks as the file has, else by language:
 once, on a full library, the 55R617 below listed one track for a file the
 scan said had more (which file, and so why, wasn't recorded).
