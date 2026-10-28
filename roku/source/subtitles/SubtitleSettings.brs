@@ -114,13 +114,35 @@ function NxAudioTrackForLanguage(listed as Object, lang as String) as Dynamic
 end function
 
 ' Roku reports a track's language as the stream gives it: Plex's HLS says
-' "eng", where AVFoundation hands upstream "en". Two-letter codes for the
-' three-letter ones of upstream's language list; others pass through.
+' "eng", where AVFoundation hands upstream "en". A track's language as one
+' code, so two are the same language only when their codes are equal
+' (issue #119): the language without a region, and a three-letter code as
+' its two-letter one from ISO 639-2, both forms ("ger" and "deu" are "de").
+' Comparing first letters made "est" (Estonian) Spanish and "cze" not "cs".
+' A three-letter code with no two-letter form ("yue", Cantonese) stays as
+' it is, so it still counts as a language for FOREIGN AUDIO. invalid for
+' none, and for "und", "mul", "zxx" and "mis", which match nothing.
 function NxSubComparableTag(lang as Dynamic) as Dynamic
     if lang = invalid then return invalid
-    t = LCase(NxToStr(lang)).Trim()
-    if t = "" then return invalid
-    iso2 = { eng: "en", spa: "es", fre: "fr", fra: "fr", ger: "de", deu: "de", ita: "it", por: "pt", jpn: "ja", kor: "ko", chi: "zh", zho: "zh", rus: "ru", ara: "ar", dut: "nl", nld: "nl", pol: "pl", swe: "sv" }
-    if iso2.DoesExist(t) then return iso2[t]
+    t = LCase(NxToStr(lang)).Trim().Replace("_", "-")
+    dash = Instr(1, t, "-")
+    if dash > 0 then t = Left(t, dash - 1)
+    if t = "" or t = "und" or t = "mul" or t = "zxx" or t = "mis" then return invalid
+    if Len(t) <> 3 then return t
+    g = GetGlobalAA()
+    if g.nxIso639 = invalid then g.nxIso639 = NxIso639Table()
+    if g.nxIso639.DoesExist(t) then return g.nxIso639[t]
+    return t
+end function
+
+' ISO 639-2 to 639-1, the terminology and bibliographic forms: the
+' maintainer's table from issue #119.
+function NxIso639Table() as Object
+    pairs = "aar:aa abk:ab afr:af aka:ak alb:sq sqi:sq amh:am ara:ar arg:an arm:hy hye:hy asm:as ava:av ave:ae aym:ay aze:az bak:ba bam:bm baq:eu eus:eu bel:be ben:bn bis:bi bod:bo tib:bo bos:bs bre:br bul:bg bur:my mya:my cat:ca ces:cs cze:cs cha:ch che:ce chi:zh zho:zh chu:cu chv:cv cor:kw cos:co cre:cr cym:cy wel:cy dan:da deu:de ger:de div:dv dut:nl nld:nl dzo:dz ell:el gre:el eng:en epo:eo est:et ewe:ee fao:fo fas:fa per:fa fij:fj fin:fi fra:fr fre:fr fry:fy ful:ff geo:ka kat:ka gla:gd gle:ga glg:gl glv:gv grn:gn guj:gu hat:ht hau:ha heb:he her:hz hin:hi hmo:ho hrv:hr hun:hu ibo:ig ice:is isl:is ido:io iii:ii iku:iu ile:ie ina:ia ind:id ipk:ik ita:it jav:jv jpn:ja kal:kl kan:kn kas:ks kau:kr kaz:kk khm:km kik:ki kin:rw kir:ky kom:kv kon:kg kor:ko kua:kj kur:ku lao:lo lat:la lav:lv lim:li lin:ln lit:lt ltz:lb lub:lu lug:lg mac:mk mkd:mk mah:mh mal:ml mao:mi mri:mi mar:mr may:ms msa:ms mlg:mg mlt:mt mon:mn nau:na nav:nv nbl:nr nde:nd ndo:ng nep:ne nno:nn nob:nb nor:no nya:ny oci:oc oji:oj ori:or orm:om oss:os pan:pa pli:pi pol:pl por:pt pus:ps que:qu roh:rm ron:ro rum:ro run:rn rus:ru sag:sg san:sa sin:si slk:sk slo:sk slv:sl sme:se smo:sm sna:sn snd:sd som:so sot:st spa:es srd:sc srp:sr ssw:ss sun:su swa:sw swe:sv tah:ty tam:ta tat:tt tel:te tgk:tg tgl:tl tha:th tir:ti ton:to tsn:tn tso:ts tuk:tk tur:tr twi:tw uig:ug ukr:uk urd:ur uzb:uz ven:ve vie:vi vol:vo wln:wa wol:wo xho:xh yid:yi yor:yo zha:za zul:zu"
+    t = {}
+    for each p in pairs.Split(" ")
+        kv = p.Split(":")
+        t[kv[0]] = kv[1]
+    end for
     return t
 end function

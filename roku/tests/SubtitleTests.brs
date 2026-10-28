@@ -56,6 +56,27 @@ function NxRunSubtitleTests() as Integer
     NxCheck(r, "audio track: portuguese (brazil) takes por", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "eng" }, { Track: "y", Language: "por" }], NxPreferredLanguageFrom("pt-BR", "en_US"))), "y")
     NxCheck(r, "audio track: untagged never matches", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "" }, { Track: "y" }], "en") = invalid), "true")
 
+    ' One code per language (#119): ISO 639-2's two forms to 639-1, so a
+    ' look-alike three-letter code is another language.
+    NxCheck(r, "code: est is estonian", NxToStr(NxSubComparableTag("est")), "et")
+    NxCheck(r, "code: arm is armenian", NxToStr(NxSubComparableTag("arm")), "hy")
+    NxCheck(r, "code: jav is javanese", NxToStr(NxSubComparableTag("jav")), "jv")
+    NxCheck(r, "code: cze is czech", NxToStr(NxSubComparableTag("cze")), "cs")
+    NxCheck(r, "code: ces is czech too", NxToStr(NxSubComparableTag("ces")), "cs")
+    NxCheck(r, "code: ger and deu are de", NxToStr(NxSubComparableTag("ger")) + " " + NxToStr(NxSubComparableTag("deu")), "de de")
+    NxCheck(r, "code: two letters pass through", NxToStr(NxSubComparableTag("es")), "es")
+    NxCheck(r, "code: a region is dropped", NxToStr(NxSubComparableTag("pt-BR")) + " " + NxToStr(NxSubComparableTag("en_US")), "pt en")
+    NxCheck(r, "code: case and spaces", NxToStr(NxSubComparableTag(" ENG ")), "en")
+    NxCheck(r, "code: no two-letter form stays", NxToStr(NxSubComparableTag("yue")), "yue")
+    NxCheck(r, "code: und mul zxx mis are none", NxToStr(NxSubComparableTag("und") = invalid and NxSubComparableTag("mul") = invalid and NxSubComparableTag("zxx") = invalid and NxSubComparableTag("mis") = invalid), "true")
+    NxCheck(r, "code: empty is none", NxToStr(NxSubComparableTag("") = invalid and NxSubComparableTag(invalid) = invalid), "true")
+    NxCheck(r, "audio track: spanish skips estonian", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "est" }, { Track: "y", Language: "spa" }], "es")), "y")
+    NxCheck(r, "audio track: czech takes cze", NxToStr(NxAudioTrackForLanguage([{ Track: "x", Language: "eng" }, { Track: "y", Language: "cze" }], "cs")), "y")
+    NxCheck(r, "subtitle pick: arabic skips armenian", NxSubPreferredTrackIndex([NxSubComparableTag("arm"), NxSubComparableTag("ara")], "ar").ToStr(), "1")
+    NxCheck(r, "subtitle pick: finnish takes fin", NxSubPreferredTrackIndex([NxSubComparableTag("eng"), NxSubComparableTag("fin")], NxPreferredLanguageFrom("__system__", "fi_FI")).ToStr(), "1")
+    NxCheck(r, "auto: cantonese audio is foreign", NxSubShouldAutoEnable([NxSubComparableTag("yue")], "en").ToStr(), "true")
+    NxCheck(r, "auto: estonian audio is foreign to spanish", NxSubShouldAutoEnable([NxSubComparableTag("est")], "es").ToStr(), "true")
+
     ' pickLegibleOption (#63): a full track before a forced one.
     NxCheck(r, "pick: the full track over a forced one", NxSubPickIndex(["en", "en"], [true, false], "en").ToStr(), "1")
     NxCheck(r, "pick: a forced one when it's all there is", NxSubPickIndex(["en"], [true], "en").ToStr(), "0")

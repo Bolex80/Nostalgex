@@ -366,6 +366,20 @@ Jellyfin (12.2), server only: the same request without an index returned
 the Portuguese default for AAC, E-AC-3 and Opus clips alike, and with
 `AudioStreamIndex=2` the English track.
 
+**A track's language is one code (issue #119).** Every pick reads a
+track's language through `NxSubComparableTag`: the language without its
+region, and a three-letter code as its two-letter one from ISO 639-2, both
+forms. Comparing first letters made `est` (Estonian) Spanish, `arm`
+Arabic and `jav` Japanese, and left `cze` not Czech. A code with no
+two-letter form, such as `yue` (Cantonese), stays as it is, so a Cantonese
+film still counts as foreign for FOREIGN AUDIO; `und`, `mul`, `zxx` and
+`mis` match nothing. On a TCL 43S45 (Roku OS 16.0.4) against the test Emby,
+2026-10-27, AUDIO LANGUAGE on SPANISH, with 120 s lab clips holding an
+Estonian 5.1 default (500 Hz) and a Spanish stereo track (1,500 Hz): the
+server stream asked for `-map 0:2`, the Spanish track, and direct play
+selected track 3 (`spa`). Main without the change, same settings, took the
+Estonian `0:1` and track 2.
+
 **Forced subtitles come as a sidecar (issue #63).** A film's forced track
 in SUBTITLE LANGUAGE (the lines it always shows, such as dialogue in
 another language) is shown whatever SUBTITLES says, as on the Apple TV. The
