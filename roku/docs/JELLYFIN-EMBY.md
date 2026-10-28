@@ -444,7 +444,8 @@ nothing is added: the Apple TV falls back to the first track
 (`preferredTrackIndex`), which can be a commentary or a language nobody
 picked. Only on ALWAYS, so a server makes the file only for a viewer who
 reads it; the warm-up asks for it too, for airings this TV won't play as
-stored (`NxMbDirectPlays`). Measured on a TCL 55R617 (Roku OS 15.3.4)
+stored (`NxMbDirectPlays`, STREAM QUALITY's ceiling included, so a file
+LOW sends to the server is warmed too). Measured on a TCL 55R617 (Roku OS 15.3.4)
 against the test Emby, 2026-10-28, with silent lab clips:
 
 - *Lab Forced Opus* (English forced and full tracks; a Portuguese AAC and

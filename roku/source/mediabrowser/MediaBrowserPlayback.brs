@@ -65,10 +65,8 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
 
     container = LCase(NxToStr(b.container))
     hevc = NxCanDecodeHevc()
-    direct = NxMbDirectPlays(b, onLan)
-    ' And under STREAM QUALITY's ceiling (NxSqDirectPlayAllowed).
     quality = NxSqCurrent()
-    if direct then direct = NxSqDirectPlayAllowed(NxServerKind(s), quality, b.bitrate, NxSqIsLocalHost(NxUrlHost(base)))
+    direct = NxMbDirectPlays(b, base, quality)
     if rung <> "auto" then direct = false
 
     if direct then
@@ -126,8 +124,10 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
 end function
 
 ' Whether this TV plays the airing as stored, `b` with its audio pick
-' (NxMbAudioPick) and `onLan` true for a plain HTTP server at home.
-function NxMbDirectPlays(b as Object, onLan as Boolean) as Boolean
+' (NxMbAudioPick), from the server at `base` under STREAM QUALITY's level
+' `quality`.
+function NxMbDirectPlays(b as Object, base as String, quality = "auto" as String) as Boolean
+    onLan = Left(LCase(base), 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
     container = LCase(NxToStr(b.container))
     vcodec = LCase(NxToStr(b.videoCodec))
     acodec = LCase(NxToStr(b.audioCodec))
@@ -139,7 +139,10 @@ function NxMbDirectPlays(b as Object, onLan as Boolean) as Boolean
     if onLan then containers.Push("mkv")
     if not (NxHasValue(containers, container) and videoOk and audioOk) then return false
     ' And only what this TV decodes, profile and channels included.
-    return NxDeviceDecodes(b)
+    if not NxDeviceDecodes(b) then return false
+    ' And under the level's ceiling (NxSqDirectPlayAllowed), which holds
+    ' Jellyfin and Emby alike.
+    return NxSqDirectPlayAllowed("jellyfin", quality, b.bitrate, NxSqIsLocalHost(NxUrlHost(base)))
 end function
 
 ' Which audio track to ask for, when the file offers more than one: the
@@ -300,14 +303,16 @@ end function
 ' that is on or starts within `windowSec` of `nowSec`, its forced track in
 ' `lang`, and with `always` (SUBTITLES on ALWAYS) its full track in `lang`
 ' too (NxMbFullSub), as addresses, less those in `done`. `audioLanguages`
-' as NxMbViewerLanguages gives them, for the audio pick a direct play rests on. A server makes
+' as NxMbViewerLanguages gives them, for the audio pick a direct play rests on,
+' and `quality` STREAM QUALITY's level, whose ceiling can send it to the
+' server instead. A server makes
 ' the file from the whole video, a minute or more for a large one the first
 ' time, and a Roku waits 30 s for it, twice, then shows the film without it;
 ' asked before the airing, the file is ready. `servers` maps an airing's
 ' serverIndex to its root, Jellyfin and Emby only. No full track for an
 ' airing this TV plays as stored (NxMbDirectPlays): a direct play lists the
 ' file's own, and the server would read the whole file for nothing.
-function NxSubtitleWarmList(channels as Object, nowSec as LongInteger, windowSec as Integer, lang as String, always as Boolean, audioLanguages as Object, servers as Object, done as Object) as Object
+function NxSubtitleWarmList(channels as Object, nowSec as LongInteger, windowSec as Integer, lang as String, always as Boolean, audioLanguages as Object, servers as Object, done as Object, quality = "auto" as String) as Object
     out = []
     seen = {}
     for each ch in NxList(channels)
@@ -316,8 +321,7 @@ function NxSubtitleWarmList(channels as Object, nowSec as LongInteger, windowSec
                 base = servers[NxToStr(b.serverIndex)]
                 picks = [NxMbForcedSub(b, lang)]
                 if always and base <> invalid and b.fullSubs <> invalid then
-                    onLan = Left(LCase(base), 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
-                    if not NxMbDirectPlays(NxMbAudioPick(b, audioLanguages).airing, onLan) then picks.Push(NxMbFullSub(b, lang))
+                    if not NxMbDirectPlays(NxMbAudioPick(b, audioLanguages).airing, base, quality) then picks.Push(NxMbFullSub(b, lang))
                 end if
                 for each t in picks
                     if base <> invalid and t <> invalid then

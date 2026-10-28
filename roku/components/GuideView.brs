@@ -759,7 +759,7 @@ sub warmSubtitles(t as LongInteger)
         end for
     end if
     if servers.Count() = 0 then return
-    urls = NxSubtitleWarmList(m.channels, t, 3600, NxSubPreferredLanguage(), m.subs.always, NxMbViewerLanguages(), servers, m.warmDone)
+    urls = NxSubtitleWarmList(m.channels, t, 3600, NxSubPreferredLanguage(), m.subs.always, NxMbViewerLanguages(), servers, m.warmDone, NxSqCurrent())
     if urls.Count() = 0 then return
     for each u in urls
         m.warmDone[u] = true
