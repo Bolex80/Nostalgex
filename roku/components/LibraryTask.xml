@@ -31,8 +31,9 @@
     <field id="scanAnswers" type="integer" value="0" />
     <field id="stopWaiting" type="string" value="" />
     <field id="guide" type="assocarray" />
-    <!-- Show the saved guide first when it is still what a fresh build would
-         give, then rebuild in the background. -->
+    <!-- Show the saved guide first when it is for the same day, packages
+         and choices, from this build or another, then rebuild in the
+         background. -->
     <field id="useCache" type="boolean" value="false" />
     <!-- A rebuild after a switch in Settings: build from the saved library,
          reading only servers it lacks. -->
@@ -58,6 +59,7 @@
   <script type="text/brightscript" uri="pkg:/source/guide/BundleChoices.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexApi.brs" />
   <script type="text/brightscript" uri="pkg:/source/util/RescanInfo.brs" />
+  <script type="text/brightscript" uri="pkg:/source/util/SavedKey.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerChoice.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/ServerResolve.brs" />
   <script type="text/brightscript" uri="pkg:/source/plex/PlexLibrary.brs" />
