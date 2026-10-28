@@ -50,13 +50,25 @@ and already pinned to the Apple TV.
 | SHOW NOW PLAYING and MARK WATCHED (issue #72): `PlaybackReportingPreferences.swift`, `PlaybackTracker.swift`, `WatchStateGuard.swift`, `MediaServerPlaybackReport`, `PlexAPIService.heartbeatRequest`; `scripts/nostalgex-watch-state.js` | `source/guide/PlaybackReport.brs` (the choices and the watch clock), `source/guide/ReportExecutor.brs` (what is sent), `components/ReportTask.*`, Settings > CONNECTION | ported, both off by default. The 15% / 75% gate, position-free Plex reports, the Jellyfin/Emby reading and restore, the stop capped at 89%, the pulse backoff and the epochs that revoke queued work. Cleanup plans and backoff held to `scripts/watch-cleanup-golden.json` and `nostalgex-watch-state.js` (`tests/gen-watch.mjs`); the rest in `tests/ReportTests.brs` on a fake clock and transport. Not ported: iCloud sync and the legacy single switch (the Roku had neither) and backgrounding (a Roku app that leaves exits; Back waits up to 4 s for the stop and cleanup). A choice changed in Settings applies when Settings closes |
 
 Start-up follows upstream's cached-library path. The last build's guide is
-saved on the TV and shown at once when a fresh build would give the same
-result: same local day, same packages and same build. A build is the app version and a hash of the zip's files
-that `scripts/deploy.sh` writes into the manifest (`nx_build`), since a
-sideload keeps the version:
-installed over another build, one with new channel data or filter rules
-would otherwise have kept the old one's results. The library is then refreshed in the background, and
-the guide is swapped only if it changed.
+saved on the TV and shown at once while it is for the same local day,
+packages, choices and servers on, and the same saved format
+(`source/util/SavedKey.brs`), whichever build saved it. The library is then
+refreshed in the background, the guide built in full, and swapped only if it
+changed. Showing another build's guide is what keeps the first launch after
+an update inside certification's 15 s (#115): on a 43S45 with 5,383 Emby
+items a launch took 36.4 s to `AppLaunchComplete` when no saved guide could
+be shown, and 2.0 s showing another build's (1.9 s across a library format
+bump). The saved filter results are still reused
+only by the same build. A build is the app version and a hash of the zip's
+files that `scripts/deploy.sh` writes into the manifest (`nx_build`), since a
+sideload keeps the version: installed over another build, one with new
+channel data or filter rules would otherwise have kept the old one's results.
+The saved format has its own number, bumped only when a saved file would
+read differently, as when an item field changes what it means (the
+library's format 8 did, a bitrate in kilobits, not bits). A new item field
+needs none: the shown guide lacks it until the rebuilt one replaces it, and
+every reader treats a missing one as a file without it. The first launch
+after installing still builds in full.
 
 The library itself is saved too, after the Apple TV app's
 `LibrarySnapshotStore.swift` (`source/plex/LibrarySnapshot.brs`): each
