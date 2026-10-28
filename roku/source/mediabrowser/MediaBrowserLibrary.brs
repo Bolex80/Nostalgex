@@ -160,7 +160,7 @@ end function
 ' forced text subtitle tracks, shown as a sidecar at tune (NxMbForcedSub).
 function NxMbMediaInfo(item as Object) as Object
     src = NxMbBestSource(item.MediaSources)
-    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: 0, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid, forcedSubs: invalid }
+    out = { msid: invalid, container: invalid, videoCodec: invalid, audioCodec: invalid, videoProfile: invalid, audioChannels: invalid, doviProfile: invalid, bitrate: 0, videoWidth: invalid, videoHeight: invalid, audioTracks: invalid, forcedSubs: invalid, fullSubs: invalid }
     if src = invalid then return out
     out.msid = src.Id
     if NxTruthy(src.Container) then out.container = src.Container
@@ -185,6 +185,7 @@ function NxMbMediaInfo(item as Object) as Object
     end if
     out.audioTracks = NxMbAudioTracks(src)
     out.forcedSubs = NxMbForcedSubs(src)
+    out.fullSubs = NxMbFullSubs(src)
     return out
 end function
 
@@ -194,11 +195,10 @@ end function
 ' Roku shows them. It doesn't list a forced track inside the file (two
 ' films on a TCL 55R617), and an image track comes back empty as SRT.
 function NxMbForcedSubs(src as Object) as Dynamic
-    text = ["srt", "subrip", "ass", "ssa", "vtt", "webvtt", "mov_text", "ttml", "sub", "smi", "sami"]
     tracks = []
     for each s in NxList(src.MediaStreams)
         if type(s) = "roAssociativeArray" then
-            if s.Type = "Subtitle" and s.IsForced = true and NxIsNumber(s.Index) and NxHasValue(text, LCase(NxToStr(s.Codec))) then
+            if s.Type = "Subtitle" and s.IsForced = true and NxIsNumber(s.Index) and NxMbIsTextSub(s) then
                 t = { index: s.Index, language: invalid }
                 if NxTruthy(s.Language) then t.language = LCase(NxToStr(s.Language))
                 tracks.Push(t)
@@ -207,6 +207,37 @@ function NxMbForcedSubs(src as Object) as Dynamic
     end for
     if tracks.Count() = 0 then return invalid
     return tracks
+end function
+
+' A source's text subtitle tracks that aren't forced, as { index,
+' language }, the first in each language, in the file's order, or invalid
+' when it has none with a language. A server stream carries no subtitles
+' (Emby lists none in its playlist), so with SUBTITLES on ALWAYS the one
+' in SUBTITLE LANGUAGE comes as a sidecar, as a forced one does (issue
+' #120). Only the first per language, as only the first is picked
+' (pickLegibleOption), so a film with 28 tracks keeps a few.
+function NxMbFullSubs(src as Object) as Dynamic
+    tracks = []
+    seen = {}
+    for each s in NxList(src.MediaStreams)
+        if type(s) = "roAssociativeArray" then
+            if s.Type = "Subtitle" and s.IsForced <> true and NxIsNumber(s.Index) and NxMbIsTextSub(s) and NxTruthy(s.Language) then
+                lang = LCase(NxToStr(s.Language))
+                if not seen.DoesExist(lang) then
+                    seen[lang] = true
+                    tracks.Push({ index: s.Index, language: lang })
+                end if
+            end if
+        end if
+    end for
+    if tracks.Count() = 0 then return invalid
+    return tracks
+end function
+
+' Whether a subtitle stream is text (upstream's isTextSubtitle).
+function NxMbIsTextSub(s as Object) as Boolean
+    text = ["srt", "subrip", "ass", "ssa", "vtt", "webvtt", "mov_text", "ttml", "sub", "smi", "sami"]
+    return NxHasValue(text, LCase(NxToStr(s.Codec)))
 end function
 
 ' A source's audio tracks as { index, language, channels, codec, isDefault },
@@ -304,6 +335,7 @@ function NxMbMovieItem(jf as Object, isMusicVideoSection as Boolean, musicGenre 
         bitrate: mi.bitrate,
         audioTracks: mi.audioTracks,
         forcedSubs: mi.forcedSubs,
+        fullSubs: mi.fullSubs,
         genres: genres,
         rating: NxOr(jf.CommunityRating, 0),
         userRating: 0,
@@ -346,6 +378,7 @@ function NxMbEpisodeItem(ep as Object, show as Object, showGenres as Object, sho
         bitrate: mi.bitrate,
         audioTracks: mi.audioTracks,
         forcedSubs: mi.forcedSubs,
+        fullSubs: mi.fullSubs,
         genres: showGenres,
         rating: NxOr(show.CommunityRating, 0),
         userRating: 0,
