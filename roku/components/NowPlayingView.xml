@@ -7,7 +7,7 @@
   <interface>
     <!-- { number, name, color, nowLine, rating, upNext, poster, hasSubs, ccOn,
          autoOn, audio: [{ name, active }], retro, sleepMinutes,
-         sleepLeft (seconds, -1 when off), info: [{ label, value }],
+         sleepLeft (seconds, -1 when off), info: [{ label, value }], infoNote,
          subsLanguage, audioLanguage (saved codes), subsLabel, audioLabel,
          languages: [{ code, label }] } -->
     <field id="state" type="assocarray" onChange="render" />
@@ -15,6 +15,9 @@
          | subsLanguage:<code> | audioLanguage:<code>. -->
     <field id="action" type="string" alwaysNotify="true" />
     <field id="closed" type="boolean" alwaysNotify="true" />
+    <!-- True while PLAYBACK INFORMATION is open: the guide sends its rows
+         every second then, as upstream's TimelineView redraws them. -->
+    <field id="infoOpen" type="boolean" value="false" />
     <function name="open" />
   </interface>
   <script type="text/brightscript" uri="pkg:/source/util/Values.brs" />

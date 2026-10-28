@@ -70,10 +70,15 @@ function tint(color as String, alpha as String) as String
     return Left(color, 8) + alpha
 end function
 
+sub setInfoOpen(isOpen as Boolean)
+    m.infoOpen = isOpen
+    m.top.infoOpen = isOpen
+end sub
+
 sub open(unused = invalid as Dynamic)
     m.col = 0
     m.idx = [0, 0]
-    m.infoOpen = false
+    setInfoOpen(false)
     m.picker = ""
     ' Upstream opens on CC (focusedControl = .cc) even with no subtitles,
     ' where it's greyed out; here it opens on the next row that does
@@ -319,6 +324,14 @@ function renderInformation(g as Object, s as Object) as Integer
     w = m.colW * 2 + 40
     g.AppendChild(newLabel("PLAYBACK INFORMATION", "DMMono-Medium", 16, "0xFFFFFF99", x, 46, 0))
     y = 80
+    ' Upstream's pickerSubtitle: what the rows can and can't say, where the
+    ' language pickers put theirs.
+    if NxToStr(s.infoNote) <> "" then
+        note = newLabel(s.infoNote, "DMMono-Regular", 17, "0xFFFFFF99", x, 76, w)
+        note.wrap = true
+        g.AppendChild(note)
+        y = 76 + note.BoundingRect().height + 16
+    end if
     rows = NxList(s.info)
     if rows.Count() = 0 then
         g.AppendChild(newLabel("Playback information is unavailable.", "DMMono-Regular", 20, "0xFFFFFFCC", x, y, 0))
@@ -326,8 +339,13 @@ function renderInformation(g as Object, s as Object) as Integer
     end if
     for each r in rows
         g.AppendChild(newLabel(UCase(r.label), "DMMono-Medium", 17, "0xFFFFFF99", x, y + 3, 220))
-        g.AppendChild(newLabel(NxToStr(r.value), "DMMono-Regular", 21, "0xFFFFFFFF", x + 236, y, w - 236))
-        y = y + 38
+        ' A value wraps, as upstream's fixedSize does: the longer FALLBACK
+        ' sentences don't fit one line.
+        v = newLabel(NxToStr(r.value), "DMMono-Regular", 21, "0xFFFFFFFF", x + 236, y, w - 236)
+        v.wrap = true
+        g.AppendChild(v)
+        h = v.BoundingRect().height
+        if h > 30 then y = y + h + 12 else y = y + 38
     end for
     drawRow(g, x, y + 8, { label: "BACK", value: "" }, true, s.color)
     return y + 8 + 58
@@ -392,7 +410,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
     if m.infoOpen then
         ' Back, or OK on BACK, returns to the columns, on the information row.
         if key = "back" or key = "OK" then
-            m.infoOpen = false
+            setInfoOpen(false)
             render()
         end if
         return true
@@ -424,7 +442,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
     else if key = "OK" then
         id = cols[m.col][f[m.idx[m.col]]].id
         if id = "info" then
-            m.infoOpen = true
+            setInfoOpen(true)
             render()
         else if Left(id, 5) = "pick:" then
             openLanguages(Mid(id, 6))
