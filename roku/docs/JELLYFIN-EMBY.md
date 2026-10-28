@@ -347,7 +347,12 @@ an English 5.1 one, where upstream's order, which wants both, takes the 5.1. The
 asks for the pick with `AudioStreamIndex`, and direct play is decided on the
 picked track's codec, so an English Opus track behind a dubbed AAC default
 goes to the server rather than playing the dub as stored. On a direct play
-the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`):
+the player selects the pick from `availableAudioTracks` (`NxAudioTrackToSelect`),
+once the first picture is up: switching while the start still buffered ended
+it on a TCL 43S45 and stalled it 15 s on a Streaming Stick, and the switch
+after it costs one rebuffer (2.4 to 2.9 s on a full film in #106, 0.5 s on a
+60 s lab clip). It sets only a track the player isn't on: on the 43S45,
+setting the one it was on caused no rebuffer. It picks
 by position when it lists as many tracks as the file has, else by language:
 once, on a full library, the 55R617 below listed one track for a file the
 scan said had more (which file, and so why, wasn't recorded).
@@ -402,14 +407,17 @@ SUBTITLES on, a full track in the language comes first, as
   `<dev_3_0>http://…` and keeps its Description.
 - It never held up the picture: 3.3 s with the file ready, 4.0 s while Emby
   was still making it.
-- The player waits 30 s for the file, twice, then plays without it. A
+- The player waits 30 s for the file, twice, then plays without it; a
+  refused file (Emby's 500, or the empty 200 it gives a wrong index) it
+  asks once and plays on at once. A
   server makes the file from the whole video the first time: Emby 330 s
   for a 6.6 GB film (96 s when asked again after its copy was deleted),
   27 s for a 165 MB episode just read by a failed burn-in; Jellyfin 48 s
   for that episode. After that each server answers from its own copy in
   milliseconds. So every 5 minutes the guide asks for the files of airings
   on now or within the hour, once each and one at a time
-  (`NxForcedWarmList`, `SubtitleWarmTask`).
+  (`NxForcedWarmList`, `SubtitleWarmTask`). The console prints each
+  file's answer and time; the list of files asked starts again past 500.
 - Burning the track in, as the Apple TV does
   (`SubtitleStreamIndex=<index>&SubtitleMethod=Encode` on the stream), works
   on Jellyfin and not on Emby: Emby's ffmpeg reads the whole file for the

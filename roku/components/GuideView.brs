@@ -1529,6 +1529,7 @@ end sub
 ' start, so a track the viewer chooses in Now Playing stays chosen. Only
 ' after the first picture: a switch while the start still buffered ended it
 ' as "finished" on a TCL 43S45, and stalled it 15 s on a Streaming Stick.
+' Only a track the player isn't on is set.
 sub applyAudioPick()
     if m.tuneAudio = invalid or m.sawPlaying <> true then return
     tracks = NxList(m.video.availableAudioTracks)
@@ -1543,7 +1544,7 @@ sub applyAudioPick()
         listed.Push(NxToStr(a.Track) + "=" + NxToStr(a.Language))
     end for
     print "player: audio track "; track; " of "; listed.Join(" "); ", was "; m.video.currentAudioTrack
-    if track <> invalid then m.video.audioTrack = track
+    if track <> invalid and NxToStr(track) <> NxToStr(m.video.currentAudioTrack) then m.video.audioTrack = track
     m.tuneAudio = invalid
 end sub
 
