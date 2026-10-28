@@ -74,6 +74,9 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     direct = NxHasValue(containers, container) and videoOk and audioOk
     ' And only what this TV decodes, profile and channels included.
     if direct then direct = NxDeviceDecodes(b)
+    ' And under STREAM QUALITY's ceiling (NxSqDirectPlayAllowed).
+    quality = NxSqCurrent()
+    if direct then direct = NxSqDirectPlayAllowed(NxServerKind(s), quality, b.bitrate, NxSqIsLocalHost(NxUrlHost(base)))
     if rung <> "auto" then direct = false
 
     if direct then
@@ -105,7 +108,7 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     aac51 = NxDecodeAnswer(info.CanDecodeAudio({ Codec: "aac", ChCnt: 6 }))
     q = q + NxMbAudioQuery(ac3, eac3, aac51)
     if rung <> "capped" then rung = "server"
-    q = q + NxMbVideoQuery(b.bitrate, rung, NxMaxWidthFor(info.GetVideoMode()))
+    q = q + NxMbVideoQuery(b.bitrate, rung, NxMaxWidthFor(info.GetVideoMode()), quality)
     if pickIndex <> invalid then q = q + "&AudioStreamIndex=" + pickIndex.ToStr()
     ' TS segments on both servers, HEVC included. A Roku played no sound
     ' from fMP4, even stereo AAC, on Emby and on Jellyfin (Discussion #8,
@@ -305,9 +308,23 @@ end function
 ' Apple TV hold it); over 20,000 kbps (20 Mb/s) it is re-encoded. Before the
 ' unit change this compared bits per second with 20,000,000, so a file within
 ' half a kbps of 20 Mb/s can now land on the other side.
-function NxMbVideoQuery(bitrate as Dynamic, rung = "server" as String, width = 3840 as Integer) as String
+' STREAM QUALITY's High, Medium and Low (`quality`) ask for their own bitrate
+' and width, the width no more than this TV shows, as the Apple TV's
+' buildTranscodeURL asks for the level's VideoBitrate and MaxWidth. A file
+' already under both may still be copied. Auto and Maximum ask as above,
+' which is the Apple TV's Auto; the "capped" rung asks the same whatever the
+' level (source/util/StreamQuality.brs).
+function NxMbVideoQuery(bitrate as Dynamic, rung = "server" as String, width = 3840 as Integer, quality = "auto" as String) as String
     if rung = "capped" then return "&VideoBitrate=8000000&MaxWidth=1920&AllowVideoStreamCopy=false"
-    if NxIsNumber(bitrate) and bitrate > 20000 then return "&VideoBitrate=40000000&MaxWidth=" + width.ToStr() + "&AllowVideoStreamCopy=false"
+    noCopy = ""
+    if NxIsNumber(bitrate) and bitrate > 20000 then noCopy = "&AllowVideoStreamCopy=false"
+    if NxSqIsCapped(quality) then
+        l = NxSqLevel(quality)
+        w = l.width
+        if width < w then w = width
+        return "&VideoBitrate=" + (l.maxBitrateKbps * 1000).ToStr() + "&MaxWidth=" + w.ToStr() + noCopy
+    end if
+    if noCopy <> "" then return "&VideoBitrate=40000000&MaxWidth=" + width.ToStr() + noCopy
     return "&VideoBitrate=40000000&MaxWidth=3840"
 end function
 

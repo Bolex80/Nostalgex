@@ -81,6 +81,7 @@ sub Main(args = invalid as Dynamic)
     if NxTestWants("rescan") then failures = failures + NxRunRescanTests()
     if NxTestWants("report") then failures = failures + NxRunReportTests("pkg:/tests/vectors/watch.json", "pkg:/tests/vectors/watch-cleanup-golden.json")
     if NxTestWants("playback-info") then failures = failures + NxRunPlaybackInfoTests("pkg:/tests/vectors/playback-info.json")
+    if NxTestWants("stream-quality") then failures = failures + NxRunStreamQualityTests("pkg:/tests/vectors/stream-quality-golden.json")
     if failures = 0 then print "ALL TESTS PASSED" else print "TESTS FAILED"
 end sub
 

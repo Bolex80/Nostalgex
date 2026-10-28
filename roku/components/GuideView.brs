@@ -866,7 +866,7 @@ sub startTune(idx as Integer)
     if pending = invalid then
         m.piGen = m.piGen + 1
         kind = NxServerKind(NxStreamServer(b))
-        m.pi = NxPiCreate({ generation: m.piGen, backend: kind, qualityAtTune: NxPiQualityLabel(kind), videoCodec: b.videoCodec, audioCodec: b.audioCodec })
+        m.pi = NxPiCreate({ generation: m.piGen, backend: kind, qualityAtTune: NxPiQualityLabel(NxSqCurrent()), videoCodec: b.videoCodec, audioCodec: b.audioCodec })
         m.piAttempt = invalid
     end if
     if stream = invalid then
@@ -1735,8 +1735,10 @@ function npState() as Object
         hasSubs: m.hasSubs, ccOn: m.subs.always, autoOn: m.subs.foreign,
         audio: [], retro: NxRetroMode(), sleepMinutes: 0, sleepLeft: -1, info: [],
         subsLanguage: NxSavedLanguage("subsLanguage"), audioLanguage: NxSavedLanguage("audioLanguage"),
-        languages: NxLanguagePresets()
+        languages: NxLanguagePresets(),
+        quality: NxSqCurrent(), qualities: NxSqLevels()
     }
+    st.qualityLabel = NxSqLevel(st.quality).name
     st.subsLabel = NxLanguageShortLabel(st.subsLanguage)
     st.audioLabel = NxLanguageShortLabel(st.audioLanguage)
     if b <> invalid then
@@ -1798,6 +1800,11 @@ sub onNpAction()
     else if Left(a, 14) = "audioLanguage:" then
         NxSaveLanguage("audioLanguage", Mid(a, 15))
         applyAudioLanguage()
+    else if Left(a, 14) = "streamQuality:" then
+        ' Saved only: what is playing keeps its stream, and the next
+        ' programme is asked for the new level, as upstream's.
+        NxSqSave(Mid(a, 15))
+        print "player: stream quality set to "; NxSqCurrent()
     end if
     m.np.state = npState()
 end sub
