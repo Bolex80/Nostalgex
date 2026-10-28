@@ -586,11 +586,30 @@ pools used 16% of the app's memory limit, and 35% while the saved guide was also
 showing. The pools file was 30 MB, too big for `ReadAsciiFile`, because
 `k <> "basePool"` never matched an iterated key (they come back lowercased)
 and every pool was written twice. Fixed, it is 3.5 MB (1.6 MB with 39
-channels), and restoring a day's guide from it took 5.6 s at 34% of the limit. Deep links sent over ECP for channels 1 to 8 tuned seven of them fullscreen; the one for 5 tuned nothing, unexplained. A
+channels), and restoring a day's guide from it took 5.6 s at 34% of the limit. Deep links sent over ECP for channels 1 to 8 tuned seven of them fullscreen; the one for 5 tuned nothing (most likely no CH 5 in that guide: see the deep-link check below). A
 transcoded film joined 70 minutes in had Plex's transcode window at minutes
 70 to 81, not at 0:00. Still unseen: the SERVER rows (both TVs reach one
 server, so the rows don't show) and the sign-in code changing after 5 minutes.
 `*` in the guide was pressed on a TV and did nothing, as intended.
+
+Deep links and Back (#116), on the 43S45 (Roku OS 16.0.4) and the 55R617
+(Roku OS 15.3.4), 2026-10-28 at `ba56e54`, a test build signed in to the test
+Emby's full library (5,383 items, 23 channels: 3, 4, 6-9, 11-19, 137-144). On
+each TV, a link for each of the 139 channel numbers in `channels.json`, sent
+while the app ran, tuned each channel in the guide fullscreen within 1.2 s,
+all but 141 (below); every other number left the guide as it was. Each guide
+channel's link sent at launch from the home screen did the same in 1.8 to
+3.5 s on the 43S45 and 2.8 to 3.8 s on the 55R617. No CH 5 was in that guide, and on the
+real Plex library 90S SITCOMS gets 0 of the 10 items it needs today, so the 5 that
+tuned nothing above most likely named a channel the guide didn't have. One
+link opened the wrong channel: 141 (SLASHER) opened CH 138 (FRIGHT NIGHT),
+whose id is 141, as `NxDeepLinkChannel` tries ids before numbers; 44 numbers
+in `channels.json` are another channel's id. `item:` links for a film and an
+episode played fullscreen, at launch and while running. Back went fullscreen
+to guide, then from another row to the live row, then out of the app: on a
+direct play within 0.5 s (43S45) and 1.2 s (55R617), on a server stream once
+its stop was answered, 1.2 s and 1.8 s.
+`sca.sh` is clean.
 
 [The Channel Store bar](https://github.com/chadMueller/Nostalgex/discussions/8#discussioncomment-18982978), on the 43S45 (Roku OS 16.0.4), 2026-10-16
 at `6f05937` with 5,363 items on one server:
