@@ -32,6 +32,7 @@ import { collectionsVectors } from "./gen-collections.mjs";
 import { mediaBrowserVectors } from "./gen-mediabrowser.mjs";
 import { dstZones, parityZones } from "./gen-dst.mjs";
 import { watchVectors } from "./gen-watch.mjs";
+import { playbackInfoVectors } from "./gen-playback-info.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const upstream = resolve(process.env.NOSTALGEX_DIR || join(here, "..", ".."));
@@ -264,6 +265,11 @@ const files = [
     generatedBy: "tests/gen-vectors.mjs (tests/gen-watch.mjs)",
     upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-watch-state.js" },
     ...(await watchVectors(upstream)),
+  }],
+  [join(here, "vectors", "playback-info.json"), {
+    generatedBy: "tests/gen-vectors.mjs (tests/gen-playback-info.mjs)",
+    upstream: { repo: "https://github.com/chadMueller/Nostalgex", commit, engine: "scripts/nostalgex-playback-info.js" },
+    ...(await playbackInfoVectors(upstream)),
   }],
   // Upstream's own golden files, copied byte for byte: FranchiseTests.brs,
   // FilterGoldenTests.brs, RatingGoldenTests.brs, SeasonalTests.brs,

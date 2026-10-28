@@ -34,6 +34,11 @@ sub init()
     m.attempt = invalid
     m.pendingAttempt = invalid
     m.failRun = NxFailureRun()
+    ' PLAYBACK INFORMATION (source/guide/PlaybackInfo.brs): the programme's
+    ' record, its generation and the running attempt's id.
+    m.pi = invalid
+    m.piGen = 0
+    m.piAttempt = invalid
     m.stopped = false
     m.slotOffset = 0
     m.playing = invalid
@@ -716,7 +721,7 @@ end function
 
 sub onTick()
     checkSleep()
-    if m.np <> invalid and m.sleepEnd <> invalid then m.np.state = npState()
+    if m.np <> invalid and (m.sleepEnd <> invalid or m.np.infoOpen = true) then m.np.state = npState()
     renderInfo()
     if m.fullscreen then updateOsdTime()
     t = nowSec()
@@ -856,12 +861,25 @@ sub startTune(idx as Integer)
     stream = NxStreamContent(b, offset&, rung)
     m.playing = b
     trackAiring(b, offset&)
+    ' A new programme gets its own record; a step down the ladder is a new
+    ' attempt on the same one.
+    if pending = invalid then
+        m.piGen = m.piGen + 1
+        kind = NxServerKind(NxStreamServer(b))
+        m.pi = NxPiCreate({ generation: m.piGen, backend: kind, qualityAtTune: NxPiQualityLabel(kind), videoCodec: b.videoCodec, audioCodec: b.audioCodec })
+        m.piAttempt = invalid
+    end if
     if stream = invalid then
         m.attempt = invalid
         giveUp("nostream")
         return
     end if
     if pending <> invalid then m.attempt = pending.attempt else m.attempt = NxFirstAttempt(stream.rung)
+    if pending <> invalid and pending.piStep <> invalid then
+        m.piAttempt = NxPiBeginAttempt(m.pi, m.piGen, NxPiDeliveryFor(m.attempt.rung), pending.piStep.reason, pending.piStep.recovery)
+    else
+        m.piAttempt = NxPiBeginAttempt(m.pi, m.piGen, NxPiDeliveryFor(m.attempt.rung), NxPiFirstReason(m.attempt.rung))
+    end if
     m.tuneOffset = offset&
     ' For NxProbeStream only; never printed (it can carry a session).
     m.streamUrl = stream.content.url
@@ -872,7 +890,6 @@ sub startTune(idx as Integer)
     m.video.content = stream.content
     m.video.control = "play"
     m.tuneFormat = stream.content.streamFormat
-    m.tuneRoute = stream.route
     ' The Jellyfin/Emby pick on a direct play; on every other stream, AUDIO
     ' LANGUAGE among the tracks the player lists (issue #62).
     m.tuneAudio = stream.audioTrack
@@ -1079,6 +1096,7 @@ sub onVideoState()
         end if
         m.deadlineTimer.control = "stop"
         NxFailureReset(m.failRun)
+        if m.pi <> invalid then NxPiMarkReady(m.pi, m.piGen, m.piAttempt)
         m.sawPlaying = true
         m.unplayedEnds = 0
         hideHaze()
@@ -1222,9 +1240,11 @@ sub stepDown(nxt as Object, event as String)
     offset& = m.tuneOffset
     played = m.video.position
     if NxIsNumber(played) and played > offset& then offset& = Int(played)
-    m.pendingAttempt = { b: m.playing, offset: offset&, attempt: nxt }
     was = m.attempt.rung
+    m.pendingAttempt = { b: m.playing, offset: offset&, attempt: nxt, piStep: NxPiStepReason(was, event, nxt) }
     m.attempt = invalid
+    ' The player being replaced doesn't describe the next one.
+    if m.pi <> invalid then NxPiInvalidate(m.pi)
     if nxt.retry then
         ' Plex can refuse a stream for a moment while the last one is still
         ' winding down, so the retry waits.
@@ -1696,6 +1716,15 @@ sub closeNowPlaying()
     m.top.SetFocus(true)
 end sub
 
+' PLAYER SIZE: the picture the player reports, as upstream's
+' presentationSize, from the segment it is playing; invalid when it says
+' none.
+function playerSize() as Object
+    seg = m.video.streamingSegment
+    if type(seg) = "roAssociativeArray" then return { width: seg.width, height: seg.height }
+    return { width: invalid, height: invalid }
+end function
+
 ' What the panel shows, from the tuned channel, the player and the settings.
 function npState() as Object
     ch = m.channels[m.tuned]
@@ -1717,15 +1746,12 @@ function npState() as Object
         st.poster = NxPosterRef(b, NxSignedInKind())
         nxt = blockAfter(ch, b)
         if nxt <> invalid then st.upNext = musicLine(nxt)
-        kind = "Direct play"
-        if m.tuneFormat = "hls" then kind = "Converted by Plex (transcode)"
-        st.info.Push({ label: "Stream", value: kind })
-        st.info.Push({ label: "Format", value: NxToStr(m.tuneFormat) })
-        ' The audio as it arrives, which a server stream may have changed (#68).
-        st.info.Push({ label: "Audio", value: UCase(NxToStr(m.video.audioFormat)) })
-        st.info.Push({ label: "Route", value: NxToStr(m.tuneRoute) })
-        st.info.Push({ label: "File", value: UCase(NxToStr(b.container)) + " · " + UCase(NxToStr(b.videoCodec)) + " · " + UCase(NxToStr(b.audioCodec)) })
-        st.info.Push({ label: "Player", value: NxToStr(m.video.state) })
+    end if
+    ' PLAYBACK INFORMATION, upstream's rows (source/guide/PlaybackInfo.brs).
+    if b <> invalid and m.pi <> invalid then
+        size = playerSize()
+        st.info = NxPiRows(m.pi, size.width, size.height)
+        st.infoNote = NxPiEvidenceNote()
     end if
     tracks = NxList(m.video.availableAudioTracks)
     for i = 0 to tracks.Count() - 1
