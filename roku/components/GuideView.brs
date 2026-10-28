@@ -2083,10 +2083,7 @@ function sidebarKey(key as String) as Boolean
             openSettings()
         else
             m.focus = t.channel
-            m.nav = "grid"
-            keepFocusVisible()
-            renderGrid()
-            renderInfo()
+            setNav("grid")
         end if
     end if
     return true
@@ -2233,15 +2230,9 @@ sub applyDeepLink()
     if idx < 0 then return
     if m.sidebarOpen = true then closeSidebar()
     m.focus = idx
-    m.nav = "grid"
     m.slotOffset = 0
-    keepFocusVisible()
-    if idx <> m.tuned then
-        pressTune(idx)
-    else
-        renderGrid()
-        renderInfo()
-    end if
+    setNav("grid")
+    if idx <> m.tuned then pressTune(idx)
     setFullscreen(true)
 end sub
 
@@ -2273,8 +2264,7 @@ sub onLinkedItem(ev as Object)
     print "deep link: playing "; b.line; " ("; b.videoCodec; ", "; b.audioCodec; ") on channel "; m.channels[idx].id
     if m.sidebarOpen = true then closeSidebar()
     m.focus = idx
-    m.nav = "grid"
-    keepFocusVisible()
+    setNav("grid")
     NxFailureReset(m.failRun)
     m.stopped = false
     m.unplayedEnds = 0
