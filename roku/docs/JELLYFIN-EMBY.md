@@ -428,6 +428,47 @@ SUBTITLES on, a full track in the language comes first, as
   file. On the test Emby 297 items have an English forced track, 28 of them
   only as an image; those play without it.
 
+**With SUBTITLES on ALWAYS, a server stream's full track is a sidecar too
+(issue #120).** A server stream's playlist lists no subtitles: on Emby 4.10
+the app's request for *Wuthering Heights* (28 SRT tracks) gives 0 renditions,
+and still 0 with `SubtitleStreamIndex=2&SubtitleMethod=Hls`. Jellyfin 12.2
+lists them with that query (37 for *28 Years Later*), but each address
+carries the token as `ApiKey` in the URL, which the port keeps out of URLs.
+So the full track comes the way the forced one does: the scan keeps a
+file's other text tracks, the first per language (`NxMbFullSubs`), and on a
+server stream with ALWAYS the one in SUBTITLE LANGUAGE (`NxMbFullSub`) goes
+beside the stream as the server's SRT (`NxMbSubtitleSidecars`), which
+`applySubtitles` picks as it would the file's own. A direct play lists the
+file's own and gets none. When the file has no track in the language,
+nothing is added: the Apple TV falls back to the first track
+(`preferredTrackIndex`), which can be a commentary or a language nobody
+picked. Only on ALWAYS, so a server makes the file only for a viewer who
+reads it; the warm-up asks for it too, for airings this TV won't play as
+stored (`NxMbDirectPlays`). Measured on a TCL 55R617 (Roku OS 15.3.4)
+against the test Emby, 2026-10-28, with silent lab clips:
+
+- *Lab Forced Opus* (English forced and full tracks; a Portuguese AAC and
+  an English Opus track, so with AUDIO LANGUAGE English a server stream),
+  ALWAYS, English: two sidecars, picture in 2.2 s, and a dev screenshot at
+  0:21.5 caught the full track's line. Emby's log has the full file asked
+  on every start. On the two `item:` starts from another film it was the
+  only request, so the forced sidecar, attached but not picked, wasn't
+  fetched. On three `item:` links that started the same film again while
+  it played, the forced file was asked about 1.5 s before the full one,
+  though the app didn't pick it (no `forced subtitles` line); why isn't
+  known. When the app showed the forced track over the guide, its file was
+  asked then. With SUBTITLES OFF, one sidecar, the forced one, and one
+  request for it. With SUBTITLE LANGUAGE on French, none and no request.
+  Jellyfin 12.2 the same way: two sidecars, picture in 2.4 s, the full line
+  on screen at 0:21.
+- *Lab Full Big Opus* (3.6 GB, 2 hours), cold: picture in 2.1 s; Emby made
+  the SRT in 1.5 s from local disk, so this didn't stand in for a slow NAS.
+- A file the server is slow to make, or refuses: on a throwaway build whose
+  full sidecar pointed at a stand-in server, a file answered after 90 s,
+  a 500 and an empty file each left the picture at 2.1 to 2.4 s and the
+  clip playing. The slow one was asked twice, 30 s apart, and not again, as
+  a forced file is.
+
 **No reporting to the server.** The Roku app sends Plex nothing about what you
 watch, and its privacy policy says so; Jellyfin and Emby are the same, which
 also leaves out upstream's watch-state restore.

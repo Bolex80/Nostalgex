@@ -30,6 +30,7 @@
 ' "" for direct play; audioTrack the pick for the player to select on a
 ' direct play, as NxAudioTrackToSelect takes it, else invalid; forcedSub
 ' true when the content carries a forced track as a sidecar), or invalid.
+' A server stream may carry a full track as a sidecar too (NxMbFullSub).
 ' rung as for NxPlexStreamContent.
 function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, rung = "auto" as String) as Dynamic
     base = NxToStr(s.uri)
@@ -50,8 +51,9 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     ' A forced track in SUBTITLE LANGUAGE, as the server's SRT, set before
     ' play: the Apple TV burns it in (forcedSubtitleToBurn), which Emby
     ' refuses (docs/JELLYFIN-EMBY.md). The server needs no token for it.
-    forced = NxMbForcedSub(b, NxSubPreferredLanguage())
-    if forced <> invalid then content.SubtitleTracks = [{ Language: NxToStr(forced.language), TrackName: base + NxMbSubtitlePath(itemId, msid, forced.index), Description: "Forced" }]
+    subLang = NxSubPreferredLanguage()
+    subsAlways = NxSubtitleSettings().always
+    forced = NxMbForcedSub(b, subLang)
 
     ' The audio track a viewer here wants, when the file has a choice: the
     ' server hands over the file's default, which can be a dub.
@@ -62,18 +64,8 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     if pickIndex <> invalid then audioTrack = { position: pick.position, language: pick.language, count: pick.count }
 
     container = LCase(NxToStr(b.container))
-    vcodec = LCase(NxToStr(b.videoCodec))
-    acodec = LCase(NxToStr(b.audioCodec))
     hevc = NxCanDecodeHevc()
-    videoOk = vcodec = "h264" or (vcodec = "hevc" and hevc)
-    audioOk = NxHasValue(["aac", "ac3", "eac3", "mp3"], acodec)
-    ' MKV only on the home network: joined part-way it played at once over
-    ' plain HTTP on the LAN, while through Plex over HTTPS it crawled.
-    containers = ["mp4", "mov", "m4v"]
-    if onLan then containers.Push("mkv")
-    direct = NxHasValue(containers, container) and videoOk and audioOk
-    ' And only what this TV decodes, profile and channels included.
-    if direct then direct = NxDeviceDecodes(b)
+    direct = NxMbDirectPlays(b, onLan)
     ' And under STREAM QUALITY's ceiling (NxSqDirectPlayAllowed).
     quality = NxSqCurrent()
     if direct then direct = NxSqDirectPlayAllowed(NxServerKind(s), quality, b.bitrate, NxSqIsLocalHost(NxUrlHost(base)))
@@ -90,6 +82,8 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
         end if
         content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/stream." + ext + "?Static=true&MediaSourceId=" + NxUrlEncode(msid)
         content.streamFormat = format
+        sidecars = NxMbSubtitleSidecars(b, base, subLang, subsAlways, true)
+        if sidecars.Count() > 0 then content.SubtitleTracks = sidecars
         return { content: content, stopUrl: "", route: route, rung: "direct", audioTrack: audioTrack, forcedSub: forced <> invalid }
     end if
 
@@ -125,8 +119,27 @@ function NxMbStreamContent(b as Object, offsetSec as LongInteger, s as Object, r
     q = q + "&SegmentLength=2"
     content.url = base + "/Videos/" + NxUrlEncode(itemId) + "/master.m3u8?" + q
     content.streamFormat = "hls"
+    sidecars = NxMbSubtitleSidecars(b, base, subLang, subsAlways, false)
+    if sidecars.Count() > 0 then content.SubtitleTracks = sidecars
     stopUrl = base + "/Videos/ActiveEncodings?deviceId=" + NxUrlEncode(NxPlexClientId()) + "&playSessionId=" + session
     return { content: content, stopUrl: stopUrl, route: route, rung: rung, audioTrack: invalid, forcedSub: forced <> invalid }
+end function
+
+' Whether this TV plays the airing as stored, `b` with its audio pick
+' (NxMbAudioPick) and `onLan` true for a plain HTTP server at home.
+function NxMbDirectPlays(b as Object, onLan as Boolean) as Boolean
+    container = LCase(NxToStr(b.container))
+    vcodec = LCase(NxToStr(b.videoCodec))
+    acodec = LCase(NxToStr(b.audioCodec))
+    videoOk = vcodec = "h264" or (vcodec = "hevc" and NxCanDecodeHevc())
+    audioOk = NxHasValue(["aac", "ac3", "eac3", "mp3"], acodec)
+    ' MKV only on the home network: joined part-way it played at once over
+    ' plain HTTP on the LAN, while through Plex over HTTPS it crawled.
+    containers = ["mp4", "mov", "m4v"]
+    if onLan then containers.Push("mkv")
+    if not (NxHasValue(containers, container) and videoOk and audioOk) then return false
+    ' And only what this TV decodes, profile and channels included.
+    return NxDeviceDecodes(b)
 end function
 
 ' Which audio track to ask for, when the file offers more than one: the
@@ -244,34 +257,77 @@ function NxMbForcedSub(b as Object, lang as String) as Dynamic
     return invalid
 end function
 
+' The airing's full text track in `lang` (NxMbFullSubs), or invalid. The
+' Apple TV falls back to a file's first track when none is in the
+' language (preferredTrackIndex); not here, as the first can be a
+' commentary or a language nobody picked (issue #120).
+function NxMbFullSub(b as Object, lang as String) as Dynamic
+    for each t in NxList(b.fullSubs)
+        tag = NxSubComparableTag(t.language)
+        if tag <> invalid and NxSubMatches(tag, lang) then return t
+    end for
+    return invalid
+end function
+
+' The subtitle tracks a stream carries as the server's SRT, for
+' content.SubtitleTracks: the forced track in `lang` (NxMbForcedSub), set
+' before play, as the Apple TV burns it in (forcedSubtitleToBurn), which Emby
+' refuses (docs/JELLYFIN-EMBY.md); and on a server stream (`direct` false)
+' with `always` (SUBTITLES on ALWAYS), the full track in `lang`
+' (NxMbFullSub), as the playlist lists none (Emby 4.10, even asked with
+' SubtitleMethod=Hls), and applySubtitles picks it. A direct play lists the
+' file's own. Only on ALWAYS, so a server makes the file only for a viewer
+' who reads it (issue #120). The server needs no token for either.
+function NxMbSubtitleSidecars(b as Object, base as String, lang as String, always as Boolean, direct as Boolean) as Object
+    itemId = NxToStr(b.ratingKey)
+    msid = NxToStr(NxOr(b.partKey, itemId))
+    out = []
+    forced = NxMbForcedSub(b, lang)
+    if forced <> invalid then out.Push({ Language: NxToStr(forced.language), TrackName: base + NxMbSubtitlePath(itemId, msid, forced.index), Description: "Forced" })
+    full = invalid
+    if always and not direct then full = NxMbFullSub(b, lang)
+    if full <> invalid then out.Push({ Language: NxToStr(full.language), TrackName: base + NxMbSubtitlePath(itemId, msid, full.index) })
+    return out
+end function
+
 ' A subtitle track as SRT, from the server's root. Jellyfin and Emby both
 ' answer this form, with no token.
 function NxMbSubtitlePath(itemId as String, msid as String, index as Integer) as String
     return "/Videos/" + NxUrlEncode(itemId) + "/" + NxUrlEncode(msid) + "/Subtitles/" + index.ToStr() + "/0/Stream.srt"
 end function
 
-' The forced SRTs to ask the server for ahead of time: one per airing that
-' is on or starts within `windowSec` of `nowSec`, with a forced track in
-' `lang`, as addresses, less those in `done`. A server makes
+' The subtitle SRTs to ask the server for ahead of time: for each airing
+' that is on or starts within `windowSec` of `nowSec`, its forced track in
+' `lang`, and with `always` (SUBTITLES on ALWAYS) its full track in `lang`
+' too (NxMbFullSub), as addresses, less those in `done`. `audioLanguages`
+' as NxMbViewerLanguages gives them, for the audio pick a direct play rests on. A server makes
 ' the file from the whole video, a minute or more for a large one the first
 ' time, and a Roku waits 30 s for it, twice, then shows the film without it;
 ' asked before the airing, the file is ready. `servers` maps an airing's
-' serverIndex to its root, Jellyfin and Emby only.
-function NxForcedWarmList(channels as Object, nowSec as LongInteger, windowSec as Integer, lang as String, servers as Object, done as Object) as Object
+' serverIndex to its root, Jellyfin and Emby only. No full track for an
+' airing this TV plays as stored (NxMbDirectPlays): a direct play lists the
+' file's own, and the server would read the whole file for nothing.
+function NxSubtitleWarmList(channels as Object, nowSec as LongInteger, windowSec as Integer, lang as String, always as Boolean, audioLanguages as Object, servers as Object, done as Object) as Object
     out = []
     seen = {}
     for each ch in NxList(channels)
         for each b in NxList(ch.blocks)
-            if b.endSec > nowSec and b.startSec < nowSec + windowSec and b.forcedSubs <> invalid then
+            if b.endSec > nowSec and b.startSec < nowSec + windowSec then
                 base = servers[NxToStr(b.serverIndex)]
-                t = NxMbForcedSub(b, lang)
-                if base <> invalid and t <> invalid then
-                    key = base + NxMbSubtitlePath(NxToStr(b.ratingKey), NxToStr(NxOr(b.partKey, b.ratingKey)), t.index)
-                    if not done.DoesExist(key) and not seen.DoesExist(key) then
-                        seen[key] = true
-                        out.Push(key)
-                    end if
+                picks = [NxMbForcedSub(b, lang)]
+                if always and base <> invalid and b.fullSubs <> invalid then
+                    onLan = Left(LCase(base), 7) = "http://" and NxIsPrivateHost(NxUrlHost(base))
+                    if not NxMbDirectPlays(NxMbAudioPick(b, audioLanguages).airing, onLan) then picks.Push(NxMbFullSub(b, lang))
                 end if
+                for each t in picks
+                    if base <> invalid and t <> invalid then
+                        key = base + NxMbSubtitlePath(NxToStr(b.ratingKey), NxToStr(NxOr(b.partKey, b.ratingKey)), t.index)
+                        if not done.DoesExist(key) and not seen.DoesExist(key) then
+                            seen[key] = true
+                            out.Push(key)
+                        end if
+                    end if
+                end for
             end if
         end for
     end for

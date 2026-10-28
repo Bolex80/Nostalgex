@@ -733,15 +733,16 @@ sub onTick()
     ' A deep-linked item ends with its file, however long it stalled.
     linked = m.playing <> invalid and m.playing.linked = true
     if NxAiringEnded(m.playing, t, m.video.state) and not m.stopped and not linked then advance(false)
-    warmForcedSubtitles(t)
+    warmSubtitles(t)
 end sub
 
-' Every 5 minutes, the forced subtitle files of airings on now or within the
-' hour, asked of their Jellyfin or Emby server ahead of time, each once
-' (NxForcedWarmList), one batch at a time. The list of files asked starts
+' Every 5 minutes, the subtitle files of airings on now or within the hour,
+' forced ones and with SUBTITLES on ALWAYS full ones, asked of their
+' Jellyfin or Emby server ahead of time, each once (NxSubtitleWarmList),
+' one batch at a time. The list of files asked starts
 ' again past 500, so a guide left up for weeks can't grow it without end; a
 ' file then may be asked once more, from the server's own copy.
-sub warmForcedSubtitles(t as LongInteger)
+sub warmSubtitles(t as LongInteger)
     if m.warmTask <> invalid then return
     if m.warmAt <> invalid and t - m.warmAt < 300 then return
     m.warmAt = t
@@ -758,7 +759,7 @@ sub warmForcedSubtitles(t as LongInteger)
         end for
     end if
     if servers.Count() = 0 then return
-    urls = NxForcedWarmList(m.channels, t, 3600, NxSubPreferredLanguage(), servers, m.warmDone)
+    urls = NxSubtitleWarmList(m.channels, t, 3600, NxSubPreferredLanguage(), m.subs.always, NxMbViewerLanguages(), servers, m.warmDone)
     if urls.Count() = 0 then return
     for each u in urls
         m.warmDone[u] = true
@@ -1555,7 +1556,9 @@ end sub
 ' audio track is in AUDIO LANGUAGE and the subtitles are in SUBTITLE
 ' LANGUAGE. Otherwise the forced track in SUBTITLE LANGUAGE, when the stream
 ' carries one as a sidecar (NxMbForcedSub), over the guide too, as upstream
-' burns it in. Roku doesn't list a forced track inside the file.
+' burns it in. Roku doesn't list a forced track inside the file. On a server
+' stream with ALWAYS the full track is a sidecar as well (NxMbFullSub), and
+' is picked here as the file's own would be.
 sub applySubtitles()
     tracks = NxList(m.video.availableSubtitleTracks)
     tags = []

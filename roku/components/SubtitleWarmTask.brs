@@ -30,8 +30,8 @@ sub warm()
                 xfer.AsyncCancel()
             end if
         end if
-        print "subtitles: forced file "; n + 1; " of "; urls.Count(); ", "; code; " in "; clock.TotalMilliseconds(); " ms"
+        print "subtitles: file "; n + 1; " of "; urls.Count(); ", "; code; " in "; clock.TotalMilliseconds(); " ms"
     end for
-    print "subtitles: "; got; " of "; urls.Count(); " forced subtitle files ready ahead of their airings"
+    print "subtitles: "; got; " of "; urls.Count(); " subtitle files ready ahead of their airings"
     m.top.done = got
 end sub
