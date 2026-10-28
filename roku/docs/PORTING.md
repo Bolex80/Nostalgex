@@ -604,7 +604,10 @@ real Plex library 90S SITCOMS gets 0 of the 10 items it needs today, so the 5 th
 tuned nothing above most likely named a channel the guide didn't have. One
 link opened the wrong channel: 141 (SLASHER) opened CH 138 (FRIGHT NIGHT),
 whose id is 141, as `NxDeepLinkChannel` tries ids before numbers; 44 numbers
-in `channels.json` are another channel's id. `item:` links for a film and an
+in `channels.json` are another channel's id. The maintainer kept that order
+([#139](https://github.com/chadMueller/Nostalgex/pull/139#issuecomment-6482426337)):
+ids don't change, and the links listed on the dashboard are the ones
+certification tests. `item:` links for a film and an
 episode played fullscreen, at launch and while running. Back went fullscreen
 to guide, then from another row to the live row, then out of the app: on a
 direct play within 0.5 s (43S45) and 1.2 s (55R617), on a server stream once
