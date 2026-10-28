@@ -3,6 +3,20 @@
 Why things changed, and what state they were left in. Newest first.
 Commits carry the detail of *what*; this carries the *why*.
 
+## 2026-10-28 (web tuner: an empty guide says so, issue #129)
+
+**Shipped.** Nothing until this lands on main. Branch `fix/129-empty-guide-state`, off main `52b5139`.
+
+**Why.** After #124, a library where no package has any content still ended every loader with "tune the first enabled channel, if there is one." With none, nothing showed: a black screen and nothing to press, on the web tuner and in Docker. The Apple TV (`Plex90App.swift`) and Roku (#60) both say NO CHANNELS FOUND with an OPEN SETTINGS button.
+
+**Changed.**
+- `plex-tuner.html`: one helper, `tuneFirstOrShowEmpty()`, replaces that ending in the Jellyfin and Emby loader, `fetchLibraryFromServer`, and the cache-restore branch of `fetchPlexLibrary`. With a channel it tunes as before. With none it shows NO CHANNELS FOUND, the Apple TV line verbatim, and an OPEN SETTINGS button, inside the existing connect screen and its styles (the `.plex-btn`, VT323 text). The button is a real `<button>` that opens Settings by click or tap, so a TV browser works with no keys; Enter opens Settings too instead of starting a Plex sign-in. If Settings turns a package on and is closed, the first channel tunes and the message goes. The demo path is untouched. Exits browser full screen if the message has to show.
+- `scripts/empty-guide-browser-smoke.mjs` (`npm run test:empty-guide`, needs Playwright, not in `npm test`): a library nothing matches, on the fresh-fetch path at desktop, tablet, phone and 960x540, and on the cache-restore path (checked to read the saved cache, not the server). Checks heading, line, a focusable button, and that a click opens Settings. Negative control: the old ending shows no message. Run against origin/main's page, 18 of the checks fail with no message shown.
+
+**Measured.** 34 smoke checks pass. `npm test`, `npm run build`, `npm run build:selfhost`, the tuner isolation and tuner version checks pass. `test:empty-lineup` and `test:cache-restore-crash` still pass.
+
+**Cross-product.** Apple TV and Roku already do this; no port. No engine change.
+
 ## 2026-10-28 (web tuner: a crash on a returning visit no longer freezes the loading screen)
 
 **Shipped.** Nothing until this lands on main. Branch `web/cache-restore-catch`, off main `9ea9e15`.

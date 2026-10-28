@@ -1067,6 +1067,29 @@
     box-shadow: 0 0 30px var(--cyan);
     transform: scale(1.03);
   }
+  .plex-empty {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+    text-align: center;
+    position: relative;
+    z-index: 999;
+  }
+  .plex-empty-title {
+    font-family: 'VT323', monospace;
+    font-size: 34px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 3px;
+  }
+  .plex-empty-text {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 1px;
+    max-width: 640px;
+  }
   .plex-signin-label {
     font-family: 'VT323', monospace;
     font-size: 26px;
@@ -3389,6 +3412,14 @@
       <button class="plex-btn focused" id="plex-connect-btn" type="button">CONNECT WITH PLEX</button>
     </div>
 
+    <!-- Empty guide: the library loaded but no package has enough content to fill a channel.
+         Same words as the Apple TV and Roku. A real button, so a TV browser (no keys) can click it. -->
+    <div class="plex-empty" id="plex-empty" style="display:none;">
+      <div class="plex-empty-title">NO CHANNELS FOUND</div>
+      <div class="plex-empty-text">Your library didn't have enough content to fill any channels.<br>Open Settings to see which packages your library supports.</div>
+      <button class="plex-btn focused" id="plex-empty-settings-btn" type="button">OPEN SETTINGS</button>
+    </div>
+
     <!-- Waiting state: PIN + QR, polling for auth -->
     <div class="plex-waiting" id="plex-waiting">
       <div class="plex-waiting-label" id="plex-waiting-label">ENTER THIS CODE AT PLEX.TV/LINK</div>
@@ -4350,6 +4381,7 @@
 
     // Wire up connect buttons
     document.getElementById('plex-connect-btn').addEventListener('click', startPlexAuth);
+    document.getElementById('plex-empty-settings-btn').addEventListener('click', showConfig);
     document.getElementById('cfg-plex-btn').addEventListener('click', () => {
       if (plexConnected) { signOut(); } else { startPlexAuth(); }
     });
@@ -7477,6 +7509,8 @@
     appState = currentChannel ? 'player' : 'connect';
     document.getElementById('config-overlay').classList.remove('open');
     renderActiveGuide(); // refresh guide with updated channels
+    // Settings turned a package on: tune it. Still nothing: keep the message.
+    if (emptyGuideShown()) tuneFirstOrShowEmpty();
   }
 
   function updateConfigFocus() {
@@ -7921,6 +7955,7 @@
     if (signinLabel) signinLabel.textContent = 'Sign in with your Plex account';
     // Clear any Jellyfin-specific reconnect button
     document.getElementById('plex-reconnect-jf')?.remove();
+    hideEmptyGuideState();
     appState = 'connect';
   }
 
@@ -9001,8 +9036,7 @@
 
     if (!background) {
       LL.hide();
-      const firstEnabled = CHANNELS.find(ch => ch.enabled);
-      if (firstEnabled) switchChannel(firstEnabled.id);
+      tuneFirstOrShowEmpty();
     }
   }
 
@@ -9342,6 +9376,28 @@
     return serverItems;
   }
 
+  // After a library load: tune the first enabled channel, or, when no package has any
+  // content, say so (issue #129). Without this the screen stayed black with nothing to press.
+  const emptyGuideShown = () => document.getElementById('plex-empty').style.display === 'flex';
+  function tuneFirstOrShowEmpty() {
+    const firstEnabled = CHANNELS.find(ch => ch.enabled);
+    if (firstEnabled) {
+      hideEmptyGuideState();
+      switchChannel(firstEnabled.id);
+      return;
+    }
+    // Never leave this behind browser full screen.
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    document.getElementById('plex-error-label').style.display = 'none';
+    document.getElementById('plex-actions').style.display = 'none';
+    document.getElementById('plex-empty').style.display = 'flex';
+    document.getElementById('plex-connect').style.display = 'flex';
+    appState = 'connect';
+  }
+  function hideEmptyGuideState() {
+    document.getElementById('plex-empty').style.display = 'none';
+  }
+
   async function fetchPlexLibraryFromServer(options = {}) {
     const LL = globalThis.NostalgexLibraryLoad;
     const background = options.background === true;
@@ -9391,8 +9447,7 @@
 
     if (!background) {
       LL.hide();
-      const firstEnabled = CHANNELS.find(ch => ch.enabled);
-      if (firstEnabled) switchChannel(firstEnabled.id);
+      tuneFirstOrShowEmpty();
     }
   }
   async function fetchPlexLibraryFresh() {
@@ -9431,8 +9486,7 @@
         LL.setPhase('preparing', cached.stale ? 'Cached library' : 'Loading cache');
         await finalizeLibraryWithMusicBrainz(cached.items, { buildAllChannels: LL.isFirstLibraryLoad() });
         LL.hide();
-        const firstEnabled = CHANNELS.find(ch => ch.enabled);
-        if (firstEnabled) switchChannel(firstEnabled.id);
+        tuneFirstOrShowEmpty();
         if (cached.stale) fetchPlexLibraryFresh();
         return;
       }
@@ -9713,7 +9767,7 @@
     // Connect mode
     if (appState === 'connect') {
       if (key === 'Enter') {
-        startPlexAuth();
+        if (emptyGuideShown()) showConfig(); else startPlexAuth();
         e.preventDefault();
         return;
       }
