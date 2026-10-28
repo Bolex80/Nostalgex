@@ -437,10 +437,14 @@ Three differences are on purpose:
   up at the 220 px column.
 - Full screen follows PlayerView's remote: Left and Right change channel,
   Up opens the mini channel strip, Down the Now Playing panel, Back closes
-  either, then returns to the guide. The panel has CC, auto subtitles, the
-  audio tracks, RETRO MODE, the sleep timer and playback information; it
+  either, then returns to the guide. The panel has CC, then SUBTITLE
+  LANGUAGE and auto subtitles when the film has subtitles, the audio tracks,
+  then AUDIO LANGUAGE when there are two or more, RETRO MODE, the sleep
+  timer and playback information, in upstream's `programRows` order
+  (`source/guide/NowPlayingLayout.brs`). A language row opens upstream's
+  two-column list, and a choice applies to the film playing (#118). It
   leaves out stream quality and OPEN IN PLEX, which have nothing to act on
-  here, and the language pickers, which are in Settings only. OK flashes the OSD rather than leaving.
+  here. OK flashes the OSD rather than leaving.
 - An airing hands over as `advanceToNextItem` does: when its file ends,
   the next one starts from its beginning, so an episode running past its
   whole-minute slot plays to the end (`source/guide/Advance.brs`, cases in

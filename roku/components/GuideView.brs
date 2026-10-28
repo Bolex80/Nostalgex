@@ -1704,8 +1704,12 @@ function npState() as Object
         number: ch.number, name: ch.name, color: colorOf(ch.color, "FF"),
         nowLine: "", rating: "", upNext: "", poster: invalid,
         hasSubs: m.hasSubs, ccOn: m.subs.always, autoOn: m.subs.foreign,
-        audio: [], retro: NxRetroMode(), sleepMinutes: 0, sleepLeft: -1, info: []
+        audio: [], retro: NxRetroMode(), sleepMinutes: 0, sleepLeft: -1, info: [],
+        subsLanguage: NxSavedLanguage("subsLanguage"), audioLanguage: NxSavedLanguage("audioLanguage"),
+        languages: NxLanguagePresets()
     }
+    st.subsLabel = NxLanguageShortLabel(st.subsLanguage)
+    st.audioLabel = NxLanguageShortLabel(st.audioLanguage)
     if b <> invalid then
         st.nowLine = musicLine(b)
         if not NxTruthy(b.music) and b.year <> "" then st.nowLine = b.title + "  " + b.year
@@ -1760,8 +1764,29 @@ sub onNpAction()
         applyRetro()
     else if Left(a, 6) = "sleep:" then
         startSleep(Mid(a, 7).ToInt())
+    else if Left(a, 13) = "subsLanguage:" then
+        ' Saved as Settings saves it, then applied to what is playing, as
+        ' upstream's didSet runs applySubtitleSelection.
+        NxSaveLanguage("subsLanguage", Mid(a, 14))
+        applySubtitles()
+    else if Left(a, 14) = "audioLanguage:" then
+        NxSaveLanguage("audioLanguage", Mid(a, 15))
+        applyAudioLanguage()
     end if
     m.np.state = npState()
+end sub
+
+' AUDIO LANGUAGE chosen while a film plays: upstream's didSet runs
+' applyAudioTrackSelection on it, so the player takes the first track in the
+' new language (NxAudioTrackForLanguage), and keeps its own when none is. A
+' server stream carries one track, so it takes the new language at the next
+' tune.
+sub applyAudioLanguage()
+    tracks = NxList(m.video.availableAudioTracks)
+    if tracks.Count() < 2 then return
+    track = NxAudioTrackForLanguage(tracks, NxAudioPreferredLanguage())
+    print "player: audio language "; NxAudioPreferredLanguage(); ", track "; track; ", was "; m.video.currentAudioTrack
+    if track <> invalid then m.video.audioTrack = track
 end sub
 
 ' ── Sleep timer (AppState+Playback's), with its STILL WATCHING? prompt ─────

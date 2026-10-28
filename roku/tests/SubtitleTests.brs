@@ -44,6 +44,9 @@ function NxRunSubtitleTests() as Integer
     NxCheck(r, "presets: the device first", presets[0].code + "=" + presets[0].label, "__system__=MATCH ROKU LANGUAGE")
     NxCheck(r, "label of a preset", NxLanguageLabel("pt-BR"), "PORTUGUESE (BRAZIL)")
     NxCheck(r, "label of an unknown code", NxLanguageLabel("fi"), "FI")
+    ' shortLabel (#118), the Now Playing panel's value.
+    NxCheck(r, "short label: the device is system", NxLanguageShortLabel("__system__"), "SYSTEM")
+    NxCheck(r, "short label: a code in capitals", NxLanguageShortLabel("en") + " " + NxLanguageShortLabel("pt-BR") + " " + NxLanguageShortLabel("zh-Hans"), "EN PT-BR ZH-HANS")
     NxCheck(r, "preferred: the device", NxPreferredLanguageFrom("__system__", "fr_CA"), "fr")
     NxCheck(r, "preferred: a choice beats the device", NxPreferredLanguageFrom("de", "en_US"), "de")
     NxCheck(r, "preferred: region dropped", NxPreferredLanguageFrom("pt-BR", "en_US"), "pt")

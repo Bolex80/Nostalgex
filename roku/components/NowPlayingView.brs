@@ -4,19 +4,26 @@
 ' on, rating, up next) and two control columns, one for the program (CAPTIONS, AUDIO) and
 ' one for the device (PICTURE, SLEEP TIMER, PLAYBACK INFORMATION). Left and
 ' Right move between the columns, Up and Down within one. PLAYBACK
-' INFORMATION opens in place of the columns; Back closes it, then the panel.
+' INFORMATION, SUBTITLE LANGUAGE and AUDIO LANGUAGE open in place of the
+' columns; Back closes them, then the panel.
 '
 ' Left out, for what the Roku has: STREAM QUALITY (no quality setting
-' here), the language pickers (in Settings only, for now), and OPEN IN
-' PLEX. Rounded corners are square; the shade is flat where upstream's fades.
+' here) and OPEN IN PLEX. Rounded corners are square; the shade is flat
+' where upstream's fades.
 
 sub init()
     m.fonts = {}
     m.col = 0
     m.idx = [0, 0]
     m.infoOpen = false
+    ' The language list open in place of the columns: "subsLanguage",
+    ' "audioLanguage", or "".
+    m.picker = ""
+    m.pickIdx = 0
     m.colX = [992, 1452]
     m.colW = 420
+    ' upstream's languageColumn: two columns 380 wide, 20 apart.
+    m.langW = 380
 end sub
 
 function fontOf(name as String, size as Integer) as Object
@@ -67,6 +74,7 @@ sub open(unused = invalid as Dynamic)
     m.col = 0
     m.idx = [0, 0]
     m.infoOpen = false
+    m.picker = ""
     ' Upstream opens on CC (focusedControl = .cc) even with no subtitles,
     ' where it's greyed out; here it opens on the next row that does
     ' something instead: an audio track, else RETRO MODE (Discussion #8).
@@ -85,33 +93,44 @@ end sub
 ' disabled, id }; only rows with an id take focus.
 function columns() as Object
     s = m.top.state
-    prog = []
-    prog.Push({ kind: "hdr", label: "CAPTIONS" })
-    cc = "NONE"
-    if s.hasSubs then
-        cc = "OFF"
-        if s.ccOn then cc = "ON"
-    end if
-    ' Always focusable, as upstream's, so the panel always opens on it.
-    prog.Push({ kind: "row", label: "CC", value: cc, active: s.hasSubs and s.ccOn, disabled: not s.hasSubs, id: "cc" })
-    if s.hasSubs then
-        v = "OFF"
-        if s.autoOn then v = "ON"
-        prog.Push({ kind: "row", label: "AUTO SUBTITLES (FOREIGN AUDIO)", value: v, active: s.autoOn, id: "auto" })
-    end if
-    prog.Push({ kind: "hdr", label: "AUDIO" })
     tracks = NxList(s.audio)
-    if tracks.Count() <= 1 then
-        name = "SINGLE TRACK"
-        if tracks.Count() = 1 then name = tracks[0].name
-        prog.Push({ kind: "row", label: name, value: "", disabled: true })
-    else
-        for i = 0 to tracks.Count() - 1
-            v = ""
-            if tracks[i].active then v = "ACTIVE"
-            prog.Push({ kind: "row", label: tracks[i].name, value: v, active: tracks[i].active, id: "audio:" + i.ToStr() })
-        end for
-    end if
+    prog = []
+    ' In upstream's order (NxPanelProgramRows).
+    for each kind in NxPanelProgramRows(s.hasSubs = true, tracks.Count())
+        if kind = "captionsHeader" then
+            prog.Push({ kind: "hdr", label: "CAPTIONS" })
+        else if kind = "captions" then
+            cc = "NONE"
+            if s.hasSubs then
+                cc = "OFF"
+                if s.ccOn then cc = "ON"
+            end if
+            ' Always focusable, as upstream's, so the panel always opens on it.
+            prog.Push({ kind: "row", label: "CC", value: cc, active: s.hasSubs and s.ccOn, disabled: not s.hasSubs, id: "cc" })
+        else if kind = "subtitleLanguage" then
+            prog.Push({ kind: "row", label: "SUBTITLE LANGUAGE", value: NxToStr(s.subsLabel), id: "pick:subsLanguage" })
+        else if kind = "autoSubtitles" then
+            v = "OFF"
+            if s.autoOn then v = "ON"
+            prog.Push({ kind: "row", label: "AUTO SUBTITLES (FOREIGN AUDIO)", value: v, active: s.autoOn, id: "auto" })
+        else if kind = "audioHeader" then
+            prog.Push({ kind: "hdr", label: "AUDIO" })
+        else if kind = "audioTracks" then
+            if tracks.Count() <= 1 then
+                name = "SINGLE TRACK"
+                if tracks.Count() = 1 then name = tracks[0].name
+                prog.Push({ kind: "row", label: name, value: "", disabled: true })
+            else
+                for i = 0 to tracks.Count() - 1
+                    v = ""
+                    if tracks[i].active then v = "ACTIVE"
+                    prog.Push({ kind: "row", label: tracks[i].name, value: v, active: tracks[i].active, id: "audio:" + i.ToStr() })
+                end for
+            end if
+        else if kind = "audioLanguage" then
+            prog.Push({ kind: "row", label: "AUDIO LANGUAGE", value: NxToStr(s.audioLabel), id: "pick:audioLanguage" })
+        end if
+    end for
 
     dev = []
     dev.Push({ kind: "hdr", label: "PICTURE" })
@@ -150,6 +169,8 @@ sub render()
     bottom = 0
     if m.infoOpen then
         bottom = renderInformation(g, s)
+    else if m.picker <> "" then
+        bottom = renderLanguages(g, s)
     else
         cols = columns()
         for c = 0 to 1
@@ -175,10 +196,11 @@ sub render()
     m.top.FindNode("shade").height = bottom + 32
 end sub
 
-sub drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean, color as String)
+sub drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean, color as String, w = 0 as Integer)
+    if w <= 0 then w = m.colW
     fill = "0xFFFFFF24"
     if focused then fill = "0x0D0D12FF"
-    g.AppendChild(newRect(x, y, m.colW, 48, fill))
+    g.AppendChild(newRect(x, y, w, 48, fill))
     border = "0xFFFFFF38"
     if e.active = true then border = tint(color, "80")
     t = 1
@@ -186,16 +208,108 @@ sub drawRow(g as Object, x as Float, y as Float, e as Object, focused as Boolean
         border = color
         t = 2
     end if
-    outline(g, x, y, m.colW, 48, t, border)
+    outline(g, x, y, w, 48, t, border)
     labelColor = "0xFFFFFFFF"
     if e.disabled = true then labelColor = "0xFFFFFF59"
-    g.AppendChild(newLabel(e.label, "DMMono-Medium", 20, labelColor, x + 16, y + 11, m.colW - 140))
+    g.AppendChild(newLabel(e.label, "DMMono-Medium", 20, labelColor, x + 16, y + 11, w - 140))
     if NxToStr(e.value) <> "" then
         valueColor = "0xFFFFFFBF"
         if e.active = true then valueColor = color
-        v = newLabel(e.value, "DMMono-Regular", 18, valueColor, x + 16, y + 13, m.colW - 32)
+        v = newLabel(e.value, "DMMono-Regular", 18, valueColor, x + 16, y + 13, w - 32)
         v.horizAlign = "right"
         g.AppendChild(v)
+    end if
+end sub
+
+' SUBTITLE LANGUAGE or AUDIO LANGUAGE in place of the columns, as upstream's
+' pickerZone: the title, Settings' wording, and every preset in two columns,
+' the saved one ACTIVE.
+function renderLanguages(g as Object, s as Object) as Integer
+    x = m.colX[0]
+    title = "AUDIO LANGUAGE"
+    note = "Choose which audio track to prefer when multiple are available."
+    saved = NxToStr(s.audioLanguage)
+    if m.picker = "subsLanguage" then
+        title = "SUBTITLE LANGUAGE"
+        note = "Choose which subtitle track to prefer when multiple are available."
+        saved = NxToStr(s.subsLanguage)
+    end if
+    g.AppendChild(newLabel(title, "DMMono-Medium", 16, "0xFFFFFF99", x, 46, 0))
+    g.AppendChild(newLabel(note, "DMMono-Regular", 17, "0xFFFFFF99", x, 76, 0))
+    top = 112
+    langs = NxList(s.languages)
+    split = (langs.Count() + 1) \ 2
+    bottom = top
+    for i = 0 to langs.Count() - 1
+        c = 0
+        r = i
+        if i >= split then
+            c = 1
+            r = i - split
+        end if
+        on = langs[i].code = saved
+        v = ""
+        if on then v = "ACTIVE"
+        y = top + r * 58
+        drawRow(g, x + c * (m.langW + 20), y, { label: langs[i].label, value: v, active: on }, i = m.pickIdx, s.color, m.langW)
+        if y + 58 > bottom then bottom = y + 58
+    end for
+    return bottom
+end function
+
+' Opens a language list on its saved choice (upstream's selectedOptionID).
+sub openLanguages(key as String)
+    m.picker = key
+    s = m.top.state
+    saved = NxToStr(s.audioLanguage)
+    if key = "subsLanguage" then saved = NxToStr(s.subsLanguage)
+    m.pickIdx = 0
+    langs = NxList(s.languages)
+    for i = 0 to langs.Count() - 1
+        if langs[i].code = saved then m.pickIdx = i
+    end for
+    render()
+end sub
+
+' Closes the list, with focus back on the row that opened it, as upstream's
+' collapsePicker.
+sub closeLanguages()
+    owner = "pick:" + m.picker
+    m.picker = ""
+    m.col = 0
+    cols = columns()
+    f = focusables(cols[0])
+    for k = 0 to f.Count() - 1
+        if cols[0][f[k]].id = owner then m.idx[0] = k
+    end for
+    render()
+end sub
+
+' Up, Down, Left, Right, OK and Back in a language list.
+sub languageKey(key as String)
+    langs = NxList(m.top.state.languages)
+    n = langs.Count()
+    split = (n + 1) \ 2
+    i = m.pickIdx
+    if key = "up" then
+        if i <> 0 and i <> split then i = i - 1
+    else if key = "down" then
+        if i <> split - 1 and i < n - 1 then i = i + 1
+    else if key = "right" then
+        if i < split and i + split < n then i = i + split
+    else if key = "left" then
+        if i >= split then i = i - split
+    else if key = "OK" then
+        if n > 0 then m.top.action = m.picker + ":" + langs[i].code
+        closeLanguages()
+        return
+    else if key = "back" then
+        closeLanguages()
+        return
+    end if
+    if i <> m.pickIdx then
+        m.pickIdx = i
+        render()
     end if
 end sub
 
@@ -283,6 +397,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         end if
         return true
     end if
+    if m.picker <> "" then
+        languageKey(key)
+        return true
+    end if
     cols = columns()
     f = focusables(cols[m.col])
     if key = "up" and m.idx[m.col] > 0 then
@@ -308,6 +426,8 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         if id = "info" then
             m.infoOpen = true
             render()
+        else if Left(id, 5) = "pick:" then
+            openLanguages(Mid(id, 6))
         else
             m.top.action = id
         end if

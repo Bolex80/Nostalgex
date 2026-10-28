@@ -64,6 +64,13 @@ function NxLanguageLabel(code as String) as String
     return UCase(code)
 end function
 
+' shortLabel(for:), the Now Playing panel's value for a language row:
+' SYSTEM for the device's language, else the code in capitals.
+function NxLanguageShortLabel(code as String) as String
+    if code = "__system__" then return "SYSTEM"
+    return UCase(code)
+end function
+
 ' SUBTITLE LANGUAGE ("subsLanguage") or AUDIO LANGUAGE ("audioLanguage") as
 ' saved, "__system__" until chosen, as upstream's
 ' loadPreferredSubtitleLanguageInitial and loadPreferredAudioLanguageInitial.
