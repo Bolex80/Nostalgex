@@ -284,9 +284,17 @@ function NxRunFullSubTests() as Integer
     ' The stored one is asked for only where this TV wouldn't play it as
     ' stored: the answer is the device's, off the TV too.
     want = "http://emby:8096/Videos/a/pa/Subtitles/4/0/Stream.srt http://emby:8096/Videos/b/pb/Subtitles/2/0/Stream.srt http://emby:8096/Videos/b/pb/Subtitles/4/0/Stream.srt"
-    if not NxMbDirectPlays(stored, false) then want = want + " http://emby:8096/Videos/c/pc/Subtitles/4/0/Stream.srt"
-    print "full subtitle cases: an AAC MP4 plays as stored here: "; NxMbDirectPlays(stored, false)
+    if not NxMbDirectPlays(stored, servers["0"]) then want = want + " http://emby:8096/Videos/c/pc/Subtitles/4/0/Stream.srt"
+    print "full subtitle cases: an AAC MP4 plays as stored here: "; NxMbDirectPlays(stored, servers["0"])
     NxCheck(r, "warm: always, server streams, forced then full", NxSubtitleWarmList(channels, 1200, 3600, "en", true, ["en"], servers, {}).Join(" "), want)
+    ' STREAM QUALITY's ceiling sends a file over it to the server, so its
+    ' full track is asked for wherever this TV would play it as stored.
+    stored.bitrate = 3000
+    cWant = "http://emby:8096/Videos/a/pa/Subtitles/4/0/Stream.srt http://emby:8096/Videos/b/pb/Subtitles/2/0/Stream.srt http://emby:8096/Videos/b/pb/Subtitles/4/0/Stream.srt http://emby:8096/Videos/c/pc/Subtitles/4/0/Stream.srt"
+    NxCheck(r, "warm: always, LOW sends a 3 Mb/s file to the server", NxSubtitleWarmList(channels, 1200, 3600, "en", true, ["en"], servers, {}, "low").Join(" "), cWant)
+    NxCheck(r, "direct: LOW holds a 3 Mb/s file off direct play", FormatJson(NxMbDirectPlays(stored, servers["0"], "low")), "false")
+    NxCheck(r, "warm: always, HIGH leaves a 3 Mb/s file as at Auto", NxSubtitleWarmList(channels, 1200, 3600, "en", true, ["en"], servers, {}, "high").Join(" "), want)
+    stored.Delete("bitrate")
     NxCheck(r, "warm: not always, forced only", NxSubtitleWarmList(channels, 1200, 3600, "en", false, ["en"], servers, {}).Join(" "), "http://emby:8096/Videos/b/pb/Subtitles/2/0/Stream.srt")
     NxCheck(r, "warm: always, no track in the language", NxSubtitleWarmList(channels, 1200, 3600, "de", true, ["en"], servers, {}).Count().ToStr(), "0")
     print "full subtitle cases: "; r.pass; " passed,"; r.fail; " failed"
