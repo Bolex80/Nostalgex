@@ -26,7 +26,8 @@ sub runEvents()
 end sub
 
 ' The transport: the saved servers (as playback reads them) and one request
-' at a time, 12 s each, as upstream's report session.
+' at a time, 12 s each, as upstream's report session. A Plex answer (sent
+' with NxPlexHeaders) is repaired first, as WatchStateGuard's reads are.
 function NxReportNet() as Object
     return {
         server: function(index as Dynamic) as Dynamic
@@ -42,7 +43,7 @@ function NxReportNet() as Object
             return { kind: NxServerKind(s), base: base, token: NxToStr(s.accessToken), userId: NxToStr(s.userId) }
         end function,
         send: function(method as String, url as String, headers as Object, body as String) as Object
-            return NxServerRequest(method, url, headers, body, 12000)
+            return NxServerRequest(method, url, headers, body, 12000, headers.DoesExist("X-Plex-Client-Identifier"))
         end function,
         sleep: sub(ms as Integer)
             Sleep(ms)
