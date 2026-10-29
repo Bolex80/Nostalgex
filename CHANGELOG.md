@@ -22,6 +22,11 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   masters, the 1024 previews, the 512 icon, the 320×180 `LEANBACK_LAUNCHER` banner and the
   real-size contact sheets.
 - `brand/assets/` — the generated assets, including `bolextv-banner-320x180-20261029-v1.png`.
+- `docs/ARCHITECTURE-20261029-v1.md` — Phase 0 role 1 (Cartographer, `kimi-k3`). The Plex-only
+  API contract, the client-side schedule algorithm, and the JS↔native bridge contract. Headline
+  finding: the tuner exposes **nothing** native-usable today (only `window.__openPromoModal`; zero
+  `postMessage`/`addJavascriptInterface` in `plex-tuner.html`), so Phase 2 must add the bridge to
+  upstream code. Citations were spot-checked against the source by the orchestrator.
 
 ### Deployed
 - LXC **228 `bolextv-tuner`** on Bolex `.5`, **`192.168.2.93:8080`** — the Nostalgex web tuner,
