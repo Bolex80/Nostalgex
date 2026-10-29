@@ -47,8 +47,9 @@ function startOver(src, { signOutThrows = false } = {}) {
   const signFn = lift(src, "signOut");
   if (!startFn || !signFn) return null;
   const store = (init) => { const m = new Map(Object.entries(init)); return { m, getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
-  const local = store({ plex90_saved_auth: '{"token":"t","serverUrl":"http://x","backend":"jellyfin"}', plex90_library_cache: "x", other: "kept" });
-  const session = store({ plex90_token: "t", plex90_server_url: "http://x", plex90_backend: "jellyfin", plex90_jellyfin_user_id: "u" });
+  const local = store({ plex90_saved_auth: '{"token":"t","serverUrl":"http://x","backend":"jellyfin"}', plex90_library_cache: "x", other: "kept",
+    plex90_token: "t", plex90_server_url: "http://x", plex90_backend: "jellyfin", plex90_jellyfin_user_id: "u" });
+  const session = store({});
   const calls = [];
   const el = () => ({ classList: { add() {}, remove() {} }, style: {} });
   const ctx = {
@@ -80,7 +81,11 @@ if (r) {
   check("the saved login is gone", !r.local.includes("plex90_saved_auth"), r.local.join(","));
   check("the library cache is gone", r.calls.includes("clearLibraryCache") && !r.local.includes("plex90_library_cache"));
   check("unrelated storage stays", r.local.includes("other"));
-  check("the session's login is gone", r.session.length === 0, r.session.join(","));
+  const loginKeys = ["plex90_token", "plex90_server_url", "plex90_backend", "plex90_jellyfin_user_id"];
+  // The session became device-scoped (localStorage) so it survives an app restart; start over
+  // must still forget it, which is the behaviour this asserts.
+  check("start over forgets the persistent login", loginKeys.every(k => !r.local.includes(k)),
+    r.local.join(","));
   check("then it leaves for web-tuner.html, last", r.calls.at(-1) === "replace web-tuner.html", r.calls.join(" > "));
 }
 const r2 = startOver(page, { signOutThrows: true });

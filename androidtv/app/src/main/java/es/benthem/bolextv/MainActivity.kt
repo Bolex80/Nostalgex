@@ -313,30 +313,41 @@ class MainActivity : Activity() {
         )
         return """
             (function(){
-              if (document.getElementById('bolextv-brand')) return 'already';
-              // The page carries FIVE logo slots (:3137, :3145, :3317, :3406, :3465) across
-              // different screens. Branding only the first left the setup and loading screens
-              // on the old mark, which is exactly what Alex saw.
+              if (document.getElementById('bolextv-brand-done')) return 'already';
               var olds = Array.prototype.slice.call(document.querySelectorAll(
                 'img[alt="NOSTALGEX"], img[alt="Nostalgex"], img[src*="nostalgex"]'));
               if (!olds.length) return 'no-logo';
-              var box = document.createElement('span');
-              box.id = 'bolextv-brand';
-              box.style.cssText = 'display:inline-flex;align-items:center;gap:18px;';
-              var img = document.createElement('img');
-              img.alt = 'BolexTV';
-              img.src = 'data:image/svg+xml;base64,$b64';
-              img.style.cssText = 'height:84px;width:84px;display:block;';
-              var word = document.createElement('span');
-              word.textContent = 'BOLEXTV';
-              word.style.cssText = "font-family:'Press Start 2P','VT323',monospace;" +
-                                   "font-size:30px;letter-spacing:6px;color:#F2EAE1;";
-              box.appendChild(img);
-              box.appendChild(word);
-              olds.forEach(function(o, i){
-                var clone = i === 0 ? box : box.cloneNode(true);
-                o.replaceWith(clone);
+              olds.forEach(function(o){
+                // The page places this logo in five slots of very different sizes. The top bar is
+                // 48px tall and its slot is 96px wide, so a full-size lockup spilled over the
+                // now-playing artwork and was unreadable. Compact there, full lockup elsewhere.
+                var compact = !!(o.closest && o.closest('.m-topbar'));
+                var wrap = document.createElement('span');
+                wrap.className = 'bolextv-brand';
+                wrap.style.cssText = 'display:inline-flex;align-items:center;gap:10px;' +
+                                     'max-width:100%;overflow:hidden;';
+                var im = document.createElement('img');
+                im.alt = 'BolexTV';
+                im.src = 'data:image/svg+xml;base64,$b64';
+                var wd = document.createElement('span');
+                wd.textContent = 'BOLEXTV';
+                if (compact) {
+                  im.style.cssText = 'height:22px;width:22px;display:block;';
+                  wd.style.cssText = "font-family:'VT323',monospace;font-size:17px;" +
+                                     "letter-spacing:2px;color:#F2EAE1;line-height:1;";
+                } else {
+                  im.style.cssText = 'height:84px;width:84px;display:block;';
+                  wd.style.cssText = "font-family:'Press Start 2P','VT323',monospace;font-size:30px;" +
+                                     "letter-spacing:6px;color:#F2EAE1;";
+                }
+                wrap.appendChild(im);
+                wrap.appendChild(wd);
+                o.replaceWith(wrap);
               });
+              var marker = document.createElement('span');
+              marker.id = 'bolextv-brand-done';
+              marker.style.display = 'none';
+              document.body.appendChild(marker);
               document.title = 'BolexTV';
               return 'rebranded:' + olds.length;
             })();

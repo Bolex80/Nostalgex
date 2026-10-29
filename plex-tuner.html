@@ -3193,15 +3193,6 @@
       </svg>
       <span class="m-drawer-label">INSTAGRAM</span>
     </a>
-    <a class="m-drawer-item m-drawer-item--coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
-        <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-        <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-        <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
-      </svg>
-      <span class="m-drawer-label">BUY ME A COFFEE</span>
-    </a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -3279,15 +3270,6 @@
         <span class="v-btn-short">APPLE TV</span>
         <span class="v-btn-value">[↓]</span>
       </a>
-      <a class="v-coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee to support Nostalgex">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-          <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-          <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
-        </svg>
-        <span class="v-coffee-label">BUY ME<br>A COFFEE</span>
-      </a>
       <a class="v-social" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" aria-label="Nostalgex on Instagram">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
@@ -3332,13 +3314,6 @@
             </div>
             <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
           </div>
-        </div>
-        <div class="loading-library-coffee">
-          <div class="loading-library-coffee-lead">Channels are building. Grab a coffee while you wait.</div>
-          <a class="loading-library-coffee-btn" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee to support Nostalgex">
-            <span class="cup" aria-hidden="true">☕</span>
-            <span>BUY ME A COFFEE</span>
-          </a>
         </div>
         <button type="button" class="loading-library-start-over" id="loading-library-start-over" onclick="startOverFromLoading()">START OVER</button>
       </div>
@@ -3693,7 +3668,6 @@
         <div class="help-row">
           <div class="help-key">COFFEE</div>
           <div class="help-desc">
-            <a href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" style="color: rgba(255,229,0,0.85); text-decoration: none; border-bottom: 1px solid rgba(255,229,0,0.28); padding-bottom: 2px;">Buy Me a Coffee</a>
           </div>
         </div>
       </div>
@@ -3704,7 +3678,6 @@
       <div class="config-footer-hint"><span>[&lt;/&gt;]</span> TABS</div>
       <div class="config-footer-hint"><span>[ENTER]</span> TOGGLE / ADD</div>
       <div class="config-footer-hint"><span>[DEL]</span> REMOVE</div>
-      <div class="config-footer-hint"><span>[☕]</span> <a href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" style="color: rgba(0,255,255,0.45); text-decoration: none; border-bottom: 1px solid rgba(0,255,255,0.16); padding-bottom: 2px;">BUY ME A COFFEE</a></div>
     </div>
     <!-- WEB TUNER 1.0.3, or WEB TUNER 1.0.3 · DOCKER. Filled in by loadTunerVersion(). -->
     <div class="config-version" id="cfg-tuner-version" hidden></div>
@@ -4367,10 +4340,10 @@
     setInterval(tickProgress, 1000);
     // The landing flow redirects here with a flag when the account has 2+ servers, so
     // server selection always happens in one place (the player's picker).
-    if (sessionStorage.getItem('plex90_pick_server') === '1' && sessionStorage.getItem('plex90_token')) {
-      sessionStorage.removeItem('plex90_pick_server');
-      plexToken = sessionStorage.getItem('plex90_token');
-      sessionStorage.setItem('plex90_user_token', plexToken);
+    if (localStorage.getItem('plex90_pick_server') === '1' && localStorage.getItem('plex90_token')) {
+      localStorage.removeItem('plex90_pick_server');
+      plexToken = localStorage.getItem('plex90_token');
+      localStorage.setItem('plex90_user_token', plexToken);
       document.getElementById('plex-connect').style.display = 'flex';
       document.getElementById('plex-actions').style.display = 'none';
       discoverServers();
@@ -7622,8 +7595,8 @@
 
   // Which backend the user authenticated with (set by web-tuner.html before redirect).
   // For Jellyfin, plexServerUrl/plexToken hold the Jellyfin URL + access token.
-  let mediaBackend = sessionStorage.getItem('plex90_backend') || 'plex';
-  let jellyfinUserId = sessionStorage.getItem('plex90_jellyfin_user_id') || '';
+  let mediaBackend = localStorage.getItem('plex90_backend') || 'plex';
+  let jellyfinUserId = localStorage.getItem('plex90_jellyfin_user_id') || '';
 
   // Jellyfin MediaBrowser auth header (mirrors the tvOS JellyfinAPIService). Emby takes the
   // same header (EmbyAPIService.authorizationHeader), so both backends use this one.
@@ -7642,7 +7615,7 @@
     if (!isMediaBrowserBackend(kind) || !isMediaBrowserBackend(mediaBackend) || kind === mediaBackend) return false;
     console.log(`[Nostalgex] This server is ${BACKEND_NAMES[kind]}, not ${BACKEND_NAMES[mediaBackend]}. Switching the saved sign-in over.`);
     mediaBackend = kind;
-    try { sessionStorage.setItem('plex90_backend', kind); } catch (e) {}
+    try { localStorage.setItem('plex90_backend', kind); } catch (e) {}
     try {
       const saved = JSON.parse(localStorage.getItem('plex90_saved_auth') || 'null');
       if (saved && isMediaBrowserBackend(saved.backend) && saved.serverUrl === plexServerUrl) {
@@ -7706,7 +7679,7 @@
           if (checkData.authToken) {
             clearInterval(pollInterval);
             plexToken = checkData.authToken;
-            sessionStorage.setItem('plex90_token', plexToken);
+            localStorage.setItem('plex90_token', plexToken);
             // Hide the PIN/QR while we discover servers and (for 2+) show the picker.
             if (pinBlock) pinBlock.style.display = 'none';
             await discoverServers();
@@ -7927,15 +7900,15 @@
     plexToken = resolved[0].token;
 
     // Persist user token (for plex.tv re-validation) separately from server token
-    const serverTokenIsOwnToken = resolved[0].token === (sessionStorage.getItem('plex90_token') || plexToken);
+    const serverTokenIsOwnToken = resolved[0].token === (localStorage.getItem('plex90_token') || plexToken);
     if (!serverTokenIsOwnToken) {
-      sessionStorage.setItem('plex90_user_token', sessionStorage.getItem('plex90_token') || '');
+      localStorage.setItem('plex90_user_token', localStorage.getItem('plex90_token') || '');
     }
-    sessionStorage.setItem('plex90_token', plexToken);
-    sessionStorage.setItem('plex90_server_url', plexServerUrl);
-    sessionStorage.setItem('plex90_server_name', plexServerName);
-    sessionStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
-    sessionStorage.setItem('plex90_discovered_servers', JSON.stringify(discoveredServers));
+    localStorage.setItem('plex90_token', plexToken);
+    localStorage.setItem('plex90_server_url', plexServerUrl);
+    localStorage.setItem('plex90_server_name', plexServerName);
+    localStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
+    localStorage.setItem('plex90_discovered_servers', JSON.stringify(discoveredServers));
 
     plexConnected = true;
     updateConfigPlexStatus();
@@ -7959,17 +7932,17 @@
   }
 
   async function checkStoredAuth() {
-    // If sessionStorage is empty (direct bookmark to plex-tuner.html), restore from localStorage.
-    if (!sessionStorage.getItem('plex90_token')) {
+    // If localStorage is empty (direct bookmark to plex-tuner.html), restore from localStorage.
+    if (!localStorage.getItem('plex90_token')) {
       try {
         const saved = JSON.parse(localStorage.getItem('plex90_saved_auth') || 'null');
         if (saved && saved.token && saved.serverUrl) {
-          sessionStorage.setItem('plex90_token', saved.token);
-          sessionStorage.setItem('plex90_server_url', saved.serverUrl);
-          sessionStorage.setItem('plex90_server_name', saved.serverName || '');
-          if (saved.userToken) sessionStorage.setItem('plex90_user_token', saved.userToken);
-          if (saved.backend) sessionStorage.setItem('plex90_backend', saved.backend);
-          if (saved.jellyfinUserId) sessionStorage.setItem('plex90_jellyfin_user_id', saved.jellyfinUserId);
+          localStorage.setItem('plex90_token', saved.token);
+          localStorage.setItem('plex90_server_url', saved.serverUrl);
+          localStorage.setItem('plex90_server_name', saved.serverName || '');
+          if (saved.userToken) localStorage.setItem('plex90_user_token', saved.userToken);
+          if (saved.backend) localStorage.setItem('plex90_backend', saved.backend);
+          if (saved.jellyfinUserId) localStorage.setItem('plex90_jellyfin_user_id', saved.jellyfinUserId);
 
           // Hide the Plex connect screen immediately — we have saved credentials and are
           // restoring the session. Don't let it flash "CONNECT WITH PLEX" to Jellyfin users
@@ -7978,19 +7951,19 @@
         }
       } catch (e) {}
     } else {
-      // sessionStorage already has a token (came from web-tuner.html redirect or previous page).
+      // localStorage already has a token (came from web-tuner.html redirect or previous page).
       // Hide connect screen immediately so Jellyfin users don't see "CONNECT WITH PLEX" during validation.
       document.getElementById('plex-connect').style.display = 'none';
     }
 
     // Re-read backend selection (web-tuner.html sets this before redirecting here).
-    mediaBackend = sessionStorage.getItem('plex90_backend') || 'plex';
-    jellyfinUserId = sessionStorage.getItem('plex90_jellyfin_user_id') || '';
+    mediaBackend = localStorage.getItem('plex90_backend') || 'plex';
+    jellyfinUserId = localStorage.getItem('plex90_jellyfin_user_id') || '';
 
-    const storedToken = sessionStorage.getItem('plex90_token');
-    const storedUrl = sessionStorage.getItem('plex90_server_url');
-    const storedName = sessionStorage.getItem('plex90_server_name');
-    const storedUserToken = sessionStorage.getItem('plex90_user_token');
+    const storedToken = localStorage.getItem('plex90_token');
+    const storedUrl = localStorage.getItem('plex90_server_url');
+    const storedName = localStorage.getItem('plex90_server_name');
+    const storedUserToken = localStorage.getItem('plex90_user_token');
 
     if (!storedToken || !storedUrl) return;
 
@@ -8079,7 +8052,7 @@
         plexConnections = [{ uri: storedUrl }];
 
         // Restore multi-server list; fall back to single-server if not present
-        const storedSelectedServers = sessionStorage.getItem('plex90_selected_servers');
+        const storedSelectedServers = localStorage.getItem('plex90_selected_servers');
         if (storedSelectedServers) {
           try { selectedServers = JSON.parse(storedSelectedServers); } catch {}
         }
@@ -8087,7 +8060,7 @@
           selectedServers = [{ name: storedName || 'Plex', url: storedUrl, token: storedToken, connections: [{ uri: storedUrl }], machineIdentifier: '' }];
         }
 
-        const storedDiscoveredServers = sessionStorage.getItem('plex90_discovered_servers');
+        const storedDiscoveredServers = localStorage.getItem('plex90_discovered_servers');
         if (storedDiscoveredServers) {
           try { discoveredServers = JSON.parse(storedDiscoveredServers); } catch {}
         }
@@ -8098,11 +8071,11 @@
       } else if (tokenRevoked) {
         // Token was definitively rejected — clear both session AND localStorage so stale
         // credentials don't persist across page loads.
-        sessionStorage.removeItem('plex90_token');
-        sessionStorage.removeItem('plex90_server_url');
-        sessionStorage.removeItem('plex90_server_name');
-        sessionStorage.removeItem('plex90_user_token');
-        sessionStorage.removeItem('plex90_selected_servers');
+        localStorage.removeItem('plex90_token');
+        localStorage.removeItem('plex90_server_url');
+        localStorage.removeItem('plex90_server_name');
+        localStorage.removeItem('plex90_user_token');
+        localStorage.removeItem('plex90_selected_servers');
         try { localStorage.removeItem('plex90_saved_auth'); } catch (e) {}
         // The cached library belongs to credentials that no longer work, and the
         // cache is consulted before the connect screen, so leaving it would build
@@ -8153,14 +8126,14 @@
     selectedServers = [];
     selectedServerIndices = new Set();
     discoveredServers = [];
-    sessionStorage.removeItem('plex90_token');
-    sessionStorage.removeItem('plex90_discovered_servers');
-    sessionStorage.removeItem('plex90_server_url');
-    sessionStorage.removeItem('plex90_server_name');
-    sessionStorage.removeItem('plex90_user_token');
-    sessionStorage.removeItem('plex90_selected_servers');
-    sessionStorage.removeItem('plex90_backend');
-    sessionStorage.removeItem('plex90_jellyfin_user_id');
+    localStorage.removeItem('plex90_token');
+    localStorage.removeItem('plex90_discovered_servers');
+    localStorage.removeItem('plex90_server_url');
+    localStorage.removeItem('plex90_server_name');
+    localStorage.removeItem('plex90_user_token');
+    localStorage.removeItem('plex90_selected_servers');
+    localStorage.removeItem('plex90_backend');
+    localStorage.removeItem('plex90_jellyfin_user_id');
     try { localStorage.removeItem('plex90_saved_auth'); } catch (e) {}
     // The library cache persists across sessions now, so it has to go with the
     // credentials. Otherwise a signed-out browser keeps the whole library.
@@ -8279,7 +8252,7 @@
       });
     }
 
-    sessionStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
+    localStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
     updateConfigPlexStatus();
 
     // Rebuild library from updated server set
@@ -8301,8 +8274,8 @@
   // has none, and at LOW a 20 Mbps MP4 would direct play for up to a day, so it is refused once.
   const LIBRARY_CACHE_VERSION = 3;
 
-  // localStorage, not sessionStorage. The 24 hour TTL above only means something
-  // if the cache outlives the tab, and sessionStorage is cleared the moment the
+  // localStorage, not localStorage. The 24 hour TTL above only means something
+  // if the cache outlives the tab, and localStorage is cleared the moment the
   // tab closes. Every fresh visit therefore rescanned the whole library and the
   // TTL never once applied. Anything that ends a session has to clear this now
   // that it persists: see signOut().
@@ -9072,7 +9045,7 @@
         if (uri !== plexServerUrl) {
           console.log(`[Nostalgex] Library fetch fell back to ${uri}`);
           plexServerUrl = uri;
-          sessionStorage.setItem('plex90_server_url', uri);
+          localStorage.setItem('plex90_server_url', uri);
         }
         return data;
       } catch (err) {
