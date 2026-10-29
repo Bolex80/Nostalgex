@@ -9475,7 +9475,7 @@
         const selfHttp = location.protocol === 'http:';
         const NAME = backendDisplayName().toUpperCase();
         errorEl.textContent = err && err.plexStatus
-          ? (selfHttp ? `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN` : `${NAME} SESSION ENDED. RECONNECT AT NOSTALGEX.APP/WEB-TUNER`)
+          ? (selfHttp ? `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN` : `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN`)
           : mixedContentBlocked
           ? 'YOUR SERVER USES HTTP. BROWSERS BLOCK THAT ON A SECURE PAGE. USE AN HTTPS URL, OR THE APPLE TV APP FOR A LOCAL SERVER'
           : selfHttp

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nostalgex Web Tuner: Watch Your Library as Live TV</title>
+<title>BolexTV: Watch Your Library as Live TV</title>
 <!-- selfhost:strip:start -->
 <meta name="description" content="Watch your Plex, Jellyfin or Emby library as live channels with a retro guide in your browser. Free, no account. Jellyfin and Emby need an https address.">
 <meta name="robots" content="index, follow">
@@ -12,19 +12,19 @@
 <link rel="apple-touch-icon" href="./tuner/logo/apple-touch-icon.png">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Nostalgex Web Tuner: Watch Your Library as Live TV">
+<meta property="og:title" content="BolexTV: Watch Your Library as Live TV">
 <meta property="og:description" content="Watch your Plex, Jellyfin or Emby library as live channels with a retro guide in your browser. Free, no account. Jellyfin and Emby need an https address.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.nostalgex.app/web-tuner">
-<meta property="og:site_name" content="Nostalgex">
+<meta property="og:site_name" content="BolexTV">
 <meta property="og:image" content="https://www.nostalgex.app/og-image-1200.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Nostalgex channel guide: a grid of live channels built from your own library">
+<meta property="og:image:alt" content="The BolexTV channel guide: a grid of live channels built from your own library">
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Nostalgex Web Tuner: Watch Your Library as Live TV">
+<meta name="twitter:title" content="BolexTV: Watch Your Library as Live TV">
 <meta name="twitter:description" content="Watch your Plex, Jellyfin or Emby library as live channels with a retro guide in your browser. Free, no account. Jellyfin and Emby need an https address.">
 <meta name="twitter:image" content="https://www.nostalgex.app/og-image-1200.png">
 <!-- selfhost:strip:end -->
@@ -74,7 +74,7 @@
     {
       "@type": "WebApplication",
       "@id": "https://www.nostalgex.app/web-tuner#webapp",
-      "name": "Nostalgex Web Tuner",
+      "name": "BolexTV",
       "url": "https://www.nostalgex.app/web-tuner",
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "Any modern web browser",
@@ -117,7 +117,7 @@
       "@id": "https://www.nostalgex.app/#org",
       "name": "Muell Haus Inc.",
       "url": "https://www.muellhaus.com/",
-      "logo": "https://www.nostalgex.app/logo/nostalgex-512.png"
+      "logo": "./tuner/logo/bolextv-512.png"
     },
     {
       "@type": "Person",
@@ -154,8 +154,8 @@
 
   <header class="nav" id="nav">
     <div class="nav-inner">
-      <a class="brand" href="/" aria-label="Nostalgex, home">
-        <span class="brand-word" role="img" aria-label="Nostalgex">N<svg class="brand-o" viewBox="0 0 126 111" aria-hidden="true"><defs><linearGradient id="brandSun" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0.05" stop-color="#f838ac"/><stop offset="0.5" stop-color="#ff8a3d"/><stop offset="0.95" stop-color="#ffd91c"/></linearGradient></defs><rect x="6" y="6" width="114" height="99" rx="30" fill="url(#brandSun)" stroke="currentColor" stroke-width="11"/><path d="M12 43 H114" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.55"/><path d="M12 70 H114" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.55"/></svg>STALGEX</span>
+      <a class="brand" href="/" aria-label="BolexTV, home">
+        <span class="brand-word" role="img" aria-label="BolexTV"><svg class="brand-o" viewBox="0 0 1024 1024" aria-hidden="true"><rect x="112" y="112" width="800" height="800" rx="224" fill="#E9A13B"/><path d="M232 358 L232 666 L470 512 Z" fill="#12151A"/><rect x="506" y="358" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="474" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="590" width="188" height="76" rx="18" fill="#12151A"/></svg>BOLEXTV</span>
       </a>
       <div class="nav-actions">
         <!-- selfhost:strip:start -->
@@ -319,7 +319,7 @@
 
         <!-- 8. Quick Connect (Jellyfin) -->
         <section class="signin-screen" data-screen="quick" aria-labelledby="quick-title" hidden>
-          <h2 class="signin-title" id="quick-title">APPROVE NOSTALGEX IN JELLYFIN</h2>
+          <h2 class="signin-title" id="quick-title">APPROVE BOLEXTV IN JELLYFIN</h2>
           <p class="signin-text">On your phone or computer, open Jellyfin, then your profile, then Quick Connect, and enter this code.</p>
           <div class="signin-code signin-code--digits" id="quick-code" aria-live="polite">------</div>
           <p class="signin-status signin-dots">WAITING FOR APPROVAL</p>
@@ -331,7 +331,7 @@
         <!-- Signed in: on to the guide -->
         <section class="signin-screen" data-screen="done" aria-live="polite" hidden>
           <p class="signin-server">CONNECTED</p>
-          <p class="signin-status signin-dots">LOADING NOSTALGEX</p>
+          <p class="signin-status signin-dots">LOADING BOLEXTV</p>
         </section>
 
       </div>
@@ -365,8 +365,8 @@
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
-        <img src="./tuner/logo/nostalgex-black.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-day" loading="lazy">
-        <img src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex" width="545" height="72" class="footer-logo footer-logo-nite" loading="lazy">
+        <img src="./tuner/logo/bolextv-black.svg" alt="BolexTV" width="545" height="72" class="footer-logo footer-logo-day" loading="lazy">
+        <img src="./tuner/logo/bolextv-white.svg" alt="BolexTV" width="545" height="72" class="footer-logo footer-logo-nite" loading="lazy">
         <p>Retro cable TV for your own library.</p>
       </div>
       <nav class="footer-links" aria-label="Footer">
