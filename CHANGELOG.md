@@ -27,6 +27,12 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   finding: the tuner exposes **nothing** native-usable today (only `window.__openPromoModal`; zero
   `postMessage`/`addJavascriptInterface` in `plex-tuner.html`), so Phase 2 must add the bridge to
   upstream code. Citations were spot-checked against the source by the orchestrator.
+- `docs/FIELD-HARNESS-20261029-v1.md` — Phase 0 role 2 (Field Tester, `glm-5.3-flash`). The 16-item
+  codec matrix to run on the Mi Box in TV Bro, with a results table, verdict definitions, an optional
+  adb path and a decision rule. Its key structural finding — verified by the orchestrator — is that
+  the tuner **direct-plays only mp4/webm/mov and sends every MKV through Plex's server-side HLS
+  transcode** (`plex-tuner.html:5566-5593`), so the tuner UI can never answer the surround-audio
+  question: a raw-part probe is required.
 
 ### Deployed
 - LXC **228 `bolextv-tuner`** on Bolex `.5`, **`192.168.2.93:8080`** — the Nostalgex web tuner,
