@@ -104,6 +104,7 @@ class MainActivity : Activity() {
             // connect button to the bottom of that scroll box so it is always visible.
             view.evaluateJavascript(TV_CSS, null)
             view.evaluateJavascript(brandScript(), null)
+            view.evaluateJavascript(NAV_JS, null)
         }
 
         override fun onReceivedError(
@@ -286,7 +287,12 @@ class MainActivity : Activity() {
     /** Debug-only: log the rendered page text so a blank screen can be told from an unpainted one. */
     private fun dumpPageText() {
         evaluate(
-            "(document.body&&document.body.innerText||'').replace(/\\s+/g,' ').trim().slice(0,300)"
+            "(function(){" +
+            "  var a = document.activeElement;" +
+            "  var f = a ? (a.className || a.tagName) : 'none';" +
+            "  var t = (document.body && document.body.innerText || '').replace(/\\s+/g,' ').trim().slice(0,200);" +
+            "  return t + ' ||FOCUS:' + f + ' ||NAV:' + (window.__bolextvNav ? 'armed' : 'none');" +
+            "})()"
         ) { text -> android.util.Log.d(TAG, "PAGE: $text") }
     }
 
@@ -337,6 +343,64 @@ class MainActivity : Activity() {
         const val BRAND_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img"><rect x="112" y="112" width="800" height="800" rx="224" fill="#E9A13B"/><path d="M232 358 L232 666 L470 512 Z" fill="#12151A"/><rect x="506" y="358" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="474" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="590" width="188" height="76" rx="18" fill="#12151A"/></svg>"""
 
         /**
+         * Remote navigation for the server picker.
+         *
+         * The tuner's own picker branch (plex-tuner.html:9746-9765) moves `serverFocusIndex` and
+         * calls `renderServerOptions()`, but that renderer never applies the `.focused` class
+         * (:7838 sets only `selected`), so the cursor is invisible. It also calls preventDefault(),
+         * which blocks the browser's own focus movement, and rebuilding the list destroys whatever
+         * node had focus. Result on a TV: up/down appear dead while the native ring stays pinned
+         * to the first row.
+         *
+         * This listener runs in the CAPTURE phase, so it executes before the page's own document
+         * handler and can stop it. It drives real DOM focus through the rows and the two buttons,
+         * scrolls the focused row into view, and clicks on Enter. It only acts while the picker is
+         * open, so player-mode arrow keys (channel change) are untouched.
+         */
+        val NAV_JS = """
+            (function(){
+              if (window.__bolextvNav) return 'already';
+              window.__bolextvNav = true;
+              function items(){
+                var p = document.querySelector('.server-picker.active');
+                if (!p) return [];
+                return Array.prototype.slice.call(
+                  p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'));
+              }
+              document.addEventListener('keydown', function(e){
+                var list = items();
+                if (!list.length) return;                 // picker closed: leave the page alone
+                var kc = e.keyCode;
+                var k = e.key || '';
+                var down = (k === 'ArrowDown' || kc === 40 || kc === 20);
+                var up = (k === 'ArrowUp' || kc === 38 || kc === 19);
+                var act = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66
+                           || k === 'ArrowLeft' || k === 'ArrowRight' || kc === 37 || kc === 39);
+                if (!down && !up && !act) return;
+                var cur = list.indexOf(document.activeElement);
+                if (down || up) {
+                  var nxt = cur < 0 ? 0 : (down ? Math.min(cur + 1, list.length - 1)
+                                                : Math.max(cur - 1, 0));
+                  list[nxt].focus();
+                  list[nxt].scrollIntoView({block:'nearest'});
+                } else if (cur >= 0) {
+                  var keep = cur;
+                  list[cur].click();
+                  // A row click re-renders the list, so restore the cursor where it was.
+                  var after = items();
+                  if (after[keep] && after[keep] !== list[cur]) {
+                    after[keep].focus();
+                    after[keep].scrollIntoView({block:'nearest'});
+                  }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+              }, true);
+              return 'armed';
+            })();
+        """.trimIndent()
+
+        /**
          * Kiosk-only CSS. Kept as a string so it ships with the APK and cannot be lost by a
          * tuner update; none of it changes what the tuner does, only whether its controls fit
          * on a television.
@@ -348,9 +412,13 @@ class MainActivity : Activity() {
               s.id = 'bolextv-tv-css';
               s.textContent = [
                 'html,body{overflow-y:auto !important;}',
-                '.server-picker.active{max-height:86vh !important;overflow-y:auto !important;' +
-                  'overscroll-behavior:contain;padding:4px 4px 12px !important;}',
-                '.server-picker-connect{position:sticky;bottom:0;z-index:5;}'
+                '.server-picker.active{max-height:90vh !important;overflow:hidden !important;' +
+                  'padding:4px 4px 8px !important;}',
+                '.server-picker-list{flex:1 1 auto !important;min-height:0 !important;' +
+                  'overflow-y:auto !important;overscroll-behavior:contain;}',
+                // Not sticky: pinned, it sat on top of the last server row and looked unselectable.
+                // As a normal flex child below the scroll area it can never cover a row.
+                '.server-picker-connect{position:static !important;}'
               ].join('');
               document.head.appendChild(s);
               return 'injected';
