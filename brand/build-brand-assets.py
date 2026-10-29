@@ -72,11 +72,6 @@ def mark_tuner_dial() -> str:
 
 def mark_epg_grid() -> str:
     """Programme blocks on a guide grid; the cream block is what is on now."""
-    rows = [
-        (300, 300, AMBER), (632, 308 - 0, AMBER),
-        (300, 404, CREAM), (636, 196, AMBER),
-        (300, 236, AMBER), (568, 264, AMBER),
-    ]
     # row y positions: 3 rows of 140 with 36 gutters, centred on 512
     ys = [266, 442, 618]
     blocks = [
