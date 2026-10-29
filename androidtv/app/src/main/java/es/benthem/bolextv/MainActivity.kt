@@ -190,29 +190,40 @@ class MainActivity : Activity() {
     }
 
     private fun changeChannel(delta: Int) {
-        // Measured on the device: pressing CH+ left the playing channel untouched (0 of 122400
-        // pixels in the programme-title region changed while 18% of the video region did, so the
-        // capture was live and the channel simply did not move). The cause is that
-        // evaluateJavascript stops delivering while the WebView is playing fullscreen video - the
-        // same reason the debug page dump goes silent in the player - so the injected click never
-        // ran. Anything routed through JS is therefore unreliable exactly when it matters.
+        // The page owns two different meanings for the arrow keys, and picks between them by
+        // whether the guide is on screen (plex-tuner.html:9653):
         //
-        // This delivers the key to the WebView as a real input event instead. It needs no JS, so
-        // it keeps working during playback, and the page's own ArrowUp/ArrowDown bindings do the
-        // work (plex-tuner.html:9793-9802 maps ArrowUp -> prevChannel, ArrowDown -> nextChannel).
-        val keyCode = if (delta > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
-        // A View only receives a dispatched key if it has focus; without this the WebView ignored
-        // the event and the channel stayed put (measured twice: 0% change in the title region).
+        //   guide visible -> ArrowUp/Down move the guide focus, and Enter calls tuneFromGuide()
+        //   guide hidden  -> the arrows fall through to the player's channel change
+        //
+        // Measured on the device before this change: a lone arrow moved the guide highlight from
+        // row 20 to row 21 and left the playing programme on "Gigi & Nate". So a channel key has
+        // to be arrow-then-Enter whenever the guide is up, which is the common case because the
+        // guide sits over the player too.
+        //
+        // Enter is sent on a short delay so the guide has applied the focus move first. In the
+        // rare state where the guide is hidden the arrow has already changed channel and the
+        // Enter only brings the overlay up, which is harmless.
+        //
+        // Keys are delivered to the WebView as real input events: evaluateJavascript stops
+        // answering during playback (the debug page dump goes silent there too), so anything
+        // routed through JS fails exactly when a channel change matters.
+        val arrow = if (delta > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
+        webView.requestFocus()
+        sendKey(arrow)
+        webView.postDelayed({ sendKey(KeyEvent.KEYCODE_DPAD_CENTER) }, 140)
+        android.util.Log.d(TAG, "channel delta=$delta -> arrow=$arrow then ENTER")
+    }
+
+    /** Deliver a real key to the WebView. An unfocused View silently drops dispatched keys. */
+    private fun sendKey(keyCode: Int) {
         webView.requestFocus()
         val now = android.os.SystemClock.uptimeMillis()
         val down = webView.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
-        val up = webView.dispatchKeyEvent(KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0))
-        android.util.Log.d(TAG, "dispatch dpad key=$keyCode down=$down up=$up focus=${webView.hasFocus()}")
-        // The CustomEvent stays as the documented contract for the Phase 2 bridge; it is
-        // best-effort only, for the reasons above.
-        evaluate(
-            "window.dispatchEvent(new CustomEvent('bolextv:channel', {detail:{delta:$delta}}))"
-        ) { result -> android.util.Log.d(TAG, "channel event -> $result") }
+        val up = webView.dispatchKeyEvent(
+            KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0)
+        )
+        android.util.Log.d(TAG, "sendKey $keyCode down=$down up=$up focus=${webView.hasFocus()}")
     }
 
     /** Back button: ask the page to return to the guide, whatever it currently shows. */
