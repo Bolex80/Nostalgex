@@ -364,8 +364,12 @@ class MainActivity : Activity() {
               function items(){
                 var p = document.querySelector('.server-picker.active');
                 if (!p) return [];
+                // Filter to what is actually rendered. The tuner hides SHOW ADDRESSES on
+                // non-touch devices (:7865), and focusing a display:none element silently
+                // does nothing - which stranded the cursor one step short of CONNECT.
                 return Array.prototype.slice.call(
-                  p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'));
+                  p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'))
+                  .filter(function(el){ return el.getClientRects().length > 0; });
               }
               document.addEventListener('keydown', function(e){
                 var list = items();
