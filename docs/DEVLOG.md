@@ -36,6 +36,21 @@ Commits carry the detail of *what*; this carries the *why*.
 
 **Next.** Watch for the console line naming the branch and the error the next time this is reported; that is the fastest path to the actual cause.
 
+## 2026-10-27 (Roku: the loading note after the TV clears the saved library no longer gives a time)
+
+**Shipped.** Nothing until this lands on main. Branch `roku/restart-loading-note`, off main `9ea9e15`. Chad's go (option 1 of the power-loss rescan).
+
+**Why.** Two beta users on Discord report a full rescan every time the stick loses power. Cause: the saved library, guide, pools and enrichment cache live in `cachefs:`, which Roku keeps in RAM and empties on a reboot (Roku's file-system docs; no SD card on a Streaming Stick Plus). The registry survives a reboot but holds 32 KB, so a library can't go there. The sign-in, server kind and server list are in the registry, so a Jellyfin or Emby user comes back to the same server, not Plex. The loading screen already says what happened, but ended "This can take a few minutes", which is wrong for most libraries (Chad's 1,545 films read in 6 to 13 s).
+
+**Changed.**
+- `source/util/LoadingNote.brs`: `NxLoadingNote(firstRun, savedBefore)` returns the line under the logo. First-ever setup keeps "First setup can take a few minutes to scan and build channels." A library saved before and now gone (`savedBefore`, from the registry's `librarySaved`) says "The TV cleared the saved library, so it's being read again." with no time. A library still saved shows nothing.
+- `components/LoadingView.brs` and `.xml`: use it (the headline still names Plex, Jellyfin or Emby, `NxScanHeadline`).
+- `tests/MediaBrowserTests.brs`: the four states, no "minute" in the cleared note, a length that fits the line, and that `LoadingView` calls the function and holds no copy of the old text.
+
+**Not changed.** The scan, the schedule and playback. No speed work.
+
+**Half-done.** A cold-boot measurement on the stick (time to guide, the screen shown) waits for a restart of the stick.
+
 ## 2026-10-27 (tuner 1.0.9)
 
 **Shipped.** `tuner-v1.0.9`, the Docker image and the hosted tuner. Merged since `tuner-v1.0.8`: an empty first lineup falls back to every package with content (#124), a Plex title with a bad byte keeps its accent (#125), STREAM QUALITY (#123).
