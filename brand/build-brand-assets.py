@@ -5,7 +5,7 @@ One source of truth for geometry. The SVG master and every PNG are generated fro
 same numbers, so a corrected coordinate cannot drift between the vector and the raster.
 
 Usage:  python3 brand/build-brand-assets.py
-Output: brand/dist/
+Output: brand/assets/
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = pathlib.Path(__file__).resolve().parent
-OUT = HERE / "dist"
+OUT = HERE / "assets"
 V = "20261029-v1"          # household convention: -YYYYMMDD-vN
 
 # --- palette: one brand colour, one neutral, one accent. Nothing else. -------------
