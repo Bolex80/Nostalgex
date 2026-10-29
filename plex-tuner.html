@@ -3187,14 +3187,6 @@
     <button class="m-drawer-item" type="button" onclick="closeDrawer(); showConfig();">
       <span class="m-drawer-label">SETTINGS</span>
     </button>
-    <a class="m-drawer-item" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
-        <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
-        <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
-      </svg>
-      <span class="m-drawer-label">INSTAGRAM</span>
-    </a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -3267,19 +3259,6 @@
           <span class="v-btn-value v-key">[H]</span>
         </button>
       </div>
-      <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
-        <span class="v-btn-label">APPLE TV</span>
-        <span class="v-btn-short">APPLE TV</span>
-        <span class="v-btn-value">[↓]</span>
-      </a>
-      <a class="v-social" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" aria-label="Nostalgex on Instagram">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
-          <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
-          <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
-        </svg>
-        <span class="v-social-label">INSTAGRAM</span>
-      </a>
     </div>
 
     <!-- VIDEO CONTAINER (wraps video + overlays) -->
@@ -4475,7 +4454,6 @@
       if (!row) return;
       const promoType = row.dataset.promo;
       if (promoType === 'email') { window.__openPromoModal && window.__openPromoModal(); return; }
-      if (promoType === 'coffee') { window.open('https://buymeacoffee.com/chadmueller', '_blank', 'noopener'); return; }
       const channelId = parseInt(row.dataset.channelId);
       if (channelId) tuneFromGuide(channelId);
     });
