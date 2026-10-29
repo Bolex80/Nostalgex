@@ -13,6 +13,10 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   subtitles nice-to-have, enrichment on, dedicated LXC on bolex `.5`, no telemetry, Plex only,
   own logo), the deltas those decisions make to the plan, and the Phase 0 dispatch order.
 
+- `docs/DISPATCH-CONTROL-20261029-v1.md` — pause/resume operating procedure: the exact chat commands
+  (`/pause BolexTV`, `/pause off`), what the emergency stop covers and what it does not, the
+  `/stop` kill path for in-flight work, batch discipline, and the measured budget baseline.
+
 ### Notes
 - Fork of `chadMueller/Nostalgex` (MIT). Upstream name, icon and site are outside the licence grant;
   this project will ship under its own name once chosen.

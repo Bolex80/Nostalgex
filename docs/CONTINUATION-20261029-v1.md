@@ -93,6 +93,10 @@ These answer §9 of the plan in full. They are **decided; do not re-open them.**
 **Gate after Phase 0:** Alex decides on the audio evidence whether the WebView shell (Phase 1) and the
 native Media3 bridge (Phase 2) are worth the spend.
 
+**Stop button:** before dispatching any batch, read [`DISPATCH-CONTROL-20261029-v1.md`](DISPATCH-CONTROL-20261029-v1.md).
+Alex pauses with `/pause BolexTV` and resumes with `/pause off`; work is dispatched in bounded batches
+so that command bites quickly.
+
 ---
 
 ## 6. Open, but not blocking
