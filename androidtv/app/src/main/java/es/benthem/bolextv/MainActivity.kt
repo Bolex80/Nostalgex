@@ -103,6 +103,7 @@ class MainActivity : Activity() {
             // so neither D-pad nor touch can reach it. Bound the picker, let it scroll, and pin the
             // connect button to the bottom of that scroll box so it is always visible.
             view.evaluateJavascript(TV_CSS, null)
+            view.evaluateJavascript(brandScript(), null)
         }
 
         override fun onReceivedError(
@@ -289,8 +290,51 @@ class MainActivity : Activity() {
         ) { text -> android.util.Log.d(TAG, "PAGE: $text") }
     }
 
+    /**
+     * Replaces the tuner's own wordmark with the BolexTV lockup.
+     *
+     * The app is BolexTV; the page it loads still announces NOSTALGEX, because the mark lives in
+     * the tuner bundle (`plex-tuner.html:3406`, `img[alt="NOSTALGEX"]`). The mark is inlined here
+     * as an SVG data URI rather than fetched, so the branding ships inside the APK and a tuner
+     * update cannot revert it. Single source of truth for the geometry:
+     * `brand/assets/bolextv-logo-guide-play-20261029-v1.svg`.
+     */
+    private fun brandScript(): String {
+        val b64 = android.util.Base64.encodeToString(
+            BRAND_SVG.toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        return """
+            (function(){
+              if (document.getElementById('bolextv-brand')) return 'already';
+              var old = document.querySelector('img[alt="NOSTALGEX"]')
+                     || document.querySelector('img[src*="nostalgex"]');
+              if (!old) return 'no-logo';
+              var box = document.createElement('span');
+              box.id = 'bolextv-brand';
+              box.style.cssText = 'display:inline-flex;align-items:center;gap:18px;';
+              var img = document.createElement('img');
+              img.alt = 'BolexTV';
+              img.src = 'data:image/svg+xml;base64,$b64';
+              img.style.cssText = 'height:84px;width:84px;display:block;';
+              var word = document.createElement('span');
+              word.textContent = 'BOLEXTV';
+              word.style.cssText = "font-family:'Press Start 2P','VT323',monospace;" +
+                                   "font-size:30px;letter-spacing:6px;color:#F2EAE1;";
+              box.appendChild(img);
+              box.appendChild(word);
+              old.replaceWith(box);
+              document.title = 'BolexTV';
+              return 'rebranded';
+            })();
+        """.trimIndent()
+    }
+
     private companion object {
         const val TAG = "BolexTV"
+
+        /** Guide Play, verbatim from brand/assets/bolextv-logo-guide-play-20261029-v1.svg. */
+        const val BRAND_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img"><rect x="112" y="112" width="800" height="800" rx="224" fill="#E9A13B"/><path d="M232 358 L232 666 L470 512 Z" fill="#12151A"/><rect x="506" y="358" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="474" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="590" width="188" height="76" rx="18" fill="#12151A"/></svg>"""
 
         /**
          * Kiosk-only CSS. Kept as a string so it ships with the APK and cannot be lost by a
