@@ -23,12 +23,12 @@ To resume, open a new chat and paste the prompt in section 7. Nothing else is re
 | Item | State |
 |---|---|
 | Fork | `github.com/Bolex80/Nostalgex` — public, `fork: true` of `chadMueller/Nostalgex`, `upstream` remote configured |
-| PR #1 | **open**, mergeable, 2 files, **+299 / −0** → https://github.com/Bolex80/Nostalgex/pull/1 |
-| PR #1 contents | `docs/PLAN-20261029-v1.md` (284 lines) + `CHANGELOG.md` — **documentation only, no product code** |
-| Branch | `plan/20261029-foundation`, HEAD `f3bf9dc` (`docs: Android TV foundation plan v1`) |
+| PR #1 | **open** → https://github.com/Bolex80/Nostalgex/pull/1 |
+| PR #1 contents | `docs/PLAN-20261029-v1.md` (284 lines), this brief, `CHANGELOG.md` — **documentation only, no product code** |
+| Branch | `plan/20261029-foundation` (local clone clean, tracks `origin`; tip is this brief's commit) |
 | Local clone | `/home/alex/projects/nostalgex-android` (on the build host `ai-agents`, VM105 on Bolex) |
 | Model routing | Verified live on the build host: `glm-5.3:cloud`, `glm-5.3-flash:cloud`, `kimi-k3:cloud`, `deepseek-v4-pro:cloud` each returned a real completion via `hermes -z -m <model>` |
-| Target device | Xiaomi Google TV box, HA model `MiTV-AFKRO` / `MiTV-AFKR0` (`media_player.xiaomi_tv_box`) |
+| Target device | Xiaomi Google TV box, HA model `MiTV-AFKR0` (`media_player.xiaomi_tv_box`) |
 | Plex | `http://192.168.2.30:32400`, v1.43.5, reachable |
 | Phase 0 | **not started** — blocked only on approval of PR #1 (see §3) |
 
