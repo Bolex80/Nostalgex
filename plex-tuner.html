@@ -4756,13 +4756,12 @@
     timeSlots.innerHTML = '';
     for (let t = windowStartMs; t < windowEndMs; t += 1800000) {
       const slotDate = new Date(t);
-      const h = slotDate.getHours();
+      // 24-hour clock: this fork runs in Europe, where AM/PM on a TV guide is noise.
+      const h = String(slotDate.getHours()).padStart(2, '0');
       const m = String(slotDate.getMinutes()).padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const h12 = h % 12 || 12;
       const slot = document.createElement('div');
       slot.className = 'grid-time-slot';
-      slot.textContent = `${h12}:${m} ${ampm}`;
+      slot.textContent = `${h}:${m}`;
       timeSlots.appendChild(slot);
     }
 

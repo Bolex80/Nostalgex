@@ -105,6 +105,7 @@ class MainActivity : Activity() {
             view.evaluateJavascript(TV_CSS, null)
             view.evaluateJavascript(brandScript(), null)
             view.evaluateJavascript(NAV_JS, null)
+            view.evaluateJavascript(TIME_JS, null)
         }
 
         override fun onReceivedError(
@@ -313,9 +314,12 @@ class MainActivity : Activity() {
         return """
             (function(){
               if (document.getElementById('bolextv-brand')) return 'already';
-              var old = document.querySelector('img[alt="NOSTALGEX"]')
-                     || document.querySelector('img[src*="nostalgex"]');
-              if (!old) return 'no-logo';
+              // The page carries FIVE logo slots (:3137, :3145, :3317, :3406, :3465) across
+              // different screens. Branding only the first left the setup and loading screens
+              // on the old mark, which is exactly what Alex saw.
+              var olds = Array.prototype.slice.call(document.querySelectorAll(
+                'img[alt="NOSTALGEX"], img[alt="Nostalgex"], img[src*="nostalgex"]'));
+              if (!olds.length) return 'no-logo';
               var box = document.createElement('span');
               box.id = 'bolextv-brand';
               box.style.cssText = 'display:inline-flex;align-items:center;gap:18px;';
@@ -329,9 +333,12 @@ class MainActivity : Activity() {
                                    "font-size:30px;letter-spacing:6px;color:#F2EAE1;";
               box.appendChild(img);
               box.appendChild(word);
-              old.replaceWith(box);
+              olds.forEach(function(o, i){
+                var clone = i === 0 ? box : box.cloneNode(true);
+                o.replaceWith(clone);
+              });
               document.title = 'BolexTV';
-              return 'rebranded';
+              return 'rebranded:' + olds.length;
             })();
         """.trimIndent()
     }
@@ -341,6 +348,36 @@ class MainActivity : Activity() {
 
         /** Guide Play, verbatim from brand/assets/bolextv-logo-guide-play-20261029-v1.svg. */
         const val BRAND_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img"><rect x="112" y="112" width="800" height="800" rx="224" fill="#E9A13B"/><path d="M232 358 L232 666 L470 512 Z" fill="#12151A"/><rect x="506" y="358" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="474" width="280" height="76" rx="18" fill="#12151A"/><rect x="506" y="590" width="188" height="76" rx="18" fill="#12151A"/></svg>"""
+
+        /**
+         * 24-hour guide headers.
+         *
+         * The page renders EPG slots as "12:30 PM" (:4761-4765). The fork patch converts that to
+         * 24-hour, but the page ships inside the tuner container, so the change only reaches the TV
+         * once a new image is deployed. This does it at runtime so the TV is correct today; once the
+         * image is rebuilt the patch takes over and this becomes a no-op (it only rewrites strings
+         * that still carry AM/PM).
+         */
+        val TIME_JS = """
+            (function(){
+              function fix(){
+                var slots = document.querySelectorAll('.grid-time-slot');
+                for (var i = 0; i < slots.length; i++) {
+                  var el = slots[i];
+                  var m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((el.textContent || '').trim());
+                  if (!m) continue;
+                  var h = parseInt(m[1], 10) % 12;
+                  if (/pm/i.test(m[3])) h += 12;
+                  el.textContent = (h < 10 ? '0' : '') + h + ':' + m[2];
+                }
+              }
+              fix();
+              try {
+                new MutationObserver(fix).observe(document.body, {childList:true, subtree:true});
+              } catch (e) {}
+              return 'time24';
+            })();
+        """.trimIndent()
 
         /**
          * Remote navigation for the server picker.
@@ -361,44 +398,66 @@ class MainActivity : Activity() {
             (function(){
               if (window.__bolextvNav) return 'already';
               window.__bolextvNav = true;
-              function items(){
+              function vis(sel){
+                return Array.prototype.slice.call(document.querySelectorAll(sel))
+                  .filter(function(el){ return el.getClientRects().length > 0; });
+              }
+              function pickerItems(){
                 var p = document.querySelector('.server-picker.active');
                 if (!p) return [];
-                // Filter to what is actually rendered. The tuner hides SHOW ADDRESSES on
-                // non-touch devices (:7865), and focusing a display:none element silently
-                // does nothing - which stranded the cursor one step short of CONNECT.
                 return Array.prototype.slice.call(
                   p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'))
                   .filter(function(el){ return el.getClientRects().length > 0; });
               }
+              function walk(list, cur, dir){
+                var n = cur < 0 ? 0 : Math.min(Math.max(cur + dir, 0), list.length - 1);
+                list[n].focus();
+                if (list[n].scrollIntoView) list[n].scrollIntoView({block:'nearest'});
+              }
               document.addEventListener('keydown', function(e){
-                var list = items();
-                if (!list.length) return;                 // picker closed: leave the page alone
-                var kc = e.keyCode;
-                var k = e.key || '';
-                var down = (k === 'ArrowDown' || kc === 40 || kc === 20);
-                var up = (k === 'ArrowUp' || kc === 38 || kc === 19);
-                var act = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66
-                           || k === 'ArrowLeft' || k === 'ArrowRight' || kc === 37 || kc === 39);
-                if (!down && !up && !act) return;
-                var cur = list.indexOf(document.activeElement);
-                if (down || up) {
-                  var nxt = cur < 0 ? 0 : (down ? Math.min(cur + 1, list.length - 1)
-                                                : Math.max(cur - 1, 0));
-                  list[nxt].focus();
-                  list[nxt].scrollIntoView({block:'nearest'});
-                } else if (cur >= 0) {
-                  var keep = cur;
-                  list[cur].click();
-                  // A row click re-renders the list, so restore the cursor where it was.
-                  var after = items();
-                  if (after[keep] && after[keep] !== list[cur]) {
-                    after[keep].focus();
-                    after[keep].scrollIntoView({block:'nearest'});
-                  }
+                var kc = e.keyCode, k = e.key || '';
+                var down  = (k === 'ArrowDown'  || kc === 40 || kc === 20);
+                var up    = (k === 'ArrowUp'    || kc === 38 || kc === 19);
+                var left  = (k === 'ArrowLeft'  || kc === 37);
+                var right = (k === 'ArrowRight' || kc === 39);
+                var enter = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66);
+                var back  = (k === 'Escape' || kc === 4);
+
+                // 1. Server picker takes priority while it is open.
+                var picker = pickerItems();
+                if (picker.length) {
+                  var ic = picker.indexOf(document.activeElement);
+                  if (down || up) { walk(picker, ic, down ? 1 : -1); }
+                  else if (enter || left || right) {
+                    if (ic >= 0) {
+                      picker[ic].click();
+                      var after = pickerItems();
+                      if (after[ic] && after[ic] !== picker[ic]) after[ic].focus();
+                    }
+                  } else { return; }
+                  e.preventDefault(); e.stopPropagation(); return;
                 }
-                e.preventDefault();
-                e.stopPropagation();
+
+                // 2. Side panel (SOUND / FULLSCREEN / RETRO / SLEEP / INFO) and the fullscreen
+                //    controls. The page's guide branch preventDefaults up/down for channel
+                //    browsing, so the panel was unreachable: nothing ever moved focus into it.
+                var panel = vis('.v-btn, .fs-ctl');
+                if (!panel.length) return;
+                var ip = panel.indexOf(document.activeElement);
+                if (ip >= 0) {
+                  if (down || up) { walk(panel, ip, down ? 1 : -1); }
+                  else if (enter) { panel[ip].click(); }
+                  else if (right || back) { document.activeElement.blur(); }
+                  else { return; }
+                  e.preventDefault(); e.stopPropagation(); return;
+                }
+                // Left is the way in. Scoped to .v-btn so the fullscreen player keeps
+                // ArrowLeft = previous channel.
+                var rail = vis('.v-btn');
+                if (left && rail.length) {
+                  rail[0].focus();
+                  e.preventDefault(); e.stopPropagation();
+                }
               }, true);
               return 'armed';
             })();
