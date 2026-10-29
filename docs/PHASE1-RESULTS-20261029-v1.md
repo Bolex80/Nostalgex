@@ -74,3 +74,40 @@ The `||CH:` field was added to the debug dump (`#np-channel-tag`, plex-tuner.htm
 because the guide prints "CHANNEL n OF m" but the player does not, so the channel
 number vanished exactly when a channel change was being measured. It is empty during
 fullscreen playback, which is what exposed the blocked-JS problem in the first place.
+
+## Take 3 — after the focus fix, read with vision
+
+`webView.dispatchKeyEvent` alone did nothing because an unfocused View drops dispatched
+keys. Adding `webView.requestFocus()` made the keys reach the page: the app now logs
+`dispatch dpad key=... focus=true`.
+
+What the keys then actually do was read off the screen rather than inferred from a pixel
+diff, because the diff was unstable (0.76% in one run, 13.41% in another) as the overlay
+fades in and out:
+
+- Before CH+: playing programme **"Gigi & Nate"**, guide highlight on **row 20**.
+- After CH+: playing programme **"Gigi & Nate"** (unchanged), guide highlight moved to
+  **row 21 DIZ FLICKS**.
+
+So CH+/CH- move the guide cursor one channel. They do **not** change the playing channel.
+That matches the page's own on-screen hint, `[ENTER] TUNE IN [UP/DOWN] BROWSE`: with the
+guide open, ArrowDown is browse, not tune.
+
+Measurement B is therefore still **FAIL**, but for a different reason than before, and the
+remaining work is small and well defined: tuning must be a two-step action when the guide
+is open (move the cursor, then ENTER to tune in), and a one-step action when it is not.
+The page's state has to be known to pick between them, and `evaluateJavascript` is
+unreliable during playback - so this wants a native signal rather than a JS query.
+
+Measurement C, re-run with the keys now reaching the page:
+
+| | |
+|---|---|
+| 50 CH+ presses | 60.0 s (1.2 s each) |
+| PSS | 185.9 MB -> 188.6 MB (**+2.7 MB**) |
+| Crashes | **0 FATAL EXCEPTION** |
+| After | process alive, app still rendering |
+
+That is a markedly better memory figure than the earlier runs (+23.7 MB, +33.1 MB), which
+were taken while the channel was not changing at all - so the earlier numbers were not
+measuring channel churn.

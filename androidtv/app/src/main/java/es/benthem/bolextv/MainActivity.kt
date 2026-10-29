@@ -201,9 +201,13 @@ class MainActivity : Activity() {
         // it keeps working during playback, and the page's own ArrowUp/ArrowDown bindings do the
         // work (plex-tuner.html:9793-9802 maps ArrowUp -> prevChannel, ArrowDown -> nextChannel).
         val keyCode = if (delta > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
+        // A View only receives a dispatched key if it has focus; without this the WebView ignored
+        // the event and the channel stayed put (measured twice: 0% change in the title region).
+        webView.requestFocus()
         val now = android.os.SystemClock.uptimeMillis()
-        webView.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
-        webView.dispatchKeyEvent(KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0))
+        val down = webView.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+        val up = webView.dispatchKeyEvent(KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0))
+        android.util.Log.d(TAG, "dispatch dpad key=$keyCode down=$down up=$up focus=${webView.hasFocus()}")
         // The CustomEvent stays as the documented contract for the Phase 2 bridge; it is
         // best-effort only, for the reasons above.
         evaluate(
