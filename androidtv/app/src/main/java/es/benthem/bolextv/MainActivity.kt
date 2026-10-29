@@ -153,40 +153,52 @@ class MainActivity : Activity() {
      * "channel" while watching is genuinely mode-dependent, so it belongs to the Phase 2 bridge
      * contract rather than being guessed at here.
      */
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_CHANNEL_DOWN -> {
-                changeChannel(if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP) +1 else -1)
-                return true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                goToGuide()
-                return true // never exit: back means "up one level", not "quit"
-            }
-            KeyEvent.KEYCODE_MENU -> {
-                toggleGuide()
-                return true
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val keyCode = event.keyCode
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            // Debug builds: dump what the page actually rendered on every key, so a blank-looking
+            // screen can be distinguished from a screen whose text merely failed to paint.
+            if (BuildConfig.DEBUG) dumpPageText()
+            when (keyCode) {
+                KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                    changeChannel(if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP) +1 else -1)
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    goToGuide()
+                    return true // never exit: back means "up one level", not "quit"
+                }
+                KeyEvent.KEYCODE_MENU -> {
+                    toggleGuide()
+                    return true
+                }
             }
         }
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     private fun changeChannel(delta: Int) {
+        // The tuner's player mode already binds ArrowUp -> prevChannel() and ArrowDown ->
+        // nextChannel() (plex-tuner.html:9793-9802), so dispatching those keys needs no upstream
+        // change at all. CH+ means "up one channel", i.e. ArrowUp. The CustomEvent is dispatched
+        // as well so a future Phase 2 bridge has a stable contract to attach to.
         evaluate(
             """
             (function(){
               try{
-                var ev = new CustomEvent('bolextv:channel', {detail:{delta:$delta}});
-                window.dispatchEvent(ev);
-                var key = $delta > 0 ? 'ChannelUp' : 'ChannelDown';
-                var kc  = $delta > 0 ? 166 : 167;
-                window.dispatchEvent(new KeyboardEvent('keydown',
-                  {key:key, code:key, keyCode:kc, which:kc, bubbles:true, cancelable:true}));
+                window.dispatchEvent(new CustomEvent('bolextv:channel', {detail:{delta:$delta}}));
+                var key = $delta > 0 ? 'ArrowUp' : 'ArrowDown';
+                var kc  = $delta > 0 ? 38 : 40;
+                var t   = document.activeElement || document.body;
+                var ev  = new KeyboardEvent('keydown',
+                  {key:key, code:key, keyCode:kc, which:kc, bubbles:true, cancelable:true});
+                t.dispatchEvent(ev);
+                if (t !== document.body) document.dispatchEvent(ev);
                 return 'channel:'+$delta;
               }catch(e){ return 'error:'+e.message; }
             })();
             """.trimIndent()
-        )
+        ) { result -> android.util.Log.d(TAG, "channel -> $result") }
     }
 
     /** Back button: ask the page to return to the guide, whatever it currently shows. */
@@ -259,6 +271,13 @@ class MainActivity : Activity() {
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()
         super.onDestroy()
+    }
+
+    /** Debug-only: log the rendered page text so a blank screen can be told from an unpainted one. */
+    private fun dumpPageText() {
+        evaluate(
+            "(document.body&&document.body.innerText||'').replace(/\\s+/g,' ').trim().slice(0,300)"
+        ) { text -> android.util.Log.d(TAG, "PAGE: $text") }
     }
 
     private companion object {
