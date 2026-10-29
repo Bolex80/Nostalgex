@@ -8,6 +8,10 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
 ### Added
 - `docs/PLAN-20261029-v1.md` — foundation plan for an Android TV client: architecture options,
   phase gates, agent/model routing, repo conventions, definition of done, risks, open decisions.
+- `docs/CONTINUATION-20261029-v1.md` — the authoritative resume point: verified project state,
+  the nine decisions ratified by Alex on 29/10/2026 (name `BolexTV`, Mi Box only, sideload only,
+  subtitles nice-to-have, enrichment on, dedicated LXC on bolex `.5`, no telemetry, Plex only,
+  own logo), the deltas those decisions make to the plan, and the Phase 0 dispatch order.
 
 ### Notes
 - Fork of `chadMueller/Nostalgex` (MIT). Upstream name, icon and site are outside the licence grant;
