@@ -96,6 +96,15 @@ class MainActivity : Activity() {
             request: WebResourceRequest
         ): Boolean = false // stay inside; the tuner is the whole world here
 
+        override fun onPageFinished(view: WebView, url: String) {
+            // Kiosk CSS. The tuner is laid out for a browser window; on a 1080p TV the server
+            // picker grows past the viewport and its CONNECT button lands below the fold with no
+            // scrollable ancestor (plex-tuner.html:1170-1180 sets neither max-height nor overflow),
+            // so neither D-pad nor touch can reach it. Bound the picker, let it scroll, and pin the
+            // connect button to the bottom of that scroll box so it is always visible.
+            view.evaluateJavascript(TV_CSS, null)
+        }
+
         override fun onReceivedError(
             view: WebView,
             request: WebResourceRequest,
@@ -282,5 +291,26 @@ class MainActivity : Activity() {
 
     private companion object {
         const val TAG = "BolexTV"
+
+        /**
+         * Kiosk-only CSS. Kept as a string so it ships with the APK and cannot be lost by a
+         * tuner update; none of it changes what the tuner does, only whether its controls fit
+         * on a television.
+         */
+        val TV_CSS = """
+            (function(){
+              if (document.getElementById('bolextv-tv-css')) return 'already';
+              var s = document.createElement('style');
+              s.id = 'bolextv-tv-css';
+              s.textContent = [
+                'html,body{overflow-y:auto !important;}',
+                '.server-picker.active{max-height:86vh !important;overflow-y:auto !important;' +
+                  'overscroll-behavior:contain;padding:4px 4px 12px !important;}',
+                '.server-picker-connect{position:sticky;bottom:0;z-index:5;}'
+              ].join('');
+              document.head.appendChild(s);
+              return 'injected';
+            })();
+        """.trimIndent()
     }
 }
