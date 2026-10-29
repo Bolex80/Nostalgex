@@ -190,27 +190,25 @@ class MainActivity : Activity() {
     }
 
     private fun changeChannel(delta: Int) {
-        // The tuner's player mode already binds ArrowUp -> prevChannel() and ArrowDown ->
-        // nextChannel() (plex-tuner.html:9793-9802), so dispatching those keys needs no upstream
-        // change at all. CH+ means "up one channel", i.e. ArrowUp. The CustomEvent is dispatched
-        // as well so a future Phase 2 bridge has a stable contract to attach to.
+        // Measured on the device: pressing CH+ left the playing channel untouched (0 of 122400
+        // pixels in the programme-title region changed while 18% of the video region did, so the
+        // capture was live and the channel simply did not move). The cause is that
+        // evaluateJavascript stops delivering while the WebView is playing fullscreen video - the
+        // same reason the debug page dump goes silent in the player - so the injected click never
+        // ran. Anything routed through JS is therefore unreliable exactly when it matters.
+        //
+        // This delivers the key to the WebView as a real input event instead. It needs no JS, so
+        // it keeps working during playback, and the page's own ArrowUp/ArrowDown bindings do the
+        // work (plex-tuner.html:9793-9802 maps ArrowUp -> prevChannel, ArrowDown -> nextChannel).
+        val keyCode = if (delta > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
+        val now = android.os.SystemClock.uptimeMillis()
+        webView.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+        webView.dispatchKeyEvent(KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0))
+        // The CustomEvent stays as the documented contract for the Phase 2 bridge; it is
+        // best-effort only, for the reasons above.
         evaluate(
-            """
-            (function(){
-              try{
-                window.dispatchEvent(new CustomEvent('bolextv:channel', {detail:{delta:$delta}}));
-                var key = $delta > 0 ? 'ArrowUp' : 'ArrowDown';
-                var kc  = $delta > 0 ? 38 : 40;
-                var t   = document.activeElement || document.body;
-                var ev  = new KeyboardEvent('keydown',
-                  {key:key, code:key, keyCode:kc, which:kc, bubbles:true, cancelable:true});
-                t.dispatchEvent(ev);
-                if (t !== document.body) document.dispatchEvent(ev);
-                return 'channel:'+$delta;
-              }catch(e){ return 'error:'+e.message; }
-            })();
-            """.trimIndent()
-        ) { result -> android.util.Log.d(TAG, "channel -> $result") }
+            "window.dispatchEvent(new CustomEvent('bolextv:channel', {detail:{delta:$delta}}))"
+        ) { result -> android.util.Log.d(TAG, "channel event -> $result") }
     }
 
     /** Back button: ask the page to return to the guide, whatever it currently shows. */
@@ -292,7 +290,13 @@ class MainActivity : Activity() {
             "  var a = document.activeElement;" +
             "  var f = a ? (a.className || a.tagName) : 'none';" +
             "  var t = (document.body && document.body.innerText || '').replace(/\\s+/g,' ').trim().slice(0,200);" +
-            "  return t + ' ||FOCUS:' + f + ' ||NAV:' + (window.__bolextvNav ? 'armed' : 'none');" +
+            // The guide prints "CHANNEL n OF m", but the player does not, so the channel number
+            // disappears exactly when a channel change is what is being measured. The player's
+            // now-playing tag carries "CH nn - name" (plex-tuner.html:5062); surface it so the
+            // Phase 1 channel measurements have a stable observable in both states.
+            "  var tg = document.getElementById('np-channel-tag');" +
+            "  var ch = tg ? (tg.textContent || '').replace(/\\s+/g,' ').trim() : '';" +
+            "  return t + ' ||CH:' + ch + ' ||FOCUS:' + f + ' ||NAV:' + (window.__bolextvNav ? 'armed' : 'none');" +
             "})()"
         ) { text -> android.util.Log.d(TAG, "PAGE: $text") }
     }

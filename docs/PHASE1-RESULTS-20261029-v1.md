@@ -1,0 +1,76 @@
+# Phase 1 measurements — 29/10/2026
+
+Device: `MiTV-AFMU0`, Android 14 / SDK 34, 32-bit, `192.168.5.86:5555`.
+Build under test: `es.benthem.bolextv` debug APK on branch `plan/20261029-foundation`.
+Tuner: LXC 228 `.93:8080`, image `20261029c`, `enrichment: true`.
+
+The gate is **not passed**. Two of the three measurements are done, one fails, and
+one could not be completed because the TV was taken over by someone else.
+
+## A. Cold start to guide — PASS
+
+| Run | Activity first frame | Guide painted |
+|---|---|---|
+| 1 | 1,239 ms | 5,814 ms |
+| 2 | 1,176 ms | 5,676 ms |
+| 3 | 1,257 ms | 5,857 ms |
+
+`TotalTime` from `am start -W` is the activity's first frame; "guide painted" is the
+first moment the guide's own text appeared, measured by polling. The poll costs
+~0.35 s per sample, so treat 5.7-5.9 s as an **upper bound**, not a precise figure.
+
+Also observed in all three runs: the app opened **already signed in**. That is the
+session-persistence fix proven across a real `force-stop`, which is the thing it was
+written for. No PIN, no connect screen.
+
+## B. CH+ / CH- through real channels — FAIL
+
+Measured with `adb shell input keyevent 166` (CHANNEL_UP) while a channel was playing:
+
+- Programme title on screen: unchanged after the press.
+- Pixel diff of the title region: **0 of 122,400 px changed (0.00%)**.
+- Pixel diff of the video region: **18.36% changed** — the sanity check that the
+  screenshot was of a live screen and not a stale frame.
+
+So the screen was moving and the channel was not. CH+ does nothing.
+
+Root cause: the previous implementation changed channel by running JavaScript in the
+page. That stops working during playback — the app's debug page dump also goes
+completely silent in the player, which is the same symptom. Anything routed through
+`evaluateJavascript` is unreliable exactly when a channel change matters.
+
+Fix implemented, **not yet validated**: `changeChannel()` now delivers the key to the
+WebView as a real input event (`webView.dispatchKeyEvent`, DPAD_DOWN for CH+, DPAD_UP
+for CH-), which needs no JS and therefore keeps working during playback. The page
+already binds ArrowUp/ArrowDown to prevChannel/nextChannel, so no page change is
+needed.
+
+## C. 50 channel changes + memory — INCONCLUSIVE
+
+50 presses of CH+ took 20.2 s (404 ms per press), process alive, **0 FATAL EXCEPTION**,
+PSS 172.1 MB -> 195.8 MB (**+23.7 MB**).
+
+But because B fails, those 50 presses did not change channels. This run therefore
+measures key-handling stability under repeated input, not what the criterion asks
+for. It must be re-run after B is fixed. Previous runs measured +6.5 MB and +33.1 MB;
+the spread is measurement noise from `dumpsys meminfo` sampling, not a trend.
+
+## Why the TV could not be used further
+
+The last attempt returned 0% change in both the title and the video regions — a static
+screen. `dumpsys` showed `com.disney.disneyplus/.MainActivity` in the foreground and
+the app not running at all. Someone is using the box, so the measurement stopped
+there rather than pressing keys on an occupied TV.
+
+## Harness notes (for the next run)
+
+Take 1 was invalid twice over: it pressed F1 to force a page dump when the debug build
+already dumps on every key press, and it re-read the whole logcat buffer each time,
+which the large PAGE lines overflowed. Take 2 filtered `BolexTV:I`, which excludes the
+app's **Debug** lines, and tested liveness with `PKG in pidof(PKG)` — `pidof` returns a
+bare PID, so that could never match. Both are fixed in `phase1-measure3.py`.
+
+The `||CH:` field was added to the debug dump (`#np-channel-tag`, plex-tuner.html:5062)
+because the guide prints "CHANNEL n OF m" but the player does not, so the channel
+number vanished exactly when a channel change was being measured. It is empty during
+fullscreen playback, which is what exposed the blocked-JS problem in the first place.
