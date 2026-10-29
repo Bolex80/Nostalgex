@@ -111,3 +111,35 @@ Measurement C, re-run with the keys now reaching the page:
 That is a markedly better memory figure than the earlier runs (+23.7 MB, +33.1 MB), which
 were taken while the channel was not changing at all - so the earlier numbers were not
 measuring channel churn.
+
+## Take 4 — gate PASSED
+
+The channel-change route that works is the page's own guide row click, and nothing else.
+
+Diagnosis, using the WebView's DevTools socket (Chrome 155 over `adb forward`) rather than
+pixels or `evaluateJavascript` callbacks:
+
+- The DOM carries `.grid-row[data-channel-id]` for 25 channels, with `active` on the one
+  playing and `focused` on the guide cursor. After a key-only CH+ the state read
+  `active=20, focused=21` — the cursor had moved and the programme had not.
+- Clicking `.grid-row.focused` changed playback from "CH 20 FAMILY HOUR" to
+  "CH 21 DIZ FLICKS". That is the tune path: the row's own click handler.
+- Key-based routes all failed: lone arrow, arrow+DPAD_CENTER, arrow+KEYCODE_ENTER, and
+  arrow-then-click (which worked exactly once — after the click the DOM focus moves to the
+  row, so later arrows stop driving the guide and the cursor freezes).
+
+So `changeChannel()` now does the whole step in JS: read the playing row, step ±1 through
+the rendered guide rows, click the target. No keys, no dependence on focus.
+
+Final measurements:
+
+| Criterion | Result |
+|---|---|
+| Cold start | activity first frame **1,118 ms**; guide-ready ~5.7 s in earlier runs (the poll in this run only read logcat, and the page only logs on a key press) |
+| CH+ / CH- | sequence **20 -> 21 -> 25 -> 21**; direction correct, repeatable |
+| 50 changes | 67.1 s (1,342 ms each), channels reached **21, 31, 44, 52, 86** |
+| Memory | PSS 211.8 -> 195.2 MB (**-16.6 MB**), process alive, still responding |
+| Crashes | **0 FATAL EXCEPTION** |
+
+Earlier pixel-diff numbers are superseded: the diff was unstable because the overlay
+fades, and it was measuring the cursor moving, not the channel changing.

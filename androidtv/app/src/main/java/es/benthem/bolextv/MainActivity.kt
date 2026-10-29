@@ -190,40 +190,36 @@ class MainActivity : Activity() {
     }
 
     private fun changeChannel(delta: Int) {
-        // The page owns two different meanings for the arrow keys, and picks between them by
-        // whether the guide is on screen (plex-tuner.html:9653):
+        // Channel changing is done entirely in the page, because every key-based route measured
+        // worse: a lone arrow moved the guide cursor and left the programme alone, and
+        // arrow-then-click worked exactly once - after the click the DOM focus moves to the row,
+        // so subsequent arrows stopped driving the guide and the cursor froze.
         //
-        //   guide visible -> ArrowUp/Down move the guide focus, and Enter calls tuneFromGuide()
-        //   guide hidden  -> the arrows fall through to the player's channel change
+        // The one route proven to tune is the guide row's own click: clicking
+        // `.grid-row.focused` moved playback from "CH 20 FAMILY HOUR" to "CH 21 DIZ FLICKS".
+        // So this reads which row is playing, steps to the next/previous row, and clicks it -
+        // the same action a viewer performs with the pointer, and independent of key focus.
         //
-        // Measured on the device before this change: a lone arrow moved the guide highlight from
-        // row 20 to row 21 and left the playing programme on "Gigi & Nate". So a channel key has
-        // to be arrow-then-Enter whenever the guide is up, which is the common case because the
-        // guide sits over the player too.
-        //
-        // Enter is sent on a short delay so the guide has applied the focus move first. In the
-        // rare state where the guide is hidden the arrow has already changed channel and the
-        // Enter only brings the overlay up, which is harmless.
-        //
-        // Keys are delivered to the WebView as real input events: evaluateJavascript stops
-        // answering during playback (the debug page dump goes silent there too), so anything
-        // routed through JS fails exactly when a channel change matters.
-        val arrow = if (delta > 0) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_UP
-        webView.requestFocus()
-        sendKey(arrow)
-        webView.postDelayed({ sendKey(KeyEvent.KEYCODE_DPAD_CENTER) }, 140)
-        android.util.Log.d(TAG, "channel delta=$delta -> arrow=$arrow then ENTER")
-    }
-
-    /** Deliver a real key to the WebView. An unfocused View silently drops dispatched keys. */
-    private fun sendKey(keyCode: Int) {
-        webView.requestFocus()
-        val now = android.os.SystemClock.uptimeMillis()
-        val down = webView.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
-        val up = webView.dispatchKeyEvent(
-            KeyEvent(now, now + 16, KeyEvent.ACTION_UP, keyCode, 0)
-        )
-        android.util.Log.d(TAG, "sendKey $keyCode down=$down up=$up focus=${webView.hasFocus()}")
+        // evaluateJavascript does run during playback (this click is what tuned the channel);
+        // its callback may not come back, so the log is diagnostic only.
+        evaluate(
+            """
+            (function(){
+              try{
+                var rows = Array.prototype.slice.call(
+                  document.querySelectorAll('.grid-row[data-channel-id]'));
+                if (!rows.length) return 'no-rows';
+                var at = rows.findIndex(function(r){ return r.classList.contains('active'); });
+                if (at < 0) at = rows.findIndex(function(r){ return r.classList.contains('focused'); });
+                if (at < 0) at = 0;
+                var next = (at + ($delta) + rows.length) % rows.length;
+                rows[next].click();
+                return 'tuned:' + rows[next].getAttribute('data-channel-id') +
+                       ' (' + (at + 1) + '/' + rows.length + ' -> ' + (next + 1) + ')';
+              }catch(e){ return 'err:' + e.message; }
+            })();
+            """.trimIndent()
+        ) { result -> android.util.Log.d(TAG, "channel delta=$delta -> $result") }
     }
 
     /** Back button: ask the page to return to the guide, whatever it currently shows. */
