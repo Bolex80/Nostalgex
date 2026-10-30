@@ -189,6 +189,34 @@ class MainActivity : Activity() {
                     onBackPressedTv()
                     return true
                 }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    // In the guide, OK is decided by the page: a focused div receives neither a
+                    // keydown nor a click from this WebView, so "tune" and "go full screen" both
+                    // used to do nothing. Everywhere else the key falls through as before.
+                    val layerNow = webView.title ?: ""
+                    if (layerNow.contains(":guide")) {
+                        evaluate("window.__tvOkPress ? window.__tvOkPress() : 'none'") { r ->
+                            android.util.Log.d(TAG, "ok in guide -> $r")
+                        }
+                        return true
+                    }
+                    if (layerNow.contains(":player")) {
+                        // Watching full screen: OK summons the same in-player menu that Back does,
+                        // so the progress bar and EXIT FULL SCREEN are one press away either way.
+                        evaluate(
+                            "(function(){var r=window.__tvFsMenu?window.__tvFsMenu(true):'none';" +
+                            "var b=document.querySelector('.fs-overlay.visible .fs-ctl');" +
+                            "if(b&&window.__tvRing){window.__tvRing(b);}return r;})()"
+                        ) { r -> android.util.Log.d(TAG, "ok -> fs menu $r") }
+                        return true
+                    }
+                    if (layerNow.contains(":fsmenu")) {
+                        evaluate("window.__tvFsMenu ? window.__tvFsMenu(false) : 'none'") { r ->
+                            android.util.Log.d(TAG, "ok closed fs menu -> $r")
+                        }
+                        return true
+                    }
+                }
                 KeyEvent.KEYCODE_MENU -> {
                     toggleGuide()
                     return true
@@ -248,9 +276,26 @@ class MainActivity : Activity() {
                     android.util.Log.d(TAG, "back closed overlay -> $r")
                 }
             }
-            layer.contains(":rail") || layer.contains(":player") -> {
-                // On the side rail Back steps back out to the channel list; while watching it
-                // brings the guide up. Neither is a reason to offer to leave the app.
+            layer.contains(":fsmenu") -> {
+                // The in-player menu is open: Back closes it and stays watching. Without this
+                // branch it fell through to the leave prompt, which is the trap Alex hit.
+                evaluate("window.__tvFsMenu ? window.__tvFsMenu(false) : 'none'") { r ->
+                    android.util.Log.d(TAG, "back closed fs menu -> $r")
+                }
+            }
+            layer.contains(":fs") || layer.contains(":player") -> {
+                // Full screen: Back brings up the menu (progress, channel, EXIT FULL SCREEN)
+                // rather than asking to leave the app. ":fsmenu" is matched above first,
+                // because it contains ":fs".
+                evaluate(
+                    "(function(){var r=window.__tvFsMenu?window.__tvFsMenu(true):'none';" +
+                    "var b=document.querySelector('.fs-overlay.visible .fs-ctl');" +
+                    "if(b&&window.__tvRing){window.__tvRing(b);}return r;})()"
+                ) { r -> android.util.Log.d(TAG, "back -> fs menu $r") }
+            }
+            layer.contains(":rail") -> {
+                // On the side rail Back steps back out to the channel list. Not a reason to offer
+                // to leave the app; watching full screen is handled by the menu branch above.
                 evaluate("window.__tvToGuide ? window.__tvToGuide() : 'none'") { r ->
                     android.util.Log.d(TAG, "back -> guide $r")
                 }

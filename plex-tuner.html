@@ -7159,6 +7159,68 @@
     }
   }
 
+  /**
+   * Remote entry points for the in-player menu. The overlay, its progress bar and its
+   * EXIT FULL SCREEN button already existed; nothing could reach them from a D-pad.
+   * `on === false` hides it, anything else pins it open (no 5s auto-hide) so a viewer can
+   * walk the controls without racing a timer.
+   */
+  window.__tvFsMenu = function (on) {
+    const el = document.getElementById('fs-overlay');
+    if (!el) return 'none';
+    if (on === false) {
+      if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
+      fsOverlayVisible = false;
+      el.classList.remove('visible');
+      return 'hidden';
+    }
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
+    fsOverlayVisible = true;
+    el.classList.add('visible');
+    updateFsOverlay();
+    return 'shown';
+  };
+  // On a television the guide IS the "windowed" view: hiding it is what fills the screen.
+  // Element fullscreen does not work inside an Android WebView (the promise rejects and the
+  // page's own toggle does nothing there), so the shell drives these two instead.
+  window.__tvHideGuide = function () { hideGuide(); return 'full'; };
+  window.__tvShowGuide = function () { showGuide(); return 'guide'; };
+  window.__tvGuideVisible = function () { return !!guideVisible; };
+
+  /**
+   * One press of OK in the guide, decided in the page rather than in the shell.
+   * A guide row is a div, and a WebView turns DPAD_CENTER on a focused div into neither a
+   * keydown nor a click, so nothing happens at all - which is why pressing OK on the channel
+   * already playing did nothing instead of filling the screen. The shell calls this instead.
+   */
+  window.__tvOkPress = function () {
+    const el = document.activeElement;
+    // Focus may still sit on a control from the menu we just closed; fall back to the channel
+    // that is playing, which is what the viewer means by "the programme I am watching".
+    const row = (el && el.closest ? el.closest('.grid-row') : null) ||
+                document.querySelector('.grid-row.active');
+    if (row && row.classList.contains('grid-row--promo')) {
+      const btn = el && el.closest ? el.closest('button') : null;
+      if (btn) { btn.click(); return 'promo'; }
+      return 'none';
+    }
+    if (row && row.classList.contains('active')) {
+      hideGuide();
+      return 'full';
+    }
+    if (row && row.click) { row.click(); return 'tuned'; }
+    return 'none';
+  };
+  window.__tvFsMenuOpen = function () {
+    const el = document.getElementById('fs-overlay');
+    return !!el && el.classList.contains('visible');
+  };
+  window.__tvIsFullscreen = function () { return !!document.fullscreenElement; };
+  window.__tvToggleFullscreen = function () { toggleFullscreen(); return 'toggled'; };
+
   function showFsOverlayFor(ms) {
     const el = document.getElementById('fs-overlay');
     fsOverlayVisible = true;

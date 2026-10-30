@@ -32,7 +32,13 @@
     return r.height > 40 && r.top < innerHeight;
   }
 
+  function fsMenuRoot(){
+    var el = document.getElementById('fs-overlay');
+    return (el && el.classList.contains('visible')) ? el : null;
+  }
   function current(){
+    var f = fsMenuRoot();
+    if (f) return { name: 'fsmenu', list: collect(f, '.fs-ctl', usable) };
     var s = settingsRoot();
     if (s) return { name: 'settings',
       list: collect(s, 'button, .config-tab, [role=button], input, .bundle-row, .config-row', usable) };
@@ -148,6 +154,8 @@
   function sync(){
     var rail = document.querySelector('.v-btn.tv-focus');
     var t = 'BolexTV:' + (settingsRoot() || pickerRoot() ? 'ov'
+            : fsMenuRoot() ? 'fsmenu'
+            : document.fullscreenElement ? 'fs'
             : rail ? 'rail'
             : (guideShown() ? 'guide' : 'player'));
     if (document.title !== t) document.title = t;
@@ -161,13 +169,36 @@
   // "my selection jumps back to the first channel" report.
   function ensureRing(){
     if (!guideShown()) return;
-    if (document.querySelector('.tv-focus')) return;
+    // A ring left on a control that is no longer on screen is not a ring: it blocks the
+    // restore below and makes OK look dead. Drop it and re-ring where the viewer actually is.
+    var cur = document.querySelector('.tv-focus');
+    if (cur && cur.getClientRects().length === 0) { cur.classList.remove('tv-focus'); cur = null; }
+    if (cur) return;
     var el = (ringChannelId && document.querySelector('.grid-row[data-channel-id="' + ringChannelId + '"]')) ||
              document.querySelector('.grid-row.active');
     if (el) ring(el);
   }
   setInterval(function(){ sync(); ensureRing(); }, 500);
   sync();
+
+  // The remote's OK arrives at a WebView as a CLICK on the focused element, not as a keydown,
+  // so a keydown branch can never see it. Pressing OK on the channel that is already playing
+  // means "fill the screen" - the row's own handler ignores it (tuneFromGuide returns early
+  // for the current channel), so this is what makes a second OK do something.
+  document.addEventListener('click', function (e) {
+    var exitCtl = e.target && e.target.closest ? e.target.closest('.fs-ctl[data-fs="exit"]') : null;
+    if (exitCtl) {
+      // On the box, leaving full screen means bringing the guide back.
+      if (window.__tvShowGuide) window.__tvShowGuide();
+      if (window.__tvFsMenu) window.__tvFsMenu(false);
+      return;
+    }
+    var row = e.target && e.target.closest ? e.target.closest('.grid-row') : null;
+    if (!row || !row.classList.contains('active')) return;
+    if (row.classList.contains('grid-row--promo')) return;
+    if (window.__tvHideGuide) window.__tvHideGuide();
+    else if (window.__tvToggleFullscreen) window.__tvToggleFullscreen();
+  }, true);
 
   window.addEventListener('keydown', function(e){
     var k = e.key || '', kc = e.keyCode;
@@ -179,6 +210,21 @@
     var back = (k === 'Escape' || kc === 4);
     var z = current();
     if (z.name === 'native') return;
+
+    if (z.name === 'fsmenu') {
+      if (up || down || left || right) {
+        var fm = step(document.activeElement, up ? 'up' : down ? 'down' : left ? 'left' : 'right');
+        if (fm) ring(fm);
+        e.preventDefault(); e.stopPropagation(); return;
+      }
+      if (ok) {
+        var fa = document.activeElement;
+        if (fa && z.list.indexOf(fa) >= 0 && fa.click) fa.click();
+        e.preventDefault(); e.stopPropagation(); return;
+      }
+      if (back) { if (window.__tvFsMenu) window.__tvFsMenu(false); e.preventDefault(); e.stopPropagation(); return; }
+      return;
+    }
 
     if (z.name === 'settings' || z.name === 'picker') {
       if (up || down || left || right) {
@@ -250,6 +296,14 @@
       if (ok) {
         var el = document.activeElement;
         if (!el || z.list.indexOf(el) < 0) el = document.querySelector('.grid-row.active');
+        if (el && el.classList && el.classList.contains('active')) {
+          // Already watching this channel: a second OK means "fill the screen", which is what a
+          // TV guide does. tuneFromGuide() returns early on the current channel, so before this
+          // the press did nothing at all.
+          if (window.__tvToggleFullscreen) window.__tvToggleFullscreen();
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
         if (el && el.click) {
           el.click();
           scheduleRingRefresh(900);

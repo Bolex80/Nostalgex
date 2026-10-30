@@ -108,3 +108,28 @@ axis was never navigable - on the web either. The window is now offset by a half
 
 Measured after the fix: ring on channel 1 at launch; walk to channel 6, OK -> playing
 CH 06, ring stays 6, page cursor 6, still 6 three seconds later, and the next Down moves to 7.
+
+## Fourth pass: full screen, and a way back out of it
+
+Two requests: a second OK should fill the screen, and Back while watching must not offer to leave
+the app.
+
+**Element fullscreen does not work in an Android WebView.** `requestFullscreen()` rejects and the
+page's `toggleFullscreen()` does nothing there, so the FULL SCREEN button and the overlay's exit
+control were both inert on the box (they still work in a browser). On a television the guide *is*
+the windowed view, so "full screen" means hiding it: the shell calls the page's own `hideGuide()`,
+and "exit full screen" calls `showGuide()`.
+
+**OK on a guide row delivered neither a keydown nor a click.** A guide row is a `div`; a WebView
+turns DPAD_CENTER on a focused div into nothing at all, which is why pressing OK on the programme
+already playing did nothing. OK is now decided in the page (`__tvOkPress`): tune a different row,
+fill the screen on the one already playing, or press an announcement button — and the shell calls
+it only while the guide is up, leaving every other screen's OK untouched.
+
+**The in-player menu already existed** — channel, title, progress bar, time, CH-/CH+, SOUND and
+EXIT FULL SCREEN — but nothing could reach it from a D-pad. Back (or OK) while watching now opens
+it and puts the ring on CH-; Back or OK again closes it and keeps watching.
+
+Measured on the box: guide -> OK -> `:player` with the guide hidden; OK -> `:fsmenu` showing
+`1:11:05 / 1:36:00` and a 74% bar; OK -> menu closed, still full screen; Back -> menu; Back ->
+closed. Right x3 lands on EXIT FULL SCREEN, and OK there restores the guide.
