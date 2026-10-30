@@ -261,10 +261,11 @@
       var inPromo = document.activeElement && document.activeElement.closest &&
                     document.activeElement.closest('.grid-row--promo');
       if (left) {
-        // Rewind the guide window when it has been walked forward. At the live edge Left is
-        // still the way into the rail, which is the route to the buttons Alex uses.
-        var back = window.__tvTimeShift ? window.__tvTimeShift(-1) : 'edge';
-        if (back === 'shifted') { scheduleRingRefresh(160); e.preventDefault(); e.stopPropagation(); return; }
+        // One press returns a walked-forward guide to "now"; at the live edge Left is the way
+        // into the rail. Stepping back half an hour at a time made Left look broken, because
+        // a dozen presses rewind silently before the rail is ever reached.
+        var back = window.__tvTimeShiftResume ? window.__tvTimeShiftResume() : 'edge';
+        if (back === 'resumed') { scheduleRingRefresh(160); e.preventDefault(); e.stopPropagation(); return; }
         var rail = collect(document, '.v-btn');
         if (rail.length) { ring(rail[0]); e.preventDefault(); e.stopPropagation(); }
         return;

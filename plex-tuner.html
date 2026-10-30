@@ -2217,6 +2217,23 @@
     transition: opacity 0.3s;
   }
   .fs-overlay.visible { opacity: 1; }
+  /* Real full screen on a television.
+     Hiding the guide was never full screen: the video kept its 484x270 preview box in the
+     upper right with black beneath it, because #video-area is a flex row that only ever
+     occupied the top half. The shell toggles body.tv-full; the page's own element-fullscreen
+     path is untouched, so a browser keeps behaving exactly as before. */
+  body.tv-full #player-screen > *:not(#video-area) { display: none !important; }
+  /* #video-area is a flex row and #video-container is a flex item with its own basis, so a
+     plain width did not beat the layout: the video grew downwards only (measured 484x540).
+     Drop the flex context and the basis, then pin both boxes to the screen. */
+  body.tv-full #video-area { position: absolute !important; inset: 0 !important;
+                              display: block !important;
+                              width: 100% !important; height: 100% !important; }
+  body.tv-full #video-container { position: absolute !important; inset: 0 !important;
+                                  flex: none !important; max-width: none !important;
+                                  width: 100% !important; height: 100% !important; }
+  body.tv-full #plex-video { width: 100% !important; height: 100% !important;
+                             object-fit: contain !important; background: #000; }
   .fs-overlay-channel {
     font-family: 'Press Start 2P', monospace;
     font-size: 10px;
@@ -7349,8 +7366,16 @@
   // On a television the guide IS the "windowed" view: hiding it is what fills the screen.
   // Element fullscreen does not work inside an Android WebView (the promise rejects and the
   // page's own toggle does nothing there), so the shell drives these two instead.
-  window.__tvHideGuide = function () { hideGuide(); return 'full'; };
-  window.__tvShowGuide = function () { showGuide(); return 'guide'; };
+  window.__tvHideGuide = function () {
+    hideGuide();
+    document.body.classList.add('tv-full');   // expand the video: hiding the guide was not enough
+    return 'full';
+  };
+  window.__tvShowGuide = function () {
+    document.body.classList.remove('tv-full');
+    showGuide();
+    return 'guide';
+  };
   window.__tvGuideVisible = function () { return !!guideVisible; };
 
   /**
@@ -7371,12 +7396,26 @@
       return 'none';
     }
     if (row && row.classList.contains('active')) {
-      hideGuide();
+      // Through __tvHideGuide so the full-screen layout comes with it; calling hideGuide()
+      // alone hid the guide and left the video in its preview box.
+      if (window.__tvHideGuide) window.__tvHideGuide(); else hideGuide();
       return 'full';
     }
     if (row && row.click) { row.click(); return 'tuned'; }
     return 'none';
   };
+  /**
+   * Back to the live edge in ONE press. Stepping back 30 minutes at a time meant Left could
+   * silently rewind a dozen times before it ever reached the rail, which read as "Left is
+   * broken". Returns 'edge' when the window is already live, so the caller can leave the guide.
+   */
+  window.__tvTimeShiftResume = function () {
+    if (!guideWindowOffsetMs) return 'edge';
+    guideWindowOffsetMs = 0;
+    renderActiveGuide();
+    return 'resumed';
+  };
+
   window.__tvFsMenuOpen = function () {
     const el = document.getElementById('fs-overlay');
     return !!el && el.classList.contains('visible');
