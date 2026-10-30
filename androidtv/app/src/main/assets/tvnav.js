@@ -87,14 +87,27 @@
     try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
     Array.prototype.forEach.call(document.querySelectorAll('.tv-focus'),
       function(o){ o.classList.remove('tv-focus'); });
-    // The page highlights its own guide cursor; with the shell painting the ring, two
-    // highlights on screen at once is a lie about where the remote is pointing.
-    Array.prototype.forEach.call(document.querySelectorAll('.grid-row.focused'),
-      function(o){ if (o !== el) o.classList.remove('focused'); });
+    if (el.getAttribute && el.getAttribute('data-channel-id'))
+      ringChannelId = el.getAttribute('data-channel-id');
     el.classList.add('tv-focus');
     return true;
   }
   window.__tvRing = ring;
+
+  // Tuning and time-shifting both rebuild the guide, which throws away the ringed element.
+  // Without this the amber ring vanished and the only highlight left was the page's own
+  // cursor - which sat on row 1, so every selection looked ignored.
+  var ringChannelId = null;
+  function scheduleRingRefresh(delay){
+    setTimeout(function () {
+      var el = (ringChannelId &&
+                document.querySelector('.grid-row[data-channel-id="' + ringChannelId + '"]')) ||
+               document.querySelector('.grid-row.active') ||
+               document.querySelector('.grid-row[data-channel-id]');
+      if (el) ring(el);
+    }, delay || 150);
+  }
+  window.__tvRingRefresh = scheduleRingRefresh;
 
   window.__tvClose = function(){
     var s = settingsRoot();
@@ -140,7 +153,20 @@
     if (document.title !== t) document.title = t;
   }
   window.__tvSync = function(){ sync(); return document.title; };
-  setInterval(sync, 500);
+
+  // The guide is re-rendered on a timer and after every tune, which destroys the ringed node.
+  // A one-shot refresh is not enough - it gets wiped by the next render - so the ring is
+  // restored whenever it has gone missing while the guide is on screen and nothing else holds
+  // focus. Without this the next Down starts from the top of the guide, which is exactly the
+  // "my selection jumps back to the first channel" report.
+  function ensureRing(){
+    if (!guideShown()) return;
+    if (document.querySelector('.tv-focus')) return;
+    var el = (ringChannelId && document.querySelector('.grid-row[data-channel-id="' + ringChannelId + '"]')) ||
+             document.querySelector('.grid-row.active');
+    if (el) ring(el);
+  }
+  setInterval(function(){ sync(); ensureRing(); }, 500);
   sync();
 
   window.addEventListener('keydown', function(e){
@@ -186,26 +212,49 @@
     }
 
     if (z.name === 'guide') {
-      // Left still opens the rail; everything else walks the guide, announcement first.
+      var inPromo = document.activeElement && document.activeElement.closest &&
+                    document.activeElement.closest('.grid-row--promo');
       if (left) {
+        // Rewind the guide window when it has been walked forward. At the live edge Left is
+        // still the way into the rail, which is the route to the buttons Alex uses.
+        var back = window.__tvTimeShift ? window.__tvTimeShift(-1) : 'edge';
+        if (back === 'shifted') { scheduleRingRefresh(160); e.preventDefault(); e.stopPropagation(); return; }
         var rail = collect(document, '.v-btn');
         if (rail.length) { ring(rail[0]); e.preventDefault(); e.stopPropagation(); }
         return;
       }
-      if (up || down || right) {
-        // Right matters on the announcement: its three buttons sit side by side and
-        // nothing else in the guide is reachable to the right.
-        var g = step(document.activeElement, up ? 'up' : down ? 'down' : 'right');
+      if (right) {
+        // On the announcement the three buttons sit side by side; elsewhere right walks
+        // the guide's time axis, which did nothing at all before it existed.
+        if (inPromo) {
+          var pn = step(document.activeElement, 'right');
+          if (pn) ring(pn);
+        } else if (window.__tvTimeShift) {
+          window.__tvTimeShift(1);
+          scheduleRingRefresh(180);
+        }
+        e.preventDefault(); e.stopPropagation();
+        return;
+      }
+      if (up || down) {
+        var origin = document.activeElement;
+        if (!origin || z.list.indexOf(origin) < 0)
+          origin = document.querySelector('.grid-row.active') || document.querySelector('.grid-row.focused');
+        var g = step(origin, up ? 'up' : 'down');
         if (g) ring(g);
-        // Consume the key even when there is nowhere to go: letting it fall through
-        // drops focus to the body and the ring disappears, which reads as a dead remote.
+        // Consume even when there is nowhere to go: falling through drops focus to the body
+        // and the ring disappears, which reads as a dead remote.
         e.preventDefault(); e.stopPropagation();
         return;
       }
       if (ok) {
         var el = document.activeElement;
         if (!el || z.list.indexOf(el) < 0) el = document.querySelector('.grid-row.active');
-        if (el && el.click) { el.click(); e.preventDefault(); e.stopPropagation(); }
+        if (el && el.click) {
+          el.click();
+          scheduleRingRefresh(900);
+          e.preventDefault(); e.stopPropagation();
+        }
         return;
       }
       return;

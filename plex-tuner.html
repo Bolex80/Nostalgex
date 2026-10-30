@@ -4107,6 +4107,10 @@
   let guideVisible = false;
   let configVisible = false;
   let guideFocusIndex = 0;
+  // The guide renders a fixed two-hour window from "now", so arrow-right did nothing at all:
+  // there was no time axis to move along. This offset lets the window be walked forward and
+  // back in half-hour steps, which is what a remote user expects from a TV guide.
+  let guideWindowOffsetMs = 0;
   let configFocusIndex = 0;
   let connectFocusIndex = 0;
   let overlayTimeout = null;
@@ -4701,7 +4705,7 @@
     // Calculate 2-hour time window starting at current half-hour
     const now = new Date();
     const nowMs = now.getTime();
-    const windowStartMs = Math.floor(nowMs / 1800000) * 1800000; // round down to 30 min
+    const windowStartMs = Math.floor(nowMs / 1800000) * 1800000 + guideWindowOffsetMs; // 30-min grid, shiftable
     const windowEndMs = windowStartMs + 7200000; // 2 hours
     const windowDuration = 7200; // seconds
 
@@ -4873,6 +4877,20 @@
   }
 
   let renderGuideTimer = null;
+  /**
+   * Walk the guide window along the time axis. dir = +1 forward, -1 back.
+   * Returns 'shifted', or 'edge' when it is already at the live edge and cannot go back,
+   * so the caller can decide to leave the guide instead (the TV shell uses this).
+   */
+  window.__tvTimeShift = function (dir) {
+    const next = guideWindowOffsetMs + (dir * 1800000);
+    if (next < 0) { guideWindowOffsetMs = 0; renderActiveGuide(); return 'edge'; }
+    if (next > 6 * 3600 * 1000) return 'limit';
+    guideWindowOffsetMs = next;
+    renderActiveGuide();
+    return 'shifted';
+  };
+
   function renderActiveGuide() {
     if (renderGuideTimer) clearTimeout(renderGuideTimer);
     renderGuideTimer = setTimeout(() => {
@@ -4999,6 +5017,11 @@
     const sleepEnded = document.getElementById('sleep-ended');
     if (sleepEnded) sleepEnded.hidden = true;
     currentChannel = channelId;
+    // Keep the guide cursor on the channel that is now playing. Without this the cursor stays
+    // where it was when the guide opened, so tuning from row 6 left the highlight on row 1 -
+    // which reads as "my selection was ignored".
+    const tunedIdx = getEnabledChannels().findIndex(c => c.id === channelId);
+    guideFocusIndex = tunedIdx >= 0 ? tunedIdx : 0;
     appState = 'player';
     document.getElementById('player-screen').classList.add('has-channel');
     document.getElementById('key-hints').style.display = 'flex';
@@ -9687,8 +9710,20 @@
         e.preventDefault();
         return;
       }
-      if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown') {
-        // Let unhandled arrows pass through to channel change
+      if (key === 'ArrowRight') {
+        // Walk the guide window forward. Previously this branch did nothing for every arrow,
+        // so right-arrow was dead on the web as well as on the TV.
+        window.__tvTimeShift(1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowLeft') {
+        window.__tvTimeShift(-1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        // Handled above by the guide cursor.
       } else {
         // Other keys handled below
       }

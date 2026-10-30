@@ -83,3 +83,28 @@ page does not need one. "Leave" backgrounds the task instead of finishing it: th
 keeps its library, session and playback position, and the process survived the exit
 (pid unchanged). Reopening measured `TotalTime: 0`, against a full reload of roughly 20
 seconds before.
+
+## Third pass: time travel in the guide, and a ring that survives a tune
+
+**Arrow-right did nothing because there was nothing to move along.** The guide renders a fixed
+two-hour window anchored on "now" (`windowStartMs`, rounded down to 30 minutes), so the time
+axis was never navigable - on the web either. The window is now offset by a half-hour step:
+
+- Right walks forward: measured 14:30 -> 15:00 -> 15:30 on the header, with the programmes
+  re-rendered for the new window.
+- Left rewinds, and at the live edge it still opens the rail, which is the route Alex uses
+  for the buttons.
+- The page's own keyboard handler does the same, so the browser and the box behave alike.
+
+**The highlight jumped back to the first channel after every selection.** Two causes, both real:
+
+1. The page's guide cursor (`guideFocusIndex`) was never updated by `switchChannel`, so it
+   stayed wherever the guide opened and the page's own highlight sat on row 1. It now follows
+   the channel that starts playing.
+2. The shell's amber ring lives on a DOM node that the page destroys whenever it re-renders
+   the guide - which happens on a timer and after every tune. A one-shot restore was wiped by
+   the next render. The ring is now restored whenever it goes missing while the guide is on
+   screen, and Down with no ring starts from the channel that is playing instead of row 1.
+
+Measured after the fix: ring on channel 1 at launch; walk to channel 6, OK -> playing
+CH 06, ring stays 6, page cursor 6, still 6 three seconds later, and the next Down moves to 7.
