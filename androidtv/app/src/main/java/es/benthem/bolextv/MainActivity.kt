@@ -94,7 +94,16 @@ class MainActivity : Activity() {
         override fun shouldOverrideUrlLoading(
             view: WebView,
             request: WebResourceRequest
-        ): Boolean = false // stay inside; the tuner is the whole world here
+        ): Boolean {
+            // The rail's Exit button cannot call into Kotlin directly - there is no JS bridge, and
+            // adding one gives the page a foothold it does not need. Navigating to a scheme only
+            // this client answers keeps the page a page, and still lets Exit live on the rail.
+            if (request.url.toString().startsWith("bolextv://")) {
+                if (request.url.toString().contains("exit")) confirmExit()
+                return true
+            }
+            return false // stay inside; the tuner is the whole world here
+        }
 
         override fun onPageFinished(view: WebView, url: String) {
             // Kiosk CSS. The tuner is laid out for a browser window; on a 1080p TV the server
@@ -239,13 +248,12 @@ class MainActivity : Activity() {
                     android.util.Log.d(TAG, "back closed overlay -> $r")
                 }
             }
-            layer.contains(":player") -> {
-                // Watching something: Back reveals the guide, it does not leave.
-                evaluate(
-                    "(function(){var r=document.querySelector('.grid-row.focused')||document.querySelector('.grid-row.active');" +
-                    "if(r){r.focus();}var g=document.querySelector('.grid-body');" +
-                    "if(g){g.scrollIntoView({block:'nearest'});}return 'guide';})()"
-                ) { r -> android.util.Log.d(TAG, "back -> guide $r") }
+            layer.contains(":rail") || layer.contains(":player") -> {
+                // On the side rail Back steps back out to the channel list; while watching it
+                // brings the guide up. Neither is a reason to offer to leave the app.
+                evaluate("window.__tvToGuide ? window.__tvToGuide() : 'none'") { r ->
+                    android.util.Log.d(TAG, "back -> guide $r")
+                }
             }
             else -> confirmExit()
         }
@@ -257,7 +265,11 @@ class MainActivity : Activity() {
         val dialog = android.app.AlertDialog.Builder(this)
             .setTitle("Leave BolexTV?")
             .setMessage("You will return to the Android TV home screen.")
-            .setPositiveButton("Leave") { _, _ -> finishAndRemoveTask() }
+            // Background the task instead of finishing it: the WebView keeps its library, its
+            // session and its playing position, so reopening is instant instead of a full reload.
+            // Android may still reclaim it after a while; that is the system's call, not a reload
+            // we force on every exit.
+            .setPositiveButton("Leave") { _, _ -> moveTaskToBack(true) }
             .setNegativeButton("Stay") { d, _ -> d.dismiss() }
             .setCancelable(true)
             .create()
@@ -446,21 +458,29 @@ class MainActivity : Activity() {
          */
         val TVNAV_JS = """
             (function(){
-              if (window.__tvNav2) return 'already';
-              window.__tvNav2 = true;
+              if (window.__tvNav3) return 'already';
+              window.__tvNav3 = true;
 
-              function visible(el){
+              // Two visibility tests on purpose.
+              //  - onScreen(): what a viewer can currently see. Used for the guide and rail.
+              //  - usable():   exists and is laid out, even if scrolled out of sight. Used inside an
+              //                overlay, because filtering to on-screen only is why the card list could
+              //                not be scrolled: every card below the fold was dropped from the list, so
+              //                focus could never travel there to drag the panel down.
+              function usable(el){
                 if (!el || el.getClientRects().length === 0) return false;
                 var cs = getComputedStyle(el);
                 if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return false;
                 var r = el.getBoundingClientRect();
-                if (r.width < 8 || r.height < 8) return false;
-                // Anything parked off the top or bottom is not reachable: focusing it makes the
-                // ring vanish and the remote appear dead. This is the settings-tabs bug.
+                return r.width >= 8 && r.height >= 8;
+              }
+              function onScreen(el){
+                if (!usable(el)) return false;
+                var r = el.getBoundingClientRect();
                 return r.bottom > 2 && r.top < innerHeight - 2;
               }
-              function collect(root, sel){
-                return Array.prototype.slice.call(root.querySelectorAll(sel)).filter(visible);
+              function collect(root, sel, test){
+                return Array.prototype.slice.call(root.querySelectorAll(sel)).filter(test || onScreen);
               }
               function settingsRoot(){ return document.querySelector('.config-overlay.open'); }
               function pickerRoot(){ return document.querySelector('.server-picker.active'); }
@@ -470,30 +490,33 @@ class MainActivity : Activity() {
                 var r = g.getBoundingClientRect();
                 return r.height > 40 && r.top < innerHeight;
               }
+
               function current(){
                 var s = settingsRoot();
                 if (s) return { name: 'settings',
-                  list: collect(s, 'button, .config-tab, [role=button], input, .bundle-card, .config-row') };
+                  list: collect(s, 'button, .config-tab, [role=button], input, .bundle-row, .config-row', usable) };
                 var p = pickerRoot();
                 if (p) return { name: 'picker',
-                  list: collect(p, '.server-option, .server-picker-addr, .server-picker-connect, button') };
+                  list: collect(p, '.server-option, .server-picker-addr, .server-picker-connect, button', usable) };
                 var rail = collect(document, '.v-btn');
                 if (rail.length && rail.indexOf(document.activeElement) >= 0)
                   return { name: 'rail', list: rail };
-                // Any other real, focusable control means a popup we do not model (the quality
-                // and sleep submenus). Those navigate natively, so hands off: hijacking them
-                // made OK tune a channel while the user was picking a stream quality.
                 var a = document.activeElement;
-                if (a && a !== document.body && visible(a) &&
+                if (a && a !== document.body && onScreen(a) &&
                     (a.tagName === 'BUTTON' || a.tagName === 'INPUT' ||
                      a.getAttribute('role') === 'button' || a.tabIndex >= 0) &&
                     !a.closest('.grid-body'))
                   return { name: 'native', list: [] };
-                return { name: guideShown() ? 'guide' : 'player', list: [] };
+                if (guideShown()) {
+                  // The announcement banner is part of the guide: its buttons sit directly above
+                  // channel 1 and were unreachable because the page's cursor only visits channels.
+                  return { name: 'guide',
+                    list: collect(document, '.grid-row[data-channel-id]', usable)
+                          .concat(collect(document, '.grid-row--promo button', usable)) };
+                }
+                return { name: 'player', list: [] };
               }
 
-              // Geometric, not list order: works on every overlay the page may add later,
-              // including rows whose DOM order does not match where they sit on screen.
               function step(from, dir){
                 var list = current().list;
                 if (!list.length) return null;
@@ -523,13 +546,15 @@ class MainActivity : Activity() {
                 try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
                 Array.prototype.forEach.call(document.querySelectorAll('.tv-focus'),
                   function(o){ o.classList.remove('tv-focus'); });
+                // The page highlights its own guide cursor; with the shell painting the ring, two
+                // highlights on screen at once is a lie about where the remote is pointing.
+                Array.prototype.forEach.call(document.querySelectorAll('.grid-row.focused'),
+                  function(o){ if (o !== el) o.classList.remove('focused'); });
                 el.classList.add('tv-focus');
                 return true;
               }
               window.__tvRing = ring;
 
-              // Close whatever sits on top of the guide. Back is handled by the shell, which
-              // asks this first so Back never means "quit" while something is open.
               window.__tvClose = function(){
                 var s = settingsRoot();
                 if (s) { var c = s.querySelector('.config-close'); if (c) { c.click(); return 'closed:settings'; } }
@@ -542,10 +567,34 @@ class MainActivity : Activity() {
                 return 'top';
               };
 
-              // The shell reads the layer off the title, because that is the one value it can
-              // read synchronously: a JS callback can go silent exactly when Back is pressed.
+              window.__tvToGuide = function(){
+                var r = document.querySelector('.grid-row.active') || document.querySelector('.grid-row[data-channel-id]');
+                if (r) { ring(r); return 'guide'; }
+                var rb = document.querySelector('.v-btn'); if (rb) rb.blur();
+                return 'noguide';
+              };
+
+              // Exit lives on the rail, visibly, so leaving is a choice you can see rather than a
+              // hidden button combination. It navigates to a scheme only the shell answers.
+              function ensureExit(){
+                var btns = document.querySelectorAll('.v-btn');
+                if (!btns.length || document.querySelector('.bolextv-exit')) return;
+                var last = btns[btns.length - 1];
+                var b = document.createElement('button');
+                b.className = last.className + ' bolextv-exit';
+                b.innerHTML = last.innerHTML.replace(/([^>]*)<\/?[^>]*>?/, '$1');
+                b.textContent = 'EXIT';
+                b.setAttribute('aria-label', 'Exit BolexTV');
+                b.style.marginTop = '10px';
+                b.addEventListener('click', function(){ location.href = 'bolextv://exit'; });
+                last.parentNode.appendChild(b);
+              }
+              setInterval(ensureExit, 1000);
+
               function sync(){
+                var rail = document.querySelector('.v-btn.tv-focus');
                 var t = 'BolexTV:' + (settingsRoot() || pickerRoot() ? 'ov'
+                        : rail ? 'rail'
                         : (guideShown() ? 'guide' : 'player'));
                 if (document.title !== t) document.title = t;
               }
@@ -562,9 +611,8 @@ class MainActivity : Activity() {
                 var ok = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66);
                 var back = (k === 'Escape' || kc === 4);
                 var z = current();
-                if (z.name === 'native') return;   // the page's own popup: do not interfere
+                if (z.name === 'native') return;
 
-                // Overlays the page does not drive itself: settings, server picker.
                 if (z.name === 'settings' || z.name === 'picker') {
                   if (up || down || left || right) {
                     var t = step(document.activeElement, up ? 'up' : down ? 'down' : left ? 'left' : 'right');
@@ -580,7 +628,6 @@ class MainActivity : Activity() {
                   return;
                 }
 
-                // Side rail: walk it, activate, and let Right come back out.
                 if (z.name === 'rail') {
                   if (up || down) {
                     var i = z.list.indexOf(document.activeElement);
@@ -592,22 +639,34 @@ class MainActivity : Activity() {
                     if (document.activeElement && document.activeElement.click) document.activeElement.click();
                     e.preventDefault(); e.stopPropagation(); return;
                   }
-                  if (right || back) { if (document.activeElement) document.activeElement.blur(); e.preventDefault(); e.stopPropagation(); return; }
-                  if (left)  { e.preventDefault(); e.stopPropagation(); return; }
+                  if (right || back) { window.__tvToGuide(); e.preventDefault(); e.stopPropagation(); return; }
+                  if (left) { e.preventDefault(); e.stopPropagation(); return; }
                   return;
                 }
 
-                // Guide and player: the page owns the arrows (its own cursor is the highlight),
-                // so they are left untouched. OK is ours, because the page's Enter handler is
-                // never reached from a remote - clicking the row is the route that tunes.
-                if (left) {
-                  var rail = collect(document, '.v-btn');
-                  if (rail.length) { ring(rail[0]); e.preventDefault(); e.stopPropagation(); }
-                  return;
-                }
-                if (ok && z.name === 'guide') {
-                  var row = document.querySelector('.grid-row.focused') || document.querySelector('.grid-row.active');
-                  if (row && row.click) { row.click(); e.preventDefault(); e.stopPropagation(); }
+                if (z.name === 'guide') {
+                  // Left still opens the rail; everything else walks the guide, announcement first.
+                  if (left) {
+                    var rail = collect(document, '.v-btn');
+                    if (rail.length) { ring(rail[0]); e.preventDefault(); e.stopPropagation(); }
+                    return;
+                  }
+                  if (up || down || right) {
+                    // Right matters on the announcement: its three buttons sit side by side and
+                    // nothing else in the guide is reachable to the right.
+                    var g = step(document.activeElement, up ? 'up' : down ? 'down' : 'right');
+                    if (g) ring(g);
+                    // Consume the key even when there is nowhere to go: letting it fall through
+                    // drops focus to the body and the ring disappears, which reads as a dead remote.
+                    e.preventDefault(); e.stopPropagation();
+                    return;
+                  }
+                  if (ok) {
+                    var el = document.activeElement;
+                    if (!el || z.list.indexOf(el) < 0) el = document.querySelector('.grid-row.active');
+                    if (el && el.click) { el.click(); e.preventDefault(); e.stopPropagation(); }
+                    return;
+                  }
                   return;
                 }
               }, true);

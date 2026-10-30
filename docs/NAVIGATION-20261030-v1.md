@@ -53,3 +53,33 @@ through, untouched.
 | `.grid-row` | 38px tall | 44px minimum | unreadable from a sofa |
 | `.grid-row-channel` | 160px, "FAMILY H…" | 230px at 16px | channel names now fit whole |
 | focus ring | none | 3px amber `#E9A13B` | the page draws no focus state in overlays |
+
+## Second pass, after Alex tested it on the box
+
+Four things he could not reach, all measured on the device afterwards.
+
+**The announcement banner was unreachable.** Its three buttons sit directly above channel 1
+and are real `<button>`s, but the page's guide cursor only visits channels. Up from the
+first channel now lands on the banner, and the three buttons walk sideways. Measured:
+Up -> "PRESS TO ADD THE SCREAM PACKAGE", Right -> "NOT THIS YEAR", Right -> "DON'T ASK
+AGAIN", Down -> back to channel 1.
+
+**Leaving the rail was impossible.** Back on the rail opened the leave prompt, because the
+shell only knew about overlays. It now reports `BolexTV:rail` and Back on the rail returns
+to the channel list. Measured: Left -> rail (`:rail`), Back -> guide (`:guide`).
+
+**Long lists would not scroll.** The overlay focus list was filtered to elements already on
+screen, so every card below the fold was dropped and focus could never travel down to drag
+the panel. Overlays now list anything laid out, and scrolling is what makes it visible.
+Two separate bugs were behind this: the filter, and a selector that matched `.bundle-card`
+and `.config-row` when the rows are actually `.bundle-row`. Measured: Down from CLOSE walks
+the tabs and then eight bundle rows while the panel scroll moves 0 -> 266 px on a list
+7,892 px long.
+
+**Exit is now visible, and leaving is instant.** The rail ends with an EXIT button, added by
+the shell to the page's own rail so it looks and moves like the rest. It navigates to
+`bolextv://exit`, a scheme only this client answers, because there is no JS bridge and the
+page does not need one. "Leave" backgrounds the task instead of finishing it: the WebView
+keeps its library, session and playback position, and the process survived the exit
+(pid unchanged). Reopening measured `TotalTime: 0`, against a full reload of roughly 20
+seconds before.
