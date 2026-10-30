@@ -7354,6 +7354,11 @@
       el.classList.remove('visible');
       return 'hidden';
     }
+    // While the lineup is building the screen belongs to the progress display. The menu has no
+    // video to sit on, so showing it produces a black screen with four buttons - which is
+    // exactly what "the app opens black" looked like from the sofa.
+    const psBuild = document.getElementById('player-screen');
+    if (psBuild && psBuild.classList.contains('building')) return 'loading';
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
@@ -7385,6 +7390,8 @@
    * already playing did nothing instead of filling the screen. The shell calls this instead.
    */
   window.__tvOkPress = function () {
+    const psOk = document.getElementById('player-screen');
+    if (psOk && psOk.classList.contains('building')) return 'loading';
     const el = document.activeElement;
     // Focus may still sit on a control from the menu we just closed; fall back to the channel
     // that is playing, which is what the viewer means by "the programme I am watching".

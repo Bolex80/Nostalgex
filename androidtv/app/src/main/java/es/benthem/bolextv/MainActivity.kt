@@ -200,6 +200,7 @@ class MainActivity : Activity() {
                         }
                         return true
                     }
+                    if (layerNow.contains(":loading")) return true   // nothing to act on yet
                     if (layerNow.contains(":player")) {
                         // Watching full screen: OK summons the same in-player menu that Back does,
                         // so the progress bar and EXIT FULL SCREEN are one press away either way.
@@ -282,6 +283,12 @@ class MainActivity : Activity() {
                 evaluate("window.__tvFsMenu ? window.__tvFsMenu(false) : 'none'") { r ->
                     android.util.Log.d(TAG, "back closed fs menu -> $r")
                 }
+            }
+            layer.contains(":loading") -> {
+                // The lineup is still building: there is no guide to return to and no player to
+                // put a menu on, so Back goes straight to the leave prompt rather than opening
+                // an empty player menu over the progress screen.
+                confirmExit()
             }
             layer.contains(":fs") || layer.contains(":player") -> {
                 // Full screen: Back brings up the menu (progress, channel, EXIT FULL SCREEN)

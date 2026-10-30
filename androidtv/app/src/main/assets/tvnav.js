@@ -151,10 +151,19 @@
   }
   setInterval(ensureExit, 1000);
 
+  // While the lineup builds there is no guide and no player: the page is showing the progress
+  // screen. Without this the layer read ':player', so Back opened the in-player menu over the
+  // loading screen and OK did nothing useful.
+  function building(){
+    var p = document.getElementById('player-screen');
+    return !!(p && p.classList.contains('building'));
+  }
+
   function sync(){
     var rail = document.querySelector('.v-btn.tv-focus');
     var t = 'BolexTV:' + (settingsRoot() || pickerRoot() ? 'ov'
             : fsMenuRoot() ? 'fsmenu'
+            : building() ? 'loading'
             : document.fullscreenElement ? 'fs'
             : rail ? 'rail'
             : (guideShown() ? 'guide' : 'player'));
