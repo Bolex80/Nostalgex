@@ -483,7 +483,7 @@ class MainActivity : Activity() {
                 + '.info-title{font-size:26px !important;line-height:1.18 !important;margin-top:0 !important;'
                 +   'display:-webkit-box !important;-webkit-line-clamp:2 !important;'
                 +   '-webkit-box-orient:vertical;overflow:hidden;}'
-                + '.grid-row{min-height:44px !important;}'
+                + '.grid-row{min-height:50px !important;}'
                 + '.grid-row-channel{width:230px !important;min-width:230px !important;'
                 +   'font-size:16px !important;line-height:1.2 !important;}'
                 + '.grid-row-programs{font-size:17px !important;}'
