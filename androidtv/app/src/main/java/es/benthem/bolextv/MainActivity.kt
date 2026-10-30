@@ -104,7 +104,7 @@ class MainActivity : Activity() {
             // connect button to the bottom of that scroll box so it is always visible.
             view.evaluateJavascript(TV_CSS, null)
             view.evaluateJavascript(brandScript(), null)
-            view.evaluateJavascript(NAV_JS, null)
+            view.evaluateJavascript(TVNAV_JS, null)
             view.evaluateJavascript(TIME_JS, null)
         }
 
@@ -177,8 +177,8 @@ class MainActivity : Activity() {
                     return true
                 }
                 KeyEvent.KEYCODE_BACK -> {
-                    goToGuide()
-                    return true // never exit: back means "up one level", not "quit"
+                    onBackPressedTv()
+                    return true
                 }
                 KeyEvent.KEYCODE_MENU -> {
                     toggleGuide()
@@ -222,30 +222,54 @@ class MainActivity : Activity() {
         ) { result -> android.util.Log.d(TAG, "channel delta=$delta -> $result") }
     }
 
-    /** Back button: ask the page to return to the guide, whatever it currently shows. */
-    private fun goToGuide() {
-        evaluate(
-            """
-            (function(){
-              try{
-                if (window.BolexTV && typeof BolexTV.showGuide === 'function')
-                  { BolexTV.showGuide(); return 'bridge:showGuide'; }
-                var g = document.querySelector('[data-bolextv-guide]');
-                if (g && g.click) { g.click(); return 'click:guide'; }
-                var b = document.querySelector('[data-bolextv-back]');
-                if (b && b.click) { b.click(); return 'click:back'; }
-                window.dispatchEvent(new KeyboardEvent('keydown',
-                  {key:'Escape', code:'Escape', keyCode:27, which:27, bubbles:true}));
-                return 'escape';
-              }catch(e){ return 'error:'+e.message; }
-            })();
-            """.trimIndent()
-        ) { result ->
-            // Deliberately no finish() on any branch: nothing here can strand the app.
-            android.util.Log.d(TAG, "guide -> $result")
+    /**
+     * Back has to mean one thing at a time, or it means nothing.
+     *
+     * Plex's model, which is what Alex asked for: Back closes whatever is on top, and only at the
+     * very top does it offer to leave. The layer is read from the page title because that is the
+     * one value readable synchronously - the JS callback can go silent exactly when Back is
+     * pressed, and a Back that sometimes does nothing is worse than no Back at all.
+     */
+    private fun onBackPressedTv() {
+        val layer = webView.title ?: ""
+        when {
+            layer.contains(":ov") -> {
+                // Settings or server picker is open: let the page close it.
+                evaluate("window.__tvClose ? window.__tvClose() : 'none'") { r ->
+                    android.util.Log.d(TAG, "back closed overlay -> $r")
+                }
+            }
+            layer.contains(":player") -> {
+                // Watching something: Back reveals the guide, it does not leave.
+                evaluate(
+                    "(function(){var r=document.querySelector('.grid-row.focused')||document.querySelector('.grid-row.active');" +
+                    "if(r){r.focus();}var g=document.querySelector('.grid-body');" +
+                    "if(g){g.scrollIntoView({block:'nearest'});}return 'guide';})()"
+                ) { r -> android.util.Log.d(TAG, "back -> guide $r") }
+            }
+            else -> confirmExit()
         }
     }
 
+    /** Ask before leaving. A kiosk that a mis-press can close is a support call. */
+    private fun confirmExit() {
+        if (isFinishing) return
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setTitle("Leave BolexTV?")
+            .setMessage("You will return to the Android TV home screen.")
+            .setPositiveButton("Leave") { _, _ -> finishAndRemoveTask() }
+            .setNegativeButton("Stay") { d, _ -> d.dismiss() }
+            .setCancelable(true)
+            .create()
+        // Android focuses the positive button first, so a second OK would quit the app.
+        // Leaving has to be the deliberate choice, not the accidental one.
+        dialog.setOnShowListener {
+            dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+        }
+        dialog.show()
+    }
+
+    /** MENU key: the page toggles its own guide on "m". */
     private fun toggleGuide() = evaluate(
         "(function(){try{window.dispatchEvent(new KeyboardEvent('keydown'," +
             "{key:'m',code:'KeyM',keyCode:77,which:77,bubbles:true}));return 'menu';}" +
@@ -420,71 +444,174 @@ class MainActivity : Activity() {
          * scrolls the focused row into view, and clicks on Enter. It only acts while the picker is
          * open, so player-mode arrow keys (channel change) are untouched.
          */
-        val NAV_JS = """
+        val TVNAV_JS = """
             (function(){
-              if (window.__bolextvNav) return 'already';
-              window.__bolextvNav = true;
-              function vis(sel){
-                return Array.prototype.slice.call(document.querySelectorAll(sel))
-                  .filter(function(el){ return el.getClientRects().length > 0; });
+              if (window.__tvNav2) return 'already';
+              window.__tvNav2 = true;
+
+              function visible(el){
+                if (!el || el.getClientRects().length === 0) return false;
+                var cs = getComputedStyle(el);
+                if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return false;
+                var r = el.getBoundingClientRect();
+                if (r.width < 8 || r.height < 8) return false;
+                // Anything parked off the top or bottom is not reachable: focusing it makes the
+                // ring vanish and the remote appear dead. This is the settings-tabs bug.
+                return r.bottom > 2 && r.top < innerHeight - 2;
               }
-              function pickerItems(){
-                var p = document.querySelector('.server-picker.active');
-                if (!p) return [];
-                return Array.prototype.slice.call(
-                  p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'))
-                  .filter(function(el){ return el.getClientRects().length > 0; });
+              function collect(root, sel){
+                return Array.prototype.slice.call(root.querySelectorAll(sel)).filter(visible);
               }
-              function walk(list, cur, dir){
-                var n = cur < 0 ? 0 : Math.min(Math.max(cur + dir, 0), list.length - 1);
-                list[n].focus();
-                if (list[n].scrollIntoView) list[n].scrollIntoView({block:'nearest'});
+              function settingsRoot(){ return document.querySelector('.config-overlay.open'); }
+              function pickerRoot(){ return document.querySelector('.server-picker.active'); }
+              function guideShown(){
+                var g = document.querySelector('.grid-body');
+                if (!g) return false;
+                var r = g.getBoundingClientRect();
+                return r.height > 40 && r.top < innerHeight;
               }
-              document.addEventListener('keydown', function(e){
-                var kc = e.keyCode, k = e.key || '';
-                var down  = (k === 'ArrowDown'  || kc === 40 || kc === 20);
-                var up    = (k === 'ArrowUp'    || kc === 38 || kc === 19);
-                var left  = (k === 'ArrowLeft'  || kc === 37);
+              function current(){
+                var s = settingsRoot();
+                if (s) return { name: 'settings',
+                  list: collect(s, 'button, .config-tab, [role=button], input, .bundle-card, .config-row') };
+                var p = pickerRoot();
+                if (p) return { name: 'picker',
+                  list: collect(p, '.server-option, .server-picker-addr, .server-picker-connect, button') };
+                var rail = collect(document, '.v-btn');
+                if (rail.length && rail.indexOf(document.activeElement) >= 0)
+                  return { name: 'rail', list: rail };
+                // Any other real, focusable control means a popup we do not model (the quality
+                // and sleep submenus). Those navigate natively, so hands off: hijacking them
+                // made OK tune a channel while the user was picking a stream quality.
+                var a = document.activeElement;
+                if (a && a !== document.body && visible(a) &&
+                    (a.tagName === 'BUTTON' || a.tagName === 'INPUT' ||
+                     a.getAttribute('role') === 'button' || a.tabIndex >= 0) &&
+                    !a.closest('.grid-body'))
+                  return { name: 'native', list: [] };
+                return { name: guideShown() ? 'guide' : 'player', list: [] };
+              }
+
+              // Geometric, not list order: works on every overlay the page may add later,
+              // including rows whose DOM order does not match where they sit on screen.
+              function step(from, dir){
+                var list = current().list;
+                if (!list.length) return null;
+                if (!from || list.indexOf(from) < 0) return list[0];
+                var a = from.getBoundingClientRect();
+                var ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+                var best = null, bestScore = Infinity;
+                list.forEach(function(el){
+                  if (el === from) return;
+                  var b = el.getBoundingClientRect();
+                  var bx = b.left + b.width / 2, by = b.top + b.height / 2;
+                  var dx = bx - ax, dy = by - ay, along, across;
+                  if (dir === 'up')         { if (b.bottom > a.top + 4)    return; along = -dy; across = Math.abs(dx); }
+                  else if (dir === 'down')  { if (b.top < a.bottom - 4)    return; along =  dy; across = Math.abs(dx); }
+                  else if (dir === 'left')  { if (b.right > a.left + 4)    return; along = -dx; across = Math.abs(dy); }
+                  else                      { if (b.left < a.right - 4)    return; along =  dx; across = Math.abs(dy); }
+                  if (along <= 0) return;
+                  var score = along + across * 2;
+                  if (score < bestScore) { bestScore = score; best = el; }
+                });
+                return best;
+              }
+
+              function ring(el){
+                if (!el) return false;
+                try { el.focus(); } catch (e) {}
+                try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+                Array.prototype.forEach.call(document.querySelectorAll('.tv-focus'),
+                  function(o){ o.classList.remove('tv-focus'); });
+                el.classList.add('tv-focus');
+                return true;
+              }
+              window.__tvRing = ring;
+
+              // Close whatever sits on top of the guide. Back is handled by the shell, which
+              // asks this first so Back never means "quit" while something is open.
+              window.__tvClose = function(){
+                var s = settingsRoot();
+                if (s) { var c = s.querySelector('.config-close'); if (c) { c.click(); return 'closed:settings'; } }
+                var p = pickerRoot();
+                if (p) {
+                  var b = p.querySelector('.server-picker-back, .server-picker-close');
+                  if (b) { b.click(); return 'closed:picker'; }
+                  return 'closed:picker?';
+                }
+                return 'top';
+              };
+
+              // The shell reads the layer off the title, because that is the one value it can
+              // read synchronously: a JS callback can go silent exactly when Back is pressed.
+              function sync(){
+                var t = 'BolexTV:' + (settingsRoot() || pickerRoot() ? 'ov'
+                        : (guideShown() ? 'guide' : 'player'));
+                if (document.title !== t) document.title = t;
+              }
+              window.__tvSync = function(){ sync(); return document.title; };
+              setInterval(sync, 500);
+              sync();
+
+              window.addEventListener('keydown', function(e){
+                var k = e.key || '', kc = e.keyCode;
+                var up = (k === 'ArrowUp'    || kc === 38 || kc === 19);
+                var down = (k === 'ArrowDown'  || kc === 40 || kc === 20);
+                var left = (k === 'ArrowLeft'  || kc === 37);
                 var right = (k === 'ArrowRight' || kc === 39);
-                var enter = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66);
-                var back  = (k === 'Escape' || kc === 4);
+                var ok = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66);
+                var back = (k === 'Escape' || kc === 4);
+                var z = current();
+                if (z.name === 'native') return;   // the page's own popup: do not interfere
 
-                // 1. Server picker takes priority while it is open.
-                var picker = pickerItems();
-                if (picker.length) {
-                  var ic = picker.indexOf(document.activeElement);
-                  if (down || up) { walk(picker, ic, down ? 1 : -1); }
-                  else if (enter || left || right) {
-                    if (ic >= 0) {
-                      picker[ic].click();
-                      var after = pickerItems();
-                      if (after[ic] && after[ic] !== picker[ic]) after[ic].focus();
-                    }
-                  } else { return; }
-                  e.preventDefault(); e.stopPropagation(); return;
+                // Overlays the page does not drive itself: settings, server picker.
+                if (z.name === 'settings' || z.name === 'picker') {
+                  if (up || down || left || right) {
+                    var t = step(document.activeElement, up ? 'up' : down ? 'down' : left ? 'left' : 'right');
+                    if (t) ring(t);
+                    e.preventDefault(); e.stopPropagation(); return;
+                  }
+                  if (ok) {
+                    var a = document.activeElement;
+                    if (a && z.list.indexOf(a) >= 0 && a.click) a.click();
+                    e.preventDefault(); e.stopPropagation(); return;
+                  }
+                  if (back) { window.__tvClose(); e.preventDefault(); e.stopPropagation(); return; }
+                  return;
                 }
 
-                // 2. Side panel (SOUND / FULLSCREEN / RETRO / SLEEP / INFO) and the fullscreen
-                //    controls. The page's guide branch preventDefaults up/down for channel
-                //    browsing, so the panel was unreachable: nothing ever moved focus into it.
-                var panel = vis('.v-btn, .fs-ctl');
-                if (!panel.length) return;
-                var ip = panel.indexOf(document.activeElement);
-                if (ip >= 0) {
-                  if (down || up) { walk(panel, ip, down ? 1 : -1); }
-                  else if (enter) { panel[ip].click(); }
-                  else if (right || back) { document.activeElement.blur(); }
-                  else { return; }
-                  e.preventDefault(); e.stopPropagation(); return;
+                // Side rail: walk it, activate, and let Right come back out.
+                if (z.name === 'rail') {
+                  if (up || down) {
+                    var i = z.list.indexOf(document.activeElement);
+                    var n = Math.min(Math.max(i + (down ? 1 : -1), 0), z.list.length - 1);
+                    ring(z.list[n]);
+                    e.preventDefault(); e.stopPropagation(); return;
+                  }
+                  if (ok) {
+                    if (document.activeElement && document.activeElement.click) document.activeElement.click();
+                    e.preventDefault(); e.stopPropagation(); return;
+                  }
+                  if (right || back) { if (document.activeElement) document.activeElement.blur(); e.preventDefault(); e.stopPropagation(); return; }
+                  if (left)  { e.preventDefault(); e.stopPropagation(); return; }
+                  return;
                 }
-                // Left is the way in. Scoped to .v-btn so the fullscreen player keeps
-                // ArrowLeft = previous channel.
-                var rail = vis('.v-btn');
-                if (left && rail.length) {
-                  rail[0].focus();
-                  e.preventDefault(); e.stopPropagation();
+
+                // Guide and player: the page owns the arrows (its own cursor is the highlight),
+                // so they are left untouched. OK is ours, because the page's Enter handler is
+                // never reached from a remote - clicking the row is the route that tunes.
+                if (left) {
+                  var rail = collect(document, '.v-btn');
+                  if (rail.length) { ring(rail[0]); e.preventDefault(); e.stopPropagation(); }
+                  return;
+                }
+                if (ok && z.name === 'guide') {
+                  var row = document.querySelector('.grid-row.focused') || document.querySelector('.grid-row.active');
+                  if (row && row.click) { row.click(); e.preventDefault(); e.stopPropagation(); }
+                  return;
                 }
               }, true);
+
               return 'armed';
             })();
         """.trimIndent()
@@ -497,6 +624,33 @@ class MainActivity : Activity() {
         val TV_CSS = """
             (function(){
               if (document.getElementById('bolextv-tv-css')) return 'already';
+
+              // --- 10-foot sizing. Measured on the box: the page renders at 960x540 CSS with a
+              // device pixel ratio of 2, so a 42px title is 84px tall on the glass and wraps to
+              // four lines on a long film name, while 16px guide rows are unreadable from a sofa
+              // and the 160px channel column truncates "FAMILY HOUR" to "FAMILY H...".
+              // Measured: .info-channel-tag occupies y 32..68 and .info-title started at y 66, so the
+              // two overlapped by 2px - the "text on top of text" Alex photographed. A second line
+              // then ran into the 2024 / es-12 / runtime badges at y 137.
+              var sizing = ''
+                + '.info-channel-tag{margin-bottom:6px !important;}'
+                + '.info-title{font-size:26px !important;line-height:1.18 !important;margin-top:0 !important;'
+                +   'display:-webkit-box !important;-webkit-line-clamp:2 !important;'
+                +   '-webkit-box-orient:vertical;overflow:hidden;}'
+                + '.grid-row{min-height:44px !important;}'
+                + '.grid-row-channel{width:230px !important;min-width:230px !important;'
+                +   'font-size:16px !important;line-height:1.2 !important;}'
+                + '.grid-row-programs{font-size:17px !important;}'
+                + '.grid-body{font-size:17px !important;}'
+                // A focus ring the page does not draw itself: without it the remote looks dead,
+                // because the page's own highlight only tracks its internal guide cursor.
+                + '.tv-focus{outline:3px solid #E9A13B !important;outline-offset:2px !important;'
+                +   'border-radius:8px !important;box-shadow:0 0 0 6px rgba(233,161,59,.22) !important;}'
+                + '.v-btn.tv-focus,.config-close.tv-focus,.config-tab.tv-focus{background:rgba(233,161,59,.18) !important;}';
+              var st = document.getElementById('bolextv-tv-css');
+              if (!st) { st = document.createElement('style'); st.id = 'bolextv-tv-css';
+                         document.head.appendChild(st); }
+              st.textContent = sizing;
               var s = document.createElement('style');
               s.id = 'bolextv-tv-css';
               s.textContent = [
