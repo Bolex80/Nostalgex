@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nostalgex</title>
+<title>BolexTV</title>
+  <!-- BolexTV readability layer: makes the RETRO switch also change the typeface. -->
+  <link rel="stylesheet" href="./tuner/bolextv.css">
 <!-- Filled in by Vite from VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (.env.local, or the
      Vercel project env). Left as placeholders when unset, which turns enrichment off.
      The anon key is public by design; row level security on media_enrichments is the
@@ -2215,6 +2217,23 @@
     transition: opacity 0.3s;
   }
   .fs-overlay.visible { opacity: 1; }
+  /* Real full screen on a television.
+     Hiding the guide was never full screen: the video kept its 484x270 preview box in the
+     upper right with black beneath it, because #video-area is a flex row that only ever
+     occupied the top half. The shell toggles body.tv-full; the page's own element-fullscreen
+     path is untouched, so a browser keeps behaving exactly as before. */
+  body.tv-full #player-screen > *:not(#video-area) { display: none !important; }
+  /* #video-area is a flex row and #video-container is a flex item with its own basis, so a
+     plain width did not beat the layout: the video grew downwards only (measured 484x540).
+     Drop the flex context and the basis, then pin both boxes to the screen. */
+  body.tv-full #video-area { position: absolute !important; inset: 0 !important;
+                              display: block !important;
+                              width: 100% !important; height: 100% !important; }
+  body.tv-full #video-container { position: absolute !important; inset: 0 !important;
+                                  flex: none !important; max-width: none !important;
+                                  width: 100% !important; height: 100% !important; }
+  body.tv-full #plex-video { width: 100% !important; height: 100% !important;
+                             object-fit: contain !important; background: #000; }
   .fs-overlay-channel {
     font-family: 'Press Start 2P', monospace;
     font-size: 10px;
@@ -3134,7 +3153,7 @@
 
   <!-- CORNER LOGO -->
   <div class="player-logo">
-    <img src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex">
+    <img src="./tuner/logo/bolextv-white.svg" alt="BolexTV">
   </div>
 
   <!-- TOUCH TOP BAR (phones and tablets only; the corner logo is fixed and
@@ -3142,7 +3161,7 @@
        wordmark on the left, and on the right the one control a phone shows:
        everything else is behind it in the drawer. -->
   <div class="m-topbar" id="m-topbar">
-    <img class="m-topbar-logo" src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex">
+    <img class="m-topbar-logo" src="./tuner/logo/bolextv-white.svg" alt="BolexTV">
     <button class="m-menu-btn" id="m-menu-btn" type="button" aria-label="Open controls"
             aria-haspopup="dialog" aria-expanded="false" aria-controls="m-drawer">
       <span class="m-menu-btn-label">MENU</span>
@@ -3185,23 +3204,6 @@
     <button class="m-drawer-item" type="button" onclick="closeDrawer(); showConfig();">
       <span class="m-drawer-label">SETTINGS</span>
     </button>
-    <a class="m-drawer-item" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
-        <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
-        <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
-      </svg>
-      <span class="m-drawer-label">INSTAGRAM</span>
-    </a>
-    <a class="m-drawer-item m-drawer-item--coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" onclick="closeDrawer()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
-        <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-        <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-        <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
-      </svg>
-      <span class="m-drawer-label">BUY ME A COFFEE</span>
-    </a>
   </div>
 
   <!-- VIDEO AREA (flexible, fills remaining space) -->
@@ -3242,6 +3244,11 @@
         <span class="v-btn-short">RETRO</span>
         <span class="v-btn-value" id="tb-retro-val">ON</span>
       </button>
+      <button class="v-btn" type="button" id="tb-subs" onclick="cyclePlexSubtitles()" aria-label="Subtitles">
+        <span class="v-btn-label">SUBTITLES [S]</span>
+        <span class="v-btn-short">SUBS</span>
+        <span class="v-btn-value off" id="tb-subs-val">OFF</span>
+      </button>
       <!-- Sleep timer and playback information share a row: the rail was already full,
            and a ninth full-width button pushed Instagram out of sight at most desktop
            and TV sizes. Sleep opens the same small picker as the drawer row; it has no
@@ -3274,28 +3281,6 @@
           <span class="v-btn-value v-key">[H]</span>
         </button>
       </div>
-      <a class="v-btn v-btn--appletv" href="https://apps.apple.com/app/nostalgex/id6762563534" target="_blank" rel="noopener noreferrer" aria-label="Download Nostalgex on Apple TV">
-        <span class="v-btn-label">APPLE TV</span>
-        <span class="v-btn-short">APPLE TV</span>
-        <span class="v-btn-value">[↓]</span>
-      </a>
-      <a class="v-coffee" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee to support Nostalgex">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path class="steam" d="M9 2.5c-.6.8-.6 1.5 0 2.3M12 2c-.6.9-.6 1.7 0 2.6M15 2.5c-.6.8-.6 1.5 0 2.3" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M4 8.5h12v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5z" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-          <path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" stroke="#000" stroke-width="1.7" stroke-linejoin="round"/>
-          <path d="M3 20.5h14" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
-        </svg>
-        <span class="v-coffee-label">BUY ME<br>A COFFEE</span>
-      </a>
-      <a class="v-social" href="https://www.instagram.com/nostalgex_" target="_blank" rel="noopener noreferrer" aria-label="Nostalgex on Instagram">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" stroke="#00C4FF" stroke-width="1.8"/>
-          <circle cx="12" cy="12" r="4.25" stroke="#00C4FF" stroke-width="1.8"/>
-          <circle cx="17.4" cy="6.6" r="1.25" fill="#00C4FF"/>
-        </svg>
-        <span class="v-social-label">INSTAGRAM</span>
-      </a>
     </div>
 
     <!-- VIDEO CONTAINER (wraps video + overlays) -->
@@ -3314,7 +3299,7 @@
 
       <!-- Loading library indicator -->
       <div class="loading-library" id="loading-library" style="display: none;">
-        <img class="loading-library-logo" src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex">
+        <img class="loading-library-logo" src="./tuner/logo/bolextv-white.svg" alt="BolexTV">
         <!-- display:contents on a pointer screen, so the desktop and TV column is
              exactly the flat stack it always was. Touch sizes turn it into one
              card, which is what stops the steps, the status line and the rail
@@ -3332,13 +3317,6 @@
             </div>
             <div class="loading-library-progress-caption" id="loading-library-progress-caption"></div>
           </div>
-        </div>
-        <div class="loading-library-coffee">
-          <div class="loading-library-coffee-lead">Channels are building. Grab a coffee while you wait.</div>
-          <a class="loading-library-coffee-btn" href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee to support Nostalgex">
-            <span class="cup" aria-hidden="true">☕</span>
-            <span>BUY ME A COFFEE</span>
-          </a>
         </div>
         <button type="button" class="loading-library-start-over" id="loading-library-start-over" onclick="startOverFromLoading()">START OVER</button>
       </div>
@@ -3403,7 +3381,7 @@
   <!-- Plex connect screen (direct child of player-screen to avoid stacking context issues) -->
   <div class="plex-connect" id="plex-connect">
     <div class="plex-logo">
-      <img src="./tuner/logo/nostalgex-white.svg" alt="NOSTALGEX">
+      <img src="./tuner/logo/bolextv-white.svg" alt="BolexTV">
     </div>
 
     <!-- Default: sign in button -->
@@ -3462,7 +3440,7 @@
   <button class="config-close" type="button" onclick="hideConfig()" aria-label="Close settings">CLOSE</button>
   <div class="config-panel">
     <div class="config-header">
-      <img src="./tuner/logo/nostalgex-white.svg" alt="Nostalgex">
+      <img src="./tuner/logo/bolextv-white.svg" alt="BolexTV">
     </div>
     <div class="config-sub">Settings</div>
 
@@ -3693,7 +3671,6 @@
         <div class="help-row">
           <div class="help-key">COFFEE</div>
           <div class="help-desc">
-            <a href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" style="color: rgba(255,229,0,0.85); text-decoration: none; border-bottom: 1px solid rgba(255,229,0,0.28); padding-bottom: 2px;">Buy Me a Coffee</a>
           </div>
         </div>
       </div>
@@ -3704,7 +3681,6 @@
       <div class="config-footer-hint"><span>[&lt;/&gt;]</span> TABS</div>
       <div class="config-footer-hint"><span>[ENTER]</span> TOGGLE / ADD</div>
       <div class="config-footer-hint"><span>[DEL]</span> REMOVE</div>
-      <div class="config-footer-hint"><span>[☕]</span> <a href="https://buymeacoffee.com/chadmueller" target="_blank" rel="noopener noreferrer" style="color: rgba(0,255,255,0.45); text-decoration: none; border-bottom: 1px solid rgba(0,255,255,0.16); padding-bottom: 2px;">BUY ME A COFFEE</a></div>
     </div>
     <!-- WEB TUNER 1.0.3, or WEB TUNER 1.0.3 · DOCKER. Filled in by loadTunerVersion(). -->
     <div class="config-version" id="cfg-tuner-version" hidden></div>
@@ -4153,6 +4129,10 @@
   let guideVisible = false;
   let configVisible = false;
   let guideFocusIndex = 0;
+  // The guide renders a fixed two-hour window from "now", so arrow-right did nothing at all:
+  // there was no time axis to move along. This offset lets the window be walked forward and
+  // back in half-hour steps, which is what a remote user expects from a TV guide.
+  let guideWindowOffsetMs = 0;
   let configFocusIndex = 0;
   let connectFocusIndex = 0;
   let overlayTimeout = null;
@@ -4367,10 +4347,10 @@
     setInterval(tickProgress, 1000);
     // The landing flow redirects here with a flag when the account has 2+ servers, so
     // server selection always happens in one place (the player's picker).
-    if (sessionStorage.getItem('plex90_pick_server') === '1' && sessionStorage.getItem('plex90_token')) {
-      sessionStorage.removeItem('plex90_pick_server');
-      plexToken = sessionStorage.getItem('plex90_token');
-      sessionStorage.setItem('plex90_user_token', plexToken);
+    if (localStorage.getItem('plex90_pick_server') === '1' && localStorage.getItem('plex90_token')) {
+      localStorage.removeItem('plex90_pick_server');
+      plexToken = localStorage.getItem('plex90_token');
+      localStorage.setItem('plex90_user_token', plexToken);
       document.getElementById('plex-connect').style.display = 'flex';
       document.getElementById('plex-actions').style.display = 'none';
       discoverServers();
@@ -4500,7 +4480,6 @@
       if (!row) return;
       const promoType = row.dataset.promo;
       if (promoType === 'email') { window.__openPromoModal && window.__openPromoModal(); return; }
-      if (promoType === 'coffee') { window.open('https://buymeacoffee.com/chadmueller', '_blank', 'noopener'); return; }
       const channelId = parseInt(row.dataset.channelId);
       if (channelId) tuneFromGuide(channelId);
     });
@@ -4748,7 +4727,7 @@
     // Calculate 2-hour time window starting at current half-hour
     const now = new Date();
     const nowMs = now.getTime();
-    const windowStartMs = Math.floor(nowMs / 1800000) * 1800000; // round down to 30 min
+    const windowStartMs = Math.floor(nowMs / 1800000) * 1800000 + guideWindowOffsetMs; // 30-min grid, shiftable
     const windowEndMs = windowStartMs + 7200000; // 2 hours
     const windowDuration = 7200; // seconds
 
@@ -4756,13 +4735,12 @@
     timeSlots.innerHTML = '';
     for (let t = windowStartMs; t < windowEndMs; t += 1800000) {
       const slotDate = new Date(t);
-      const h = slotDate.getHours();
+      // 24-hour clock: this fork runs in Europe, where AM/PM on a TV guide is noise.
+      const h = String(slotDate.getHours()).padStart(2, '0');
       const m = String(slotDate.getMinutes()).padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const h12 = h % 12 || 12;
       const slot = document.createElement('div');
       slot.className = 'grid-time-slot';
-      slot.textContent = `${h12}:${m} ${ampm}`;
+      slot.textContent = `${h}:${m}`;
       timeSlots.appendChild(slot);
     }
 
@@ -4921,6 +4899,20 @@
   }
 
   let renderGuideTimer = null;
+  /**
+   * Walk the guide window along the time axis. dir = +1 forward, -1 back.
+   * Returns 'shifted', or 'edge' when it is already at the live edge and cannot go back,
+   * so the caller can decide to leave the guide instead (the TV shell uses this).
+   */
+  window.__tvTimeShift = function (dir) {
+    const next = guideWindowOffsetMs + (dir * 1800000);
+    if (next < 0) { guideWindowOffsetMs = 0; renderActiveGuide(); return 'edge'; }
+    if (next > 6 * 3600 * 1000) return 'limit';
+    guideWindowOffsetMs = next;
+    renderActiveGuide();
+    return 'shifted';
+  };
+
   function renderActiveGuide() {
     if (renderGuideTimer) clearTimeout(renderGuideTimer);
     renderGuideTimer = setTimeout(() => {
@@ -5047,6 +5039,11 @@
     const sleepEnded = document.getElementById('sleep-ended');
     if (sleepEnded) sleepEnded.hidden = true;
     currentChannel = channelId;
+    // Keep the guide cursor on the channel that is now playing. Without this the cursor stays
+    // where it was when the guide opened, so tuning from row 6 left the highlight on row 1 -
+    // which reads as "my selection was ignored".
+    const tunedIdx = getEnabledChannels().findIndex(c => c.id === channelId);
+    guideFocusIndex = tunedIdx >= 0 ? tunedIdx : 0;
     appState = 'player';
     document.getElementById('player-screen').classList.add('has-channel');
     document.getElementById('key-hints').style.display = 'flex';
@@ -7138,6 +7135,164 @@
     }
   }
 
+  /* ── Plex subtitles ──────────────────────────────────────────────────────
+     The caption path below speaks Jellyfin/Emby: it asks their API for a ready-made VTT. Plex
+     serves SRT from /library/streams/<id>?download=1, so the same blob-plus-<track> technique
+     works once the format is converted. Text tracks only: image subtitles (PGS/DVD) cannot be
+     rendered this way and are skipped rather than shown as garbage.
+
+     Off by default and cycled OFF -> EN -> ES from the rail or the S key, because a remote has
+     six buttons and a language menu is one too many. */
+  let plexSubMode = localStorage.getItem('plex90_plex_sub_mode') || 'off';
+  let plexSubStreams = [];
+  let plexSubTrackEl = null;
+  let plexSubBlobUrl = null;
+  let plexSubItemKey = null;
+
+  function plexCurrentItem() {
+    if (typeof CHANNELS === 'undefined' || currentChannel === null) return null;
+    const ch = CHANNELS.find(c => c.id === currentChannel);
+    return ch && ch.schedule && ch.schedule[0] ? ch.schedule[0] : null;
+  }
+
+  function srtToVtt(srt) {
+    const body = srt.replace(/\r+/g, '').replace(/^\uFEFF/, '')
+      .replace(/^\d+[ \t]*$/gm, '')
+      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+    return 'WEBVTT\n\n' + body.trim() + '\n';
+  }
+
+  // Plex frequently leaves an external SRT untagged (measured: two of three on one film), so
+  // fall back to reading the cues rather than mislabelling a track we cannot identify.
+  function guessLang(text) {
+    const t = text.slice(0, 6000).toLowerCase();
+    const es = (t.match(/\b(que|de|no|el|la|los|las|una|para|con|está|pero|muy|usted|esto|porque)\b/g) || []).length;
+    const en = (t.match(/\b(the|and|you|that|for|with|this|have|what|are|not|just|from)\b/g) || []).length;
+    if (es > en * 1.4) return 'es';
+    if (en > es * 1.4) return 'en';
+    return '';
+  }
+
+  async function plexFetchSubText(stream) {
+    const url = `${plexServerUrl}/library/streams/${stream.id}?download=1&X-Plex-Token=${encodeURIComponent(plexToken)}`;
+    const res = await fetch(url);
+    return res.ok ? await res.text() : '';
+  }
+
+  function plexClearTrack() {
+    const video = document.getElementById('plex-video');
+    if (plexSubTrackEl) { try { plexSubTrackEl.remove(); } catch (e) {} plexSubTrackEl = null; }
+    if (plexSubBlobUrl) { try { URL.revokeObjectURL(plexSubBlobUrl); } catch (e) {} plexSubBlobUrl = null; }
+    if (video && video.textTracks) {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        if (video.textTracks[i].label === 'BolexTV') video.textTracks[i].mode = 'disabled';
+      }
+    }
+  }
+
+  // `actual` is the language really being shown, which is not always the one requested: the
+  // button must not claim EN while Spanish cues are on screen.
+  function plexSubLabel(actual) {
+    const el = document.getElementById('tb-subs-val');
+    if (!el) return;
+    el.textContent = (actual || plexSubMode).toUpperCase();
+    el.classList.toggle('off', plexSubMode === 'off');
+  }
+
+  async function applyPlexSubtitles(mode) {
+    plexSubMode = ['off', 'en', 'es'].includes(mode) ? mode : 'off';
+    localStorage.setItem('plex90_plex_sub_mode', plexSubMode);
+    plexSubLabel();
+    plexClearTrack();
+    if (plexSubMode === 'off') return 'off';
+
+    const item = plexCurrentItem();
+    if (!item || !item.ratingKey) return 'no-item';
+    plexSubItemKey = item.ratingKey;
+
+    if (!plexSubStreams.length) {
+      try {
+        const res = await fetch(`${plexServerUrl}/library/metadata/${item.ratingKey}?X-Plex-Token=${encodeURIComponent(plexToken)}`);
+        const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+        plexSubStreams = Array.from(xml.querySelectorAll('Stream[streamType="3"]'))
+          .filter(st => ['srt', 'subrip', 'vtt', 'webvtt'].includes((st.getAttribute('codec') || '').toLowerCase()))
+          .map(st => ({ id: st.getAttribute('id'), lang: (st.getAttribute('languageCode') || '').toLowerCase() }));
+      } catch (e) { return 'meta-failed'; }
+    }
+    if (!plexSubStreams.length) return 'no-subs';
+
+    let chosen = plexSubStreams.find(st => st.lang === plexSubMode)
+              || plexSubStreams.find(st => st.lang && st.lang.slice(0, 2) === plexSubMode);
+    if (!chosen) {
+      for (const st of plexSubStreams) {
+        const text = await plexFetchSubText(st);
+        if (text && guessLang(text) === plexSubMode) { chosen = st; break; }
+      }
+    }
+    if (!chosen) chosen = plexSubStreams[0];   // something is better than nothing
+
+    const srt = await plexFetchSubText(chosen);
+    if (!srt) return 'empty';
+    const video = document.getElementById('plex-video');
+    if (!video) return 'no-video';
+
+    plexSubBlobUrl = URL.createObjectURL(new Blob([srtToVtt(srt)], { type: 'text/vtt' }));
+    plexSubTrackEl = document.createElement('track');
+    plexSubTrackEl.kind = 'subtitles';
+    plexSubTrackEl.label = 'BolexTV';
+    plexSubTrackEl.srclang = chosen.lang || guessLang(srt) || plexSubMode;
+    plexSubTrackEl.src = plexSubBlobUrl;
+    plexSubTrackEl.addEventListener('load', () => {
+      const tr = plexSubTrackEl && plexSubTrackEl.track;
+      if (tr) tr.mode = 'showing';
+      const all = video.textTracks;
+      for (let i = 0; i < all.length; i++) if (all[i].label !== 'BolexTV') all[i].mode = 'disabled';
+    });
+    video.appendChild(plexSubTrackEl);
+    // Set the mode immediately as well as on load: the load event can fire before a listener
+    // added in the same tick is reached, and a track left 'disabled' is invisible with no error.
+    try { if (plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
+    setTimeout(() => {
+      try { if (plexSubTrackEl && plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
+    }, 600);
+    const actualLang = chosen.lang || guessLang(srt) || '';
+    plexSubLabel(actualLang || plexSubMode);
+    return 'shown:' + chosen.id + ':' + actualLang;
+  }
+
+  window.cyclePlexSubtitles = async function () {
+    const next = plexSubMode === 'off' ? 'en' : plexSubMode === 'en' ? 'es' : 'off';
+    const res = await applyPlexSubtitles(next);
+    let msg = 'SUBTITLES: ' + next.toUpperCase();
+    if (next !== 'off') {
+      const m = /^shown:([^:]*):(.*)$/.exec(res || '');
+      if (!m) {
+        msg = 'SUBTITLES: ' + next.toUpperCase() + ' NONE AVAILABLE';
+      } else if (m[2] && m[2] !== next) {
+        // Never let the label claim a language the file does not contain: this library has
+        // Spanish on 57 of 75 recent films, so a miss is normal and must be said out loud.
+        msg = 'SUBTITLES: NO ' + next.toUpperCase() + ' — SHOWING ' + m[2].toUpperCase();
+      }
+    }
+    const toast = document.getElementById('retro-toast');
+    if (toast) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+    return next;
+  };
+  window.__tvPlexSubs = applyPlexSubtitles;
+
+  // A new programme needs its own file: re-apply when the channel's item changes.
+  setInterval(() => {
+    if (plexSubMode === 'off') return;
+    const item = plexCurrentItem();
+    if (!item || !item.ratingKey || item.ratingKey === plexSubItemKey) return;
+    plexSubStreams = [];
+    applyPlexSubtitles(plexSubMode);
+  }, 4000);
+
   function setSubtitleLanguage(val) {
     subtitleLanguage = val;
     localStorage.setItem('plex90_subtitle_language', val);
@@ -7183,6 +7338,90 @@
       }, 5000);
     }
   }
+
+  /**
+   * Remote entry points for the in-player menu. The overlay, its progress bar and its
+   * EXIT FULL SCREEN button already existed; nothing could reach them from a D-pad.
+   * `on === false` hides it, anything else pins it open (no 5s auto-hide) so a viewer can
+   * walk the controls without racing a timer.
+   */
+  window.__tvFsMenu = function (on) {
+    const el = document.getElementById('fs-overlay');
+    if (!el) return 'none';
+    if (on === false) {
+      if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
+      fsOverlayVisible = false;
+      el.classList.remove('visible');
+      return 'hidden';
+    }
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
+    fsOverlayVisible = true;
+    el.classList.add('visible');
+    updateFsOverlay();
+    return 'shown';
+  };
+  // On a television the guide IS the "windowed" view: hiding it is what fills the screen.
+  // Element fullscreen does not work inside an Android WebView (the promise rejects and the
+  // page's own toggle does nothing there), so the shell drives these two instead.
+  window.__tvHideGuide = function () {
+    hideGuide();
+    document.body.classList.add('tv-full');   // expand the video: hiding the guide was not enough
+    return 'full';
+  };
+  window.__tvShowGuide = function () {
+    document.body.classList.remove('tv-full');
+    showGuide();
+    return 'guide';
+  };
+  window.__tvGuideVisible = function () { return !!guideVisible; };
+
+  /**
+   * One press of OK in the guide, decided in the page rather than in the shell.
+   * A guide row is a div, and a WebView turns DPAD_CENTER on a focused div into neither a
+   * keydown nor a click, so nothing happens at all - which is why pressing OK on the channel
+   * already playing did nothing instead of filling the screen. The shell calls this instead.
+   */
+  window.__tvOkPress = function () {
+    const el = document.activeElement;
+    // Focus may still sit on a control from the menu we just closed; fall back to the channel
+    // that is playing, which is what the viewer means by "the programme I am watching".
+    const row = (el && el.closest ? el.closest('.grid-row') : null) ||
+                document.querySelector('.grid-row.active');
+    if (row && row.classList.contains('grid-row--promo')) {
+      const btn = el && el.closest ? el.closest('button') : null;
+      if (btn) { btn.click(); return 'promo'; }
+      return 'none';
+    }
+    if (row && row.classList.contains('active')) {
+      // Through __tvHideGuide so the full-screen layout comes with it; calling hideGuide()
+      // alone hid the guide and left the video in its preview box.
+      if (window.__tvHideGuide) window.__tvHideGuide(); else hideGuide();
+      return 'full';
+    }
+    if (row && row.click) { row.click(); return 'tuned'; }
+    return 'none';
+  };
+  /**
+   * Back to the live edge in ONE press. Stepping back 30 minutes at a time meant Left could
+   * silently rewind a dozen times before it ever reached the rail, which read as "Left is
+   * broken". Returns 'edge' when the window is already live, so the caller can leave the guide.
+   */
+  window.__tvTimeShiftResume = function () {
+    if (!guideWindowOffsetMs) return 'edge';
+    guideWindowOffsetMs = 0;
+    renderActiveGuide();
+    return 'resumed';
+  };
+
+  window.__tvFsMenuOpen = function () {
+    const el = document.getElementById('fs-overlay');
+    return !!el && el.classList.contains('visible');
+  };
+  window.__tvIsFullscreen = function () { return !!document.fullscreenElement; };
+  window.__tvToggleFullscreen = function () { toggleFullscreen(); return 'toggled'; };
 
   function showFsOverlayFor(ms) {
     const el = document.getElementById('fs-overlay');
@@ -7623,8 +7862,8 @@
 
   // Which backend the user authenticated with (set by web-tuner.html before redirect).
   // For Jellyfin, plexServerUrl/plexToken hold the Jellyfin URL + access token.
-  let mediaBackend = sessionStorage.getItem('plex90_backend') || 'plex';
-  let jellyfinUserId = sessionStorage.getItem('plex90_jellyfin_user_id') || '';
+  let mediaBackend = localStorage.getItem('plex90_backend') || 'plex';
+  let jellyfinUserId = localStorage.getItem('plex90_jellyfin_user_id') || '';
 
   // Jellyfin MediaBrowser auth header (mirrors the tvOS JellyfinAPIService). Emby takes the
   // same header (EmbyAPIService.authorizationHeader), so both backends use this one.
@@ -7643,7 +7882,7 @@
     if (!isMediaBrowserBackend(kind) || !isMediaBrowserBackend(mediaBackend) || kind === mediaBackend) return false;
     console.log(`[Nostalgex] This server is ${BACKEND_NAMES[kind]}, not ${BACKEND_NAMES[mediaBackend]}. Switching the saved sign-in over.`);
     mediaBackend = kind;
-    try { sessionStorage.setItem('plex90_backend', kind); } catch (e) {}
+    try { localStorage.setItem('plex90_backend', kind); } catch (e) {}
     try {
       const saved = JSON.parse(localStorage.getItem('plex90_saved_auth') || 'null');
       if (saved && isMediaBrowserBackend(saved.backend) && saved.serverUrl === plexServerUrl) {
@@ -7707,7 +7946,7 @@
           if (checkData.authToken) {
             clearInterval(pollInterval);
             plexToken = checkData.authToken;
-            sessionStorage.setItem('plex90_token', plexToken);
+            localStorage.setItem('plex90_token', plexToken);
             // Hide the PIN/QR while we discover servers and (for 2+) show the picker.
             if (pinBlock) pinBlock.style.display = 'none';
             await discoverServers();
@@ -7928,15 +8167,15 @@
     plexToken = resolved[0].token;
 
     // Persist user token (for plex.tv re-validation) separately from server token
-    const serverTokenIsOwnToken = resolved[0].token === (sessionStorage.getItem('plex90_token') || plexToken);
+    const serverTokenIsOwnToken = resolved[0].token === (localStorage.getItem('plex90_token') || plexToken);
     if (!serverTokenIsOwnToken) {
-      sessionStorage.setItem('plex90_user_token', sessionStorage.getItem('plex90_token') || '');
+      localStorage.setItem('plex90_user_token', localStorage.getItem('plex90_token') || '');
     }
-    sessionStorage.setItem('plex90_token', plexToken);
-    sessionStorage.setItem('plex90_server_url', plexServerUrl);
-    sessionStorage.setItem('plex90_server_name', plexServerName);
-    sessionStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
-    sessionStorage.setItem('plex90_discovered_servers', JSON.stringify(discoveredServers));
+    localStorage.setItem('plex90_token', plexToken);
+    localStorage.setItem('plex90_server_url', plexServerUrl);
+    localStorage.setItem('plex90_server_name', plexServerName);
+    localStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
+    localStorage.setItem('plex90_discovered_servers', JSON.stringify(discoveredServers));
 
     plexConnected = true;
     updateConfigPlexStatus();
@@ -7960,17 +8199,17 @@
   }
 
   async function checkStoredAuth() {
-    // If sessionStorage is empty (direct bookmark to plex-tuner.html), restore from localStorage.
-    if (!sessionStorage.getItem('plex90_token')) {
+    // If localStorage is empty (direct bookmark to plex-tuner.html), restore from localStorage.
+    if (!localStorage.getItem('plex90_token')) {
       try {
         const saved = JSON.parse(localStorage.getItem('plex90_saved_auth') || 'null');
         if (saved && saved.token && saved.serverUrl) {
-          sessionStorage.setItem('plex90_token', saved.token);
-          sessionStorage.setItem('plex90_server_url', saved.serverUrl);
-          sessionStorage.setItem('plex90_server_name', saved.serverName || '');
-          if (saved.userToken) sessionStorage.setItem('plex90_user_token', saved.userToken);
-          if (saved.backend) sessionStorage.setItem('plex90_backend', saved.backend);
-          if (saved.jellyfinUserId) sessionStorage.setItem('plex90_jellyfin_user_id', saved.jellyfinUserId);
+          localStorage.setItem('plex90_token', saved.token);
+          localStorage.setItem('plex90_server_url', saved.serverUrl);
+          localStorage.setItem('plex90_server_name', saved.serverName || '');
+          if (saved.userToken) localStorage.setItem('plex90_user_token', saved.userToken);
+          if (saved.backend) localStorage.setItem('plex90_backend', saved.backend);
+          if (saved.jellyfinUserId) localStorage.setItem('plex90_jellyfin_user_id', saved.jellyfinUserId);
 
           // Hide the Plex connect screen immediately — we have saved credentials and are
           // restoring the session. Don't let it flash "CONNECT WITH PLEX" to Jellyfin users
@@ -7979,19 +8218,19 @@
         }
       } catch (e) {}
     } else {
-      // sessionStorage already has a token (came from web-tuner.html redirect or previous page).
+      // localStorage already has a token (came from web-tuner.html redirect or previous page).
       // Hide connect screen immediately so Jellyfin users don't see "CONNECT WITH PLEX" during validation.
       document.getElementById('plex-connect').style.display = 'none';
     }
 
     // Re-read backend selection (web-tuner.html sets this before redirecting here).
-    mediaBackend = sessionStorage.getItem('plex90_backend') || 'plex';
-    jellyfinUserId = sessionStorage.getItem('plex90_jellyfin_user_id') || '';
+    mediaBackend = localStorage.getItem('plex90_backend') || 'plex';
+    jellyfinUserId = localStorage.getItem('plex90_jellyfin_user_id') || '';
 
-    const storedToken = sessionStorage.getItem('plex90_token');
-    const storedUrl = sessionStorage.getItem('plex90_server_url');
-    const storedName = sessionStorage.getItem('plex90_server_name');
-    const storedUserToken = sessionStorage.getItem('plex90_user_token');
+    const storedToken = localStorage.getItem('plex90_token');
+    const storedUrl = localStorage.getItem('plex90_server_url');
+    const storedName = localStorage.getItem('plex90_server_name');
+    const storedUserToken = localStorage.getItem('plex90_user_token');
 
     if (!storedToken || !storedUrl) return;
 
@@ -8080,7 +8319,7 @@
         plexConnections = [{ uri: storedUrl }];
 
         // Restore multi-server list; fall back to single-server if not present
-        const storedSelectedServers = sessionStorage.getItem('plex90_selected_servers');
+        const storedSelectedServers = localStorage.getItem('plex90_selected_servers');
         if (storedSelectedServers) {
           try { selectedServers = JSON.parse(storedSelectedServers); } catch {}
         }
@@ -8088,7 +8327,7 @@
           selectedServers = [{ name: storedName || 'Plex', url: storedUrl, token: storedToken, connections: [{ uri: storedUrl }], machineIdentifier: '' }];
         }
 
-        const storedDiscoveredServers = sessionStorage.getItem('plex90_discovered_servers');
+        const storedDiscoveredServers = localStorage.getItem('plex90_discovered_servers');
         if (storedDiscoveredServers) {
           try { discoveredServers = JSON.parse(storedDiscoveredServers); } catch {}
         }
@@ -8099,11 +8338,11 @@
       } else if (tokenRevoked) {
         // Token was definitively rejected — clear both session AND localStorage so stale
         // credentials don't persist across page loads.
-        sessionStorage.removeItem('plex90_token');
-        sessionStorage.removeItem('plex90_server_url');
-        sessionStorage.removeItem('plex90_server_name');
-        sessionStorage.removeItem('plex90_user_token');
-        sessionStorage.removeItem('plex90_selected_servers');
+        localStorage.removeItem('plex90_token');
+        localStorage.removeItem('plex90_server_url');
+        localStorage.removeItem('plex90_server_name');
+        localStorage.removeItem('plex90_user_token');
+        localStorage.removeItem('plex90_selected_servers');
         try { localStorage.removeItem('plex90_saved_auth'); } catch (e) {}
         // The cached library belongs to credentials that no longer work, and the
         // cache is consulted before the connect screen, so leaving it would build
@@ -8154,14 +8393,14 @@
     selectedServers = [];
     selectedServerIndices = new Set();
     discoveredServers = [];
-    sessionStorage.removeItem('plex90_token');
-    sessionStorage.removeItem('plex90_discovered_servers');
-    sessionStorage.removeItem('plex90_server_url');
-    sessionStorage.removeItem('plex90_server_name');
-    sessionStorage.removeItem('plex90_user_token');
-    sessionStorage.removeItem('plex90_selected_servers');
-    sessionStorage.removeItem('plex90_backend');
-    sessionStorage.removeItem('plex90_jellyfin_user_id');
+    localStorage.removeItem('plex90_token');
+    localStorage.removeItem('plex90_discovered_servers');
+    localStorage.removeItem('plex90_server_url');
+    localStorage.removeItem('plex90_server_name');
+    localStorage.removeItem('plex90_user_token');
+    localStorage.removeItem('plex90_selected_servers');
+    localStorage.removeItem('plex90_backend');
+    localStorage.removeItem('plex90_jellyfin_user_id');
     try { localStorage.removeItem('plex90_saved_auth'); } catch (e) {}
     // The library cache persists across sessions now, so it has to go with the
     // credentials. Otherwise a signed-out browser keeps the whole library.
@@ -8280,7 +8519,7 @@
       });
     }
 
-    sessionStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
+    localStorage.setItem('plex90_selected_servers', JSON.stringify(selectedServers));
     updateConfigPlexStatus();
 
     // Rebuild library from updated server set
@@ -8302,8 +8541,8 @@
   // has none, and at LOW a 20 Mbps MP4 would direct play for up to a day, so it is refused once.
   const LIBRARY_CACHE_VERSION = 3;
 
-  // localStorage, not sessionStorage. The 24 hour TTL above only means something
-  // if the cache outlives the tab, and sessionStorage is cleared the moment the
+  // localStorage, not localStorage. The 24 hour TTL above only means something
+  // if the cache outlives the tab, and localStorage is cleared the moment the
   // tab closes. Every fresh visit therefore rescanned the whole library and the
   // TTL never once applied. Anything that ends a session has to clear this now
   // that it persists: see signOut().
@@ -9073,7 +9312,7 @@
         if (uri !== plexServerUrl) {
           console.log(`[Nostalgex] Library fetch fell back to ${uri}`);
           plexServerUrl = uri;
-          sessionStorage.setItem('plex90_server_url', uri);
+          localStorage.setItem('plex90_server_url', uri);
         }
         return data;
       } catch (err) {
@@ -9501,7 +9740,7 @@
         const selfHttp = location.protocol === 'http:';
         const NAME = backendDisplayName().toUpperCase();
         errorEl.textContent = err && err.plexStatus
-          ? (selfHttp ? `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN` : `${NAME} SESSION ENDED. RECONNECT AT NOSTALGEX.APP/WEB-TUNER`)
+          ? (selfHttp ? `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN` : `${NAME} SESSION ENDED. RECONNECT TO SIGN IN AGAIN`)
           : mixedContentBlocked
           ? 'YOUR SERVER USES HTTP. BROWSERS BLOCK THAT ON A SECURE PAGE. USE AN HTTPS URL, OR THE APPLE TV APP FOR A LOCAL SERVER'
           : selfHttp
@@ -9735,8 +9974,20 @@
         e.preventDefault();
         return;
       }
-      if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown') {
-        // Let unhandled arrows pass through to channel change
+      if (key === 'ArrowRight') {
+        // Walk the guide window forward. Previously this branch did nothing for every arrow,
+        // so right-arrow was dead on the web as well as on the TV.
+        window.__tvTimeShift(1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowLeft') {
+        window.__tvTimeShift(-1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        // Handled above by the guide cursor.
       } else {
         // Other keys handled below
       }
@@ -9812,6 +10063,11 @@
     }
     if (key === 'f' || key === 'F') {
       toggleFullscreen();
+      e.preventDefault();
+      return;
+    }
+    if (key === 's' || key === 'S') {
+      window.cyclePlexSubtitles();
       e.preventDefault();
       return;
     }

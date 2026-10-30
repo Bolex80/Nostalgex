@@ -1,0 +1,39 @@
+/* BolexTV — readability layer.
+ *
+ * The RETRO button already toggles `body.retro-mode` (plex-tuner.html:6958). Nothing else in the
+ * app reads that class for typography, so retyping it here makes RETRO do what Alex asked for:
+ * one switch that turns the CRT look AND the pixel fonts on and off together.
+ *
+ * Retro ON  -> unchanged: 'Press Start 2P' headings, 'VT323' body, wide tracking, scanlines.
+ * Retro OFF -> a system UI stack at normal tracking, which is what a guide should look like on a
+ *              1080p panel viewed from a sofa.
+ *
+ * Scoped with body:not(.retro-mode) so it can never leak into the retro presentation.
+ */
+
+body:not(.retro-mode),
+body:not(.retro-mode) * {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+               sans-serif !important;
+  /* The pixel faces carry heavy letter-spacing to stay legible; a proportional face must not. */
+  letter-spacing: normal !important;
+  /* Pixel fonts are set large to compensate for their small x-height. */
+  word-spacing: normal !important;
+  text-shadow: none !important;
+}
+
+/* Pixel faces have no true bold; a system face does, so emphasise instead of widening. */
+body:not(.retro-mode) .grid-time-slot,
+body:not(.retro-mode) .channel-name,
+body:not(.retro-mode) .np-title {
+  font-weight: 600 !important;
+}
+
+/* Small uppercase labels stay uppercase, but need less girth in a proportional face. */
+body:not(.retro-mode) .v-btn,
+body:not(.retro-mode) .v-btn-label,
+body:not(.retro-mode) .v-btn-short,
+body:not(.retro-mode) .grid-time-slot,
+body:not(.retro-mode) .plex-btn {
+  font-size: 0.92em !important;
+}
