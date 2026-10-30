@@ -3227,6 +3227,11 @@
         <span class="v-btn-short">RETRO</span>
         <span class="v-btn-value" id="tb-retro-val">ON</span>
       </button>
+      <button class="v-btn" type="button" id="tb-subs" onclick="cyclePlexSubtitles()" aria-label="Subtitles">
+        <span class="v-btn-label">SUBTITLES [S]</span>
+        <span class="v-btn-short">SUBS</span>
+        <span class="v-btn-value off" id="tb-subs-val">OFF</span>
+      </button>
       <!-- Sleep timer and playback information share a row: the rail was already full,
            and a ninth full-width button pushed Instagram out of sight at most desktop
            and TV sizes. Sleep opens the same small picker as the drawer row; it has no
@@ -7113,6 +7118,164 @@
     }
   }
 
+  /* ── Plex subtitles ──────────────────────────────────────────────────────
+     The caption path below speaks Jellyfin/Emby: it asks their API for a ready-made VTT. Plex
+     serves SRT from /library/streams/<id>?download=1, so the same blob-plus-<track> technique
+     works once the format is converted. Text tracks only: image subtitles (PGS/DVD) cannot be
+     rendered this way and are skipped rather than shown as garbage.
+
+     Off by default and cycled OFF -> EN -> ES from the rail or the S key, because a remote has
+     six buttons and a language menu is one too many. */
+  let plexSubMode = localStorage.getItem('plex90_plex_sub_mode') || 'off';
+  let plexSubStreams = [];
+  let plexSubTrackEl = null;
+  let plexSubBlobUrl = null;
+  let plexSubItemKey = null;
+
+  function plexCurrentItem() {
+    if (typeof CHANNELS === 'undefined' || currentChannel === null) return null;
+    const ch = CHANNELS.find(c => c.id === currentChannel);
+    return ch && ch.schedule && ch.schedule[0] ? ch.schedule[0] : null;
+  }
+
+  function srtToVtt(srt) {
+    const body = srt.replace(/\r+/g, '').replace(/^\uFEFF/, '')
+      .replace(/^\d+[ \t]*$/gm, '')
+      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+    return 'WEBVTT\n\n' + body.trim() + '\n';
+  }
+
+  // Plex frequently leaves an external SRT untagged (measured: two of three on one film), so
+  // fall back to reading the cues rather than mislabelling a track we cannot identify.
+  function guessLang(text) {
+    const t = text.slice(0, 6000).toLowerCase();
+    const es = (t.match(/\b(que|de|no|el|la|los|las|una|para|con|está|pero|muy|usted|esto|porque)\b/g) || []).length;
+    const en = (t.match(/\b(the|and|you|that|for|with|this|have|what|are|not|just|from)\b/g) || []).length;
+    if (es > en * 1.4) return 'es';
+    if (en > es * 1.4) return 'en';
+    return '';
+  }
+
+  async function plexFetchSubText(stream) {
+    const url = `${plexServerUrl}/library/streams/${stream.id}?download=1&X-Plex-Token=${encodeURIComponent(plexToken)}`;
+    const res = await fetch(url);
+    return res.ok ? await res.text() : '';
+  }
+
+  function plexClearTrack() {
+    const video = document.getElementById('plex-video');
+    if (plexSubTrackEl) { try { plexSubTrackEl.remove(); } catch (e) {} plexSubTrackEl = null; }
+    if (plexSubBlobUrl) { try { URL.revokeObjectURL(plexSubBlobUrl); } catch (e) {} plexSubBlobUrl = null; }
+    if (video && video.textTracks) {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        if (video.textTracks[i].label === 'BolexTV') video.textTracks[i].mode = 'disabled';
+      }
+    }
+  }
+
+  // `actual` is the language really being shown, which is not always the one requested: the
+  // button must not claim EN while Spanish cues are on screen.
+  function plexSubLabel(actual) {
+    const el = document.getElementById('tb-subs-val');
+    if (!el) return;
+    el.textContent = (actual || plexSubMode).toUpperCase();
+    el.classList.toggle('off', plexSubMode === 'off');
+  }
+
+  async function applyPlexSubtitles(mode) {
+    plexSubMode = ['off', 'en', 'es'].includes(mode) ? mode : 'off';
+    localStorage.setItem('plex90_plex_sub_mode', plexSubMode);
+    plexSubLabel();
+    plexClearTrack();
+    if (plexSubMode === 'off') return 'off';
+
+    const item = plexCurrentItem();
+    if (!item || !item.ratingKey) return 'no-item';
+    plexSubItemKey = item.ratingKey;
+
+    if (!plexSubStreams.length) {
+      try {
+        const res = await fetch(`${plexServerUrl}/library/metadata/${item.ratingKey}?X-Plex-Token=${encodeURIComponent(plexToken)}`);
+        const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+        plexSubStreams = Array.from(xml.querySelectorAll('Stream[streamType="3"]'))
+          .filter(st => ['srt', 'subrip', 'vtt', 'webvtt'].includes((st.getAttribute('codec') || '').toLowerCase()))
+          .map(st => ({ id: st.getAttribute('id'), lang: (st.getAttribute('languageCode') || '').toLowerCase() }));
+      } catch (e) { return 'meta-failed'; }
+    }
+    if (!plexSubStreams.length) return 'no-subs';
+
+    let chosen = plexSubStreams.find(st => st.lang === plexSubMode)
+              || plexSubStreams.find(st => st.lang && st.lang.slice(0, 2) === plexSubMode);
+    if (!chosen) {
+      for (const st of plexSubStreams) {
+        const text = await plexFetchSubText(st);
+        if (text && guessLang(text) === plexSubMode) { chosen = st; break; }
+      }
+    }
+    if (!chosen) chosen = plexSubStreams[0];   // something is better than nothing
+
+    const srt = await plexFetchSubText(chosen);
+    if (!srt) return 'empty';
+    const video = document.getElementById('plex-video');
+    if (!video) return 'no-video';
+
+    plexSubBlobUrl = URL.createObjectURL(new Blob([srtToVtt(srt)], { type: 'text/vtt' }));
+    plexSubTrackEl = document.createElement('track');
+    plexSubTrackEl.kind = 'subtitles';
+    plexSubTrackEl.label = 'BolexTV';
+    plexSubTrackEl.srclang = chosen.lang || guessLang(srt) || plexSubMode;
+    plexSubTrackEl.src = plexSubBlobUrl;
+    plexSubTrackEl.addEventListener('load', () => {
+      const tr = plexSubTrackEl && plexSubTrackEl.track;
+      if (tr) tr.mode = 'showing';
+      const all = video.textTracks;
+      for (let i = 0; i < all.length; i++) if (all[i].label !== 'BolexTV') all[i].mode = 'disabled';
+    });
+    video.appendChild(plexSubTrackEl);
+    // Set the mode immediately as well as on load: the load event can fire before a listener
+    // added in the same tick is reached, and a track left 'disabled' is invisible with no error.
+    try { if (plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
+    setTimeout(() => {
+      try { if (plexSubTrackEl && plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
+    }, 600);
+    const actualLang = chosen.lang || guessLang(srt) || '';
+    plexSubLabel(actualLang || plexSubMode);
+    return 'shown:' + chosen.id + ':' + actualLang;
+  }
+
+  window.cyclePlexSubtitles = async function () {
+    const next = plexSubMode === 'off' ? 'en' : plexSubMode === 'en' ? 'es' : 'off';
+    const res = await applyPlexSubtitles(next);
+    let msg = 'SUBTITLES: ' + next.toUpperCase();
+    if (next !== 'off') {
+      const m = /^shown:([^:]*):(.*)$/.exec(res || '');
+      if (!m) {
+        msg = 'SUBTITLES: ' + next.toUpperCase() + ' NONE AVAILABLE';
+      } else if (m[2] && m[2] !== next) {
+        // Never let the label claim a language the file does not contain: this library has
+        // Spanish on 57 of 75 recent films, so a miss is normal and must be said out loud.
+        msg = 'SUBTITLES: NO ' + next.toUpperCase() + ' — SHOWING ' + m[2].toUpperCase();
+      }
+    }
+    const toast = document.getElementById('retro-toast');
+    if (toast) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+    return next;
+  };
+  window.__tvPlexSubs = applyPlexSubtitles;
+
+  // A new programme needs its own file: re-apply when the channel's item changes.
+  setInterval(() => {
+    if (plexSubMode === 'off') return;
+    const item = plexCurrentItem();
+    if (!item || !item.ratingKey || item.ratingKey === plexSubItemKey) return;
+    plexSubStreams = [];
+    applyPlexSubtitles(plexSubMode);
+  }, 4000);
+
   function setSubtitleLanguage(val) {
     subtitleLanguage = val;
     localStorage.setItem('plex90_subtitle_language', val);
@@ -9861,6 +10024,11 @@
     }
     if (key === 'f' || key === 'F') {
       toggleFullscreen();
+      e.preventDefault();
+      return;
+    }
+    if (key === 's' || key === 'S') {
+      window.cyclePlexSubtitles();
       e.preventDefault();
       return;
     }
