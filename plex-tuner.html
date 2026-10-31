@@ -3340,6 +3340,7 @@
           <button class="fs-ctl" type="button" data-fs="prev" aria-label="Previous channel">CH -</button>
           <button class="fs-ctl" type="button" data-fs="next" aria-label="Next channel">CH +</button>
           <button class="fs-ctl" type="button" data-fs="sound" aria-label="Sound">SOUND <span id="fs-sound-val">OFF</span></button>
+          <button class="fs-ctl" type="button" data-fs="subs" aria-label="Subtitles">SUBS <span id="fs-subs-val">OFF</span></button>
           <button class="fs-ctl" type="button" data-fs="exit" aria-label="Exit full screen">EXIT FULL SCREEN</button>
         </div>
       </div>
@@ -4463,14 +4464,21 @@
     // Full screen: a click or an OK press on the picture brings up the info bar
     // with channel and exit buttons, since a cursor remote has no arrow keys.
     document.getElementById('video-container').addEventListener('click', (e) => {
-      if (!isVideoFullscreen()) return;
       const ctl = e.target.closest('.fs-ctl');
+      // These controls are handled whether or not element fullscreen is available. On a
+      // television it never is - the WebView rejects requestFullscreen - so gating on
+      // isVideoFullscreen() here made every button in this menu silently dead: EXIT FULL SCREEN,
+      // CH+/-, SOUND, all of them.
       if (ctl) {
         if (ctl.dataset.fs === 'prev') prevChannel();
         else if (ctl.dataset.fs === 'next') nextChannel();
         else if (ctl.dataset.fs === 'sound') toggleMute();
-        else if (ctl.dataset.fs === 'exit') { toggleFullscreen(); return; }
+        else if (ctl.dataset.fs === 'subs') window.cyclePlexSubtitles();
+        else if (ctl.dataset.fs === 'exit') { exitFullscreenTv(); return; }
+        setTimeout(() => { updateFsOverlay(); if (window.__tvSync) window.__tvSync(); }, 80);
+        return;
       }
+      if (!isVideoFullscreen() && !document.body.classList.contains('tv-full')) return;
       showFsOverlayFor(5000);
     });
 
@@ -6386,6 +6394,56 @@
     return !!(video && video.webkitDisplayingFullscreen);
   }
 
+  /**
+   * Leaving full screen on a television.
+   *
+   * The browser path calls document.exitFullscreen(), which WebView rejects, so EXIT FULL SCREEN
+   * did nothing on the box while the picture stayed full. On the TV the "full screen" is the
+   * tv-full layout, so leaving it means removing that class and bringing the guide back.
+   */
+  let lastExitMs = 0;
+  function exitFullscreenTv() {
+    // The remote's OK reaches the page twice: once through the shell's key handler (which
+    // calls __tvFsActivate) and once as a native click on the focused button. Without this
+    // guard the exit ran twice - the first undid the layout, the second fell through to
+    // toggleFullscreen() and put the picture straight back into full screen.
+    const nowMs = Date.now();
+    if (nowMs - lastExitMs < 600) return 'ignored';
+    lastExitMs = nowMs;
+
+    let left = false;
+    // Two full screens can be active at once and both have to be undone: the real element
+    // fullscreen (a remote OK counts as the user gesture WebView wants, so requestFullscreen
+    // does engage here) and the tv-full layout. Leaving only one of them left the picture
+    // filling the screen with the guide alive but hidden behind it.
+    if (document.fullscreenElement) {
+      try {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {
+            try { document.webkitExitFullscreen && document.webkitExitFullscreen(); } catch (e) {}
+          });
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        left = true;
+      } catch (e) {}
+    }
+    if (document.body.classList.contains('tv-full') && window.__tvShowGuide) {
+      window.__tvFsMenu(false);
+      window.__tvShowGuide();
+      left = true;
+    }
+    if (left) {
+      if (window.__tvSync) window.__tvSync();
+      return 'guide';
+    }
+    // Inside the shell there is no browser fullscreen to toggle: falling back to it is exactly
+    // what re-entered full screen after leaving it.
+    if (window.__tvShell) return 'noop';
+    toggleFullscreen();
+    return 'browser';
+  }
+
   function toggleFullscreen() {
     const container = document.getElementById('video-container');
     const video = document.getElementById('plex-video');
@@ -7143,6 +7201,12 @@
 
      Off by default and cycled OFF -> EN -> ES from the rail or the S key, because a remote has
      six buttons and a language menu is one too many. */
+  // Subtitles are OFF until the viewer asks for them. A stored language from earlier testing
+  // made the app open with captions on; this clears that once, then his own choice persists.
+  if (!localStorage.getItem('plex90_plex_sub_init')) {
+    localStorage.removeItem('plex90_plex_sub_mode');
+    localStorage.setItem('plex90_plex_sub_init', '1');
+  }
   let plexSubMode = localStorage.getItem('plex90_plex_sub_mode') || 'off';
   let plexSubStreams = [];
   let plexSubTrackEl = null;
@@ -7193,10 +7257,16 @@
   // `actual` is the language really being shown, which is not always the one requested: the
   // button must not claim EN while Spanish cues are on screen.
   function plexSubLabel(actual) {
+    const label = (actual || plexSubMode).toUpperCase();
     const el = document.getElementById('tb-subs-val');
-    if (!el) return;
-    el.textContent = (actual || plexSubMode).toUpperCase();
-    el.classList.toggle('off', plexSubMode === 'off');
+    if (el) {
+      el.textContent = label;
+      el.classList.toggle('off', plexSubMode === 'off');
+    }
+    // The in-player menu shows the same state, and it must update even when there is no channel
+    // yet - updateFsOverlay() bails out early in that case, so the label is set here instead.
+    const fsEl = document.getElementById('fs-subs-val');
+    if (fsEl) fsEl.textContent = label;
   }
 
   async function applyPlexSubtitles(mode) {
@@ -7260,7 +7330,13 @@
     return 'shown:' + chosen.id + ':' + actualLang;
   }
 
+  let lastSubCycleMs = 0;
   window.cyclePlexSubtitles = async function () {
+    // OK arrives twice (shell key handler + native click), which stepped the cycle two modes
+    // at a time; a short guard makes one press mean one step.
+    const nowMs = Date.now();
+    if (nowMs - lastSubCycleMs < 600) return 'ignored';
+    lastSubCycleMs = nowMs;
     const next = plexSubMode === 'off' ? 'en' : plexSubMode === 'en' ? 'es' : 'off';
     const res = await applyPlexSubtitles(next);
     let msg = 'SUBTITLES: ' + next.toUpperCase();
@@ -7322,7 +7398,10 @@
   function toggleFsOverlay() {
     // Enter fullscreen if not already. requestFullscreen is undefined on iPhone, where
     // this overlay is keyboard-only anyway, so guard rather than throw.
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    // On the television the shell fills the screen with the tv-full layout, and element
+    // fullscreen there only competes with it: two full screens, two exits, and the one that
+    // wins is whichever ran last. window.__tvShell is set by the APK before the page runs.
+    if (!window.__tvShell && !document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
     fsOverlayVisible = !fsOverlayVisible;
@@ -7359,7 +7438,7 @@
     // exactly what "the app opens black" looked like from the sofa.
     const psBuild = document.getElementById('player-screen');
     if (psBuild && psBuild.classList.contains('building')) return 'loading';
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    if (!window.__tvShell && !document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
     if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
@@ -7389,6 +7468,23 @@
    * keydown nor a click, so nothing happens at all - which is why pressing OK on the channel
    * already playing did nothing instead of filling the screen. The shell calls this instead.
    */
+  /**
+   * OK inside the in-player menu presses the focused control.
+   *
+   * The shell used to close the menu on OK instead, so navigating to EXIT FULL SCREEN and
+   * pressing OK just dismissed the menu: from the sofa, "it does not react".
+   */
+  window.__tvFsActivate = function () {
+    const root = document.querySelector('.fs-overlay.visible');
+    if (!root) return 'closed';
+    const focused = root.querySelector('.fs-ctl.tv-focus')
+      || (document.activeElement && document.activeElement.closest
+            ? document.activeElement.closest('.fs-ctl') : null);
+    if (!focused) return window.__tvFsMenu(false);
+    focused.click();
+    return 'activate:' + (focused.dataset.fs || '?');
+  };
+
   window.__tvOkPress = function () {
     const psOk = document.getElementById('player-screen');
     if (psOk && psOk.classList.contains('building')) return 'loading';
@@ -7456,6 +7552,8 @@
     document.getElementById('fs-overlay-title').textContent = fsTitle;
     document.getElementById('fs-overlay-progress').style.width = (now.progress || 0) + '%';
     document.getElementById('fs-overlay-time').textContent = now.position ? `${now.position} / ${now.total}` : '';
+    const subsVal = document.getElementById('fs-subs-val');
+    if (subsVal) subsVal.textContent = (plexSubMode || 'off').toUpperCase();
   }
 
   function toggleConfigSection(section) {

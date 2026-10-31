@@ -222,8 +222,17 @@
 
     if (z.name === 'fsmenu') {
       if (up || down || left || right) {
-        var fm = step(document.activeElement, up ? 'up' : down ? 'down' : left ? 'left' : 'right');
-        if (fm) ring(fm);
+        // One row of buttons: walk it by DOM order, not geometry. Geometry needed a reliable
+        // origin and kept jumping (EXIT -> CH- -> EXIT) because the ringed element and
+        // document.activeElement disagreed.
+        var curCtl = document.querySelector('.fs-ctl.tv-focus') || document.querySelector('.fs-ctl');
+        var ci = z.list.indexOf(curCtl);
+        if (ci < 0) ci = 0;
+        var dirn = right ? 1 : left ? -1 : 0;
+        if (dirn) {
+          var ni = Math.min(Math.max(ci + dirn, 0), z.list.length - 1);
+          ring(z.list[ni]);
+        }
         e.preventDefault(); e.stopPropagation(); return;
       }
       if (ok) {

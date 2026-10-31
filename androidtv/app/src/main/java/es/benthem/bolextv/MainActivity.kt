@@ -105,7 +105,15 @@ class MainActivity : Activity() {
             return false // stay inside; the tuner is the whole world here
         }
 
+        override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+            super.onPageStarted(view, url, favicon)
+            // Tell the page it is inside the TV shell before its own code runs: on a television
+            // the layout fills the screen, and element fullscreen only fights it.
+            view.evaluateJavascript("window.__tvShell = true;", null)
+        }
+
         override fun onPageFinished(view: WebView, url: String) {
+            view.evaluateJavascript("window.__tvShell = true;", null)
             // Kiosk CSS. The tuner is laid out for a browser window; on a 1080p TV the server
             // picker grows past the viewport and its CONNECT button lands below the fold with no
             // scrollable ancestor (plex-tuner.html:1170-1180 sets neither max-height nor overflow),
@@ -212,8 +220,11 @@ class MainActivity : Activity() {
                         return true
                     }
                     if (layerNow.contains(":fsmenu")) {
-                        evaluate("window.__tvFsMenu ? window.__tvFsMenu(false) : 'none'") { r ->
-                            android.util.Log.d(TAG, "ok closed fs menu -> $r")
+                        // OK presses the focused control (EXIT FULL SCREEN, SUBS, CH+, SOUND).
+                        // It used to dismiss the menu instead, so EXIT FULL SCREEN looked dead
+                        // from the sofa. Back is still what closes the menu.
+                        evaluate("window.__tvFsActivate ? window.__tvFsActivate() : 'none'") { r ->
+                            android.util.Log.d(TAG, "ok in fs menu -> $r")
                         }
                         return true
                     }
