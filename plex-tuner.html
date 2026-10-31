@@ -6883,6 +6883,10 @@
   // the background goes through here, so a library refresh never restarts playback.
   function tuneFromGuide(channelId) {
     if (sleepStoppedPlayback && channelId === currentChannel) currentChannel = null;
+    // Stamp the tune. One OK tunes; a second OK on a channel that was already playing fills
+    // the screen. Without this the same press did both, because the WebView delivers OK twice
+    // and the second delivery saw a row that had just become "active".
+    window.__lastTuneMs = Date.now();
     switchChannel(channelId);
   }
 
@@ -7489,9 +7493,14 @@
     const psOk = document.getElementById('player-screen');
     if (psOk && psOk.classList.contains('building')) return 'loading';
     const el = document.activeElement;
-    // Focus may still sit on a control from the menu we just closed; fall back to the channel
-    // that is playing, which is what the viewer means by "the programme I am watching".
-    const row = (el && el.closest ? el.closest('.grid-row') : null) ||
+    // The cursor is the ring, not document.activeElement: a guide row is a div, so focus() does
+    // not stick to it and activeElement stays <body>. Falling back to the active row meant OK
+    // always acted on the channel that was already playing - it filled the screen while the
+    // same press tuned the ringed row underneath it.
+    const ringed = document.querySelector('.grid-row.tv-focus') ||
+                   document.querySelector('.grid-row.focused');
+    const row = ringed ||
+                (el && el.closest ? el.closest('.grid-row') : null) ||
                 document.querySelector('.grid-row.active');
     if (row && row.classList.contains('grid-row--promo')) {
       const btn = el && el.closest ? el.closest('button') : null;
@@ -7499,6 +7508,9 @@
       return 'none';
     }
     if (row && row.classList.contains('active')) {
+      // If this same press is what tuned the channel, the viewer asked to change channel, not
+      // to go full screen: stop here and leave the preview in place.
+      if (Date.now() - (window.__lastTuneMs || 0) < 700) return 'just-tuned';
       // Through __tvHideGuide so the full-screen layout comes with it; calling hideGuide()
       // alone hid the guide and left the video in its preview box.
       if (window.__tvHideGuide) window.__tvHideGuide(); else hideGuide();

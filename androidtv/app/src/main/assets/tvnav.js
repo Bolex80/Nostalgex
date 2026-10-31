@@ -205,6 +205,9 @@
     var row = e.target && e.target.closest ? e.target.closest('.grid-row') : null;
     if (!row || !row.classList.contains('active')) return;
     if (row.classList.contains('grid-row--promo')) return;
+    // One OK tunes; only the next OK fills the screen. The row is 'active' the instant it is
+    // tuned, so without this the press that changed channel also went full screen.
+    if (Date.now() - (window.__lastTuneMs || 0) < 700) return;
     if (window.__tvHideGuide) window.__tvHideGuide();
     else if (window.__tvToggleFullscreen) window.__tvToggleFullscreen();
   }, true);
