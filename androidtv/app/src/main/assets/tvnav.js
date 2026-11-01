@@ -220,6 +220,18 @@
     var right = (k === 'ArrowRight' || kc === 39);
     var ok = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66);
     var back = (k === 'Escape' || kc === 4);
+    // Stale rings and stale focus: if an overlay button still holds the ring while its overlay
+    // is gone, drop it and blur before zoning, or the next press is read against a control
+    // that is no longer on screen.
+    var overlayLive = fsMenuRoot();
+    if (!overlayLive) {
+      var stale = document.querySelector('.fs-ctl.tv-focus');
+      if (stale) {
+        stale.classList.remove('tv-focus');
+        if (document.activeElement && document.activeElement.closest &&
+            document.activeElement.closest('.fs-ctl')) { try { document.activeElement.blur(); } catch (e) {} }
+      }
+    }
     var z = current();
     if (z.name === 'native') return;
 

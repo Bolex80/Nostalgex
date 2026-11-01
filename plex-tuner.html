@@ -3337,11 +3337,12 @@
         <div class="fs-overlay-bar"><div class="fs-overlay-progress" id="fs-overlay-progress"></div></div>
         <div class="fs-overlay-time" id="fs-overlay-time"></div>
         <div class="fs-controls" id="fs-controls">
+          <!-- EXIT first: it opens the menu on the control people use most, and the ring lands here naturally. -->
+          <button class="fs-ctl" type="button" data-fs="exit" aria-label="Exit full screen">EXIT FULL SCREEN</button>
           <button class="fs-ctl" type="button" data-fs="prev" aria-label="Previous channel">CH -</button>
           <button class="fs-ctl" type="button" data-fs="next" aria-label="Next channel">CH +</button>
           <button class="fs-ctl" type="button" data-fs="sound" aria-label="Sound">SOUND <span id="fs-sound-val">OFF</span></button>
           <button class="fs-ctl" type="button" data-fs="subs" aria-label="Subtitles">SUBS <span id="fs-subs-val">OFF</span></button>
-          <button class="fs-ctl" type="button" data-fs="exit" aria-label="Exit full screen">EXIT FULL SCREEN</button>
         </div>
       </div>
 
@@ -7242,8 +7243,11 @@
   }
 
   async function plexFetchSubText(stream) {
-    const url = `${plexServerUrl}/library/streams/${stream.id}?download=1&X-Plex-Token=${encodeURIComponent(plexToken)}`;
-    const res = await fetch(url);
+    // External subtitle files carry a key path and download fine. Streams embedded in the video
+    // (an srt inside the mkv) have no key and the streams endpoint often serves nothing at all,
+    // so the caller must be ready to try the next track instead of giving up.
+    const where = stream.key || `/library/streams/${stream.id}`;
+    const res = await fetch(`${plexServerUrl}${where}?download=1&X-Plex-Token=${encodeURIComponent(plexToken)}`);
     return res.ok ? await res.text() : '';
   }
 
@@ -7295,18 +7299,20 @@
     }
     if (!plexSubStreams.length) return 'no-subs';
 
-    let chosen = plexSubStreams.find(st => st.lang === plexSubMode)
-              || plexSubStreams.find(st => st.lang && st.lang.slice(0, 2) === plexSubMode);
-    if (!chosen) {
-      for (const st of plexSubStreams) {
-        const text = await plexFetchSubText(st);
-        if (text && guessLang(text) === plexSubMode) { chosen = st; break; }
-      }
+    // Rank candidates: the requested language first, then a prefix match, then everything else
+    // in Plex's own order - and try each until one actually downloads. A track listed in the
+    // metadata can still be unfetchable (embedded srt), which used to leave no captions at all.
+    const rank = st => (st.lang === plexSubMode ? 0
+                   : plexSubMode && st.lang && st.lang.slice(0, 2) === plexSubMode ? 1
+                   : st.lang ? 2 : 3);
+    const candidates = [...plexSubStreams].sort((a, b) => rank(a) - rank(b));
+    let chosen = null, srt = '';
+    for (const st of candidates) {
+      const text = await plexFetchSubText(st);
+      if (!text) continue;
+      chosen = st; srt = text; break;
     }
-    if (!chosen) chosen = plexSubStreams[0];   // something is better than nothing
-
-    const srt = await plexFetchSubText(chosen);
-    if (!srt) return 'empty';
+    if (!chosen) return 'empty';
     const video = document.getElementById('plex-video');
     if (!video) return 'no-video';
 
@@ -7435,6 +7441,12 @@
       if (fsOverlayTimer) { clearTimeout(fsOverlayTimer); fsOverlayTimer = null; }
       fsOverlayVisible = false;
       el.classList.remove('visible');
+      // The ring cannot stay on a control that no longer exists on screen: document.activeElement
+      // still pointed at it, so the shell mis-zoned the next press and Left looked dead after
+      // leaving full screen.
+      document.querySelectorAll('.fs-ctl.tv-focus').forEach(x => x.classList.remove('tv-focus'));
+      if (document.activeElement && document.activeElement.closest &&
+          document.activeElement.closest('.fs-ctl')) { try { document.activeElement.blur(); } catch (e) {} }
       return 'hidden';
     }
     // While the lineup is building the screen belongs to the progress display. The menu has no
