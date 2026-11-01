@@ -3,6 +3,34 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 31/10/2026 — full screen round trip, menu order, subtitle robustness
+
+### Fixed
+- **Left looked dead after leaving full screen**: the menu's ring stayed on a control that was no
+  longer on screen and `document.activeElement` still pointed at it, so the next press was zoned
+  against a hidden overlay button. The menu now clears its ring and focus when it closes, and the
+  engine drops a stale ring before zoning. Measured: full screen → menu → EXIT → Left reaches the
+  rail.
+- **OK changed channel and went full screen at the same time** (see 30/10 list): `__tvOkPress`
+  read the cursor from `document.activeElement`, which stays `<body>` for a guide row, so it acted
+  on the channel already playing while the same press tuned the ringed row. It now reads the ring
+  and a tune timestamp stops the double action. Measured: three channel changes all stayed in the
+  484×270 preview; a second OK on the playing channel filled the screen.
+
+### Changed
+- **EXIT FULL SCREEN moved first** in the in-player menu, ahead of CH−/CH+/SOUND/SUBS; the ring
+  lands on it when the menu opens.
+
+### Improved
+- **Subtitles no longer give up on the first track.** Embedded srt streams inside the mkv often
+  download as nothing, which left The Office with no captions at all even though Plex lists them.
+  Candidates are ranked (requested language, prefix match, the rest) and tried in order; the menu
+  reports the language actually playing. Survey of the current 43 on-air items: 38 renderable,
+  1 image-only (VobSub, cannot render), 4 with no subtitle streams.
+
+### Deployed
+- Tuner `20261031f` (`3f6d2544d528`), APK `0.1.0` from `9f917e1`.
+
 ## 30/10/2026 — BolexTV running on the television
 
 ### Added
