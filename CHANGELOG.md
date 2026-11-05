@@ -3,6 +3,18 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 05/11/2026 — season and episode in the information panel
+
+### Added
+- TV episodes now show a **S07E08** style badge in the info panel's meta row, before year, content
+  rating and duration. Movies are unchanged.
+
+### Fixed
+- The badge never appeared at first: the library cache (24h TTL) still held episodes scanned before
+  the fields existed. Bumped `LIBRARY_CACHE_VERSION` to 4 so the old cache is refused once and the
+  next scan carries season and episode numbers. Same class of stale-data bug as the cached page that
+  kept the donation banner alive.
+
 ## 05/11/2026 — guide header alignment
 
 ### Fixed

@@ -5841,6 +5841,15 @@
     // Build meta badges
     const metaEl = document.getElementById('info-meta-row');
     metaEl.innerHTML = '';
+    // TV episodes: season and episode, e.g. S02E05. Movies never get this badge.
+    if (shown.type === 'episode' && (shown.seasonNumber || shown.episodeNumber)) {
+      const seBadge = document.createElement('span');
+      seBadge.className = 'info-meta-badge info-meta-se';
+      const sPart = shown.seasonNumber ? `S${String(shown.seasonNumber).padStart(2, '0')}` : '';
+      const ePart = shown.episodeNumber ? `E${String(shown.episodeNumber).padStart(2, '0')}` : '';
+      seBadge.textContent = sPart + ePart;
+      if (seBadge.textContent) metaEl.appendChild(seBadge);
+    }
     if (shown.year) {
       const yearBadge = document.createElement('span');
       yearBadge.className = 'info-meta-badge';
@@ -8645,7 +8654,9 @@
   // cache would serve a whole day of items with no ids, so it is refused once.
   // 3: items carry a bitrate (kbps) for STREAM QUALITY's direct-play ceiling. A version-2 cache
   // has none, and at LOW a 20 Mbps MP4 would direct play for up to a day, so it is refused once.
-  const LIBRARY_CACHE_VERSION = 3;
+  // 4: episodes carry seasonNumber and episodeNumber for the info panel badge. A version-3 cache
+  // has neither, so the badge would silently never appear until the cache expired.
+  const LIBRARY_CACHE_VERSION = 4;
 
   // localStorage, not localStorage. The 24 hour TTL above only means something
   // if the cache outlives the tab, and localStorage is cleared the moment the
@@ -9585,6 +9596,11 @@
                     return {
                       title: show.title || 'Unknown',
                       episodeTitle: epTitle,
+                      // Season and episode as fields, so the info panel can badge them.
+                      // `meta` already carries the same tag, but a display string is the wrong
+                      // place to read structured data from.
+                      seasonNumber: ep.parentIndex || null,
+                      episodeNumber: ep.index || null,
                       meta: [`"${epTitle}"`, seTag, formatDuration(durationMin)].filter(Boolean).join(' · '),
                       summary: ep.summary || show.summary || '',
                       year: show.year || '',
