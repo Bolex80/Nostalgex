@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 43 · **139 channels** across **14 bundles** · 90 channels whose `id` differs from their `number`.
+**Config version:** 44 · **147 channels** across **14 bundles** · 98 channels whose `id` differs from their `number`.
 
 ---
 
@@ -52,10 +52,10 @@ only name the channel's own defining genre.
 
 | Bundle | Bundle ID | Channels | Range | Description |
 |---|---|---|---|---|
-| NOSTALGEX | `nostalgex` | 19 | CH 1–19 | The 80s and 90s. All retro, all the time |
-| KIDZ ZONE | `kids` | 15 | CH 20–34 | Disney, Nickelodeon, Pixar, and more |
-| PRIME TIME | `essentials` | 16 | CH 40–55 | Everyday favorites and feel-good viewing |
-| MARQUEE | `premium` | 11 | CH 59–69 | Premium channels |
+| NOSTALGEX | `nostalgex` | 20 | CH 1–19, 58 | The 80s and 90s. All retro, all the time |
+| KIDZ ZONE | `kids` | 18 | CH 20–34, 36–37, 57 | Disney, Nickelodeon, Pixar, and more |
+| MARQUEE | `premium` | 13 | CH 35, 38, 59–69 | Premium channels |
+| PRIME TIME | `essentials` | 18 | CH 39–56 | Everyday favorites and feel-good viewing |
 | ADVENTURELAND | `adventureland` | 9 | CH 70–78 | Epic quests, disasters, and adrenaline |
 | OVERTIME | `sports` | 3 | CH 80–82 | Movies, shows, and docs |
 | CASE FILES | `truecrime` | 6 | CH 84–89 | True crime, thrillers & mystery |
@@ -67,7 +67,7 @@ only name the channel's own defining genre.
 | TIS THE SEASON | `tis-the-season` | 8 | CH 145–152 | Christmas, Thanksgiving and holiday channels. Spotlighted from 7 days before US Thanksgiving (the fourth Thursday of November) through Dec. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
-Bundled channels: 139 of 139.
+Bundled channels: 147 of 147.
 
 ---
 
@@ -98,7 +98,7 @@ web filter) and `scripts/filter-golden.json` pins the cases.
 
 ## Channels by bundle
 
-### NOSTALGEX · CH 1–19
+### NOSTALGEX · CH 1–19, 58
 
 _The 80s and 90s. All retro, all the time_
 
@@ -123,8 +123,9 @@ _The 80s and 90s. All retro, all the time_
 | 17 | **`406`** ⚠︎ | Y2K COMEDY | `#E67E22` | Movies | 3 | incl Comedy, no Animation/Animated, kw excl (3), 2000-2009 |
 | 18 | **`407`** ⚠︎ | Y2K SITCOMS | `#F1C40F` | Episodes | 10 | incl Comedy, no Anime/Animation, 2000-2009 |
 | 19 | **`216`** ⚠︎ | Y2K TOONS | `#1ABC9C` | Episodes | 5 | incl Animation/Kids/Children/Cartoon/Animated, 2000-2009, rated TV-Y/TV-Y7/TV-G/G/TV-PG/unrated |
+| 58 | **`507`** ⚠︎ | TOON TIME | `#F7DC6F` | Episodes | 3 | title allowlist (6) |
 
-### KIDZ ZONE · CH 20–34
+### KIDZ ZONE · CH 20–34, 36–37, 57
 
 _Disney, Nickelodeon, Pixar, and more_
 
@@ -145,13 +146,37 @@ _Disney, Nickelodeon, Pixar, and more_
 | 32 | **`34`** ⚠︎ | NETFLIX KIDS | `#E50914` | Any | 3 | incl Family/Kids/Children/Comedy/Adventure, no Horror/Thriller, studios Netflix/Netflix Animation/Netflix Family, title allowlist (28), rated TV-Y/TV-Y7/TV-G/G/PG/TV-PG/unrated |
 | 33 | **`218`** ⚠︎ | DREAMWORKS | `#2ECC71` | Any | 5 | studios DreamWorks Animation/Pacific Data Images, rated G/PG/PG-13/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
 | 34 | **`400`** ⚠︎ | TOON TOWN | `#FF9F1C` | Movies | 5 | kw +1, kw needs genre Animation/Family/Comedy, rated G/PG/PG-13/unrated |
+| 36 | **`501`** ⚠︎ | MARCOS | `#58D68D` | Movies | 3 | title allowlist (33) |
+| 37 | **`502`** ⚠︎ | SOFÍA | `#F1948A` | Movies | 3 | title allowlist (20) |
+| 57 | **`506`** ⚠︎ | DISNEY CLASSICS | `#5DADE2` | Movies | 3 | studios Walt Disney Pictures/Walt Disney Animation Studios/Disney, …-1999 |
 
-### PRIME TIME · CH 40–55
+### MARQUEE · CH 35, 38, 59–69
+
+_Premium channels_
+
+| CH | `id` | Name | Color | Type | Min items | Rules |
+|---|---|---|---|---|---|---|
+| 35 | **`500`** ⚠︎ | ALEX'S SERIES | `#5DADE2` | Episodes | 5 | title allowlist (19) |
+| 38 | **`503`** ⚠︎ | HUGO | `#AF7AC5` | Episodes | 3 | title allowlist (17) |
+| 59 | **`60`** ⚠︎ | ANIME | `#FF3D6E` | Any | 3 | **TMDB manifest only**, incl Animation, editorial always-in (138), kw +7, kw needs genre Animation/Action & Adventure/Sci-Fi & Fantasy |
+| 60 | **`61`** ⚠︎ | MUSICALS | `#C2185B` | Movies | 3 | incl Music/Musical, kw +5, kw needs genre Music/Comedy/Romance, kw-gated genre Music |
+| 61 | **`55`** ⚠︎ | GAME SHOWS | `#FFB300` | Episodes | 3 | incl Game Show/Game-Show/Competition, title allowlist (30) |
+| 62 | **`63`** ⚠︎ | ADULT CARTOONS | `#8E44AD` | Episodes | 3 | incl Animation/Animated/Cartoon, title allowlist (21) |
+| 63 | **`64`** ⚠︎ | DATE NIGHT | `#E74C8B` | Movies | 3 | needs ALL Romance, no Horror/Animation/Family/Children/Kids, kw +7, kw excl (2) |
+| 64 | **`58`** ⚠︎ | STAND-UP | `#F5B041` | Any | 3 | **TMDB manifest only**, incl Comedy/Documentary, kw +2, kw needs genre Comedy |
+| 65 | **`201`** ⚠︎ | BIOPICS | `#C9A84C` | Movies | 5 | kw +6 |
+| 66 | **`67`** ⚠︎ | ALL TIME GREATS | `#FFD700` | Movies | 5 | Plex rating ≥ 8.2, ≥ 60 min |
+| 67 | **`68`** ⚠︎ | CERTIFIED GOLD | `#F56040` | Movies | 3 | Plex rating ≥ 8, ≥ 60 min |
+| 68 | **`69`** ⚠︎ | OSCAR WINNERS | `#FFD700` | Movies | 3 | title allowlist (44), title blocklist (7) |
+| 69 | **`217`** ⚠︎ | SKETCH COMEDY | `#5DADE2` | Episodes | 3 | incl Comedy/Talk Show/News, title allowlist (24) |
+
+### PRIME TIME · CH 39–56
 
 _Everyday favorites and feel-good viewing_
 
 | CH | `id` | Name | Color | Type | Min items | Rules |
 |---|---|---|---|---|---|---|
+| 39 | **`504`** ⚠︎ | CURRENT SERIES | `#48C9B0` | Episodes | 10 | 2020-… |
 | 40 | **`50`** ⚠︎ | SITCOMS | `#9B59B6` | Episodes | 10 | incl Comedy, no Animation/Anime/Kids/Children/Family, kw +7 |
 | 41 | **`51`** ⚠︎ | FLICKS | `#FF6600` | Movies | 10 | no Horror/Kids/Children/Family |
 | 42 | **`52`** ⚠︎ | ROM COMS | `#FF85A1` | Movies | 50 | needs ALL Romance + Comedy, no Horror/Thriller/Action/Animation/Family |
@@ -168,24 +193,7 @@ _Everyday favorites and feel-good viewing_
 | 53 | **`402`** ⚠︎ | R RATED COMEDY | `#E84393` | Movies | 5 | incl Comedy, no Animation/Family/Children/Kids, title blocklist (6), 1995-2029, rated R |
 | 54 | **`403`** ⚠︎ | PREMIERES | `#F72585` | Any | 1 | incl Action/Adventure/Animation/Anime/Biography/Cartoon +23 more, added ≤ 14 d ago |
 | 55 | **`420`** ⚠︎ | CRINGE TV | `#F7DC6F` | Episodes | 3 | incl Comedy/Documentary, title allowlist (20), kw +9, kw needs genre Comedy, kw-gated genre Comedy/Documentary |
-
-### MARQUEE · CH 59–69
-
-_Premium channels_
-
-| CH | `id` | Name | Color | Type | Min items | Rules |
-|---|---|---|---|---|---|---|
-| 59 | **`60`** ⚠︎ | ANIME | `#FF3D6E` | Any | 3 | **TMDB manifest only**, incl Animation, editorial always-in (138), kw +7, kw needs genre Animation/Action & Adventure/Sci-Fi & Fantasy |
-| 60 | **`61`** ⚠︎ | MUSICALS | `#C2185B` | Movies | 3 | incl Music/Musical, kw +5, kw needs genre Music/Comedy/Romance, kw-gated genre Music |
-| 61 | **`55`** ⚠︎ | GAME SHOWS | `#FFB300` | Episodes | 3 | incl Game Show/Game-Show/Competition, title allowlist (30) |
-| 62 | **`63`** ⚠︎ | ADULT CARTOONS | `#8E44AD` | Episodes | 3 | incl Animation/Animated/Cartoon, title allowlist (21) |
-| 63 | **`64`** ⚠︎ | DATE NIGHT | `#E74C8B` | Movies | 3 | needs ALL Romance, no Horror/Animation/Family/Children/Kids, kw +7, kw excl (2) |
-| 64 | **`58`** ⚠︎ | STAND-UP | `#F5B041` | Any | 3 | **TMDB manifest only**, incl Comedy/Documentary, kw +2, kw needs genre Comedy |
-| 65 | **`201`** ⚠︎ | BIOPICS | `#C9A84C` | Movies | 5 | kw +6 |
-| 66 | **`67`** ⚠︎ | ALL TIME GREATS | `#FFD700` | Movies | 5 | Plex rating ≥ 8.2, ≥ 60 min |
-| 67 | **`68`** ⚠︎ | CERTIFIED GOLD | `#F56040` | Movies | 3 | Plex rating ≥ 8, ≥ 60 min |
-| 68 | **`69`** ⚠︎ | OSCAR WINNERS | `#FFD700` | Movies | 3 | title allowlist (44), title blocklist (7) |
-| 69 | **`217`** ⚠︎ | SKETCH COMEDY | `#5DADE2` | Episodes | 3 | incl Comedy/Talk Show/News, title allowlist (24) |
+| 56 | **`505`** ⚠︎ | SERIES ES | `#EC7063` | Episodes | 10 | title allowlist (18) |
 
 ### ADVENTURELAND · CH 70–78
 
@@ -343,7 +351,7 @@ _Music videos by genre_
 
 ## `id` ≠ `number`
 
-90 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
+98 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
 
 | `id` | Airs as | Name |
 |---|---|---|
@@ -356,6 +364,11 @@ _Music videos by genre_
 | `34` | CH32 | NETFLIX KIDS |
 | `218` | CH33 | DREAMWORKS |
 | `400` | CH34 | TOON TOWN |
+| `500` | CH35 | ALEX'S SERIES |
+| `501` | CH36 | MARCOS |
+| `502` | CH37 | SOFÍA |
+| `503` | CH38 | HUGO |
+| `504` | CH39 | CURRENT SERIES |
 | `50` | CH40 | SITCOMS |
 | `51` | CH41 | FLICKS |
 | `52` | CH42 | ROM COMS |
@@ -372,6 +385,9 @@ _Music videos by genre_
 | `402` | CH53 | R RATED COMEDY |
 | `403` | CH54 | PREMIERES |
 | `420` | CH55 | CRINGE TV |
+| `505` | CH56 | SERIES ES |
+| `506` | CH57 | DISNEY CLASSICS |
+| `507` | CH58 | TOON TIME |
 | `60` | CH59 | ANIME |
 | `61` | CH60 | MUSICALS |
 | `55` | CH61 | GAME SHOWS |
@@ -440,4 +456,4 @@ _Music videos by genre_
 
 ---
 
-_Generated from `channels.json` v43 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
+_Generated from `channels.json` v44 by `scripts/render-channels-doc.mjs`. Do not edit by hand._
