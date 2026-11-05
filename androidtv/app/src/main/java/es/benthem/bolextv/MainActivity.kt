@@ -55,6 +55,11 @@ class MainActivity : Activity() {
         )
 
         setContentView(root)
+        // The tuner page changes often; a cached copy once left a donation banner on screen
+        // long after the server stopped sending it. Clear the HTTP cache on a cold start so the
+        // app always renders the page the LXC actually serves. localStorage (the Plex session)
+        // is untouched by clearCache.
+        webView.clearCache(true)
         webView.loadUrl(BuildConfig.TUNER_URL)
     }
 

@@ -4794,40 +4794,6 @@
     }
 
     const total = enabledChannels.length;
-    // Coffee at ~2/3; email at ~85% with enough separation (20+ channels only)
-    const promoCoffeeAt = total > 3 ? Math.floor(total * 2 / 3) - 1 : -1;
-    const promoEmailIdx = total >= 20 ? Math.floor(total * 0.85) - 1 : -1;
-    const promoEmailAt = promoEmailIdx !== promoCoffeeAt ? promoEmailIdx : -1;
-
-    function buildPromoRow(type) {
-      const row = document.createElement('div');
-      row.className = 'grid-row grid-row--promo';
-      row.dataset.promo = type;
-      const content = document.createElement('div');
-      content.className = 'grid-promo-content';
-      const dot = document.createElement('div');
-      dot.className = 'grid-promo-dot';
-      const eyebrow = document.createElement('span');
-      eyebrow.className = 'grid-promo-eyebrow';
-      const text = document.createElement('span');
-      text.className = 'grid-promo-text';
-      const arrow = document.createElement('span');
-      arrow.className = 'grid-promo-arrow';
-      arrow.textContent = '→';
-      if (type === 'email') {
-        eyebrow.textContent = 'INFO';
-        text.textContent = 'GET NOTIFIED when new channels and features drop';
-      } else {
-        eyebrow.textContent = 'SUPPORT';
-        text.textContent = 'BUILT BY ONE PERSON. Support the project and help it keep growing';
-      }
-      content.appendChild(dot);
-      content.appendChild(eyebrow);
-      content.appendChild(text);
-      content.appendChild(arrow);
-      row.appendChild(content);
-      return row;
-    }
 
     enabledChannels.forEach((ch, i) => {
       const isActive = currentChannel === ch.id;
@@ -4899,10 +4865,6 @@
       row.appendChild(progsCol);
       fragment.appendChild(row);
 
-      if (i === promoCoffeeAt) fragment.appendChild(buildPromoRow('coffee'));
-      // selfhost:strip:start
-      if (i === promoEmailAt) fragment.appendChild(buildPromoRow('email'));
-      // selfhost:strip:end
     });
     gridBody.appendChild(fragment);
   }

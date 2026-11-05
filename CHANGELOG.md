@@ -3,6 +3,26 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 31/10/2026 (later) — donation banner removed, eight new channels
+
+### Removed
+- The **SUPPORT / "BUILT BY ONE PERSON"** guide banner, and the **GET NOTIFIED** email-signup row
+  from the same promo builder. Both were creator marketing; the promo row builder and its position
+  maths are gone from `plex-tuner.html`. Verified on the box: zero promo rows, and a screenshot
+  shows a clean guide.
+
+### Fixed
+- **Changes not appearing on the TV**: the WebView served a cached copy of the page, so the banner
+  stayed on screen after the server had stopped sending it. The shell now clears the HTTP cache on
+  a cold start. The Plex session lives in `localStorage`, which `clearCache` does not touch —
+  verified still signed in afterwards.
+
+### Added
+- Eight channels, four of them built from real per-user Plex history: **35 ALEX'S SERIES**,
+  **36 MARCOS**, **37 SOFÍA**, **38 HUGO**, plus **39 CURRENT SERIES**, **56 SERIES ES**,
+  **57 DISNEY CLASSICS**, **58 TOON TIME**. Design, watch data and measurements:
+  `docs/CHANNELS-PERSONAL-20261031-v1.md`.
+
 ## 31/10/2026 — full screen round trip, menu order, subtitle robustness
 
 ### Fixed
