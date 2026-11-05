@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 05/11/2026 (later) — readable CHANNEL header
+
+### Fixed
+- The guide's CHANNEL label was **Press Start 2P at 8px**, less than half the size of the 20px time
+  slots beside it and the 18px channel names below. It now uses VT323 at 20px like the rest of the
+  header row (16px on narrow screens), in the page and in the TV shell. Measured after the change:
+  web 16px against 15px time slots, TV 20px against 14.7px time slots and 18px names.
+
 ## 05/11/2026 — season and episode in the information panel
 
 ### Added

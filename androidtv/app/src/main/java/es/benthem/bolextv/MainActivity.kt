@@ -554,7 +554,8 @@ class MainActivity : Activity() {
                 + '.grid-row{min-height:50px !important;}'
                 + '.grid-row-channel{width:230px !important;min-width:230px !important;'
                 +   'font-size:16px !important;line-height:1.2 !important;}'
-                + '.grid-channel-col{width:230px !important;min-width:230px !important;padding-left:48px !important;}'
+                + '.grid-channel-col{width:230px !important;min-width:230px !important;padding-left:48px !important;'
+                +   "font-family:'VT323',monospace !important;font-size:20px !important;}"
                 + '.grid-row-programs{font-size:17px !important;}'
                 + '.grid-body{font-size:17px !important;}'
                 // A focus ring the page does not draw itself: without it the remote looks dead,

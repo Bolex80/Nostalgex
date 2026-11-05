@@ -1469,8 +1469,10 @@
        drift away from the channel column and programme blocks beneath them. */
     width: 230px;
     flex-shrink: 0;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 8px;
+    /* Was Press Start 2P at 8px: less than half the size of the 20px time slots it shares
+       the header row with. Same face and size as the rest of the header now. */
+    font-family: 'VT323', monospace;
+    font-size: 20px;
     color: var(--yellow);
     letter-spacing: 2px;
     /* Rows put the number at 12px and the name at 48px (28px number + 8px gap). Start the
@@ -2432,7 +2434,7 @@
     /* Guide: narrower channel column, shorter rows, so more of the lineup
        is on screen at once. */
     .grid-channel-col, .grid-row-channel { width: 104px; padding: 0 8px; }
-    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-channel-col { font-size: 16px; letter-spacing: 1px; }
     .grid-row { height: 34px; }
     .grid-ch-num { font-size: 16px; min-width: 18px; }
     .grid-ch-name { font-size: 15px; letter-spacing: 0; }
@@ -2693,7 +2695,7 @@
     .info-upnext { display: none; }
 
     .grid-channel-col, .grid-row-channel { width: 96px; padding: 0 8px; }
-    .grid-channel-col { font-size: 7px; letter-spacing: 1px; }
+    .grid-channel-col { font-size: 16px; letter-spacing: 1px; }
     .grid-row { height: 30px; }
     .grid-ch-num { font-size: 15px; min-width: 16px; }
     .grid-ch-name { font-size: 14px; letter-spacing: 0; }
