@@ -1542,7 +1542,7 @@
 
   /* Channel name column */
   .grid-row-channel {
-    width: 160px;
+    width: 230px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -1560,9 +1560,11 @@
     font-family: 'VT323', monospace;
     font-size: 18px;
     letter-spacing: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Names were clipped to "REWATCHABLES M...". Wrap onto a second line instead. */
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
   }
 
   /* Program blocks */
@@ -3792,6 +3794,14 @@
   let enabledBundleIDs = new Set(
     JSON.parse(localStorage.getItem('nostalgex_enabled_bundles') || '["nostalgex"]')
   );
+  // The FAMILY bundle holds the per-person channels. It must be visible even where bundle
+  // preferences were saved before it existed - otherwise Marcos and Sofia simply never render
+  // in a browser that never switched KIDZ ZONE on. Opt-in once, then respect the user's choice.
+  if (!localStorage.getItem('bolextv_family_bundle_offered')) {
+    enabledBundleIDs.add('personal');
+    localStorage.setItem('nostalgex_enabled_bundles', JSON.stringify([...enabledBundleIDs]));
+    localStorage.setItem('bolextv_family_bundle_offered', '1');
+  }
 
   function saveBundlePreferences() {
     localStorage.setItem('nostalgex_enabled_bundles', JSON.stringify([...enabledBundleIDs]));

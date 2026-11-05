@@ -1,5 +1,5 @@
 {
- "version": 44,
+ "version": 45,
  "exclusiveRules": [
   {
    "channelIDs": [
@@ -128,6 +128,17 @@
  ],
  "bundles": [
   {
+   "id": "personal",
+   "name": "FAMILY",
+   "description": "One channel per person, built from what each of them actually watches",
+   "channelIDs": [
+    500,
+    501,
+    502,
+    503
+   ]
+  },
+  {
    "id": "nostalgex",
    "name": "NOSTALGEX",
    "description": "The 80s and 90s. All retro, all the time",
@@ -174,8 +185,6 @@
     34,
     218,
     400,
-    501,
-    502,
     506
    ]
   },
@@ -233,8 +242,7 @@
     68,
     69,
     217,
-    500,
-    503
+    508
    ]
   },
   {
@@ -5601,7 +5609,7 @@
    "number": 35,
    "name": "ALEX'S SERIES",
    "colorHex": "#5DADE2",
-   "category": "premium",
+   "category": "personal",
    "minItems": 5,
    "rules": {
     "type": "episode",
@@ -5633,7 +5641,7 @@
    "number": 36,
    "name": "MARCOS",
    "colorHex": "#58D68D",
-   "category": "kids",
+   "category": "personal",
    "minItems": 3,
    "rules": {
     "type": "movie",
@@ -5679,7 +5687,7 @@
    "number": 37,
    "name": "SOFÍA",
    "colorHex": "#F1948A",
-   "category": "kids",
+   "category": "personal",
    "minItems": 3,
    "rules": {
     "type": "movie",
@@ -5712,7 +5720,7 @@
    "number": 38,
    "name": "HUGO",
    "colorHex": "#AF7AC5",
-   "category": "premium",
+   "category": "personal",
    "minItems": 3,
    "rules": {
     "type": "episode",
@@ -5817,6 +5825,20 @@
      "聖闘士星矢",
      "Mazinger",
      "Saint Seiya"
+    ]
+   }
+  },
+  {
+   "id": 508,
+   "number": 79,
+   "name": "SOUTH PARK",
+   "colorHex": "#F5B041",
+   "category": "premium",
+   "minItems": 5,
+   "rules": {
+    "type": "episode",
+    "titleContains": [
+     "South Park"
     ]
    }
   }

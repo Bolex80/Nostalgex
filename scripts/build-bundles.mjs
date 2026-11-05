@@ -1117,7 +1117,7 @@ function buildLlmsSection(model) {
   return [
     "## Channels",
     "",
-    `- [Channel Guide](${HUB_CANONICAL}): all ${totalChannels} channels in ${bundleCount} bundles`,
+    `- [Channel Guide](${HUB_CANONICAL}): all ${Math.floor(totalChannels / 10) * 10}+ channels in ${bundleCount} bundles`,
     "",
     "### Bundles",
     "",
