@@ -6,6 +6,10 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
 ## 05/11/2026 — guide header alignment
 
 ### Fixed
+- **The CHANNEL label now sits directly above the channel names.** Rows put the number at 12px and
+  the name at 48px; the label started at 12px, over the number gutter. It now starts at 48px in both
+  the page and the TV shell, so the header and the name column form one straight vertical line.
+  Verified in a real browser: header text x=48, channel name x=48, number x=12.
 - **The CHANNEL header did not line up with the channel column.** The header cell kept its original
   160px while the rows had been widened to 230px, so the label floated and the whole time axis sat
   70px away from the programme blocks it describes. Both now share one 230px column, in the page and

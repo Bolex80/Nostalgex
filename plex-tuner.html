@@ -1473,7 +1473,10 @@
     font-size: 8px;
     color: var(--yellow);
     letter-spacing: 2px;
-    padding: 0 12px;
+    /* Rows put the number at 12px and the name at 48px (28px number + 8px gap). Start the
+       label where the names start, so the header and the channel column form one straight
+       vertical line instead of the label floating over the number gutter. */
+    padding: 0 12px 0 48px;
   }
   .grid-time-slots {
     flex: 1;
