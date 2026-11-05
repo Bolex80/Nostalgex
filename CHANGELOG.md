@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 05/11/2026 — guide header alignment
+
+### Fixed
+- **The CHANNEL header did not line up with the channel column.** The header cell kept its original
+  160px while the rows had been widened to 230px, so the label floated and the whole time axis sat
+  70px away from the programme blocks it describes. Both now share one 230px column, in the page and
+  in the TV override. Measured on the box: header and rows both `x=0, w=230`; time slots and
+  programme blocks both start at `x=230, w=730`.
+
 ## 31/10/2026 (later) — donation banner removed, eight new channels
 
 ### Removed

@@ -1465,7 +1465,9 @@
     border-bottom: 1px solid rgba(255,215,0,0.2);
   }
   .grid-channel-col {
-    width: 160px;
+    /* Must match .grid-row-channel exactly, or the CHANNEL label and the whole time axis
+       drift away from the channel column and programme blocks beneath them. */
+    width: 230px;
     flex-shrink: 0;
     font-family: 'Press Start 2P', monospace;
     font-size: 8px;
