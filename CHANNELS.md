@@ -44,7 +44,7 @@ only name the channel's own defining genre.
 
 **`rewatched` means `viewCount >= 3`** in both implementations.
 
-**Config version:** 45 · **148 channels** across **15 bundles** · 99 channels whose `id` differs from their `number`.
+**Config version:** 45 · **144 channels** across **14 bundles** · 95 channels whose `id` differs from their `number`.
 
 ---
 
@@ -54,7 +54,6 @@ only name the channel's own defining genre.
 |---|---|---|---|---|
 | NOSTALGEX | `nostalgex` | 20 | CH 1–19, 58 | The 80s and 90s. All retro, all the time |
 | KIDZ ZONE | `kids` | 16 | CH 20–34, 57 | Disney, Nickelodeon, Pixar, and more |
-| FAMILY | `personal` | 4 | CH 35–38 | One channel per person, built from what each of them actually watches |
 | PRIME TIME | `essentials` | 18 | CH 39–56 | Everyday favorites and feel-good viewing |
 | MARQUEE | `premium` | 12 | CH 59–69, 79 | Premium channels |
 | ADVENTURELAND | `adventureland` | 9 | CH 70–78 | Epic quests, disasters, and adrenaline |
@@ -68,7 +67,7 @@ only name the channel's own defining genre.
 | TIS THE SEASON | `tis-the-season` | 8 | CH 145–152 | Christmas, Thanksgiving and holiday channels. Spotlighted from 7 days before US Thanksgiving (the fourth Thursday of November) through Dec. Off until switched on, then on in any month. |
 | HIGH ROTATION | `high-rotation` | 14 | CH 200–213 | Music videos by genre |
 
-Bundled channels: 148 of 148.
+Bundled channels: 144 of 144.
 
 ---
 
@@ -148,17 +147,6 @@ _Disney, Nickelodeon, Pixar, and more_
 | 33 | **`218`** ⚠︎ | DREAMWORKS | `#2ECC71` | Any | 5 | studios DreamWorks Animation/Pacific Data Images, rated G/PG/PG-13/TV-Y/TV-Y7/TV-G/TV-PG/unrated |
 | 34 | **`400`** ⚠︎ | TOON TOWN | `#FF9F1C` | Movies | 5 | kw +1, kw needs genre Animation/Family/Comedy, rated G/PG/PG-13/unrated |
 | 57 | **`506`** ⚠︎ | DISNEY CLASSICS | `#5DADE2` | Movies | 3 | studios Walt Disney Pictures/Walt Disney Animation Studios/Disney, …-1999 |
-
-### FAMILY · CH 35–38
-
-_One channel per person, built from what each of them actually watches_
-
-| CH | `id` | Name | Color | Type | Min items | Rules |
-|---|---|---|---|---|---|---|
-| 35 | **`500`** ⚠︎ | ALEX'S SERIES | `#5DADE2` | Episodes | 5 | title allowlist (19) |
-| 36 | **`501`** ⚠︎ | MARCOS | `#58D68D` | Movies | 3 | title allowlist (33) |
-| 37 | **`502`** ⚠︎ | SOFÍA | `#F1948A` | Movies | 3 | title allowlist (20) |
-| 38 | **`503`** ⚠︎ | HUGO | `#AF7AC5` | Episodes | 3 | title allowlist (17) |
 
 ### PRIME TIME · CH 39–56
 
@@ -360,7 +348,7 @@ _Music videos by genre_
 
 ## `id` ≠ `number`
 
-99 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
+95 channels whose manifest/exclusivity key (`id`) is not their on-screen number. Marked ⚠︎ in the tables above.
 
 | `id` | Airs as | Name |
 |---|---|---|
@@ -373,10 +361,6 @@ _Music videos by genre_
 | `34` | CH32 | NETFLIX KIDS |
 | `218` | CH33 | DREAMWORKS |
 | `400` | CH34 | TOON TOWN |
-| `500` | CH35 | ALEX'S SERIES |
-| `501` | CH36 | MARCOS |
-| `502` | CH37 | SOFÍA |
-| `503` | CH38 | HUGO |
 | `504` | CH39 | CURRENT SERIES |
 | `50` | CH40 | SITCOMS |
 | `51` | CH41 | FLICKS |
