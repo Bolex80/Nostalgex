@@ -1,0 +1,210 @@
+# Changelog
+
+All notable changes to this project are documented here.
+Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
+
+## 05/11/2026 (later) — header size parity, white selection ring
+
+### Fixed
+- The CHANNEL label is now **exactly the size of the time labels** on both surfaces. The last
+  change overshot: the shell override forced 20px while the readability layer sized the time slots
+  at 0.92em, so the label ended up larger than its neighbours. The page now shares one header font
+  variable (`--ghf`) between the label and the time slots across every breakpoint, and the
+  readability layer sizes the label with the same 0.92em rule. Measured: TV label 14.72px = slot
+  14.72px; web label 15px = slot 15px.
+
+### Changed
+- **The selection ring is white.** It used to draw in the channel's own colour, which disappears
+  against the several gold, amber and yellow channel names in the guide. A focused row is now a
+  white 3px ring, a neutral white fill, the channel's colour kept only as an 8px accent bar, and
+  the name forced white. Verified on a gold channel row on the box: the ring and the white name
+  stand out from the unselected rows.
+
+## 06/11/2026 — v1.0.0 release APK
+
+### Added
+- **A release APK exists.** `app/build.gradle.kts` signs `assembleRelease` automatically from a gitignored
+  `keystore.properties` (a template ships with the repo) and falls back to an unsigned build without it.
+  `versionName 1.0.0`, `versionCode 2`.
+- A production keystore, generated once, stored outside the repo in the credentials directory; its
+  passwords are in a Vaultwarden item with a verified read-back. Signer certificate starts `b3fb88c0…`,
+  v1+v2 schemes.
+- `androidtv/RELEASE-BUILD.md` documents the whole path. The packaged copy for sharing —
+  `BolexTV-v1.0.0.apk` plus `INSTALL-AND-SHARE.md` (install steps, network needs, caveats) — sits in the
+  Nesquena Personal workspace at `/home/alex/workspace/BolexTV/`.
+
+## 05/11/2026 (later) — readable CHANNEL header
+
+### Fixed
+- The guide's CHANNEL label was **Press Start 2P at 8px**, less than half the size of the 20px time
+  slots beside it and the 18px channel names below. It now uses VT323 at 20px like the rest of the
+  header row (16px on narrow screens), in the page and in the TV shell. Measured after the change:
+  web 16px against 15px time slots, TV 20px against 14.7px time slots and 18px names.
+
+## 05/11/2026 — season and episode in the information panel
+
+### Added
+- TV episodes now show a **S07E08** style badge in the info panel's meta row, before year, content
+  rating and duration. Movies are unchanged.
+
+### Fixed
+- The badge never appeared at first: the library cache (24h TTL) still held episodes scanned before
+  the fields existed. Bumped `LIBRARY_CACHE_VERSION` to 4 so the old cache is refused once and the
+  next scan carries season and episode numbers. Same class of stale-data bug as the cached page that
+  kept the donation banner alive.
+
+## 05/11/2026 — guide header alignment
+
+### Fixed
+- **The CHANNEL label now sits directly above the channel names.** Rows put the number at 12px and
+  the name at 48px; the label started at 12px, over the number gutter. It now starts at 48px in both
+  the page and the TV shell, so the header and the name column form one straight vertical line.
+  Verified in a real browser: header text x=48, channel name x=48, number x=12.
+- **The CHANNEL header did not line up with the channel column.** The header cell kept its original
+  160px while the rows had been widened to 230px, so the label floated and the whole time axis sat
+  70px away from the programme blocks it describes. Both now share one 230px column, in the page and
+  in the TV override. Measured on the box: header and rows both `x=0, w=230`; time slots and
+  programme blocks both start at `x=230, w=730`.
+
+## 31/10/2026 (later) — donation banner removed, eight new channels
+
+### Removed
+- The **SUPPORT / "BUILT BY ONE PERSON"** guide banner, and the **GET NOTIFIED** email-signup row
+  from the same promo builder. Both were creator marketing; the promo row builder and its position
+  maths are gone from `plex-tuner.html`. Verified on the box: zero promo rows, and a screenshot
+  shows a clean guide.
+
+### Fixed
+- **Changes not appearing on the TV**: the WebView served a cached copy of the page, so the banner
+  stayed on screen after the server had stopped sending it. The shell now clears the HTTP cache on
+  a cold start. The Plex session lives in `localStorage`, which `clearCache` does not touch —
+  verified still signed in afterwards.
+
+### Added
+- Eight channels, four of them built from real per-user Plex history: **35 ALEX'S SERIES**,
+  **36 MARCOS**, **37 SOFÍA**, **38 HUGO**, plus **39 CURRENT SERIES**, **56 SERIES ES**,
+  **57 DISNEY CLASSICS**, **58 TOON TIME**. Design, watch data and measurements:
+  `docs/CHANNELS-PERSONAL-20261031-v1.md`.
+
+## 31/10/2026 — full screen round trip, menu order, subtitle robustness
+
+### Fixed
+- **Left looked dead after leaving full screen**: the menu's ring stayed on a control that was no
+  longer on screen and `document.activeElement` still pointed at it, so the next press was zoned
+  against a hidden overlay button. The menu now clears its ring and focus when it closes, and the
+  engine drops a stale ring before zoning. Measured: full screen → menu → EXIT → Left reaches the
+  rail.
+- **OK changed channel and went full screen at the same time** (see 30/10 list): `__tvOkPress`
+  read the cursor from `document.activeElement`, which stays `<body>` for a guide row, so it acted
+  on the channel already playing while the same press tuned the ringed row. It now reads the ring
+  and a tune timestamp stops the double action. Measured: three channel changes all stayed in the
+  484×270 preview; a second OK on the playing channel filled the screen.
+
+### Changed
+- **EXIT FULL SCREEN moved first** in the in-player menu, ahead of CH−/CH+/SOUND/SUBS; the ring
+  lands on it when the menu opens.
+
+### Improved
+- **Subtitles no longer give up on the first track.** Embedded srt streams inside the mkv often
+  download as nothing, which left The Office with no captions at all even though Plex lists them.
+  Candidates are ranked (requested language, prefix match, the rest) and tried in order; the menu
+  reports the language actually playing. Survey of the current 43 on-air items: 38 renderable,
+  1 image-only (VobSub, cannot render), 4 with no subtitle streams.
+
+### Deployed
+- Tuner `20261031f` (`3f6d2544d528`), APK `0.1.0` from `9f917e1`.
+
+## 30/10/2026 — BolexTV running on the television
+
+### Added
+- **Plex subtitles**, cycled `OFF → EN → ES` from the rail and the `S` key. Plex serves SRT from
+  `/library/streams/<id>?download=1`; the page converts it to WEBVTT and attaches it as a
+  `<track>`. Language comes from Plex metadata when tagged, otherwise from reading the cues,
+  because Plex leaves external SRTs untagged. The label and `srclang` always report the language
+  **actually playing** — asking for English on a Spanish-only channel yields Spanish and the
+  toast `NO EN — SHOWING SPA`. Text tracks only; image subtitles (PGS/DVD) are skipped.
+  See `docs/SUBTITLES-20261030-v1.md`.
+- **Real full screen.** OK on the playing channel expands the video to the whole screen
+  (measured 960×540 at 0,0, previously a 484×270 corner box), hiding the guide, rail and info
+  panel. OK or Back opens the in-player menu over the picture.
+- **In-player menu** with progress (`1:08:00 / 1:36:00`), the channel, sound and
+  **EXIT FULL SCREEN** — previously unreachable from the remote.
+- **Guide time travel** in 30-minute steps, so the guide is not frozen on a two-hour window.
+- **One navigation engine** for six buttons (`androidtv/app/src/main/assets/tvnav.js`): geometric
+  focus over visible controls, zones for guide/rail/overlays/player, and a focus ring that
+  survives the page's re-renders.
+- **Visible exit** — a rail control and a leave prompt that defaults to **Stay**; Leave
+  backgrounds the app instead of killing it.
+- `docs/BOLEXTV-20261030-v1.md`, `docs/VERSIONS-20261030-v1.md`, `androidtv/README.md` and
+  `BOLEXTV.md` — the project, its two version schemes and the shell's build instructions.
+
+### Fixed
+- **Full screen only hid the guide.** The video kept its preview box because `#video-area` is a
+  flex row occupying the top half; the layout now pins both boxes to the screen and drops the
+  flex basis that was overriding `width`.
+- **Left looked dead in the guide.** It was stepping the time window back half an hour per press,
+  so it silently rewound a dozen times before reaching the rail. One press now returns to live.
+- **Keys were swallowed during playback** and on a WebView that had lost focus; `requestFocus()`
+  before dispatching.
+- **CH+/CH− browsed but never tuned**: a `div` receives neither keydown nor click from
+  `DPAD_CENTER`, so tuning clicks the focused guide row instead.
+- **Settings CLOSE was unreachable** (tabs sat at y = −77) and long lists would not scroll, because
+  below-fold nodes were filtered out of the focus list.
+- **Title overlapped the channel tag** by 2 px; `.info-title` 42 → 26 px with correct margins.
+- Guide rows raised 44 → 50 px; channel column 160 → 205 px so names fit.
+- **Plex login was lost on every restart** — `sessionStorage` → `localStorage` (51 `plex90_*` keys).
+  The start-over smoke test was rewritten to assert against `localStorage`.
+- **Branding never reached the landing page**: `tv.bolex.es` serves `web-tuner.html`, not
+  `index.html`.
+
+### Deployed
+- Tuner image `bolextv-tuner:20261030k` (`de4492913990`) on LXC 228, `healthy`, serving
+  `http://192.168.2.93:8080` with enrichment on. Full version history in
+  `docs/VERSIONS-20261030-v1.md`.
+- APK `0.1.0` (code 1) installed on `MiTV-AFMU0`.
+
+### Known
+- AC3 direct-play files render picture with no audio (16 items, 2.1 % of the direct-play set).
+  A tuner-side force-transcode predicate is the fix and is **not yet implemented**.
+- Element fullscreen is rejected inside Android WebView; `body.tv-full` is a layout, not the API.
+
+## [Unreleased] — planning
+
+### Added
+- `docs/PLAN-20261029-v1.md` — foundation plan for an Android TV client: architecture options,
+  phase gates, agent/model routing, repo conventions, definition of done, risks, open decisions.
+- `docs/CONTINUATION-20261029-v1.md` — the authoritative resume point: verified project state,
+  the nine decisions ratified by Alex on 29/10/2026 (name `BolexTV`, Mi Box only, sideload only,
+  subtitles nice-to-have, enrichment on, dedicated LXC on bolex `.5`, no telemetry, Plex only,
+  own logo), the deltas those decisions make to the plan, and the Phase 0 dispatch order.
+
+- `docs/DISPATCH-CONTROL-20261029-v1.md` — pause/resume operating procedure: the exact chat commands
+  (`/pause BolexTV`, `/pause off`), what the emergency stop covers and what it does not, the
+  `/stop` kill path for in-flight work, batch discipline, and the measured budget baseline.
+- `docs/BRAND-20261029-v1.md` — the identity decision: concept table, the three mark candidates,
+  the three-colour palette, delivered sizes, and the size compromises stated openly.
+- `brand/build-brand-assets.py` — single source of truth for the mark geometry; emits the SVG
+  masters, the 1024 previews, the 512 icon, the 320×180 `LEANBACK_LAUNCHER` banner and the
+  real-size contact sheets.
+- `brand/assets/` — the generated assets, including `bolextv-banner-320x180-20261029-v1.png`.
+- `docs/ARCHITECTURE-20261029-v1.md` — Phase 0 role 1 (Cartographer, `kimi-k3`). The Plex-only
+  API contract, the client-side schedule algorithm, and the JS↔native bridge contract. Headline
+  finding: the tuner exposes **nothing** native-usable today (only `window.__openPromoModal`; zero
+  `postMessage`/`addJavascriptInterface` in `plex-tuner.html`), so Phase 2 must add the bridge to
+  upstream code. Citations were spot-checked against the source by the orchestrator.
+- `docs/FIELD-HARNESS-20261029-v1.md` — Phase 0 role 2 (Field Tester, `glm-5.3-flash`). The 16-item
+  codec matrix to run on the Mi Box in TV Bro, with a results table, verdict definitions, an optional
+  adb path and a decision rule. Its key structural finding — verified by the orchestrator — is that
+  the tuner **direct-plays only mp4/webm/mov and sends every MKV through Plex's server-side HLS
+  transcode** (`plex-tuner.html:5566-5593`), so the tuner UI can never answer the surround-audio
+  question: a raw-part probe is required.
+
+### Deployed
+- LXC **228 `bolextv-tuner`** on Bolex `.5`, **`192.168.2.93:8080`** — the Nostalgex web tuner,
+  image pinned by digest (`sha256:0c4d619b…`, tag `1.0.9`), enrichment on, container `healthy`,
+  Plex `.30:32400` reachable from inside the container. Verified 29/10/2026.
+
+### Notes
+- Fork of `chadMueller/Nostalgex` (MIT). Upstream name, icon and site are outside the licence grant;
+  this project will ship under its own name once chosen.
+- `main` is intended to track upstream. All project work lives in `androidtv/` and `docs/`.

@@ -1,0 +1,88 @@
+<!doctype html><meta charset="utf-8"><title>picker test</title>
+<style>
+ .server-picker.active{display:flex;flex-direction:column}
+ .server-picker-addr{display:none}   /* the tuner hides this on non-touch devices */
+ .server-option:focus,.server-picker-connect:focus{outline:2px solid orange}
+</style>
+<div class="server-picker active">
+  <div class="server-picker-title">SELECT YOUR SERVERS</div>
+  <div class="server-picker-list">
+    <div class="server-option selected" tabindex="0">Bolex</div>
+    <div class="server-option" tabindex="0">Anthony (shared)</div>
+    <div class="server-option" tabindex="0">My Cloud Home (shared)</div>
+    <div class="server-option selected" tabindex="0">Bolex</div>
+  </div>
+  <button class="server-picker-addr" type="button">SHOW ADDRESSES</button>
+  <button class="server-picker-connect" type="button">CONNECT</button>
+</div>
+<script>
+            (function(){
+              if (window.__bolextvNav) return 'already';
+              window.__bolextvNav = true;
+              function items(){
+                var p = document.querySelector('.server-picker.active');
+                if (!p) return [];
+                // Filter to what is actually rendered. The tuner hides SHOW ADDRESSES on
+                // non-touch devices (:7865), and focusing a display:none element silently
+                // does nothing - which stranded the cursor one step short of CONNECT.
+                return Array.prototype.slice.call(
+                  p.querySelectorAll('.server-option, .server-picker-addr, .server-picker-connect'))
+                  .filter(function(el){ return el.getClientRects().length > 0; });
+              }
+              document.addEventListener('keydown', function(e){
+                var list = items();
+                if (!list.length) return;                 // picker closed: leave the page alone
+                var kc = e.keyCode;
+                var k = e.key || '';
+                var down = (k === 'ArrowDown' || kc === 40 || kc === 20);
+                var up = (k === 'ArrowUp' || kc === 38 || kc === 19);
+                var act = (k === 'Enter' || kc === 13 || kc === 23 || kc === 66
+                           || k === 'ArrowLeft' || k === 'ArrowRight' || kc === 37 || kc === 39);
+                if (!down && !up && !act) return;
+                var cur = list.indexOf(document.activeElement);
+                if (down || up) {
+                  var nxt = cur < 0 ? 0 : (down ? Math.min(cur + 1, list.length - 1)
+                                                : Math.max(cur - 1, 0));
+                  list[nxt].focus();
+                  list[nxt].scrollIntoView({block:'nearest'});
+                } else if (cur >= 0) {
+                  var keep = cur;
+                  list[cur].click();
+                  // A row click re-renders the list, so restore the cursor where it was.
+                  var after = items();
+                  if (after[keep] && after[keep] !== list[cur]) {
+                    after[keep].focus();
+                    after[keep].scrollIntoView({block:'nearest'});
+                  }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+              }, true);
+              return 'armed';
+            })();
+        </script>
+<script>
+ window.__clicks = [];
+ document.querySelector('.server-picker-connect').addEventListener('click', function(){
+   window.__clicks.push('CONNECT');
+ });
+ document.querySelectorAll('.server-option').forEach(function(el, i){
+   el.addEventListener('click', function(){ window.__clicks.push('row' + i); });
+ });
+ window.__result = (function(){
+   var seq = [];
+   var list = document.querySelectorAll('.server-option')[0];
+   list.focus();
+   seq.push(document.activeElement.textContent.trim().slice(0,14));
+   for (var i = 0; i < 5; i++) {
+     document.activeElement.dispatchEvent(new KeyboardEvent('keydown',
+       {key:'ArrowDown', code:'ArrowDown', keyCode:40, which:40, bubbles:true, cancelable:true}));
+     seq.push(document.activeElement.textContent.trim().slice(0,14));
+   }
+   // press Enter on whatever is focused now
+   document.activeElement.dispatchEvent(new KeyboardEvent('keydown',
+     {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true, cancelable:true}));
+   return {seq: seq, clicks: window.__clicks,
+           navArmed: !!window.__bolextvNav};
+ })();
+</script>

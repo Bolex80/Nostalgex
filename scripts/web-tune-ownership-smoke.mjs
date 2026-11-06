@@ -99,6 +99,9 @@ function fixture({ hls = false, backend = 'jellyfin', subtitles = false, reporti
     subtitlesEnabled: subtitles, shouldAutoEnableSubs: () => false, pickSubtitle: subs => subs[0],
     pickAudioStream: () => null,
     CHANNELS: [], plexConnected: true, appState: 'connect', retroMode: false,
+    // Production switchChannel now resolves the tuned row through getEnabledChannels(); the
+    // fixture has to supply it, exactly like the other page globals above.
+    getEnabledChannels: () => context.CHANNELS.filter(c => c.enabled),
     fsOverlayVisible: false, fsOverlayTimer: null,
     chNum: channel => channel.id, escapeHtml: value => value, itemGuideTitle: item => item.title,
     // The schedule clock and cosmetic renderers are fixtures; switching and advancing

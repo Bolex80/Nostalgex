@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120" role="img" aria-label="BolexTV">
+  <!-- BolexTV lockup for light theme (replaces nostalgex-black.svg). Same geometry as the
+       white variant; only the wordmark colour changes so it reads on a cream background. -->
+  <g transform="scale(0.1171875)">
+    <rect x="112" y="112" width="800" height="800" rx="224" fill="#E9A13B"/>
+    <path d="M232 358 L232 666 L470 512 Z" fill="#12151A"/>
+    <rect x="506" y="358" width="280" height="76" rx="18" fill="#12151A"/>
+    <rect x="506" y="474" width="280" height="76" rx="18" fill="#12151A"/>
+    <rect x="506" y="590" width="188" height="76" rx="18" fill="#12151A"/>
+  </g>
+  <text x="152" y="82" fill="#12151A"
+        font-family="Verdana, Helvetica, Arial, sans-serif"
+        font-size="64" font-weight="bold" letter-spacing="4">BOLEXTV</text>
+</svg>

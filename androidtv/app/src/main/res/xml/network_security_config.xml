@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The tuner and Plex are plain-HTTP services on the LAN. Android blocks cleartext by default
+  from API 28 on, so they must be allow-listed explicitly rather than by disabling TLS checks.
+
+  Add a <domain> entry here (and rebuild) to point at a different tuner or Plex host.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.2.93</domain>
+        <domain includeSubdomains="false">192.168.2.30</domain>
+    </domain-config>
+</network-security-config>
