@@ -31,7 +31,10 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   v1+v2 schemes.
 - `androidtv/RELEASE-BUILD.md` documents the whole path. The packaged copy for sharing —
   `BolexTV-v1.0.0.apk` plus `INSTALL-AND-SHARE.md` (install steps, network needs, caveats) — sits in the
-  Nesquena Personal workspace at `/home/alex/workspace/BolexTV/`.
+  Nesquena Personal workspace at `/home/alex/workspace/BolexTV/`, is in the repository at
+  `androidtv/INSTALL-AND-SHARE.md`, and the APK is attached to a GitHub Release.
+- The fork announced itself on GitHub: PR #1 merged into `main` (`c27103a`), the README gained a
+  fork preamble over the upstream text, and the repo description/topics were rewritten for BolexTV.
 
 ## 05/11/2026 (later) — readable CHANNEL header
 
