@@ -553,16 +553,18 @@ class MainActivity : Activity() {
                 +   '-webkit-box-orient:vertical;overflow:hidden;}'
                 + '.grid-row{min-height:50px !important;}'
                 + '.grid-row-channel{width:230px !important;min-width:230px !important;'
-                +   'font-size:16px !important;line-height:1.2 !important;}'
-                + '.grid-channel-col{width:230px !important;min-width:230px !important;padding-left:48px !important;'
-                +   "font-family:'VT323',monospace !important;font-size:20px !important;}"
+                +   'font-family:VT323,monospace !important;font-size:16px !important;line-height:1.2 !important;}'
+                + '.grid-channel-col{width:230px !important;min-width:230px !important;padding-left:48px !important;}'
                 + '.grid-row-programs{font-size:17px !important;}'
                 + '.grid-body{font-size:17px !important;}'
                 // A focus ring the page does not draw itself: without it the remote looks dead,
                 // because the page's own highlight only tracks its internal guide cursor.
-                + '.tv-focus{outline:3px solid #E9A13B !important;outline-offset:2px !important;'
-                +   'border-radius:8px !important;box-shadow:0 0 0 6px rgba(233,161,59,.22) !important;}'
-                + '.v-btn.tv-focus,.config-close.tv-focus,.config-tab.tv-focus{background:rgba(233,161,59,.18) !important;}';
+                // White, not amber: an amber ring melts into gold and yellow channel names,
+                // which is exactly the rows where Alex could not tell what was selected. The
+                // page's .focused carries the same change.
+                + '.tv-focus{outline:3px solid #FFFFFF !important;outline-offset:2px !important;'
+                +   'border-radius:8px !important;box-shadow:0 0 0 6px rgba(255,255,255,.28) !important;}'
+                + '.v-btn.tv-focus,.config-close.tv-focus,.config-tab.tv-focus{background:rgba(255,255,255,.14) !important;}';
               var st = document.getElementById('bolextv-tv-css');
               if (!st) { st = document.createElement('style'); st.id = 'bolextv-tv-css';
                          document.head.appendChild(st); }

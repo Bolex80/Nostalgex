@@ -1463,6 +1463,10 @@
     flex-shrink: 0;
     background: rgba(0,0,0,0.4);
     border-bottom: 1px solid rgba(255,215,0,0.2);
+    /* One header font size for everything in the row: the CHANNEL label and the time slots
+       must always match, on the web and wherever the shell scales text. The breakpoints
+       below lower this variable, not the individual rules. */
+    --ghf: 20px;
   }
   .grid-channel-col {
     /* Must match .grid-row-channel exactly, or the CHANNEL label and the whole time axis
@@ -1472,7 +1476,7 @@
     /* Was Press Start 2P at 8px: less than half the size of the 20px time slots it shares
        the header row with. Same face and size as the rest of the header now. */
     font-family: 'VT323', monospace;
-    font-size: 20px;
+    font-size: var(--ghf);
     color: var(--yellow);
     letter-spacing: 2px;
     /* Rows put the number at 12px and the name at 48px (28px number + 8px gap). Start the
@@ -1488,7 +1492,7 @@
   .grid-time-slot {
     flex: 1;
     font-family: 'VT323', monospace;
-    font-size: 20px;
+    font-size: var(--ghf);
     color: var(--yellow);
     letter-spacing: 1px;
     padding: 0 8px;
@@ -1525,16 +1529,17 @@
   .grid-row.active {
     background: rgba(255,255,255,0.08);
   }
-  /* The focused row has to read from the couch. A faint cyan wash disappeared on a
-     bright screen; this matches the Apple TV app: a third-strength fill in the
-     channel's own colour, a 3px outline with a glow, a full accent bar, white text. */
+  /* The focused row has to read from the couch. Filling and outlining in the channel's own
+     colour failed exactly where the palette is gold or amber: the ring melted into the row.
+     The ring is white now, always distinct from every channel colour; the accent bar keeps
+     the channel's identity. Same idea as the Apple TV app: fill, outline, bar, white text. */
   .grid-row.focused {
     --ch: var(--cyan);
-    background: color-mix(in srgb, var(--ch) 32%, transparent);
+    background: rgba(255, 255, 255, 0.14);
     box-shadow:
       inset 8px 0 0 var(--ch),
-      inset 0 0 0 3px var(--ch),
-      0 0 14px color-mix(in srgb, var(--ch) 70%, transparent);
+      inset 0 0 0 3px #FFFFFF,
+      0 0 14px rgba(255, 255, 255, 0.45);
     position: relative;
     z-index: 1;
   }
@@ -2434,12 +2439,12 @@
     /* Guide: narrower channel column, shorter rows, so more of the lineup
        is on screen at once. */
     .grid-channel-col, .grid-row-channel { width: 104px; padding: 0 8px; }
-    .grid-channel-col { font-size: 16px; letter-spacing: 1px; }
+    .grid-header { --ghf: 16px; }
     .grid-row { height: 34px; }
     .grid-ch-num { font-size: 16px; min-width: 18px; }
     .grid-ch-name { font-size: 15px; letter-spacing: 0; }
     /* The header is a fixed 32px; a wrapped time label spills into the rows. */
-    .grid-time-slot { font-size: 16px; padding: 0 6px; white-space: nowrap; }
+    .grid-time-slot { font-size: var(--ghf); padding: 0 6px; white-space: nowrap; }
     .grid-footer { display: none; }
   }
 
@@ -2484,7 +2489,8 @@
        tighter: one more channel on screen at 393x852. */
     .grid-row { height: 32px; }
     /* Four time columns in 256px once the channel column is paid for. */
-    .grid-time-slot { font-size: 15px; padding: 0 5px; }
+    .grid-header { --ghf: 15px; }
+    .grid-time-slot { font-size: var(--ghf); padding: 0 5px; }
   }
 
   /* ──────────────────────────────────────
@@ -2695,11 +2701,11 @@
     .info-upnext { display: none; }
 
     .grid-channel-col, .grid-row-channel { width: 96px; padding: 0 8px; }
-    .grid-channel-col { font-size: 16px; letter-spacing: 1px; }
+    .grid-header { --ghf: 15px; }
     .grid-row { height: 30px; }
     .grid-ch-num { font-size: 15px; min-width: 16px; }
     .grid-ch-name { font-size: 14px; letter-spacing: 0; }
-    .grid-time-slot { font-size: 15px; padding: 0 6px; white-space: nowrap; }
+    .grid-time-slot { font-size: var(--ghf); padding: 0 6px; white-space: nowrap; }
     .grid-footer { display: none; }
   }
 

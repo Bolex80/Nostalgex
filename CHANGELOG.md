@@ -3,6 +3,23 @@
 All notable changes to this project are documented here.
 Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes on versioned files.
 
+## 05/11/2026 (later) — header size parity, white selection ring
+
+### Fixed
+- The CHANNEL label is now **exactly the size of the time labels** on both surfaces. The last
+  change overshot: the shell override forced 20px while the readability layer sized the time slots
+  at 0.92em, so the label ended up larger than its neighbours. The page now shares one header font
+  variable (`--ghf`) between the label and the time slots across every breakpoint, and the
+  readability layer sizes the label with the same 0.92em rule. Measured: TV label 14.72px = slot
+  14.72px; web label 15px = slot 15px.
+
+### Changed
+- **The selection ring is white.** It used to draw in the channel's own colour, which disappears
+  against the several gold, amber and yellow channel names in the guide. A focused row is now a
+  white 3px ring, a neutral white fill, the channel's colour kept only as an 8px accent bar, and
+  the name forced white. Verified on a gold channel row on the box: the ring and the white name
+  stand out from the unselected rows.
+
 ## 05/11/2026 (later) — readable CHANNEL header
 
 ### Fixed
