@@ -35,7 +35,6 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   `androidtv/INSTALL-AND-SHARE.md`, and the APK is attached to a GitHub Release.
 - The fork announced itself on GitHub: PR #1 merged into `main` (`c27103a`), the README gained a
   fork preamble over the upstream text, and the repo description/topics were rewritten for BolexTV.
-<<<<<<< HEAD
 
 ## 06/11/2026 (later) — v1.1.0, the personal channel for everyone
 
@@ -52,8 +51,6 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   `CHANNELS.md` was regenerated. Nobody installing the app or the tuner sees the family's channels
   any more; each viewer instead gets their own generated channel.
 - APK `v1.1.0` (versionCode 3), release-signed, on the GitHub Releases page.
-=======
->>>>>>> ghmain
 
 ## 05/11/2026 (later) — readable CHANNEL header
 
