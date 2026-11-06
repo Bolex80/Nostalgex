@@ -8845,11 +8845,17 @@
       const mine = accounts.find(a => meNames.includes(String(a.name || '').toLowerCase()));
       if (!mine) throw new Error('no server account matches the signed-in user');
 
-      let rows = [];
-      for (let start = 0; start < 1500; start += 250) {
-        const res = await fetch(plexServerUrl + '/status/sessions/history/all'
-          + '?X-Plex-Container-Start=' + start + '&X-Plex-Container-Size=250&sort=viewedAt:desc',
-          { headers: jsonH });
+      // Recent-first, filtered server-side to this account: the recent window of the whole
+      // server only catches a sliver of an account's plays when other profiles are active.
+      // If the server refuses the accountID filter, fall back to the unfiltered feed and
+      // attribute rows locally.
+      let rows = []; let useFilter = true;
+      for (let start = 0; start < 3000; start += 250) {
+        const url = plexServerUrl + '/status/sessions/history/all'
+          + (useFilter ? ('&accountID=' + encodeURIComponent(mine.id)) : '')
+          + '?X-Plex-Container-Start=' + start + '&X-Plex-Container-Size=250&sort=viewedAt:desc';
+        const res = await fetch(url, { headers: jsonH });
+        if (!res.ok && useFilter && start === 0) { useFilter = false; start -= 250; continue; }
         if (!res.ok) break;
         const container = (await res.json()).MediaContainer;
         const chunk = container.Metadata || [];
