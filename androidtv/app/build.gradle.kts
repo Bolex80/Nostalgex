@@ -14,8 +14,8 @@ android {
         // Mi Box reports SDK 34; 23 keeps older boxes and phones installable.
         minSdk = 23
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.1.0"
 
         // Build-time constant so re-pointing at another tuner host needs no code change,
         // and no address is ever read from a user-editable file in the field.
