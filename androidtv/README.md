@@ -95,6 +95,12 @@ is the reliable oracle.
 | Blank page, no error | Tuner unreachable, or its host missing from the cleartext allow-list. |
 | Video plays, no sound | Known AC3 direct-play defect — see `docs/FIELD-RESULTS-20261029-v1.md`. |
 
+## Building a shareable release
+
+The guide for a signed APK is in [`RELEASE-BUILD.md`](RELEASE-BUILD.md): wire your keystore
+through `keystore.properties` (gitignored, template inside), run `assembleRelease`, verify with
+`apksigner`. Anyone without the properties file still gets a buildable unsigned release.
+
 ## Versioning
 
 `versionName` / `versionCode` live in `app/build.gradle.kts`. The shell and the tuner version

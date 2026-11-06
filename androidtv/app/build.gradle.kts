@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +14,8 @@ android {
         // Mi Box reports SDK 34; 23 keeps older boxes and phones installable.
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
 
         // Build-time constant so re-pointing at another tuner host needs no code change,
         // and no address is ever read from a user-editable file in the field.
@@ -34,6 +36,18 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Signed with alex's release key when keystore.properties is present (never in the
+            // repo); without it the build stays unsigned so anyone can still build locally.
+            val signingProps = rootProject.file("keystore.properties")
+            if (signingProps.exists()) {
+                val props = Properties().apply { signingProps.inputStream().use { load(it) } }
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(props.getProperty("storeFile"))
+                    storePassword = props.getProperty("storePassword")
+                    keyAlias = props.getProperty("keyAlias")
+                    keyPassword = props.getProperty("keyPassword")
+                }
+            }
         }
     }
 
