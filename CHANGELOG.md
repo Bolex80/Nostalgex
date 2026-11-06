@@ -20,6 +20,19 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
   the name forced white. Verified on a gold channel row on the box: the ring and the white name
   stand out from the unselected rows.
 
+## 06/11/2026 — v1.0.0 release APK
+
+### Added
+- **A release APK exists.** `app/build.gradle.kts` signs `assembleRelease` automatically from a gitignored
+  `keystore.properties` (a template ships with the repo) and falls back to an unsigned build without it.
+  `versionName 1.0.0`, `versionCode 2`.
+- A production keystore, generated once, stored outside the repo in the credentials directory; its
+  passwords are in a Vaultwarden item with a verified read-back. Signer certificate starts `b3fb88c0…`,
+  v1+v2 schemes.
+- `androidtv/RELEASE-BUILD.md` documents the whole path. The packaged copy for sharing —
+  `BolexTV-v1.0.0.apk` plus `INSTALL-AND-SHARE.md` (install steps, network needs, caveats) — sits in the
+  Nesquena Personal workspace at `/home/alex/workspace/BolexTV/`.
+
 ## 05/11/2026 (later) — readable CHANNEL header
 
 ### Fixed
