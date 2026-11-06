@@ -36,6 +36,22 @@ Format follows the household convention: dated entries, `-YYYYMMDD-vN` suffixes 
 - The fork announced itself on GitHub: PR #1 merged into `main` (`c27103a`), the README gained a
   fork preamble over the upstream text, and the repo description/topics were rewritten for BolexTV.
 
+## 06/11/2026 (later) — v1.1.0, the personal channel for everyone
+
+### Added
+- **A PERSONAL channel per account.** After sign-in (Plex), the page resolves the viewer's plex.tv
+  identity against the server's `/accounts` list, pulls up to 3000 rows of *their* watch history
+  (`accountID`-scoped, with an unfiltered fallback), counts plays per series or film, and builds
+  `PERSONAL` (number 97) from their top titles through the ordinary rule engine. Page-side, so the
+  web version and the Android TV app both get it. An account with no history gets no channel.
+
+### Changed
+- The household channels (`ALEX'S SERIES`, `MARCOS`, `SOFÍA`, `HUGO`) and the FAMILY bundle are
+  **removed from the shipped line-up**: `channels.json` dropped to 144 channels and 14 bundles, and
+  `CHANNELS.md` was regenerated. Nobody installing the app or the tuner sees the family's channels
+  any more; each viewer instead gets their own generated channel.
+- APK `v1.1.0` (versionCode 3), release-signed, on the GitHub Releases page.
+
 ## 05/11/2026 (later) — readable CHANNEL header
 
 ### Fixed

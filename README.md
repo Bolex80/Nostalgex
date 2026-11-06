@@ -15,8 +15,9 @@ household, and differs from upstream in the following ways:
 - **24-hour EPG** and a wider, aligned guide name column.
 - **Subtitles:** Plex external/embedded SRT on the TV (OFF → EN → ES cycling, honest language labels,
   image-based tracks deliberately skipped).
-- **Personal family channels** built from measured Plex watch history (kept out of every public
-  page via `scripts/legal-hold.json`).
+- **A personal channel for everyone.** The shipped line-up is generic; after sign-in each account
+  gets a PERSONAL channel (number 97) generated from their own server watch history - top series
+  or films, no account data anywhere in the repo or the APK. No history means no channel.
 - Session persistence across restarts, shiftable guide time axis, and a hardened cold start.
 
 Read [`BOLEXTV.md`](BOLEXTV.md) for the full overview, versions and measured evidence. A ready-to
