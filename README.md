@@ -1,3 +1,30 @@
+# BolexTV — a fork, heavily extended
+
+![BolexTV](https://img.shields.io/badge/fork-BolexTV-ff8c1a)
+
+This repository started as a fork of [chadMueller/Nostalgex](https://github.com/chadMueller/Nostalgex)
+("Retro TV for your own library"). It is now **BolexTV**, an Android TV first experience for one
+household, and differs from upstream in the following ways:
+
+- **An Android TV app** (`androidtv/`): a WebView shell for Mi Box style devices with remotes that
+  only have directional keys, OK and Back — full-screen playback, in-player menu, guide navigation,
+  season/episode badges, Plex-only. Built and installed on real hardware (see `docs/`).
+- **Plex only.** The Jellyfin and Emby paths are untouched but out of scope here.
+- **Rebrand and de-monetisation:** BolexTV wordmark and logos everywhere, every donation button,
+  support banner, creator link and email-capture row removed. This is a private, family build.
+- **24-hour EPG** and a wider, aligned guide name column.
+- **Subtitles:** Plex external/embedded SRT on the TV (OFF → EN → ES cycling, honest language labels,
+  image-based tracks deliberately skipped).
+- **Personal family channels** built from measured Plex watch history (kept out of every public
+  page via `scripts/legal-hold.json`).
+- Session persistence across restarts, shiftable guide time axis, and a hardened cold start.
+
+Read [`BOLEXTV.md`](BOLEXTV.md) for the full overview, versions and measured evidence. A ready-to
+-sideload APK (`BolexTV-v1.0.0.apk`) ships on the [Releases page](../../releases). The upstream
+readme follows, unchanged, for attribution and what this began as.
+
+---
+
 # Nostalgex
 
 **Retro TV for your own movie and show library.** Free and open source, for Plex, Jellyfin and Emby.
