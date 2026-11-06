@@ -25,7 +25,7 @@ The page inside the WebView is the product. The APK is a window onto it.
 | [`docs/BOLEXTV-20261030-v1.md`](docs/BOLEXTV-20261030-v1.md) | The overview: what it is, the rename, the architecture, the features and their measured evidence, known limits, deploy and rollback. |
 | [`docs/VERSIONS-20261030-v1.md`](docs/VERSIONS-20261030-v1.md) | Every tuner image and every APK, with image IDs and the commit that produced them. |
 | [`androidtv/README.md`](androidtv/README.md) | Building and installing the APK. |
-| [`androidtv/RELEASE-BUILD.md`](androidtv/RELEASE-BUILD.md) | Turning a build into a shareable release: signing, keystore handling, verification. |
+| [`androidtv/RELEASE-BUILD.md`](androidtv/RELEASE-BUILD.md) | Turning a build into a shareable release: signing, keystore handling, verification. The built APK is attached to the GitHub [Releases](https://github.com/Bolex80/Nostalgex/releases), with the install guide at [`androidtv/INSTALL-AND-SHARE.md`](androidtv/INSTALL-AND-SHARE.md). |
 | [`docs/NAVIGATION-20261030-v1.md`](docs/NAVIGATION-20261030-v1.md) | The six-button navigation model, layer by layer. |
 | [`docs/SUBTITLES-20261030-v1.md`](docs/SUBTITLES-20261030-v1.md) | Plex subtitles: how tracks are chosen and why the label never lies. |
 | [`docs/BRAND-20261029-v1.md`](docs/BRAND-20261029-v1.md) | The identity: Guide Play mark, palette, sizes. |
