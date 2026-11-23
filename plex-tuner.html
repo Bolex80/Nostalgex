@@ -5638,7 +5638,11 @@
           // is passed through: the server re-encodes both, and a 4K source is downscaled to
           // the 1080p this box renders smoothly.
           + `&directPlay=0&directStream=0&videoCodec=h264&audioCodec=aac`
-          + (pHeight > 1080 ? '&videoResolution=1920x1080&videoQuality=100&maxVideoBitrate=8000' : '')
+          // Cap unless we can PROVE the source is 1080 lines or less. Measured 23/11: a 4K
+          // copy of a film with no height in its cached record was transcoded as h264 4K
+          // (3840x2160 reaching the box) because the cap keyed off the declared height.
+          + ((pHeight > 1080 || pHeight === 0 || item._cap1080)
+              ? '&videoResolution=1920x1080&videoQuality=100&maxVideoBitrate=8000' : '')
           + NostalgexStreamQuality.plexTranscodeQuery(NostalgexStreamQuality.current());
 
       }
@@ -7219,6 +7223,7 @@
     if (!(video.videoHeight > 1080)) return;
     item._hiresRetry = true;
     item._forceTranscode = true;
+    item._cap1080 = true;
     console.log('[Nostalgex] ' + video.videoWidth + 'x' + video.videoHeight
       + ' exceeds 1080p, re-tuning through the capped transcoder');
     switchChannel(request.channelId);
