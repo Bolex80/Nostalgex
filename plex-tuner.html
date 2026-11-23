@@ -8768,25 +8768,62 @@
   // has none, and at LOW a 20 Mbps MP4 would direct play for up to a day, so it is refused once.
   // 4: episodes carry seasonNumber and episodeNumber for the info panel badge. A version-3 cache
   // has neither, so the badge would silently never appear until the cache expired.
-  const LIBRARY_CACHE_VERSION = 4;
+  // 5: items carry videoHeight (the decode-safe gate needs a resolution, not just a container),
+  //    and the snapshot moved to IndexedDB. A v4 entry in localStorage is refused once.
+  const LIBRARY_CACHE_VERSION = 5;
 
-  // localStorage, not localStorage. The 24 hour TTL above only means something
-  // if the cache outlives the tab, and localStorage is cleared the moment the
-  // tab closes. Every fresh visit therefore rescanned the whole library and the
-  // TTL never once applied. Anything that ends a session has to clear this now
-  // that it persists: see signOut().
-  function saveLibraryCache(items) {
+  // ── THE LIBRARY CACHE ──
+  // localStorage cannot hold this library. The old entry on the box was a v3 snapshot from
+  // before the last bump, 4.7MB, and every save since had silently failed on the 5MB quota, so
+  // every single start rescanned the whole server (measured 23/11: 50s, twice in a row). The
+  // snapshot lives in IndexedDB now, which has no such ceiling; localStorage remains a fallback
+  // for engines that refuse the database. A v4 entry written there is removed once an
+  // IndexedDB snapshot lands, so a stale copy can never win again.
+  const LIBRARY_CACHE_IDB = 'bolextv-library-cache';
+  const LIBRARY_CACHE_STORE = 'snapshot';
+  const LIBRARY_CACHE_SLOT = 'snapshot';
+  function libraryCacheDb() {
+    return new Promise((resolve, reject) => {
+      try {
+        const req = indexedDB.open(LIBRARY_CACHE_IDB, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(LIBRARY_CACHE_STORE)) db.createObjectStore(LIBRARY_CACHE_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('indexeddb open failed'));
+        req.onblocked = () => reject(new Error('indexeddb blocked'));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async function saveLibraryCache(items) {
     // Enrichment has its own cache (IndexedDB, see nostalgex-enrichment.js); keep it
-    // out of this one so the library still fits in localStorage.
+    // out of this one.
     items = items.map(it => (it && it.enrichment ? { ...it, enrichment: undefined } : it));
     const payload = { v: LIBRARY_CACHE_VERSION, ts: Date.now(), url: plexServerUrl, items };
+    try {
+      const db = await libraryCacheDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(LIBRARY_CACHE_STORE, 'readwrite');
+        tx.objectStore(LIBRARY_CACHE_STORE).put(payload, LIBRARY_CACHE_SLOT);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('indexeddb put failed'));
+        tx.onabort = () => reject(tx.error || new Error('indexeddb put aborted'));
+      });
+      try { localStorage.removeItem(LIBRARY_CACHE_KEY); } catch (e) {}
+      return;
+    } catch (e) {
+      // No database: fall back to localStorage, dropping summaries if it is over quota.
+    }
     try {
       localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(payload));
       return;
     } catch (e) {
-      // Over quota. Summaries are by far the biggest field per item and the
-      // least load-bearing, so drop them and try once more rather than giving
-      // up on caching a large library entirely.
+      // Over quota. Summaries are by far the biggest field per item and the least
+      // load-bearing, so drop them and try once more rather than giving up entirely.
     }
     try {
       localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({
@@ -8795,28 +8832,45 @@
         items: items.map(it => (it.summary ? { ...it, summary: '' } : it)),
       }));
     } catch (e) {
-      // Still too big, or storage is unavailable. Fall back to rescanning, which
-      // is what happened on every single load before this cache persisted. Any
-      // earlier entry is deliberately left alone: serving it stale and
-      // refreshing in the background beats showing nothing.
+      // Still too big, or storage is unavailable. Fall back to rescanning.
     }
   }
 
   function clearLibraryCache() {
     try { localStorage.removeItem(LIBRARY_CACHE_KEY); } catch (e) {}
+    libraryCacheDb().then(db => {
+      try {
+        const tx = db.transaction(LIBRARY_CACHE_STORE, 'readwrite');
+        tx.objectStore(LIBRARY_CACHE_STORE).delete(LIBRARY_CACHE_SLOT);
+      } catch (e) {}
+    }).catch(() => {});
   }
 
-  function loadLibraryCache(allowStale = false) {
+  async function loadLibraryCache(allowStale = false) {
+    const accept = (parsed) => {
+      if (!parsed || parsed.v !== LIBRARY_CACHE_VERSION) return null;
+      if (parsed.url !== plexServerUrl) return null;
+      const stale = Date.now() - parsed.ts > LIBRARY_CACHE_TTL;
+      if (stale && !allowStale) return null;
+      return { items: parsed.items || [], ts: parsed.ts, stale };
+    };
+    try {
+      const db = await libraryCacheDb();
+      const payload = await new Promise((resolve, reject) => {
+        const tx = db.transaction(LIBRARY_CACHE_STORE, 'readonly');
+        const req = tx.objectStore(LIBRARY_CACHE_STORE).get(LIBRARY_CACHE_SLOT);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error || new Error('indexeddb get failed'));
+      });
+      const hit = accept(payload);
+      if (hit && hit.items.length) return hit;
+    } catch (e) {
+      // No database: try the old localStorage snapshot.
+    }
     try {
       const raw = localStorage.getItem(LIBRARY_CACHE_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      const { ts, url, items } = parsed;
-      if (parsed.v !== LIBRARY_CACHE_VERSION) return null;
-      if (url !== plexServerUrl) return null;
-      const stale = Date.now() - ts > LIBRARY_CACHE_TTL;
-      if (stale && !allowStale) return null;
-      return { items, ts, stale };
+      return accept(JSON.parse(raw));
     } catch (e) {
       return null;
     }
@@ -8858,7 +8912,7 @@
     });
 
     allItemsCache = allItems;
-    if (!options.skipCacheSave) saveLibraryCache(allItems);
+    if (!options.skipCacheSave) await saveLibraryCache(allItems);
     if (!options.skipManifestClear) NostalgexDailyManifest.clearManifests(manifestServerKey());
 
     // Collection channels have no rules; their pool is the collection itself.
@@ -9702,7 +9756,7 @@
   // scales with item count, not library size on disk, so it only shows up on the
   // biggest libraries and looks like a dead server rather than a slow one.
   const PLEX_PAGE_SIZE = 300;
-  async function fetchPlexSectionPaged(server, section, onPage) {
+  async function fetchPlexSectionPaged(server, section, onPage, typeFilter) {
     const all = [];
     let start = 0;
     while (true) {
@@ -9711,6 +9765,7 @@
       // current agents only carries `plex://movie/...` guids, so items had no tmdbID:
       // no membership-manifest matches and nothing for enrichment to look up.
       const url = `${server.url}/library/sections/${section.key}/all?includeGuids=1`
+        + (typeFilter ? `&type=${typeFilter}` : '')
         + `&X-Plex-Container-Start=${start}&X-Plex-Container-Size=${PLEX_PAGE_SIZE}`;
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
@@ -9769,6 +9824,23 @@
         if (section.type === 'show') {
           const BATCH_SIZE = 5;
           let episodeCount = 0;
+          // SECTION-WIDE EPISODE FETCH. This used to call /allLeaves once per show, five at a
+          // time: 741 episodes arrived as ~150 sequential round trips and were most of a
+          // minute-long first load. Plex answers the same question for the whole section in a
+          // few paged requests with type=4, so the listing above becomes a lookup table and
+          // the episodes come down in bulk.
+          const episodesAll = await fetchPlexSectionPaged(server, section, (loadedSoFar, total) => {
+            LL.state.scanItemsFound = baseItemCount + serverItems.length + loadedSoFar;
+            const suffix = total ? ` (${loadedSoFar}/${total})` : ` (${loadedSoFar})`;
+            LL.setPhase('scanningLibrary', `${serverPrefix}${section.title} · episodes${suffix}`);
+          }, '4');
+          const episodesByShow = new Map();
+          for (const ep of episodesAll) {
+            const gpk = String(ep.grandparentRatingKey || '');
+            if (!gpk) continue;
+            if (!episodesByShow.has(gpk)) episodesByShow.set(gpk, []);
+            episodesByShow.get(gpk).push(ep);
+          }
           for (let b = 0; b < items.length; b += BATCH_SIZE) {
             const batch = items.slice(b, b + BATCH_SIZE);
             const batchResults = await Promise.all(
@@ -9780,11 +9852,7 @@
                 const showTmdb = channelFilter() ? channelFilter().parseTmdbIdFromPlex(show, false) : null;
 
                 try {
-                  const epRes = await fetch(`${server.url}/library/metadata/${show.ratingKey}/allLeaves`, {
-                    headers: { 'Accept': 'application/json', 'X-Plex-Token': server.token },
-                  });
-                  const epData = await NostalgexUTF8Repair.json(epRes, `allLeaves ${show.ratingKey}`);
-                  const episodes = epData.MediaContainer.Metadata || [];
+                  const episodes = episodesByShow.get(String(show.ratingKey)) || [];
 
                   return episodes.map(ep => {
                     const durationMin = NostalgexDailyManifest.minutesFromPlexMs(ep.duration);
@@ -10063,7 +10131,7 @@
     // unconfirmed. `errorSource` only changes what gets logged, never what is shown.
     let errorSource = 'fetch';
     try {
-      const cached = loadLibraryCache(true);
+      const cached = await loadLibraryCache(true);
       if (cached && cached.items && cached.items.length > 0) {
         errorSource = 'cache-restore';
         LL.show();
