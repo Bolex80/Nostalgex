@@ -1,3 +1,18 @@
+## 23/11/2026 — v1.2.0: subtitles that actually appear
+
+Plex on this server answers `/library/streams/<id>` with 501, so every subtitle download the page
+attempted came back empty and the player said "no subtitles available" while Plex listed four.
+Burn-in was tried and dropped: `subtitles=burn` is accepted (200) but nothing is ever burned, and
+forcing it re-tuned the channel from inside the subtitle control — which left the player black and
+silent. Subtitles are now served as WebVTT by a small converter beside the media (`tools/`), which
+reads external sidecars straight off disk and extracts embedded tracks with ffmpeg. The tuner's
+nginx proxies `/subs`, so the TV only ever talks to its own origin; turning subtitles on or off no
+longer touches playback at all.
+
+Household channels return, derived at runtime from Plex Home (nothing about the family ships in the
+app), and two guide defects are fixed: `applyBundleFilter` was dropping the injected personal
+channel, and dial numbers collided with `Lo mejor de 2010s/2020s`.
+
 ## 23/11/2026 — the household is back on the dial
 
 The per-person channels returned without putting a single family name in the repository or the

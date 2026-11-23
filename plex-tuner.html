@@ -7423,7 +7423,8 @@
   // Worse, the burn attempt re-tuned the channel from inside the subtitle control and left the
   // player black and silent. Nothing here touches playback any more: cues are fetched from the
   // BolexTV subtitle service (Bolex, ffmpeg, Plex stream -> WebVTT) and attached as a track.
-  const SUBS_SERVICE = 'http://192.168.2.5:8099';
+  // Empty = same origin: the tuner's own nginx proxies /subs to the converter on Bolex.
+  const SUBS_SERVICE = '';
   let plexSubChoice = null;      // kept for compatibility with older callers
   let subsServiceTimer = null;
 
