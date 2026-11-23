@@ -8790,7 +8790,10 @@
   // has neither, so the badge would silently never appear until the cache expired.
   // 5: items carry videoHeight (the decode-safe gate needs a resolution, not just a container),
   //    and the snapshot moved to IndexedDB. A v4 entry in localStorage is refused once.
-  const LIBRARY_CACHE_VERSION = 5;
+  // 6: resolutionHeight read Plex's '4k' as 4 pixels, so v5 snapshots store a 4px height for
+  //    every 4K item - and the gate trusted it. Recomputed once; derived data has to be
+  //    versioned when the derivation changes.
+  const LIBRARY_CACHE_VERSION = 6;
 
   // ── THE LIBRARY CACHE ──
   // localStorage cannot hold this library. The old entry on the box was a v3 snapshot from
