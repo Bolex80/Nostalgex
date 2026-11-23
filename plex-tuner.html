@@ -9166,6 +9166,128 @@
       if (appState === 'guide' || document.getElementById('guide-grid')) renderActiveGuide();
       console.log('[Nostalgex] PERSONAL built from ' + own.length + ' plays for '
         + (me.username || me.friendlyName) + ' -> ' + names.length + ' titles, pool ' + ch.itemPool.length);
+
+      // ── The rest of the household ───────────────────────────────────────────────────────────
+      // One channel per Plex Home user, built from that account's own history. The app still
+      // carries no household data: the names come from Plex Home at runtime, on the viewer's own
+      // token, and nothing is written back into channels.json. Plex Home also keeps the 50-odd
+      // shared friends out - only the people who actually live here get a row.
+      try {
+        const homeXML = await fetch('https://plex.tv/api/home/users?X-Plex-Token=' + encodeURIComponent(plexToken))
+          .then(res => res.text());
+        const homeDoc = new DOMParser().parseFromString(homeXML, 'text/xml');
+        const homeUsers = Array.from(homeDoc.querySelectorAll('User')).map(u => ({
+          id: Number(u.getAttribute('id')),
+          name: (u.getAttribute('title') || '').trim(),
+          username: (u.getAttribute('username') || '').trim(),
+        })).filter(u => u.id && u.name);
+        const accounts = await fetch(`${plexServerUrl}/accounts?X-Plex-Token=${encodeURIComponent(plexToken)}`)
+          .then(res => res.text())
+          .then(txt => Array.from(new DOMParser().parseFromString(txt, 'text/xml').querySelectorAll('Account'))
+            .map(a => ({ id: Number(a.getAttribute('id')), name: (a.getAttribute('name') || '').trim() })))
+          .catch(() => []);
+
+        // Dial numbers must be taken from what is actually free: 500/501 are already
+        // "Lo mejor de 2010s/2020s" in channels.json, and two channels on one number is a
+        // guide that lies. Same for ids, which must not collide with a stock channel.
+        const usedNumbers = new Set(allChannelsUnfiltered.map(c => Number(c.number)));
+        const usedIds = new Set(allChannelsUnfiltered.map(c => Number(c.id)));
+        // The household block sits together at the bottom of the guide, the way the old
+        // per-person channels did, rather than being scattered through the stock numbers.
+        let nextNumber = Math.max(0, ...allChannelsUnfiltered.map(c => Number(c.number) || 0)) + 1;
+        const takeNumber = () => {
+          while (usedNumbers.has(nextNumber)) nextNumber += 1;
+          if (nextNumber > 998) return null;
+          usedNumbers.add(nextNumber);
+          return nextNumber++;
+        };
+        const takeId = () => {
+          let id = 600;
+          while (usedIds.has(id)) id += 1;
+          usedIds.add(id);
+          return id;
+        };
+        let slot = 0;
+        for (const hu of homeUsers) {
+          // Home ids are the server account ids for managed users; the admin's own account sits
+          // at a different id, so fall back to a name match.
+          const first = hu.name.split(/\s+/)[0].toLowerCase();
+          let account = accounts.find(a => a.id === hu.id);
+          if (!account) account = accounts.find(a => (a.name || '').toLowerCase() === hu.name.toLowerCase());
+          if (!account) account = accounts.find(a => (a.name || '').toLowerCase().split(/\s+/)[0] === first);
+          if (!account) continue;
+          const isViewer = String(account.id) === String(me.id)
+            || (hu.username && hu.username.toLowerCase() === String(me.username || '').toLowerCase());
+          if (isViewer) continue;
+
+          const rows = await fetch(`${plexServerUrl}/status/sessions/history/all?accountID=${account.id}`
+              + '&X-Plex-Container-Start=0&X-Plex-Container-Size=1500'
+              + `&X-Plex-Token=${encodeURIComponent(plexToken)}`)
+            .then(res => res.text())
+            .then(txt => Array.from(new DOMParser().parseFromString(txt, 'text/xml').querySelectorAll('Video')))
+            .catch(() => []);
+          if (!rows.length) continue;
+
+          const theirs = { series: new Map(), films: new Map() };
+          rows.forEach(v => {
+            const type = v.getAttribute('type');
+            const show = v.getAttribute('grandparentTitle') || v.getAttribute('title') || '';
+            if (!show) return;
+            const bucket = type === 'movie' ? theirs.films : theirs.series;
+            bucket.set(show, (bucket.get(show) || 0) + 1);
+          });
+          const filmPlaysTheirs = [...theirs.films.values()].reduce((a, b) => a + b, 0);
+          const srcTheirs = filmPlaysTheirs > [...theirs.series.values()].reduce((a, b) => a + b, 0)
+            ? theirs.films : theirs.series;
+          const rank = map => [...map.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+          let theirNames = rank(srcTheirs).filter(n => (srcTheirs.get(n) || 0) >= 2);
+          let mixedTheirs = false;
+          if (theirNames.length < 3) {
+            mixedTheirs = true;
+            // A child with one beloved series and a few films should still get a channel:
+            // fall back to everything they watched, most-watched first.
+            const all = new Map();
+            [...theirs.series, ...theirs.films].forEach(([n, c]) => all.set(n, (all.get(n) || 0) + c));
+            theirNames = rank(all);
+          }
+          theirNames = theirNames.slice(0, 12);
+          if (theirNames.length < 2) continue;
+
+          const number = takeNumber();
+          if (number === null) break;
+          const channelId = takeId();
+          const familyChannel = {
+            id: channelId,
+            number,
+            name: hu.name.split(/\s+/)[0].toUpperCase(),
+            colorHex: ['#E67E22', '#1ABC9C', '#3498DB', '#E74C3C', '#9B59B6'][slot % 5],
+            category: 'personal',
+            minItems: 1,
+            autoGenerated: true,
+            rules: (theirNames.length > 0 && !mixedTheirs)
+              ? { type: srcTheirs === theirs.films ? 'movie' : 'episode', titleContains: theirNames }
+              : { titleContains: theirNames },
+          };
+          familyChannel.itemPool = filterItems(allItems, familyChannel.rules, familyChannel.id, familyChannel.category);
+          familyChannel.enabled = familyChannel.itemPool.length >= familyChannel.minItems;
+          if (!familyChannel.enabled) {
+            console.warn('[Nostalgex] household channel skipped for ' + hu.name + ': pool '
+              + familyChannel.itemPool.length + ' from ' + theirNames.length + ' titles');
+            continue;
+          }
+          slot += 1;
+          buildChannelSchedule(familyChannel);
+          const at = allChannelsUnfiltered.findIndex(c => c.id === familyChannel.id);
+          if (at >= 0) allChannelsUnfiltered[at] = familyChannel; else allChannelsUnfiltered.push(familyChannel);
+          bundle.channelIDs.push(familyChannel.id);
+          console.log('[Nostalgex] HOUSEHOLD channel ' + familyChannel.number + ' ' + familyChannel.name
+            + ' from ' + rows.length + ' plays -> ' + theirNames.length + ' titles, pool ' + familyChannel.itemPool.length);
+        }
+        applyBundleFilter();
+        if (appState === 'guide' || document.getElementById('guide-grid')) renderActiveGuide();
+      } catch (err) {
+        console.warn('[Nostalgex] household channels skipped:', err && err.message);
+      }
     } catch (err) {
       console.warn('[Nostalgex] personal channel skipped:', err && err.message);
       personalChannelInjected = false;
