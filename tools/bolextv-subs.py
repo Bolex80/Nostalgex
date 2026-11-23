@@ -19,11 +19,13 @@ Two kinds of subtitle stream exist and they are handled differently:
 
 Only paths Plex itself reports for the item are ever read, and only under MEDIA_ROOT.
 """
+import hashlib
 import http.server
 import os
 import re
 import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -46,6 +48,27 @@ LANG_ALIASES = {
     'fra': ('fr', 'fra', 'fre', 'french'),
     'deu': ('de', 'deu', 'ger', 'german'),
 }
+
+
+_token_grace = {}
+
+
+def token_ok(token):
+    """A cached subtitle is still gated: a bad token must not read it. Validating costs one
+    cheap Plex call, memoised per token for five minutes."""
+    key = hashlib.sha256(token.encode('utf-8', 'replace')).hexdigest()
+    if _token_grace.get(key, 0) > time.time():
+        return True
+    try:
+        req = urllib.request.Request(f'{PLEX}/library/sections',
+                                     headers={'X-Plex-Token': token, 'Accept': 'application/xml'})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status != 200:
+                return False
+    except Exception:
+        return False
+    _token_grace[key] = time.time() + 300
+    return True
 
 
 def plex_metadata(rating_key, token):
@@ -212,6 +235,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         token = (qs.get('token') or [''])[0]
         if not (rk and stream and token):
             return self._send(400, 'rk, stream and token are required')
+
+        if not token_ok(token):
+            return self._send(403, 'plex refused this token')
 
         cache_path = os.path.join(CACHE_DIR, f'{rk}-{stream}.vtt')
         if os.path.exists(cache_path):
