@@ -5908,6 +5908,7 @@
     // schedule's.
     const playing = activePlaybackRequest && activePlaybackRequest.channelId === ch.id ? activePlaybackRequest.item : null;
     const shown = playing || now;
+    const videoEl = document.getElementById('plex-video');
 
     document.getElementById('info-channel-tag').textContent = `CH ${String(chNum(ch)).padStart(2, '0')} \u2014 ${ch.name}`;
     document.getElementById('info-channel-tag').style.color = ch.color;
@@ -5943,9 +5944,20 @@
       yearBadge.textContent = shown.year;
       metaEl.appendChild(yearBadge);
     }
+    // Resolution, right after the year. The item's own height (what the file is) when the scan
+    // knows it, else what the decoder is actually being handed - which is the honest answer for
+    // a title whose record predates the height field.
+    const resLabel = resolutionLabel(shown.videoHeight)
+      || resolutionLabel(videoEl ? videoEl.videoHeight : 0);
+    if (resLabel) {
+      const resBadge = document.createElement('span');
+      resBadge.className = 'info-meta-badge info-meta-res';
+      resBadge.textContent = resLabel;
+      metaEl.appendChild(resBadge);
+    }
     // Content rating, star rating, runtime and the music genre line are deliberately not shown:
     // the runtime is already the right-hand half of the clock under the bar, and the rest is
-    // noise at three metres. Title, season/episode, year - that is the whole panel.
+    // noise at three metres. Title, season/episode, year, resolution - the whole panel.
 
     // Up next
     document.getElementById('info-upnext').innerHTML = next
@@ -9416,6 +9428,18 @@
     const parts = s.match(/\d{3,4}/g);
     if (parts && parts.length) return parseInt(parts[parts.length - 1], 10);
     return 0;
+  }
+
+  /** Height in pixels -> the label the info panel shows beside the year: 4K / 1440p / 1080p... */
+  function resolutionLabel(height) {
+    const h = Number(height) || 0;
+    if (h >= 2000) return '4K';
+    if (h >= 1400) return '1440p';
+    if (h >= 1000) return '1080p';
+    if (h >= 700) return '720p';
+    if (h >= 400) return '480p';
+    if (h > 0) return 'SD';
+    return '';
   }
 
   async function fetchLibraryFromServer(options = {}) {
