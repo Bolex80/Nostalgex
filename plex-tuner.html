@@ -5602,6 +5602,11 @@
       const pVcodec = (item.videoCodec || '').toLowerCase();
       const pAcodec = (item.audioCodec || '').toLowerCase();
       const pHeight = Number(item.videoHeight) || 0;
+      // A subtitle burn-in can only happen in a transcode, so its presence vetoes direct play.
+      // typeof-guarded: the tune harness evaluates this function on its own, without the
+      // module-scope subtitle state.
+      const burnSub = (typeof plexSubChoice !== 'undefined' && plexSubChoice
+          && String(plexSubChoice.itemKey) === String(item.ratingKey)) ? plexSubChoice : null;
       const pContainerOK = ['mp4', 'webm', 'mov', 'm4v'].includes(pContainer);
       // h264 only. Measured 23/11: The Breakfast Club (1080p HEVC, 1.6GB) stutters when
       // direct-played because the WebView software-decodes HEVC on this box. The declared
@@ -5610,8 +5615,8 @@
       const pVideoOK = ['h264', 'avc'].includes(pVcodec);
       const pAudioOK = ['aac', 'mp3', 'opus', 'vorbis', 'flac'].includes(pAcodec);
       const pResolutionOK = !pHeight || pHeight <= 1080;
-      canDirectPlay = !item._forceTranscode && item.partKey && pContainerOK && pVideoOK && pAudioOK
-        && pResolutionOK
+      canDirectPlay = !item._forceTranscode && !burnSub && item.partKey && pContainerOK && pVideoOK
+        && pAudioOK && pResolutionOK
         && NostalgexStreamQuality.directPlayAllowed(NostalgexStreamQuality.current(), item.bitrate);
       beginInfoAttempt();
 
@@ -5648,6 +5653,8 @@
           // (3840x2160 reaching the box) because the cap keyed off the declared height.
           + ((pHeight > 1080 || pHeight === 0 || item._cap1080)
               ? '&videoResolution=1920x1080&videoQuality=100&maxVideoBitrate=8000' : '')
+          // The burn itself. Verified against this server: start.m3u8 answers 200 with these.
+          + (burnSub ? '&subtitles=burn&subtitleStreamID=' + encodeURIComponent(burnSub.streamId) : '')
           + NostalgexStreamQuality.plexTranscodeQuery(NostalgexStreamQuality.current());
 
       }
@@ -7404,70 +7411,73 @@
     if (fsEl) fsEl.textContent = label;
   }
 
+  // SUBTITLES, BY BURN-IN.
+  // This server answers /library/streams/<id> with HTTP 501, so the sidecar route that used to
+  // feed a <track> never returns a byte: every film reported "no subtitles" while Plex showed
+  // four. The universal transcoder does accept `subtitles=burn&subtitleStreamID=<id>`, which
+  // works for every codec we hold - srt, ass, and the image-based pgs/vobsub that could never be
+  // turned into a text track at all. So subtitles are burned into the transcode and turning them
+  // on (or off, or switching language) re-tunes the channel at the current position.
+  let plexSubChoice = null;   // { itemKey, streamId, lang } - what playChannel should burn
+
+  async function loadPlexSubStreams(item) {
+    if (plexSubItemKey === item.ratingKey && plexSubStreams.length) return plexSubStreams;
+    plexSubItemKey = item.ratingKey;
+    plexSubStreams = [];
+    try {
+      const res = await fetch(`${plexServerUrl}/library/metadata/${item.ratingKey}?X-Plex-Token=${encodeURIComponent(plexToken)}`);
+      const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+      plexSubStreams = Array.from(xml.querySelectorAll('Stream[streamType="3"]')).map(st => ({
+        id: st.getAttribute('id'),
+        lang: (st.getAttribute('languageCode') || '').toLowerCase(),
+        codec: (st.getAttribute('codec') || '').toLowerCase(),
+        forced: st.getAttribute('forced') === '1',
+      })).filter(st => st.id);
+    } catch (e) {
+      plexSubStreams = [];
+    }
+    return plexSubStreams;
+  }
+
+  function pickPlexSubStream(streams, want) {
+    // Language first, and among equals prefer a real subtitle over a forced one, then Plex's
+    // own order. Anything untagged is kept as a last resort rather than dropped.
+    const norm = v => (v || '').slice(0, 3).toLowerCase();
+    const exact = streams.filter(st => norm(st.lang) === want);
+    const pool = exact.length ? exact : streams.filter(st => st.lang);
+    const sorted = [...pool].sort((a, b) => (a.forced === b.forced ? 0 : a.forced ? 1 : -1));
+    return sorted[0] || streams[0] || null;
+  }
+
   async function applyPlexSubtitles(mode) {
     plexSubMode = ['off', 'en', 'es'].includes(mode) ? mode : 'off';
     localStorage.setItem('plex90_plex_sub_mode', plexSubMode);
     plexSubLabel();
     plexClearTrack();
-    if (plexSubMode === 'off') {
-      if (typeof enforceSubsOff === 'function') enforceSubsOff();
-      return 'off';
-    }
 
     const item = plexCurrentItem();
     if (!item || !item.ratingKey) return 'no-item';
-    plexSubItemKey = item.ratingKey;
 
-    if (!plexSubStreams.length) {
-      try {
-        const res = await fetch(`${plexServerUrl}/library/metadata/${item.ratingKey}?X-Plex-Token=${encodeURIComponent(plexToken)}`);
-        const xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
-        plexSubStreams = Array.from(xml.querySelectorAll('Stream[streamType="3"]'))
-          .filter(st => ['srt', 'subrip', 'vtt', 'webvtt'].includes((st.getAttribute('codec') || '').toLowerCase()))
-          .map(st => ({ id: st.getAttribute('id'), lang: (st.getAttribute('languageCode') || '').toLowerCase() }));
-      } catch (e) { return 'meta-failed'; }
+    if (plexSubMode === 'off') {
+      const hadBurn = Boolean(plexSubChoice);
+      plexSubChoice = null;
+      if (typeof enforceSubsOff === 'function') enforceSubsOff();
+      if (hadBurn) { switchChannel(currentChannel); return 'off'; }
+      return 'off';
     }
-    if (!plexSubStreams.length) return 'no-subs';
 
-    // Rank candidates: the requested language first, then a prefix match, then everything else
-    // in Plex's own order - and try each until one actually downloads. A track listed in the
-    // metadata can still be unfetchable (embedded srt), which used to leave no captions at all.
-    const rank = st => (st.lang === plexSubMode ? 0
-                   : plexSubMode && st.lang && st.lang.slice(0, 2) === plexSubMode ? 1
-                   : st.lang ? 2 : 3);
-    const candidates = [...plexSubStreams].sort((a, b) => rank(a) - rank(b));
-    let chosen = null, srt = '';
-    for (const st of candidates) {
-      const text = await plexFetchSubText(st);
-      if (!text) continue;
-      chosen = st; srt = text; break;
-    }
-    if (!chosen) return 'empty';
-    const video = document.getElementById('plex-video');
-    if (!video) return 'no-video';
+    const streams = await loadPlexSubStreams(item);
+    if (!streams.length) return 'no-subs';
+    const chosen = pickPlexSubStream(streams, plexSubMode);
+    if (!chosen) return 'no-subs';
 
-    plexSubBlobUrl = URL.createObjectURL(new Blob([srtToVtt(srt)], { type: 'text/vtt' }));
-    plexSubTrackEl = document.createElement('track');
-    plexSubTrackEl.kind = 'subtitles';
-    plexSubTrackEl.label = 'BolexTV';
-    plexSubTrackEl.srclang = chosen.lang || guessLang(srt) || plexSubMode;
-    plexSubTrackEl.src = plexSubBlobUrl;
-    plexSubTrackEl.addEventListener('load', () => {
-      const tr = plexSubTrackEl && plexSubTrackEl.track;
-      if (tr) tr.mode = 'showing';
-      const all = video.textTracks;
-      for (let i = 0; i < all.length; i++) if (all[i].label !== 'BolexTV') all[i].mode = 'disabled';
-    });
-    video.appendChild(plexSubTrackEl);
-    // Set the mode immediately as well as on load: the load event can fire before a listener
-    // added in the same tick is reached, and a track left 'disabled' is invisible with no error.
-    try { if (plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
-    setTimeout(() => {
-      try { if (plexSubTrackEl && plexSubTrackEl.track) plexSubTrackEl.track.mode = 'showing'; } catch (e) {}
-    }, 600);
-    const actualLang = chosen.lang || guessLang(srt) || '';
-    plexSubLabel(actualLang || plexSubMode);
-    return 'shown:' + chosen.id + ':' + actualLang;
+    const lang = chosen.lang || plexSubMode;
+    plexSubChoice = { itemKey: String(item.ratingKey), streamId: chosen.id, lang };
+    plexSubLabel(lang);
+    // Re-tune so the new burn is part of the stream being built. The schedule's own offset is
+    // used, so the programme resumes where it was rather than restarting.
+    switchChannel(currentChannel);
+    return 'burn:' + chosen.id + ':' + lang;
   }
 
   let lastSubCycleMs = 0;
