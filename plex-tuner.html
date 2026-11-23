@@ -199,6 +199,12 @@
     border-right: 1px solid rgba(255,255,255,0.08);
     overflow: hidden;
   }
+  /* The blocks in this column never shrink. With the guide open the panel is ~270px tall and
+     every child defaulted to flex-shrink:1: the title measured 2px and the summary 5px - present
+     in the DOM, invisible on the wall (the "RoboCop 3 has no title" report). */
+  .player-screen.layout-side.has-channel .info-panel > * {
+    flex: 0 0 auto;
+  }
   .info-channel-tag {
     font-family: 'Press Start 2P', monospace;
     font-size: 12px;
@@ -1526,8 +1532,25 @@
   .grid-row:hover {
     background: rgba(255,255,255,0.06);
   }
+  /* THE TUNED CHANNEL. An 8% white wash is not a marker from a sofa: "where I am" and "where I
+     am browsing" looked identical. Cyan appears nowhere else in the guide, so the live row gets a
+     cyan edge, a cyan dot on its number and white text; the cursor keeps the white ring, and both
+     show when the cursor sits on the live row. */
   .grid-row.active {
-    background: rgba(255,255,255,0.08);
+    background: rgba(0, 229, 255, 0.10);
+    box-shadow: inset 4px 0 0 #00E5FF;
+  }
+  .grid-row.active .grid-ch-num { color: #00E5FF; }
+  .grid-row.active .grid-ch-name { color: #FFFFFF !important; }
+  .grid-row.active .grid-ch-num::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #00E5FF;
+    vertical-align: middle;
   }
   /* The focused row has to read from the couch. Filling and outlining in the channel's own
      colour failed exactly where the palette is gold or amber: the ring melted into the row.
@@ -2435,6 +2458,21 @@
     .info-time { font-size: 15px; }
     .info-progress-wrap { gap: 10px; }
     .info-upnext { font-size: 14px; margin-top: 10px; }
+    /* Guide open leaves the panel ~270px tall (206px inside its padding). At the desktop sizes
+       the column over-subscribes that and every block collapses; this is the size that fits. */
+    .player-screen.layout-side.has-channel .info-panel { justify-content: flex-start; padding: 16px 18px; }
+    .info-channel-tag { font-size: 10px; letter-spacing: 1.5px; margin-bottom: 6px; }
+    .info-title { font-size: 21px; -webkit-line-clamp: 2; margin-bottom: 2px; }
+    .info-episode-title { font-size: 13px; margin-bottom: 3px; }
+    .info-description {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; font-size: 12px; margin-bottom: 6px;
+    }
+    .info-meta-row { font-size: 11px; gap: 6px; margin-bottom: 6px; }
+    .info-meta-badge { font-size: 7px; }
+    .info-time { font-size: 11px; }
+    .info-progress-wrap { gap: 6px; }
+    .info-upnext { font-size: 11px; margin-top: 6px; }
 
     /* Guide: narrower channel column, shorter rows, so more of the lineup
        is on screen at once. */
@@ -5554,7 +5592,22 @@
         activeTranscodeSession = resolved.session;
       }
     } else {
-      canDirectPlay = !item._forceTranscode && item.partKey && ['mp4', 'webm', 'mov'].includes(item.container)
+      // Container alone is not enough. An mp4 can hold HEVC 4K (rendered as a slideshow here) and
+      // AC3 audio (the set is silent - 313 of 338 South Park episodes and ~240 films are exactly
+      // that). Decode-safe means H.264/HEVC at 1080p or less with an audio codec the WebView
+      // actually outputs; anything else goes through the transcoder, which is also the fix for
+      // the silence. Measured matrix: the box declares AC3/EAC3/DTS decoders but only ever
+      // outputs AAC.
+      const pContainer = (item.container || '').toLowerCase();
+      const pVcodec = (item.videoCodec || '').toLowerCase();
+      const pAcodec = (item.audioCodec || '').toLowerCase();
+      const pHeight = Number(item.videoHeight) || 0;
+      const pContainerOK = ['mp4', 'webm', 'mov', 'm4v'].includes(pContainer);
+      const pVideoOK = ['h264', 'avc', 'hevc'].includes(pVcodec);
+      const pAudioOK = ['aac', 'mp3', 'opus', 'vorbis', 'flac'].includes(pAcodec);
+      const pResolutionOK = !pHeight || pHeight <= 1080;
+      canDirectPlay = !item._forceTranscode && item.partKey && pContainerOK && pVideoOK && pAudioOK
+        && pResolutionOK
         && NostalgexStreamQuality.directPlayAllowed(NostalgexStreamQuality.current(), item.bitrate);
       beginInfoAttempt();
 
@@ -5581,6 +5634,12 @@
           + `&X-Plex-Product=Plex%2090`
           + `&X-Plex-Platform=Web&X-Plex-Platform-Version=1.0`
           + `&X-Plex-Device=Browser&X-Plex-Device-Name=Plex90`
+          // h264 + AAC by definition. A "direct stream" copy-through of AC3 is how a file
+          // arrives with no sound, and a copied 4K video is how it arrives choppy, so nothing
+          // is passed through: the server re-encodes both, and a 4K source is downscaled to
+          // the 1080p this box renders smoothly.
+          + `&directPlay=0&directStream=0&videoCodec=h264&audioCodec=aac`
+          + (pHeight > 1080 ? '&videoResolution=1920x1080&videoQuality=100' : '')
           + NostalgexStreamQuality.plexTranscodeQuery(NostalgexStreamQuality.current());
 
       }
@@ -5591,6 +5650,10 @@
     // Track the live item and clear any previous subtitle tracks/blobs.
     currentPlayingItem = item;
     clearSubtitleTracks();
+    // Guarded: the smoke harnesses evaluate single functions out of this file, where the
+    // subtitle helpers are not in scope.
+    if (typeof armSubsOffWatchdog === 'function') armSubsOffWatchdog();
+    if (typeof wireSubsOffGuard === 'function') wireSubsOffGuard();
 
     // Track the live program even with both reporting choices off, so an explicit
     // opt-in can take effect without restarting the live stream.
@@ -7124,6 +7187,44 @@
     return `${plexServerUrl}/Videos/${item.ratingKey}/${item.partKey}/Subtitles/${sub.index}/Stream.vtt?api_key=${plexToken}`;
   }
 
+  // SUBTITLES OFF MEANS OFF. The caption on screen is not ours: it is the file's own default or
+  // an in-band track the browser attaches after we clear, and a WebView shows it happily while
+  // the label reads OFF. Every programme that starts in OFF re-asserts "disabled" as tracks
+  // appear, for the first half-minute.
+  let subsOffWatchdog = null;
+  function enforceSubsOff() {
+    if (plexSubMode !== 'off') return;
+    const video = document.getElementById('plex-video');
+    if (!video) return;
+    if (hlsInstance && typeof hlsInstance.subtitleTrack === 'number') {
+      try { if (hlsInstance.subtitleTrack !== -1) hlsInstance.subtitleTrack = -1; } catch (e) {}
+    }
+    const tracks = video.textTracks;
+    if (!tracks) return;
+    for (let i = 0; i < tracks.length; i++) {
+      if (tracks[i].mode !== 'disabled') tracks[i].mode = 'disabled';
+    }
+  }
+  function armSubsOffWatchdog() {
+    if (subsOffWatchdog) { clearInterval(subsOffWatchdog); subsOffWatchdog = null; }
+    if (plexSubMode !== 'off') return;
+    enforceSubsOff();
+    subsOffWatchdog = setInterval(enforceSubsOff, 1000);
+    setTimeout(() => {
+      if (subsOffWatchdog) { clearInterval(subsOffWatchdog); subsOffWatchdog = null; }
+    }, 30000);
+  }
+  function wireSubsOffGuard() {
+    const video = document.getElementById('plex-video');
+    if (!video || video._subsOffWired) return;
+    video._subsOffWired = true;
+    video.addEventListener('loadedmetadata', enforceSubsOff);
+    video.addEventListener('canplay', enforceSubsOff);
+    if (video.textTracks && video.textTracks.addEventListener) {
+      video.textTracks.addEventListener('addtrack', enforceSubsOff);
+    }
+  }
+
   function clearSubtitleTracks() {
     subtitleRequestGeneration += 1;
     if (subtitleRequestController) subtitleRequestController.abort();
@@ -7276,7 +7377,10 @@
     localStorage.setItem('plex90_plex_sub_mode', plexSubMode);
     plexSubLabel();
     plexClearTrack();
-    if (plexSubMode === 'off') return 'off';
+    if (plexSubMode === 'off') {
+      if (typeof enforceSubsOff === 'function') enforceSubsOff();
+      return 'off';
+    }
 
     const item = plexCurrentItem();
     if (!item || !item.ratingKey) return 'no-item';
@@ -9630,7 +9734,14 @@
   // Scan one Plex server and return its items, each tagged with serverUrl + serverToken.
   async function scanOnePlexServer(server, LL, baseItemCount, multiServer) {
     const sectionsData = await plexLibraryFetchForServer('/library/sections', server);
-    const sections = sectionsData.MediaContainer.Directory || [];
+    const allSections = sectionsData.MediaContainer.Directory || [];
+    // Music sections are skipped on purpose. No channel airs from one, the personal channel
+    // reads watch history from the server instead of the library, and a 30k-track section is
+    // the largest single thing this scan used to page through - the first load looked hung.
+    const sections = allSections.filter(s => s.type !== 'artist');
+    if (sections.length !== allSections.length) {
+      console.log(`[Nostalgex] skipped ${allSections.length - sections.length} music section(s)`);
+    }
     const serverPrefix = multiServer ? `${server.name} · ` : '';
 
     LL.state.scanTotalSections = sections.length;
@@ -9686,6 +9797,9 @@
                     // goes by container alone.
                     const epVideoCodec = epMedia && epMedia.videoCodec ? String(epMedia.videoCodec).toLowerCase() : null;
                     const epAudioCodec = epMedia && epMedia.audioCodec ? String(epMedia.audioCodec).toLowerCase() : null;
+                    // Source height, for the decode-safe gate in playChannel (4K sources are
+                    // rendered as a slideshow on this box; 1080p is the ceiling that plays).
+                    const epVideoHeight = epMedia ? resolutionHeight(epMedia.videoResolution) : 0;
                     if (epMedia) {
                       container = epMedia.container;
                       if (epMedia.Part && epMedia.Part[0]) {
@@ -9721,6 +9835,7 @@
                       container: container,
                       videoCodec: epVideoCodec,
                       audioCodec: epAudioCodec,
+                      videoHeight: epVideoHeight,
                       bitrate: epMedia && Number(epMedia.bitrate) > 0 ? Number(epMedia.bitrate) : 0,
                       genres: showGenres,
                       rating: show.rating || 0,
@@ -9781,6 +9896,7 @@
           // For PLAYBACK INFORMATION only (see the episode loop above).
           const itemVideoCodec = itemMedia && itemMedia.videoCodec ? String(itemMedia.videoCodec).toLowerCase() : null;
           const itemAudioCodec = itemMedia && itemMedia.audioCodec ? String(itemMedia.audioCodec).toLowerCase() : null;
+          const itemVideoHeight = itemMedia ? resolutionHeight(itemMedia.videoResolution) : 0;
           if (itemMedia) {
             container = itemMedia.container;
             if (itemMedia.Part && itemMedia.Part[0]) {
@@ -9819,6 +9935,7 @@
             container: container,
             videoCodec: itemVideoCodec,
             audioCodec: itemAudioCodec,
+            videoHeight: itemVideoHeight,
             bitrate: itemMedia && Number(itemMedia.bitrate) > 0 ? Number(itemMedia.bitrate) : 0,
             genres: genres,
             rating: item.rating || 0,

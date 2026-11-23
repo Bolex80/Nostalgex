@@ -37,7 +37,7 @@
     },
     scanningLibrary: {
       title: 'Library',
-      hint: 'Reading movies, shows, and music from your server',
+      hint: 'Reading movies and shows from your server',
       headline: (d) => (d ? `SCANNING · ${d.toUpperCase()}` : 'SCANNING YOUR LIBRARY'),
     },
     enrichingMusic: {
