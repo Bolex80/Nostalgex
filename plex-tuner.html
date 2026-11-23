@@ -223,15 +223,10 @@
     margin-bottom: 12px;
   }
   .info-description {
-    font-size: 22px;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 20px;
-    line-height: 1.4;
-    max-height: calc(22px * 1.4 * 2);
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    /* Removed from the panel by product decision (Alex, 23/11): title and year only, no
+       synopsis. Hidden at every size rather than deleted from the markup, so nothing that
+       still writes into it can leave a stale line on the glass. */
+    display: none !important;
   }
   .info-meta-row {
     display: flex;
@@ -5904,7 +5899,10 @@
     document.getElementById('info-episode-title').textContent = isMusic
       ? (shown.artist || '')
       : (shown.episodeTitle || '');
-    document.getElementById('info-description').textContent = shown.summary || '';
+    // No synopsis here on purpose (Alex, 23/11): the panel is for "what is this and when",
+    // not a plot summary. The element stays in the DOM, emptied, so a stale line can never
+    // survive a tune; the CSS hides it.
+    document.getElementById('info-description').textContent = '';
     document.getElementById('info-progress').style.width = (now.progress || 0) + '%';
     document.getElementById('info-progress').style.background = ch.color;
     document.getElementById('info-time').textContent = `${now.position || '0:00'} / ${now.total || ''}`;
@@ -5927,32 +5925,9 @@
       yearBadge.textContent = shown.year;
       metaEl.appendChild(yearBadge);
     }
-    if (shown.contentRating) {
-      const ratingBadge = document.createElement('span');
-      ratingBadge.className = 'info-meta-badge';
-      ratingBadge.textContent = shown.contentRating;
-      metaEl.appendChild(ratingBadge);
-    }
-    if (shown.rating) {
-      const starEl = document.createElement('span');
-      starEl.className = 'info-rating';
-      starEl.textContent = `\u2605 ${Number(shown.rating).toFixed(1)}`;
-      metaEl.appendChild(starEl);
-    }
-    if (shown.duration) {
-      const durEl = document.createElement('span');
-      durEl.textContent = formatDuration(shown.duration);
-      metaEl.appendChild(durEl);
-    }
-    if (isMusic && MB) {
-      const genreLine = MB.musicGenreDisplay(shown);
-      if (genreLine) {
-        const genreBadge = document.createElement('span');
-        genreBadge.className = 'info-meta-badge';
-        genreBadge.textContent = genreLine;
-        metaEl.appendChild(genreBadge);
-      }
-    }
+    // Content rating, star rating, runtime and the music genre line are deliberately not shown:
+    // the runtime is already the right-hand half of the clock under the bar, and the rest is
+    // noise at three metres. Title, season/episode, year - that is the whole panel.
 
     // Up next
     document.getElementById('info-upnext').innerHTML = next
