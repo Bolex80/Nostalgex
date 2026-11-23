@@ -5598,7 +5598,11 @@
       const pAcodec = (item.audioCodec || '').toLowerCase();
       const pHeight = Number(item.videoHeight) || 0;
       const pContainerOK = ['mp4', 'webm', 'mov', 'm4v'].includes(pContainer);
-      const pVideoOK = ['h264', 'avc', 'hevc'].includes(pVcodec);
+      // h264 only. Measured 23/11: The Breakfast Club (1080p HEVC, 1.6GB) stutters when
+      // direct-played because the WebView software-decodes HEVC on this box. The declared
+      // hardware decoder is not what the browser uses. A file that arrives as h264 always
+      // plays; anything else goes through the transcoder, which produces h264.
+      const pVideoOK = ['h264', 'avc'].includes(pVcodec);
       const pAudioOK = ['aac', 'mp3', 'opus', 'vorbis', 'flac'].includes(pAcodec);
       const pResolutionOK = !pHeight || pHeight <= 1080;
       canDirectPlay = !item._forceTranscode && item.partKey && pContainerOK && pVideoOK && pAudioOK
@@ -5634,7 +5638,7 @@
           // is passed through: the server re-encodes both, and a 4K source is downscaled to
           // the 1080p this box renders smoothly.
           + `&directPlay=0&directStream=0&videoCodec=h264&audioCodec=aac`
-          + (pHeight > 1080 ? '&videoResolution=1920x1080&videoQuality=100' : '')
+          + (pHeight > 1080 ? '&videoResolution=1920x1080&videoQuality=100&maxVideoBitrate=8000' : '')
           + NostalgexStreamQuality.plexTranscodeQuery(NostalgexStreamQuality.current());
 
       }
@@ -5653,6 +5657,9 @@
     // Track the live program even with both reporting choices off, so an explicit
     // opt-in can take effect without restarting the live stream.
     playbackTracker = makePlaybackTracker(item);
+
+    // The resolution tripwire runs from the metadata handlers below, where the real
+    // dimensions are known; no listener of its own (the tune harness allows exactly one).
 
     // Check if it's an HLS stream
     const isHLS = streamUrl.includes('.m3u8');
@@ -5735,6 +5742,7 @@
         if (!ownsPlaybackRequest(request)) return;
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
         startVideoPlayback(video);
+        if (typeof checkResolutionTripwire === 'function') checkResolutionTripwire(video, item, request);
       };
       video.addEventListener('loadedmetadata', onMetadata, { once: true });
       request.cleanups.push(() => video.removeEventListener('loadedmetadata', onMetadata));
@@ -5745,6 +5753,7 @@
         if (!ownsPlaybackRequest(request)) return;
         if (item.offsetSeconds) video.currentTime = item.offsetSeconds;
         startVideoPlayback(video);
+        if (typeof checkResolutionTripwire === 'function') checkResolutionTripwire(video, item, request);
       };
       video.addEventListener('loadedmetadata', onMetadata, { once: true });
       request.cleanups.push(() => video.removeEventListener('loadedmetadata', onMetadata));
@@ -7198,6 +7207,21 @@
     if (video.textTracks && video.textTracks.addEventListener) {
       video.textTracks.addEventListener('addtrack', enforceSubsOff);
     }
+  }
+
+  // RESOLUTION TRIPWIRE. The library tag can lie (a 4K file filed as 1080p), and a stream can
+  // arrive larger than this box renders smoothly. Once the real dimensions are known, anything
+  // above 1080 lines re-tunes once through the capped transcoder. `_hiresRetry` makes it exactly
+  // once per item, so a server that keeps answering 4K cannot loop.
+  function checkResolutionTripwire(video, item, request) {
+    if (!video || !item || !request || item._hiresRetry) return;
+    if (!ownsPlaybackRequest(request)) return;
+    if (!(video.videoHeight > 1080)) return;
+    item._hiresRetry = true;
+    item._forceTranscode = true;
+    console.log('[Nostalgex] ' + video.videoWidth + 'x' + video.videoHeight
+      + ' exceeds 1080p, re-tuning through the capped transcoder');
+    switchChannel(request.channelId);
   }
 
   function clearSubtitleTracks() {
