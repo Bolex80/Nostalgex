@@ -58,7 +58,9 @@ await check("the repair never adds a quote, backslash or control character", () 
 });
 await check("plex-tuner.html loads the repair and reads every Plex server page through it", () => {
   assert.equal(tuner.includes('<script src="scripts/nostalgex-utf8-repair.js"></script>'), true);
-  assert.equal([...tuner.matchAll(/NostalgexUTF8Repair\.json\(/g)].length, 4, "expected the four Plex server reads");
+  // 3 since the show scan fetches the whole section's episodes in bulk (type=4) instead of
+  // one /allLeaves per show; every one of the remaining Plex reads still goes through the repair.
+  assert.equal([...tuner.matchAll(/NostalgexUTF8Repair\.json\(/g)].length, 3, "expected the three Plex server reads");
   assert.equal(/await res\.json\(\);\s*const container/.test(tuner), false, "the section page is still read with res.json()");
   assert.equal(/await epRes\.json\(\)/.test(tuner), false, "allLeaves is still read with epRes.json()");
 });
