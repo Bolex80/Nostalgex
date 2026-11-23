@@ -5476,6 +5476,11 @@
   function startVideoPlayback(video) {
     const request = activePlaybackRequest;
     if (!ownsPlaybackRequest(request)) return;
+    // Every playback path (hls.js, native HLS, direct play) ends up here, which is where the
+    // resolution tripwire belongs: the hls.js path has no metadata listener of its own.
+    if (typeof checkResolutionTripwire === 'function') {
+      checkResolutionTripwire(video, request.item, request);
+    }
     const p = video.play();
     if (!p || !p.catch) return;
     p.catch(e => {
@@ -7217,10 +7222,21 @@
   // arrive larger than this box renders smoothly. Once the real dimensions are known, anything
   // above 1080 lines re-tunes once through the capped transcoder. `_hiresRetry` makes it exactly
   // once per item, so a server that keeps answering 4K cannot loop.
-  function checkResolutionTripwire(video, item, request) {
+  function checkResolutionTripwire(video, item, request, tries) {
     if (!video || !item || !request || item._hiresRetry) return;
     if (!ownsPlaybackRequest(request)) return;
-    if (!(video.videoHeight > 1080)) return;
+    // Dimensions are unknown until the first frame decodes; look again, a second at a time.
+    if (!(video.videoHeight > 0)) {
+      if ((tries || 0) < 8) {
+        setTimeout(() => {
+          if (typeof checkResolutionTripwire === 'function') {
+            checkResolutionTripwire(video, item, request, (tries || 0) + 1);
+          }
+        }, 1000);
+      }
+      return;
+    }
+    if (video.videoHeight <= 1080) return;
     item._hiresRetry = true;
     item._forceTranscode = true;
     item._cap1080 = true;
@@ -9384,12 +9400,18 @@
 
   function resolutionHeight(res) {
     if (!res) return 0;
-    const s = String(res).toLowerCase();
-    const h = parseInt(s.split('x').pop(), 10);
-    if (!isNaN(h)) return h;
-    if (s.includes('4k')) return 2160;
+    const s = String(res).toLowerCase().trim();
+    // Names FIRST, numbers second. This used to parseInt the last 'x' segment, which turned
+    // Plex's '4k' into 4 - so every 4K item measured four pixels tall, sailed through the
+    // decode-safe gate and was transcoded without a resolution cap (measured 23/11: a 4K
+    // film reaching the box at 3840x2160).
+    if (s.includes('4k') || s === 'uhd') return 2160;
+    if (s.includes('1440')) return 1440;
     if (s.includes('1080')) return 1080;
     if (s.includes('720')) return 720;
+    if (s === 'sd' || s.includes('480')) return 480;
+    const parts = s.match(/\d{3,4}/g);
+    if (parts && parts.length) return parseInt(parts[parts.length - 1], 10);
     return 0;
   }
 
