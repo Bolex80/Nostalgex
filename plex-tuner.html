@@ -5056,6 +5056,16 @@
   // ══════════════════════════════════════
   // CHANNEL SWITCHING
   // ══════════════════════════════════════
+  // Re-tune the channel that is already playing. switchChannel() returns early when the id is
+  // unchanged, which is right for tuning but wrong for "rebuild this stream with a different
+  // choice" (subtitle burn, resolution cap) - so the guard is defeated deliberately.
+  function retuneCurrentChannel() {
+    const id = currentChannel;
+    if (id == null) return;
+    currentChannel = null;
+    switchChannel(id);
+  }
+
   function switchChannel(channelId) {
     const ch = CHANNELS.find(c => c.id === channelId);
     if (!ch || !ch.enabled) return;
@@ -7261,7 +7271,7 @@
     item._cap1080 = true;
     console.log('[Nostalgex] ' + video.videoWidth + 'x' + video.videoHeight
       + ' exceeds 1080p, re-tuning through the capped transcoder');
-    switchChannel(request.channelId);
+    retuneCurrentChannel();
   }
 
   function clearSubtitleTracks() {
@@ -7462,7 +7472,7 @@
       const hadBurn = Boolean(plexSubChoice);
       plexSubChoice = null;
       if (typeof enforceSubsOff === 'function') enforceSubsOff();
-      if (hadBurn) { switchChannel(currentChannel); return 'off'; }
+      if (hadBurn) { retuneCurrentChannel(); return 'off'; }
       return 'off';
     }
 
@@ -7476,7 +7486,7 @@
     plexSubLabel(lang);
     // Re-tune so the new burn is part of the stream being built. The schedule's own offset is
     // used, so the programme resumes where it was rather than restarting.
-    switchChannel(currentChannel);
+    retuneCurrentChannel();
     return 'burn:' + chosen.id + ':' + lang;
   }
 
