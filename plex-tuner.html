@@ -3940,6 +3940,9 @@
     if (answer === 'yes') {
       localStorage.removeItem(seasonalPromptKey(bundleId));
       if (!enabledBundleIDs.has(bundleId)) toggleBundle(bundleId);
+      // Repaint now: the announcement is built into the guide, so without this it stayed on
+      // screen over the channels it had just added until something else forced a redraw.
+      renderActiveGuide();
       return;
     }
     const v = answer === 'never' ? { never: true } : { notNowYear: new Date().getFullYear() };
@@ -6041,6 +6044,61 @@
     }
   }
 
+  // The seasonal announcement sits above channel one and its controls are real <button>s. The
+  // channel cursor only walks .grid-row, so Up on channel one wrapped to the last channel and the
+  // announcement could never be reached, let alone dismissed. promoFocusIndex is -1 while the
+  // cursor is on channels and 0..2 while it is on the announcement's buttons.
+  let promoFocusIndex = -1;
+
+  function promoButtons() {
+    return Array.from(document.querySelectorAll('.grid-row--promo button'));
+  }
+
+  function clearPromoFocus() {
+    promoFocusIndex = -1;
+    promoButtons().forEach((b) => b.classList.remove('tv-focus'));
+  }
+
+  function focusPromoButton(index) {
+    const buttons = promoButtons();
+    if (!buttons.length) return false;
+    const i = Math.min(Math.max(index, 0), buttons.length - 1);
+    buttons.forEach((b, n) => b.classList.toggle('tv-focus', n === i));
+    promoFocusIndex = i;
+    buttons[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return true;
+  }
+
+  // The announcement row overlaps channel one vertically, so a "strictly above" move can never
+  // pick it: Up on channel one found nothing and the row was untouchable on the box. This runs in
+  // the capture phase so it settles the announcement before the guide's own cursor logic.
+  window.addEventListener('keydown', function (e) {
+    if (!guideVisible && appState !== 'guide') return;
+    const buttons = promoButtons();
+    if (!buttons.length) return;
+    const key = e.key;
+    const isOk = key === 'Enter' || e.keyCode === 13 || e.keyCode === 23;
+
+    if (promoFocusIndex >= 0) {
+      if (key === 'ArrowDown') { clearPromoFocus(); updateGuideFocus(false); }
+      else if (key === 'ArrowRight') focusPromoButton(promoFocusIndex + 1);
+      else if (key === 'ArrowLeft') focusPromoButton(promoFocusIndex - 1);
+      else if (isOk && buttons[promoFocusIndex]) buttons[promoFocusIndex].click();
+      else return;
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+
+    if (key === 'ArrowUp') {
+      const row = document.querySelector('.grid-row.focused') || document.querySelector('.grid-row.active');
+      const first = getEnabledChannels()[0];
+      if (row && first && String(row.dataset.channelId) === String(first.id)) {
+        focusPromoButton(0);
+        e.preventDefault(); e.stopPropagation();
+      }
+    }
+  }, true);
+
   function updateGuideFocus(wrapped = false) {
     // `guideFocusIndex` indexes getEnabledChannels(), but the promo rows share the
     // .grid-row class, so walking the full NodeList by position drifted one row per
@@ -6050,6 +6108,7 @@
     // Match on the channel id instead of a DOM position, so any row inserted into
     // the grid later is harmless. Promo rows carry no data-channel-id, so they
     // never match and are simply skipped.
+    if (promoFocusIndex >= 0) clearPromoFocus();
     const enabled = getEnabledChannels();
     const focusedChannel = enabled[guideFocusIndex];
     const focusedId = focusedChannel ? focusedChannel.id : null;
@@ -7696,8 +7755,13 @@
     // not stick to it and activeElement stays <body>. Falling back to the active row meant OK
     // always acted on the channel that was already playing - it filled the screen while the
     // same press tuned the ringed row underneath it.
-    const ringed = document.querySelector('.grid-row.tv-focus') ||
-                   document.querySelector('.grid-row.focused');
+    // The announcement's buttons are real <button>s and hold real focus, while the tuned channel
+    // row also carries .focused. Asking for the row cursor first meant OK resolved to that
+    // channel and filled the screen ('full'), so the announcement could never be answered.
+    const focusedPromo = el && el.closest ? el.closest('.grid-row--promo button') : null;
+    if (focusedPromo) { focusedPromo.click(); return 'promo'; }
+    const ringed = document.querySelector('.grid-row:not(.grid-row--promo).tv-focus') ||
+                   document.querySelector('.grid-row:not(.grid-row--promo).focused');
     const row = ringed ||
                 (el && el.closest ? el.closest('.grid-row') : null) ||
                 document.querySelector('.grid-row.active');
@@ -10605,6 +10669,23 @@
       const nextKey = 'ArrowDown';
 
       if (key === prevKey || key === nextKey) {
+        const buttons = promoButtons();
+        if (key === prevKey && promoFocusIndex < 0 && guideFocusIndex === 0 && buttons.length) {
+          focusPromoButton(0);
+          e.preventDefault();
+          return;
+        }
+        if (key === nextKey && promoFocusIndex >= 0) {
+          clearPromoFocus();
+          updateGuideFocus(false);
+          e.preventDefault();
+          return;
+        }
+        if (promoFocusIndex >= 0) {
+          // Up/Down inside the announcement stays put: there is nothing above the guide.
+          e.preventDefault();
+          return;
+        }
         const count = getEnabledChannels().length;
         if (count > 0) {
           // The index can sit past the end after channels were switched off.
@@ -10618,6 +10699,12 @@
         return;
       }
       if (key === 'Enter') {
+        if (promoFocusIndex >= 0) {
+          const buttons = promoButtons();
+          if (buttons[promoFocusIndex]) buttons[promoFocusIndex].click();
+          e.preventDefault();
+          return;
+        }
         const enabled = getEnabledChannels();
         const ch = enabled[guideFocusIndex];
         if (ch) tuneFromGuide(ch.id);
@@ -10625,6 +10712,11 @@
         return;
       }
       if (key === 'ArrowRight') {
+        if (promoFocusIndex >= 0) {
+          focusPromoButton(promoFocusIndex + 1);
+          e.preventDefault();
+          return;
+        }
         // Walk the guide window forward. Previously this branch did nothing for every arrow,
         // so right-arrow was dead on the web as well as on the TV.
         window.__tvTimeShift(1);
@@ -10632,6 +10724,11 @@
         return;
       }
       if (key === 'ArrowLeft') {
+        if (promoFocusIndex >= 0) {
+          focusPromoButton(promoFocusIndex - 1);
+          e.preventDefault();
+          return;
+        }
         window.__tvTimeShift(-1);
         e.preventDefault();
         return;
